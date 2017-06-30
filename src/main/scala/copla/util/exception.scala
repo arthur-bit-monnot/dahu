@@ -20,27 +20,31 @@ object exception {
 
   var DEBUG_LEVEL = 3
 
-  @elidable(ASSERTION) @inline
+  @elidable(ASSERTION)
+  @inline
   final def assert1(assertion: => Boolean, message: => Any = {}) {
     if (DEBUG_LEVEL >= 1 && !assertion)
-      throw new java.lang.AssertionError("assertion failed: "+ message)
+      throw new java.lang.AssertionError("assertion failed: " + message)
   }
 
-  @elidable(FINE) @inline
+  @elidable(FINE)
+  @inline
   final def assert2(assertion: => Boolean, message: => Any = {}) {
     if (DEBUG_LEVEL >= 2 && !assertion)
-      throw new java.lang.AssertionError("assertion failed: "+ message)
+      throw new java.lang.AssertionError("assertion failed: " + message)
   }
 
-  @elidable(FINER) @inline
+  @elidable(FINER)
+  @inline
   final def assert3(assertion: => Boolean, message: => Any = {}) {
     if (DEBUG_LEVEL >= 3 && !assertion)
-      throw new java.lang.AssertionError("assertion failed: "+ message)
+      throw new java.lang.AssertionError("assertion failed: " + message)
   }
 
-  @elidable(FINEST) @inline
+  @elidable(FINEST)
+  @inline
   final def assert4(assertion: => Boolean, message: => Any = {}) {
     if (DEBUG_LEVEL >= 4 && !assertion)
-      throw new java.lang.AssertionError("assertion failed: "+ message)
+      throw new java.lang.AssertionError("assertion failed: " + message)
   }
 }
