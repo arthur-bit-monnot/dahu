@@ -80,4 +80,17 @@ object Algebras {
   def pprint(prg: Expr[_]): String =
     rec.cata(prg)(printAlgebra)
 
+
+
+  type Validated[T] = Option[ResultF[T]]
+
+  type Result = Fix[ResultF]
+  type Typed = Cofree[ResultF, TypeAlias.TT]
+  type ValResult = Fix[Validated]
+
+  // ResultF[Type]
+
+  def extractType: Algebra[ResultF, TT] = _.typ
+
+
 }
