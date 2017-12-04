@@ -9,9 +9,11 @@ import matryoshka.implicits._
 import scala.reflect.runtime.universe.{Type, TypeTag, typeOf}
 import scala.util.Try
 import scala.util.control.NonFatal
-
-import scalaz.{Divide => _, _}, Scalaz._
+import scalaz.{Divide => _, _}
+import Scalaz._
 import dahu.expr.Bind
+
+import scala.collection.mutable
 
 
 
@@ -91,6 +93,24 @@ object Algebras {
   // ResultF[Type]
 
   def extractType: Algebra[ResultF, TT] = _.typ
+
+  type Key = Int
+  type CodeStore = Map[Key, ResultF[Key]]
+
+  final case class AST(head: Key, code: CodeStore) {
+    override def toString: String = s"AST: $head\n" + code.mkString("  ", "\n  ", "")
+  }
+
+  def encode(in: Expr[Any]): AST = {
+    val store = mutable.LinkedHashMap[ResultF[Key], Key]()
+    val alg: Algebra[ResultF, Key] = e => {
+      store.getOrElseUpdate(e, store.size)
+    }
+
+    val head = in.hylo(alg, coalgebra)
+    val code = store.toList.map(_.swap).toMap
+    AST(head, code)
+  }
 
 
 }

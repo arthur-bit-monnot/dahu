@@ -90,7 +90,7 @@ object rs extends App {
   // foldable
   type Key = Int
   type Store = Map[Lambda[Key], Key]
-  
+
 
   def flatten(fa: Fix[Lambda]) : (Key, Map[Key, Lambda[Key]]) = {
     val store = mutable.HashMap[Lambda[Key], Key]()
