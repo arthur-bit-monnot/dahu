@@ -1,6 +1,8 @@
 package dahu.exploration
 
-import scalaz.{Applicative, Functor}
+import scalaz._
+import Scalaz._
+import scala.collection.mutable
 
 object rs extends App {
 
@@ -46,14 +48,24 @@ object rs extends App {
   val x = cataLambda(lambda, eval)
   println(x)
 
-  implicit val functor: Functor[Lambda] = new Functor[Lambda] {
+  val functor: Functor[Lambda] = new Functor[Lambda] {
     override def map[A, B](fa: Lambda[A])(f: A => B): Lambda[B] = fa match {
       case Cst(v) => Cst(v)
       case Add(l, r) => Add(f(l), f(r))
     }
   }
+  implicit val traverse: Traverse[Lambda] = new Traverse[Lambda] {
+    override def traverseImpl[G[_], A, B](fa: Lambda[A])(f: A => G[B])(implicit G: Applicative[G]): G[Lambda[B]] = fa match {
+      case Cst (v) => G.point(Cst(v))
+      case Add(l, r) =>
+        (f(l) |@| f(r))(Add(_, _))
+    }
+  }
 
   assert(cata(lambda)(eval) == cataLambda(lambda, eval))
+
+
+  // building Cofree structures
 
 
   def annotateLambda[A](e: Fix[Lambda])(f: Algebra[Lambda, A]): Cofree[Lambda, A] = e.unFix match {
@@ -73,4 +85,23 @@ object rs extends App {
 
 
   println(annotate(lambda)(eval))
+
+
+  // foldable
+  type Key = Int
+  type Store = Map[Lambda[Key], Key]
+  
+
+  def flatten(fa: Fix[Lambda]) : (Key, Map[Key, Lambda[Key]]) = {
+    val store = mutable.HashMap[Lambda[Key], Key]()
+    val alg: Algebra[Lambda, Key] = e => {
+      if(!store.contains(e))
+        store += ((e, store.size))
+      store(e)
+    }
+    val res = cata(fa)(alg)
+    (res, store.toList.map(_.swap).toMap)
+  }
+
+  println(flatten(lambda))
 }
