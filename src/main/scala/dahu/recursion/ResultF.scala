@@ -8,12 +8,10 @@ import scala.reflect.runtime.universe.{Type, TypeTag, typeOf}
 
 object TypeAlias {
   type TT = Type
-  type Top = Val[Any]
+  type Top = Any
 }
 
 import TypeAlias._
-
-final case class Val[+T](v: T) extends AnyVal
 
 sealed abstract class ResultF[F] {
   def typ: TT

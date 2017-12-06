@@ -1,8 +1,10 @@
 package dahu.expr
 
 
-import dahu.recursion.{Algebras, Val}
+import dahu.recursion.Algebras
 import org.scalatest.FreeSpec
+
+import scalaz.{Failure, Success, Validation, \/-}
 
 class BagPacking extends FreeSpec {
 
@@ -24,6 +26,8 @@ class BagPacking extends FreeSpec {
   val valid: Expr[Boolean] = w <= W
   val utility: Expr[Double] = p1 * x1.toDouble + p2 * x2.toDouble
 
+  println(Algebras.encode(utility).inputs)
+
 
   val decisions = List(x1, x2)
 
@@ -33,20 +37,32 @@ class BagPacking extends FreeSpec {
     List(true, false),
     List(true, true)
   )
+  final case class Error(msg: String) extends Throwable(msg)
 
-  def evalBind(instantiations: Boolean*): Option[Double] = {
+  def evalBind(instantiations: Boolean*): Validation[Throwable, Double] = {
     val binds = decisions.zip(instantiations).map{ case (variable, value)=> variable.bind(value) }
-    Algebras.evaluate(valid, binds).toOption match {
-      case Some(true) =>
-        Algebras.evaluate(utility, binds).toOption
-      case x => None
+    Algebras.evaluate(valid, binds).leftMap(_.head) match {
+      case Success(true) =>
+        Algebras.evaluate(utility, binds).leftMap(_.head)
+      case Success(false) => Failure(Error("Invalid instance"))
+      case Failure(x) => Failure(x)
     }
   }
 
   "expected utility" in {
-    assert(evalBind(false, false) === Some(0.0))
-    assert(evalBind(false, true) === Some(2.7))
-    assert(evalBind(true, false) === Some(2.0))
-    assert(evalBind(true, true) === None)
+    assert(evalBind(false, false) == Success(0.0))
+    assert(evalBind(false, true) == Success(2.7))
+    assert(evalBind(true, false) == Success(2.0))
+    assert(evalBind(true, true) == Failure(Error("Invalid instance")))
   }
+
+  "running program" in {
+    import dahu.interpreter._
+    val ast = Algebras.encode(valid)
+
+    assert(evaluate(ast, Environment("x1" -> true, "x2" -> false)) == \/-(true))
+    assert(evaluate(ast, Environment("x1" -> true, "x2" -> true)) == \/-(false))
+  }
+
+
 }

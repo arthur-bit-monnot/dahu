@@ -12,6 +12,8 @@ import scala.util.control.NonFatal
 import scalaz.{Divide => _, _}
 import Scalaz._
 import dahu.expr.Bind
+import dahu.interpreter
+import dahu.interpreter.AST
 
 import scala.collection.mutable
 
@@ -31,7 +33,7 @@ object Algebras {
 
   val coalgebra: Coalgebra[ResultF, Expr[_]] = {
     case x @ Input(name) => InputF(name, x.typ)
-    case x @ Cst(value) => CstF(Val(value), x.typ)
+    case x @ Cst(value) => CstF(value, x.typ)
     case x @ Computation1(fun, arg) => ComputationF(fun, List(arg), x.typ)
     case x @ Computation2(fun, arg1, arg2) => ComputationF(fun, List(arg1, arg2), x.typ)
     case x @ Computation3(fun, a1, a2, a3) => ComputationF(fun, List(a1, a2, a3), x.typ)
@@ -39,7 +41,7 @@ object Algebras {
 
   val printAlgebra: Algebra[ResultF, String] = {
     case InputF(v, _)      => v
-    case CstF(v, _) => v.v.toString
+    case CstF(v, _) => v.toString
     case ComputationF(f, args, _) => f.name + args.mkString("(", ",", ")")
   }
 
@@ -58,10 +60,10 @@ object Algebras {
   type TryEval[T] = ValidationNel[Throwable, T]
 
   def evalAlgebra(inputs: Map[String, Any]): Algebra[ResultF, TryEval[Top]] = {
-    case InputF(v, _) => attempt { Val(inputs(v)) }
+    case InputF(v, _) => attempt { inputs(v) }
     case CstF(v, _) => attempt { v }
     case ComputationF(f, args, _) =>  args.sequenceU match {
-      case Success(as) => attempt { Val(f.compute(as.map(_.v))) }
+      case Success(as) => attempt { f.compute(as) }
       case Failure(x) => Failure(x)
     }
 
@@ -76,7 +78,7 @@ object Algebras {
     val inputMap: Map[String, Any] = inputs.map {
       case Bind(variable, value) => variable.name -> value
     }.toMap
-    rec.cata(prg)(evalAlgebra(inputMap)).asInstanceOf[TryEval[Val[T]]].map(_.v)
+    rec.cata(prg)(evalAlgebra(inputMap)).asInstanceOf[TryEval[T]]
   }
 
   def pprint(prg: Expr[_]): String =
@@ -84,26 +86,11 @@ object Algebras {
 
 
 
-  type Validated[T] = Option[ResultF[T]]
-
-  type Result = Fix[ResultF]
-  type Typed = Cofree[ResultF, TypeAlias.TT]
-  type ValResult = Fix[Validated]
-
-  // ResultF[Type]
-
-  def extractType: Algebra[ResultF, TT] = _.typ
-
-  type Key = Int
-  type CodeStore = Map[Key, ResultF[Key]]
-
-  final case class AST(head: Key, code: CodeStore) {
-    override def toString: String = s"AST: $head\n" + code.mkString("  ", "\n  ", "")
-  }
 
   def encode(in: Expr[Any]): AST = {
-    val store = mutable.LinkedHashMap[ResultF[Key], Key]()
-    val alg: Algebra[ResultF, Key] = e => {
+    import dahu.interpreter._
+    val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
+    val alg: Algebra[ResultF, VarID] = e => {
       store.getOrElseUpdate(e, store.size)
     }
 
