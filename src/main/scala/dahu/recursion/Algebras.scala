@@ -13,7 +13,7 @@ import scalaz.{Divide => _, _}
 import Scalaz._
 import dahu.expr.Bind
 import dahu.interpreter
-import dahu.interpreter.AST
+import dahu.interpreter.ast.AST
 
 import scala.collection.mutable
 
@@ -95,9 +95,9 @@ object Algebras {
     }
 
     val head = in.hylo(alg, coalgebra)
-    val code = store.toList.map(_.swap).toMap
-    AST(head, code)
-  }
+    val code = store.toVector.sortBy(_._2).map(_._1)
 
+    AST(head, Code(code, store.toMap))
+  }
 
 }

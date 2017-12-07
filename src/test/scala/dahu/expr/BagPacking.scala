@@ -26,7 +26,7 @@ class BagPacking extends FreeSpec {
   val valid: Expr[Boolean] = w <= W
   val utility: Expr[Double] = p1 * x1.toDouble + p2 * x2.toDouble
 
-  println(Algebras.encode(utility).inputs)
+  println(Algebras.encode(utility))
 
 
   val decisions = List(x1, x2)
@@ -62,6 +62,8 @@ class BagPacking extends FreeSpec {
 
     assert(evaluate(ast, Environment("x1" -> true, "x2" -> false)) == \/-(true))
     assert(evaluate(ast, Environment("x1" -> true, "x2" -> true)) == \/-(false))
+    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == \/-(true))
+    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == \/-(false))
   }
 
 
