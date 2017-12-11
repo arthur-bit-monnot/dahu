@@ -1,9 +1,8 @@
 package dahu.dataframe
 
 import dahu.dataframe.metadata._
-import shapeless._
 
-case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[Vector[_]]) {
+case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[_]) {
   type MetaData = MD
 
 //  def append(values: Fields): DataFrame[Keys, Fields] = {
@@ -16,24 +15,41 @@ case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[Vector[_]]) {
 //    new DataFrame[Keys, Fields](newCols)
 //  }
 
-  def withColumn[K, V](key: K, values: Vector[V])(implicit ev: ColMeta.KVAux[K, V])
-    : DataFrame[ev.type ::: MD] = {
-    require(cols.headOption.forall(_.size == values.size))
-    new DataFrame[ev.type ::: MD]((ev ::: meta).asInstanceOf[ev.type ::: MD], cols :+ values)
+  def withColumn[K0, V0, F0[_]](key: K0, values: F0[V0])(
+      implicit vec0: Vec[F0, V0]): DataFrame[ColMeta.Aux[K0, V0, F0] ::: MD] = {
+    type XXX = ColMeta.Aux[K0, V0, F0]
+    val colMeta: XXX = new ColMeta {
+      override type F[A] = F0[A]
+      override type V = V0
+      override type K = K0
+      override val vec = vec0
+    }
+    new DataFrame[XXX ::: MD]((colMeta ::: meta).asInstanceOf[XXX ::: MD],
+                              cols :+ values)
   }
 
   def indexOf[K](implicit ev: IndexOf[K, MD]): Int = ev()
+
+  def columnMetadata[K, KMeta <: ColMeta](k: K)(
+      implicit columnMeta: ColumnMeta.Aux[K, MD, KMeta]): KMeta =
+    columnMeta.apply(meta)
+
 }
 
 object DataFrame {
 
-  def empty: DataFrame[EmptyFrame] = new DataFrame[EmptyFrame](EmptyFrame, Vector())
+  def empty: DataFrame[EmptyFrame] =
+    new DataFrame[EmptyFrame](EmptyFrame, Vector())
 
-  implicit class DFOps[M <: FrameMeta](val df: DataFrame[M])
-      extends AnyVal {
+  implicit class DFOps[M <: FrameMeta](val df: DataFrame[M]) extends AnyVal {
 
-//    def apply[K, I <: Nat](k: K)(
-//        implicit ev: DFIndexOf[K, Ks, Vs]): Col[ev.V, DataFrame[Ks, Vs]] =
+    def apply[K, V, CM <: ColMeta, F[_]](k: K)(
+        implicit index: IndexOf[K, M],
+        fieldType: ColumnMeta.Aux[K, M, CM],
+        ev: CM <:< ColMeta.Aux[K, V, F]): Col[V, F, DataFrame[M]] =
+      Col.extractColumn(df, k)
+
+//    def apply[K, I <: Nat](k: K)(): Col[ev.V, DataFrame[Ks, Vs]] =
 //      Col.extractColumn(df, k)(ev)
   }
 }

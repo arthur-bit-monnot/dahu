@@ -6,7 +6,7 @@ import algebra.ring.{AdditiveSemigroup, CommutativeRing, Field, MultiplicativeSe
 import spire.std.{DoubleAlgebra, IntAlgebra}
 
 import scala.reflect.runtime.universe.{Type, TypeTag, typeOf}
-
+import scala.language.implicitConversions
 
 package object dsl {
 

@@ -18,14 +18,26 @@ class Test extends FreeSpec {
 
     val df = DataFrame.empty
     val df2 = df
-      .withColumn(X, Vector(1,2,3))
+      .withColumn(X, Vector(1, 2, 3))
       .withColumn(Y, Vector("a", "b", "c"))
 
     assert(df2.indexOf[X] == 0)
     assert(df2.indexOf[Y] == 1)
 
+//    df2(X)
+    assert(df2(X).values == Vector(1, 2, 3))
+    assert(df2(Y).values == Vector("a", "b", "c"))
 
-    println(df2)
+    val df3 = df2(X).updated(0, 10)
+    val xx: Vector[Int] = df3(X).values
+    val yy: Vector[String] = df3(Y).values
+    assert(df3(X).values == Vector(10, 2, 3))
+    assert(df2(Y).values == df3(Y).values)
+
+    assert(df3(X).swapped(Vector(1,2,3)).cols == df2.cols)
+
+//    assert(df2.columnMetadata(X).secret == "CACA")
+
 //    val df2 = df
 //      .append("a" :: 1 :: HNil)
 //      .append("b" :: 2 :: HNil)

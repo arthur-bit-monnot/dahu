@@ -1,5 +1,6 @@
 package dahu.dataframe.metadata
 
+import dahu.dataframe.Vec
 import shapeless._
 import shapeless.ops.nat.ToInt
 
@@ -12,14 +13,20 @@ trait Indexed[T] extends ColType[T]
 trait ColMeta {
   type K
   type V
+  type F[_]
+
+  val vec: Vec[F, V]
 }
 object ColMeta {
   type KAux[K0] = ColMeta { type K = K0 }
   type KVAux[K0, V0] = ColMeta { type K = K0; type V = V0 }
+  type Aux[K0, V0, F0[_]] = ColMeta { type K = K0; type V = V0; type F[T] = F0[T] }
 
   implicit def default[K0, V0]: ColMeta.KVAux[K0, V0] = new ColMeta {
     override type V = V0
     override type K = K0
+    override type F[T] = Vector[T]
+    override val vec: Vec[Vector, V] = Vec.ofVector[V]
   }
 }
 
@@ -28,7 +35,7 @@ sealed trait FrameMeta {
   type Fields <: HList
   type Size <: Nat
 
-  def :::[T <: ColMeta](prev: T) = dahu.dataframe.metadata.:::(prev, this)
+  def :::[T <: ColMeta](prev: T): T ::: this.type = dahu.dataframe.metadata.:::(prev, this)
 }
 object FrameMeta {
   type SizeAux[N <: Nat] = FrameMeta { type Size = N }
@@ -54,6 +61,7 @@ final case class :::[H <: ColMeta, T <: FrameMeta](head: H, tail: T)
 @implicitNotFound(msg = "Could not find key `${K}` in frame metadata `${M}`")
 trait ColumnMeta[K, M <: FrameMeta] {
   type Out <: ColMeta
+  def apply(l: M): Out
 }
 object ColumnMeta {
   type Aux[K, M <: FrameMeta, V <: ColMeta] = ColumnMeta[K, M] { type Out = V }
@@ -64,6 +72,8 @@ object ColumnMeta {
       implicit ev: H <:< ColMeta.KAux[K]): ColumnMeta.Aux[K, H ::: T, H] = {
     new ColumnMeta[K, H ::: T] {
       override type Out = H
+
+      override def apply(l: H ::: T): H = l.head
     }
   }
   implicit def columnTypeOfOthers[K,
@@ -74,35 +84,8 @@ object ColumnMeta {
       ev2: H <:!< ColMeta.KAux[K]): ColumnMeta.Aux[K, H ::: T, V] = {
     new ColumnMeta[K, H ::: T] {
       override type Out = V
-    }
-  }
-}
 
-trait IndexOf[K, M <: FrameMeta] {
-  type Out <: Nat
-  def apply(): Int
-}
-object IndexOf {
-  type Aux[K, M <: FrameMeta, N <: Nat] = IndexOf[K, M] { type Out = N }
-
-  def apply[K, M <: FrameMeta](implicit instance: IndexOf[K, M]) = instance
-
-  implicit def indexOfHead[K, N <: Nat, H <: ColMeta.KAux[K], T <: FrameMeta](
-      implicit ev1: T <:< FrameMeta.SizeAux[N],
-      ev: ToInt[N]
-  ): IndexOf.Aux[K, H ::: T, N] = {
-    new IndexOf[K, H ::: T] {
-      override type Out = N
-      override def apply(): Int = ev()
-    }
-  }
-  implicit def indexOfOthers[K, H <: ColMeta, T <: FrameMeta, N <: Nat](
-      implicit ev: IndexOf.Aux[K, T, N],
-      toInt: ToInt[N],
-      ev2: H <:!< ColMeta.KAux[K]): IndexOf.Aux[K, H ::: T, N] = {
-    new IndexOf[K, H ::: T] {
-      override type Out = N
-      override def apply(): Int = toInt()
+      override def apply(l: H ::: T): V = ev.apply(l.tail)
     }
   }
 }

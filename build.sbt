@@ -20,8 +20,12 @@ scalacOptions ++= Seq(
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   "-Ywarn-value-discard",
-  "-Ywarn-unused",
-  "-feature"
+//  "-Ywarn-unused",
+  "-feature",
+  "-language:higherKinds",
+  "-language:existentials"
+
+
 )
 
 resolvers += Resolver.sonatypeRepo("releases")
