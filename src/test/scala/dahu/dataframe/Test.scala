@@ -1,4 +1,4 @@
-package dataframe
+package dahu.dataframe
 
 import dahu.dataframe._
 import org.scalatest.FreeSpec
