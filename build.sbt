@@ -9,7 +9,20 @@ libraryDependencies += "org.typelevel" %% "spire" % "0.14.1"
 libraryDependencies += "org.scalatest" % "scalatest_2.12" % "3.0.4" % "test"
 libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.2"
 
-scalacOptions += "-Ypartial-unification"
+scalacOptions ++= Seq(
+  "-target:jvm-1.8",
+  "-encoding", "UTF-8",
+  "-unchecked",
+  "-deprecation",
+//  "-Xfuture",
+  "-Ypartial-unification",
+  "-Yno-adapted-args",
+  "-Ywarn-dead-code",
+  "-Ywarn-numeric-widen",
+  "-Ywarn-value-discard",
+  "-Ywarn-unused",
+  "-feature"
+)
 
 resolvers += Resolver.sonatypeRepo("releases")
 

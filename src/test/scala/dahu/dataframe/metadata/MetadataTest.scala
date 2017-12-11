@@ -21,8 +21,8 @@ class MetadataTest extends FreeSpec {
 
   "frame-metadata" - {
     "index" in {
-      assert(IndexOf[String, IntCol ::: StringCol ::: EmptyFrame].index == 1)
-      assert(IndexOf[Symbol, IntCol ::: StringCol ::: EmptyFrame].index == 0)
+      assert(IndexOf[String, IntCol ::: StringCol ::: EmptyFrame].apply() == 1)
+      assert(IndexOf[Symbol, IntCol ::: StringCol ::: EmptyFrame].apply() == 0)
     }
   }
 

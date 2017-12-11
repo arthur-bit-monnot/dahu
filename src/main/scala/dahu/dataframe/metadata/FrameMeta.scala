@@ -16,12 +16,19 @@ trait ColMeta {
 object ColMeta {
   type KAux[K0] = ColMeta { type K = K0 }
   type KVAux[K0, V0] = ColMeta { type K = K0; type V = V0 }
+
+  implicit def default[K0, V0]: ColMeta.KVAux[K0, V0] = new ColMeta {
+    override type V = V0
+    override type K = K0
+  }
 }
 
 sealed trait FrameMeta {
   type Keys <: HList
   type Fields <: HList
   type Size <: Nat
+
+  def :::[T <: ColMeta](prev: T) = dahu.dataframe.metadata.:::(prev, this)
 }
 object FrameMeta {
   type SizeAux[N <: Nat] = FrameMeta { type Size = N }
@@ -31,7 +38,7 @@ sealed trait EmptyFrame extends FrameMeta {
   override type Fields = HNil
   override type Size = shapeless._0
 
-  def :::(prev: ColMeta) = dahu.dataframe.metadata.:::(prev, this)
+  override def :::[T <: ColMeta](prev: T) = dahu.dataframe.metadata.:::(prev, this)
 }
 case object EmptyFrame extends EmptyFrame
 
@@ -41,7 +48,7 @@ final case class :::[H <: ColMeta, T <: FrameMeta](head: H, tail: T)
   override type Fields = head.V :: tail.Fields
   override type Size = Succ[tail.Size]
 
-  def :::(prev: ColMeta) = dahu.dataframe.metadata.:::(prev, this)
+  override def :::[T <: ColMeta](prev: T) = dahu.dataframe.metadata.:::(prev, this)
 }
 
 @implicitNotFound(msg = "Could not find key `${K}` in frame metadata `${M}`")
@@ -73,7 +80,7 @@ object ColumnMeta {
 
 trait IndexOf[K, M <: FrameMeta] {
   type Out <: Nat
-  val index: Int
+  def apply(): Int
 }
 object IndexOf {
   type Aux[K, M <: FrameMeta, N <: Nat] = IndexOf[K, M] { type Out = N }
@@ -86,7 +93,7 @@ object IndexOf {
   ): IndexOf.Aux[K, H ::: T, N] = {
     new IndexOf[K, H ::: T] {
       override type Out = N
-      override val index: Int = ev()
+      override def apply(): Int = ev()
     }
   }
   implicit def indexOfOthers[K, H <: ColMeta, T <: FrameMeta, N <: Nat](
@@ -95,7 +102,7 @@ object IndexOf {
       ev2: H <:!< ColMeta.KAux[K]): IndexOf.Aux[K, H ::: T, N] = {
     new IndexOf[K, H ::: T] {
       override type Out = N
-      override val index: Int = toInt()
+      override def apply(): Int = toInt()
     }
   }
 }
