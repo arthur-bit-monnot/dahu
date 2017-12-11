@@ -15,4 +15,6 @@ resolvers += Resolver.sonatypeRepo("releases")
 
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4")
 
+addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch)
+
 exportJars := true
