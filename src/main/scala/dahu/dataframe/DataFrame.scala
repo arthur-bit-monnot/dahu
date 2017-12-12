@@ -4,7 +4,6 @@ import dahu.dataframe.metadata._
 import dahu.dataframe.vector.{IndexedVector, Vec}
 
 case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[_]) {
-  type MetaData = MD
 
 //  def append(values: Fields): DataFrame[Keys, Fields] = {
 //    println(values)
@@ -44,7 +43,7 @@ object DataFrame {
   implicit class DFOps[M <: FrameMeta](val df: DataFrame[M]) extends AnyVal {
 
     def apply[K](k: K)(
-        implicit wi: WithColumn[K, M]): Column[wi.V, wi.F, DataFrame[M]] =
+        implicit wi: WithColumn[K, M]): Column[wi.V, wi.F, M] =
       Column.from(df, k)
 
     def indexed[K0, V0, PrevCM <: ColMeta, Out <: FrameMeta](k: K0)(
