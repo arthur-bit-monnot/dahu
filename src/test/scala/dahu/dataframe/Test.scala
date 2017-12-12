@@ -1,7 +1,8 @@
 package dahu.dataframe
 
 import dahu.dataframe._
-import dahu.dataframe.metadata.IndexOf
+import dahu.dataframe.metadata.{:::, ColMeta, EmptyFrame, IndexOf}
+import dahu.dataframe.vector.IndexedVector
 import org.scalatest.FreeSpec
 import shapeless.ops.hlist.Length
 import shapeless.ops.tuple.ToArray
@@ -19,7 +20,7 @@ class Test extends FreeSpec {
     type Z = Z.type
 
     val df = DataFrame.empty
-    val df2 = df
+    val df2: DataFrame[ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df
       .withColumn(X, Vector(1, 2, 3))
       .withColumn(Y, Vector("a", "b", "c"))
 
@@ -30,7 +31,8 @@ class Test extends FreeSpec {
     assert(df2(X).values == Vector(1, 2, 3))
     assert(df2(Y).values == Vector("a", "b", "c"))
 
-    val df3 = df2(X).updated(0, 10)
+    val df3: DataFrame[ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2(X).updated(0, 10)
+//    val df3 = df2(X).updated(0, 10)
     val xx: Vector[Int] = df3(X).values
     val yy: Vector[String] = df3(Y).values
     assert(df3(X).values == Vector(10, 2, 3))
@@ -48,9 +50,13 @@ class Test extends FreeSpec {
     val tmp: Vector[Int] = df4(Z).values
     assert(df4(Z).values == Vector(10, 20, 30))
 
-    val xIndexed = df2.indexed(X)
+//    val xIndexed: DataFrame[ColMeta.Aux[Y, String, IndexedVector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2.indexed(Y)
+    val xIndexed = df2.indexed(Y)
     val yIndexed = df2.indexed(Y)
-    println(xIndexed(X).values)
+    val colY: Column[String, IndexedVector, _] = yIndexed.apply(Y)
+    val qsdsqd: IndexedVector[String] = colY.values
+    assert(yIndexed(X).values == Vector(1, 2, 3))
+    assert(yIndexed(Y).values.v == Vector("a", "b", "c"))
 
 //    val df2 = df
 //      .append("a" :: 1 :: HNil)

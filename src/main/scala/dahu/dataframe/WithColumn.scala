@@ -3,7 +3,10 @@ package dahu.dataframe
 import dahu.dataframe.metadata.{ColMeta, ColumnMeta, FrameMeta, IndexOf}
 import dahu.dataframe.vector.Vec
 
-trait WithColumn[K, V, F[_], MD <: FrameMeta] {
+trait WithColumn[K, MD <: FrameMeta] {
+  type V
+  type F[_]
+
   def values(df: DataFrame[MD]): F[V]
   def get(df: DataFrame[MD], row: Int): V
   def updated(df: DataFrame[MD], row: Int, value: V): DataFrame[MD]
@@ -11,12 +14,16 @@ trait WithColumn[K, V, F[_], MD <: FrameMeta] {
 }
 
 object WithColumn {
+  type Aux[K, V0, F0[_], MD <: FrameMeta] = WithColumn[K, MD] { type V = V0; type F[T] = F0[T] }
 
-  implicit def extractColumn[K, V, F[_], M <: FrameMeta, CM <: ColMeta](
+  implicit def extractColumn[K, V0, F0[_], M <: FrameMeta, CM <: ColMeta](
       implicit index: IndexOf[K, M],
       fieldType: ColumnMeta.Aux[K, M, CM],
-      ev: CM <:< ColMeta.Aux[K, V, F]): WithColumn[K, V, F, M] =
-    new WithColumn[K, V, F, M] {
+      ev: CM <:< ColMeta.Aux[K, V0, F0]): WithColumn.Aux[K, V0, F0, M] =
+    new WithColumn[K, M] {
+      override type V = V0
+      override type F[T] = F0[T]
+
       private def vec(df: DataFrame[M]): Vec[F, V] =
         fieldType(df.meta).vec.asInstanceOf[Vec[F, V]]
 

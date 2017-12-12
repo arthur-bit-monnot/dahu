@@ -11,15 +11,15 @@ trait Column[V, F[_], DF] {
 
 object Column {
 
-  def from[K, V, F[_], MD <: FrameMeta](df: DataFrame[MD], k: K)(
-      implicit wi: WithColumn[K, V, F, MD]): Column[V, F, DataFrame[MD]] =
-    new Column[V, F, DataFrame[MD]] {
-      override def values: F[V] = wi.values(df)
+  def from[K, MD <: FrameMeta](df: DataFrame[MD], k: K)(
+      implicit wi: WithColumn[K, MD]): Column[wi.V, wi.F, DataFrame[MD]] =
+    new Column[wi.V, wi.F, DataFrame[MD]] {
+      override def values: wi.F[wi.V] = wi.values(df)
 
-      override def get(row: Int): V = wi.get(df, row)
+      override def get(row: Int): wi.V = wi.get(df, row)
 
-      override def updated(row: Int, value: V): DataFrame[MD] = wi.updated(df, row, value)
+      override def updated(row: Int, value: wi.V): DataFrame[MD] = wi.updated(df, row, value)
 
-      override def swapped(values: F[V]): DataFrame[MD] = wi.swapped(df, values)
+      override def swapped(values: wi.F[wi.V]): DataFrame[MD] = wi.swapped(df, values)
     }
 }
