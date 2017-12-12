@@ -1,7 +1,7 @@
 package dahu.dataframe
 
 import dahu.dataframe.metadata._
-import dahu.dataframe.vector.Vec
+import dahu.dataframe.vector.{IndexedVector, Vec}
 
 case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[_]) {
   type MetaData = MD
@@ -25,9 +25,7 @@ case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[_]) {
       override type K = K0
       override val vec = vec0
     }
-    // TODO: make the cast unnecessary here
-    new DataFrame[CM ::: MD]((colMeta ::: meta).asInstanceOf[CM ::: MD],
-                              cols :+ values)
+    new DataFrame[CM ::: MD](colMeta ::: meta, cols :+ values)
   }
 
   def indexOf[K](implicit ev: IndexOf[K, MD]): Int = ev()
@@ -45,10 +43,27 @@ object DataFrame {
 
   implicit class DFOps[M <: FrameMeta](val df: DataFrame[M]) extends AnyVal {
 
-    def apply[K, V, CM <: ColMeta, F[_]](k: K)(
+    def apply[K, V, F[_]](k: K)(
         implicit wi: WithColumn[K, V, F, M]): Column[V, F, DataFrame[M]] =
       Column.from(df, k)
 
+    def indexed[K0, V0, PrevCM <: ColMeta](k: K0)(
+        implicit withCol: WithColumn[K0, V0, Vector, M],
+        swap: Swapped[ColMeta.Aux[K0, V0, IndexedVector], M],
+        ev: Vec[IndexedVector, V0]
+    ): DataFrame[swap.Out] = {
+      val v: Vector[V0] = withCol.values(df)
+      val map: Map[V0, Int] = v.zipWithIndex.toMap
+      val col = IndexedVector[V0](v, map)
+      type CM = ColMeta.Aux[K0, V0, IndexedVector]
+      val meta: CM = new ColMeta {
+        override type F[T] = IndexedVector[T]
+        override type V = V0
+        override type K = K0
+        override val vec: Vec[IndexedVector, V0] = ev
+      }
+      swap(df, meta, col)
+    }
 //    def apply[K, I <: Nat](k: K)(): Col[ev.V, DataFrame[Ks, Vs]] =
 //      Col.extractColumn(df, k)(ev)
   }

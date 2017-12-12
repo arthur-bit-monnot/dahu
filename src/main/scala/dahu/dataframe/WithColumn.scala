@@ -16,13 +16,15 @@ object WithColumn {
       implicit index: IndexOf[K, M],
       fieldType: ColumnMeta.Aux[K, M, CM],
       ev: CM <:< ColMeta.Aux[K, V, F]): WithColumn[K, V, F, M] =
-
     new WithColumn[K, V, F, M] {
-      private def vec(df: DataFrame[M]): Vec[F, V] = fieldType(df.meta).vec.asInstanceOf[Vec[F, V]]
+      private def vec(df: DataFrame[M]): Vec[F, V] =
+        fieldType(df.meta).vec.asInstanceOf[Vec[F, V]]
 
-      override def values(df: DataFrame[M]): F[V] = df.cols(index()).asInstanceOf[F[V]]
+      override def values(df: DataFrame[M]): F[V] =
+        df.cols(index()).asInstanceOf[F[V]]
 
-      override def get(df: DataFrame[M], row: Int): V = vec(df).at(values(df), row)
+      override def get(df: DataFrame[M], row: Int): V =
+        vec(df).at(values(df), row)
 
       override def updated(df: DataFrame[M], row: Int, value: V): DataFrame[M] =
         new DataFrame[M](

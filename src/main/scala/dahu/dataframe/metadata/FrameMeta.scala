@@ -35,17 +35,21 @@ sealed trait FrameMeta {
   type Fields <: HList
   type Size <: Nat
 
-  def :::[T <: ColMeta](prev: T): T ::: this.type = dahu.dataframe.metadata.:::(prev, this)
+  def size: Int
 }
 object FrameMeta {
   type SizeAux[N <: Nat] = FrameMeta { type Size = N }
+
+  implicit class FrameMetaOps[A <: FrameMeta](val a: A) extends AnyVal {
+    def :::[B <: ColMeta](b : B): B ::: A = dahu.dataframe.metadata.:::(b, a)
+  }
 }
 sealed trait EmptyFrame extends FrameMeta {
   override type Keys = HNil
   override type Fields = HNil
   override type Size = shapeless._0
 
-  override def :::[T <: ColMeta](prev: T) = dahu.dataframe.metadata.:::(prev, this)
+  override def size: Int = 0
 }
 case object EmptyFrame extends EmptyFrame
 
@@ -55,7 +59,7 @@ final case class :::[H <: ColMeta, T <: FrameMeta](head: H, tail: T)
   override type Fields = head.V :: tail.Fields
   override type Size = Succ[tail.Size]
 
-  override def :::[T <: ColMeta](prev: T) = dahu.dataframe.metadata.:::(prev, this)
+  override def size: Int = tail.size + 1
 }
 
 @implicitNotFound(msg = "Could not find key `${K}` in frame metadata `${M}`")

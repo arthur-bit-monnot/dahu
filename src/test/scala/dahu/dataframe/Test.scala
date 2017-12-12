@@ -48,6 +48,9 @@ class Test extends FreeSpec {
     val tmp: Vector[Int] = df4(Z).values
     assert(df4(Z).values == Vector(10, 20, 30))
 
+    val xIndexed = df2.indexed(Y)
+    println(xIndexed(Y).values)
+
 //    val df2 = df
 //      .append("a" :: 1 :: HNil)
 //      .append("b" :: 2 :: HNil)
