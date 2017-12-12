@@ -13,8 +13,10 @@ class Test extends FreeSpec {
   "init-and-append" in {
     object X
     object Y
+    object Z
     type X = X.type
     type Y = Y.type
+    type Z = Z.type
 
     val df = DataFrame.empty
     val df2 = df
@@ -36,7 +38,15 @@ class Test extends FreeSpec {
 
     assert(df3(X).swapped(Vector(1,2,3)).cols == df2.cols)
 
-//    assert(df2.columnMetadata(X).secret == "CACA")
+    assert(df3(X).get(0) == 10)
+    assert(df3(X).get(1) == 2)
+    assert(df3(X).get(2) == 3)
+
+    val times10Col = df2(X).values.map(_ * 10)
+    val df4 = df3.withColumn(Z, times10Col)
+
+    val tmp: Vector[Int] = df4(Z).values
+    assert(df4(Z).values == Vector(10, 20, 30))
 
 //    val df2 = df
 //      .append("a" :: 1 :: HNil)

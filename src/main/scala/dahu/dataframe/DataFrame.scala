@@ -1,6 +1,7 @@
 package dahu.dataframe
 
 import dahu.dataframe.metadata._
+import dahu.dataframe.vector.Vec
 
 case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[_]) {
   type MetaData = MD
@@ -17,14 +18,15 @@ case class DataFrame[MD <: FrameMeta](meta: MD, cols: Vector[_]) {
 
   def withColumn[K0, V0, F0[_]](key: K0, values: F0[V0])(
       implicit vec0: Vec[F0, V0]): DataFrame[ColMeta.Aux[K0, V0, F0] ::: MD] = {
-    type XXX = ColMeta.Aux[K0, V0, F0]
-    val colMeta: XXX = new ColMeta {
+    type CM = ColMeta.Aux[K0, V0, F0]
+    val colMeta: CM = new ColMeta {
       override type F[A] = F0[A]
       override type V = V0
       override type K = K0
       override val vec = vec0
     }
-    new DataFrame[XXX ::: MD]((colMeta ::: meta).asInstanceOf[XXX ::: MD],
+    // TODO: make the cast unnecessary here
+    new DataFrame[CM ::: MD]((colMeta ::: meta).asInstanceOf[CM ::: MD],
                               cols :+ values)
   }
 
@@ -44,10 +46,8 @@ object DataFrame {
   implicit class DFOps[M <: FrameMeta](val df: DataFrame[M]) extends AnyVal {
 
     def apply[K, V, CM <: ColMeta, F[_]](k: K)(
-        implicit index: IndexOf[K, M],
-        fieldType: ColumnMeta.Aux[K, M, CM],
-        ev: CM <:< ColMeta.Aux[K, V, F]): Col[V, F, DataFrame[M]] =
-      Col.extractColumn(df, k)
+        implicit wi: WithColumn[K, V, F, M]): Column[V, F, DataFrame[M]] =
+      Column.from(df, k)
 
 //    def apply[K, I <: Nat](k: K)(): Col[ev.V, DataFrame[Ks, Vs]] =
 //      Col.extractColumn(df, k)(ev)

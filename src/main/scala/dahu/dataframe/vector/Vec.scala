@@ -1,4 +1,4 @@
-package dahu.dataframe
+package dahu.dataframe.vector
 
 trait Vec[F[_], A] {
   def empty: F[A]

@@ -1,6 +1,6 @@
 package dahu.dataframe.metadata
 
-import dahu.dataframe.Vec
+import dahu.dataframe.vector.Vec
 import shapeless._
 import shapeless.ops.nat.ToInt
 
