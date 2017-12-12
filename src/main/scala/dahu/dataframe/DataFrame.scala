@@ -49,7 +49,7 @@ object DataFrame {
 
     def indexed[K0, V0, PrevCM <: ColMeta](k: K0)(
         implicit withCol: WithColumn[K0, V0, Vector, M],
-        swap: Swapped[ColMeta.Aux[K0, V0, IndexedVector], M],
+        swap: Swapped[K0, V0, IndexedVector, ColMeta.Aux[K0, V0, IndexedVector], M],
         ev: Vec[IndexedVector, V0]
     ): DataFrame[swap.Out] = {
       val v: Vector[V0] = withCol.values(df)
