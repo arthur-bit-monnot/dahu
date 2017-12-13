@@ -3,11 +3,12 @@ package dahu
 import dahu.interpreter.ast.AST
 import dahu.recursion.{ComputationF, CstF, InputF, ResultF}
 
-import scalaz._
-import Scalaz._
 import scala.collection.mutable
 import scala.util.Try
 import scala.util.control.NonFatal
+import cats._
+import cats.syntax._
+import cats.implicits._
 
 package object interpreter {
 
@@ -24,10 +25,7 @@ package object interpreter {
 
   type VarName = String
 
-  type Res[T] = \/[Throwable, T]
-  object Res {
-    def right[T](value: T): Res[T] = \/-(value)
-  }
+  type Res[T] = Either[Throwable, T]
 
   sealed abstract class Language
   final case class SetVar(input: Input, value: V) extends Language
@@ -48,10 +46,10 @@ package object interpreter {
         _ match {
           case x: Input =>
             environment.inputs.get(x.name) match {
-              case Some(x) => x.right
-              case None    => Err(s"Input $x was not set").left
+              case Some(x) => Right(x)
+              case None    => Left(Err(s"Input $x was not set"))
             }
-          case x: Cst => x.value.right
+          case x: Cst => Right(x.value)
           case x: Fun => x.args.traverse(get(_)).map(x.fun.compute(_))
         }
       }

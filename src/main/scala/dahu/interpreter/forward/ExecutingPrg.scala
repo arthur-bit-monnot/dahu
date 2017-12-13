@@ -3,10 +3,9 @@ package dahu.interpreter.forward
 import dahu.interpreter._
 import dahu.interpreter.ast.AST
 
-import scalaz._
-import Scalaz._
 import scala.collection.mutable
 import scala.util.control.NonFatal
+import cats.syntax.either._
 
 final case class PrgState private (memory: Vector[V])
 object PrgState {
@@ -22,12 +21,12 @@ object PrgState {
 final case class ExecutingPrg(ast: AST, state: PrgState) {
 
   def get(v: VarID): Res[V] = {
-    state.memory.apply(v).right
+    Right(state.memory.apply(v))
   }
 
   def update(v: VarID, value: V): Res[ExecutingPrg] = {
     if(v >= state.memory.size)
-      return Err(s"Address out of Memory: $v").left
+      return Left(Err(s"Address out of Memory: $v"))
 
     val stack = mutable.Set[(VarID, V)]((v, value))
 
@@ -37,7 +36,6 @@ final case class ExecutingPrg(ast: AST, state: PrgState) {
       def initialized(v: VarID): Boolean = memory(v) != null
 
       def computable(v: FunID): Boolean = {
-        println(s"$v ${ast.funAt(v).valueOr(throw _).args.map(initialized)}")
         ast.funAt(v).valueOr(throw _).args.forall(initialized)
       }
 
@@ -53,9 +51,6 @@ final case class ExecutingPrg(ast: AST, state: PrgState) {
         stack -= p
         if(value != memory(variable)) {
           memory = memory.updated(variable, value)
-          println(s"Updtated: $value -> $variable: ${ast.at(variable)}")
-          println(memory)
-          println("deps: " + ast.graph.varFunEdges.get(variable))
           val dependencies           = ast.graph.varFunEdges.getOrElse(variable, Set())
           val dependenciesWithArgs   = dependencies.map(x => ast.at(x))
           val computableDependencies = dependencies.filter(fID => computable(fID))
@@ -64,9 +59,9 @@ final case class ExecutingPrg(ast: AST, state: PrgState) {
           }
         }
       }
-      this.copy(state = PrgState(memory)).right
+      Right(this.copy(state = PrgState(memory)))
     } catch {
-      case NonFatal(e) => e.left
+      case NonFatal(e) => Left(e)
     }
   }
 }
