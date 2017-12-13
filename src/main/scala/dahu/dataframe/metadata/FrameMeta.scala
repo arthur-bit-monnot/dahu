@@ -67,7 +67,7 @@ trait LowPriorityColumnMeta {}
 object ColumnMeta {
   type Aux[K, M <: HList, Out0] = ColumnMeta[K, M] { type Out = Out0 }
 
-  def apply[K, M <: HList](implicit ev: ColumnMeta[K, M]) = ev
+  def apply[K, M <: HList](implicit ev: ColumnMeta[K, M]): Aux[K, M, ev.Out] = ev
 
   implicit def columnTypeOfHead[K, H, T <: HList](
       implicit key: Key.Aux[H, K]): ColumnMeta.Aux[K, H :: T, H] = {
