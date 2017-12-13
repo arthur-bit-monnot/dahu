@@ -1,8 +1,9 @@
 package dahu.dataframe
 
 import dahu.dataframe.metadata.FrameMeta
+import shapeless.HList
 
-trait Column[V, F[_], MD <: FrameMeta] {
+trait Column[V, F[_], MD <: HList] {
   def values: F[V]
   def get(row: Int): V
   def updated(row: Int, value: V): DataFrame[MD]
@@ -11,7 +12,7 @@ trait Column[V, F[_], MD <: FrameMeta] {
 
 object Column {
 
-  def from[K, MD <: FrameMeta](df: DataFrame[MD], k: K)(
+  def from[K, MD <: HList](df: DataFrame[MD], k: K)(
       implicit wi: WithColumn[K, MD]): Column[wi.V, wi.F, MD] =
     new Column[wi.V, wi.F, MD] {
       override def values: wi.F[wi.V] = wi.values(df)

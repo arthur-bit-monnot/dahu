@@ -2,8 +2,9 @@ package dahu.dataframe
 
 import dahu.dataframe.metadata.{ColMeta, ColumnMeta, FrameMeta, ReverseIndexOfKey}
 import dahu.dataframe.vector.Index
+import shapeless.HList
 
-trait WithIndex[K, V, MD <: FrameMeta] {
+trait WithIndex[K, V, MD <: HList] {
 
   def id(df: DataFrame[MD], value: V): Option[Int]
 
