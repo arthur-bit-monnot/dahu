@@ -3,7 +3,7 @@ package dahu.expr
 import dahu.recursion.Algebras
 import org.scalatest.FreeSpec
 
-import scalaz.{\/-, Failure, Success, Validation}
+import scalaz.{Failure, Success, Validation}
 
 class BagPacking extends FreeSpec {
 
@@ -58,10 +58,10 @@ class BagPacking extends FreeSpec {
     import dahu.interpreter._
     val ast = Algebras.encode(valid)
 
-    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == \/-(true))
-    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == \/-(false))
-    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == \/-(true))
-    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == \/-(false))
+    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == Right(true))
+    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == Right(false))
+    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == Right(true))
+    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == Right(false))
   }
 
 }

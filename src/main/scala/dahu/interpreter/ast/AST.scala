@@ -6,6 +6,9 @@ import scala.util.Try
 import scalaz._
 import Scalaz._
 
+import cats._
+import cats.implicits._
+
 final case class ComputationGraph(code: Code) {
   val varFunEdges: Map[VarID, Set[VarID]] =
     code.forward.zipWithIndex
@@ -25,20 +28,20 @@ final case class AST(head: VarID, code: Code) {
 
   lazy val inputs: Seq[Input] = code.forward.collect { case x: Input => x }.toSeq
   def address(i: Expr): Res[VarID] =
-    code.backward.get(i).toRightDisjunction(Err(s"No expr $i"))
+    code.backward.get(i).toRight(Err(s"No expr $i"))
 
-  def at(address: VarID): Res[Expr] = Try(code.forward(address)).toDisjunction
+  def at(address: VarID): Res[Expr] = Try(code.forward(address)).toEither
 
   def funAt(address: FunID): Res[Fun] = at(address) match {
-    case valid @ \/-(x: Fun) => x.right
-    case \/-(x)              => Err(s"Expected a Fun got: $x").left
-    case -\/(x)              => x.left
+    case valid @ Right(x: Fun) => Right(x)
+    case Right(x)              => Left(Err(s"Expected a Fun got: $x"))
+    case Left(x)               => Left(x)
   }
 
   def inputOf(name: String): Res[Input] =
     inputs
       .collectFirst { case x if x.name == name => x }
-      .toRightDisjunction(Err(s"Found no input named $name"))
+      .toRight(Err(s"Found no input named $name"))
 
   lazy val graph = ComputationGraph(code)
 }

@@ -7,6 +7,7 @@ import scalaz._
 import Scalaz._
 import scala.collection.mutable
 import scala.util.control.NonFatal
+import cats.syntax.either._
 
 final case class PrgState private (memory: Vector[V])
 object PrgState {
@@ -22,12 +23,12 @@ object PrgState {
 final case class ExecutingPrg(ast: AST, state: PrgState) {
 
   def get(v: VarID): Res[V] = {
-    state.memory.apply(v).right
+    Right(state.memory.apply(v))
   }
 
   def update(v: VarID, value: V): Res[ExecutingPrg] = {
     if(v >= state.memory.size)
-      return Err(s"Address out of Memory: $v").left
+      return Left(Err(s"Address out of Memory: $v"))
 
     val stack = mutable.Set[(VarID, V)]((v, value))
 
@@ -64,9 +65,9 @@ final case class ExecutingPrg(ast: AST, state: PrgState) {
           }
         }
       }
-      this.copy(state = PrgState(memory)).right
+      Right(this.copy(state = PrgState(memory)))
     } catch {
-      case NonFatal(e) => e.left
+      case NonFatal(e) => Left(e)
     }
   }
 }
