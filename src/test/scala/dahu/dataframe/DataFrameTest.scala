@@ -1,22 +1,10 @@
 package dahu.dataframe
 
-import dahu.dataframe._
-import dahu.dataframe.metadata.{:::, ColMeta, EmptyFrame, ReverseIndexOfKey}
-import dahu.dataframe.vector.IndexedVector
 import org.scalatest.FreeSpec
-import shapeless.ops.hlist.Length
-import shapeless.ops.tuple.ToArray
 
 class DataFrameTest extends FreeSpec {
 
-  import shapeless._
-
-  object X
-  object Y
-  object Z
-  type X = X.type
-  type Y = Y.type
-  type Z = Z.type
+  import utils.Keys._
 
   "init-and-append" in {
 
@@ -52,7 +40,6 @@ class DataFrameTest extends FreeSpec {
     val tmp: Vector[Int] = df4(Z).values
     assert(df4(Z).values == Vector(10, 20, 30))
 
-////    val xIndexed: DataFrame[ColMeta.Aux[Y, String, IndexedVector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2.indexed(Y)
 //    val xIndexed = df2.indexed(Y)
 //    val yIndexed = df2.indexed(Y)
 //    val colY: Column[String, IndexedVector, _] = yIndexed.apply(Y)

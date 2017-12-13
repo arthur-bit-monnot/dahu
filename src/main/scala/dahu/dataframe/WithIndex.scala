@@ -1,7 +1,5 @@
 package dahu.dataframe
 
-import dahu.dataframe.metadata.{ColMeta, ColumnMeta, FrameMeta, ReverseIndexOfKey}
-import dahu.dataframe.vector.Index
 import shapeless.HList
 
 trait WithIndex[K, V, MD <: HList] {

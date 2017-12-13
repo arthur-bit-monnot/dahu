@@ -38,7 +38,8 @@ object DataFrame {
         implicit wi: WithColumn[K, M]): Column[wi.V, wi.F, M] =
       Column.from(df, k)
 
-      def indexOf[K](implicit ev: ReverseIndexOfKey[K, M]): Int = ev()
+    def indexOf[K](implicit ev: ReverseIndexOfKey[K, M]): Int = ev()
+
 
 //    def indexed[K, V0, PrevCM <: ColMeta[K], Out <: FrameMeta](k: K)(
 //        implicit withCol: WithColumn.Aux[K, V0, Vector, M],

@@ -1,6 +1,5 @@
 package dahu.dataframe
 
-import dahu.dataframe.metadata.FrameMeta
 import shapeless.HList
 
 trait Column[V, F[_], MD <: HList] {

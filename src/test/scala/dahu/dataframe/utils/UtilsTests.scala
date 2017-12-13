@@ -4,17 +4,11 @@ import org.scalatest.FreeSpec
 
 class UtilsTests extends FreeSpec {
 
-  "dataframe-utils" - {
+  "hlist-utils" - {
 
     "reverse-index-of" in {
       import shapeless._
-
-      object X
-      type X = X.type
-      object Y
-      type Y = Y.type
-      object Z
-      type Z = Z.type
+      import Keys._
 
       type L = Z :: Y :: X :: HNil
       val wx: ReverseIndexOf.Aux[X, L, _0] = ReverseIndexOf[X, L]
