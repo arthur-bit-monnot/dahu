@@ -10,28 +10,23 @@ sealed trait ColType[T]
 trait Raw[T] extends ColType[T]
 trait Indexed[T] extends ColType[T]
 
-trait ColMeta {
-  type K
+trait ColMeta[K] {
   type V
   type F[_]
 
   val vec: Vec[F, V]
 }
 object ColMeta {
-  type KAux[K0] = ColMeta { type K = K0 }
-  type KVAux[K0, V0] = ColMeta { type K = K0; type V = V0 }
-  type Aux[K0, V0, F0[_]] = ColMeta { type K = K0; type V = V0; type F[T] = F0[T] }
+  type Aux[K, V0, F0[_]] = ColMeta[K] { type V = V0; type F[T] = F0[T] }
 
-  implicit def default[K0, V0]: ColMeta.KVAux[K0, V0] = new ColMeta {
+  implicit def default[K, V0]: ColMeta.Aux[K, V0, Vector] = new ColMeta[K] {
     override type V = V0
-    override type K = K0
     override type F[T] = Vector[T]
     override val vec: Vec[Vector, V] = Vec.ofVector[V]
   }
 }
 
 sealed trait FrameMeta {
-  type Keys <: HList
   type Fields <: HList
   type Size <: Nat
 
@@ -41,11 +36,11 @@ object FrameMeta {
   type SizeAux[N <: Nat] = FrameMeta { type Size = N }
 
   implicit class FrameMetaOps[A <: FrameMeta](val a: A) extends AnyVal {
-    def :::[B <: ColMeta](b : B): B ::: A = dahu.dataframe.metadata.:::(b, a)
+    def :::[B <: ColMeta[_]](b: B): B ::: A =
+      dahu.dataframe.metadata.:::[B, A](b, a)
   }
 }
 sealed trait EmptyFrame extends FrameMeta {
-  override type Keys = HNil
   override type Fields = HNil
   override type Size = shapeless._0
 
@@ -53,9 +48,8 @@ sealed trait EmptyFrame extends FrameMeta {
 }
 case object EmptyFrame extends EmptyFrame
 
-final case class :::[H <: ColMeta, T <: FrameMeta](head: H, tail: T)
+final case class :::[H <: ColMeta[_], T <: FrameMeta](head: H, tail: T)
     extends FrameMeta {
-  override type Keys = head.K :: tail.Keys
   override type Fields = head.V :: tail.Fields
   override type Size = Succ[tail.Size]
 
@@ -63,33 +57,33 @@ final case class :::[H <: ColMeta, T <: FrameMeta](head: H, tail: T)
 }
 
 @implicitNotFound(msg = "Could not find key `${K}` in frame metadata `${M}`")
-trait ColumnMeta[K, M <: FrameMeta] {
-  type Out <: ColMeta
+trait ColumnMeta[K, M <: HList] {
+  type Out
   def apply(l: M): Out
 }
+
+trait LowPriorityColumnMeta {}
+
 object ColumnMeta {
-  type Aux[K, M <: FrameMeta, V <: ColMeta] = ColumnMeta[K, M] { type Out = V }
+  type Aux[K, M <: HList, Out0] = ColumnMeta[K, M] { type Out = Out0 }
 
-  def apply[K, M <: FrameMeta](implicit ev: ColumnMeta[K, M]) = ev
+  def apply[K, M <: HList](implicit ev: ColumnMeta[K, M]) = ev
 
-  implicit def columnTypeOfHead[K, H <: ColMeta, T <: FrameMeta](
-      implicit ev: H <:< ColMeta.KAux[K]): ColumnMeta.Aux[K, H ::: T, H] = {
-    new ColumnMeta[K, H ::: T] {
+  implicit def columnTypeOfHead[K, H, T <: HList](
+      implicit key: Key.Aux[H, K]): ColumnMeta.Aux[K, H :: T, H] = {
+    new ColumnMeta[K, H :: T] {
       override type Out = H
 
-      override def apply(l: H ::: T): H = l.head
+      override def apply(l: H :: T): H = l.head
     }
   }
-  implicit def columnTypeOfOthers[K,
-                                  H <: ColMeta,
-                                  T <: FrameMeta,
-                                  V <: ColMeta](
-      implicit ev: ColumnMeta.Aux[K, T, V],
-      ev2: H <:!< ColMeta.KAux[K]): ColumnMeta.Aux[K, H ::: T, V] = {
-    new ColumnMeta[K, H ::: T] {
-      override type Out = V
 
-      override def apply(l: H ::: T): V = ev.apply(l.tail)
+  implicit def columnTypeOfOthers[K, H, T <: HList, Out0](
+      implicit ev: ColumnMeta.Aux[K, T, Out0]): ColumnMeta.Aux[K, H :: T, Out0] = {
+    new ColumnMeta[K, H :: T] {
+      override type Out = Out0
+
+      override def apply(l: H :: T): Out = ev.apply(l.tail)
     }
   }
 }

@@ -26,9 +26,8 @@ object Swapped {
                              V,
                              F[_],
                              CM <: ColMeta.Aux[K, V, F],
-                             H <: ColMeta,
-                             T <: FrameMeta](
-      implicit ev2: H <:< ColMeta.KAux[K])
+                             H <: ColMeta[K],
+                             T <: FrameMeta]
     : Swapped.Aux[K, V, F, CM, H ::: T, CM ::: T] = {
     new Swapped[K, V, F, CM, H ::: T] {
       override type Out = CM ::: T
@@ -47,18 +46,19 @@ object Swapped {
   implicit def swappedOfOthers[K,
                                V,
                                F[_],
-                               CM <: ColMeta.Aux[K,V,F],
-                               H <: ColMeta,
+                               CM <: ColMeta.Aux[K, V, F],
+                               H <: ColMeta[_],
                                T <: FrameMeta,
                                TOut <: FrameMeta](
-      implicit tailSwap: Swapped.Aux[K,V,F,CM, T, TOut],
-      ev2: H <:!< ColMeta.KAux[K]): Swapped.Aux[K,V,F,CM, H ::: T, H ::: TOut] = {
-    new Swapped[K,V,F,CM, H ::: T] {
+      implicit tailSwap: Swapped.Aux[K, V, F, CM, T, TOut],
+      ev2: H <:!< ColMeta[K])
+    : Swapped.Aux[K, V, F, CM, H ::: T, H ::: TOut] = {
+    new Swapped[K, V, F, CM, H ::: T] {
       override type Out = H ::: TOut
 
       override def apply(df: DataFrame[:::[H, T]],
-                                     newColMeta: CM,
-                                     newValues: F[V]): DataFrame[H ::: TOut] = {
+                         newColMeta: CM,
+                         newValues: F[V]): DataFrame[H ::: TOut] = {
         val DataFrame(metaTail, columns) = tailSwap.apply(
           DataFrame(df.meta.tail, df.cols),
           newColMeta,

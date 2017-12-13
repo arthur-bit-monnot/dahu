@@ -1,13 +1,13 @@
 package dahu.dataframe
 
 import dahu.dataframe._
-import dahu.dataframe.metadata.{:::, ColMeta, EmptyFrame, IndexOf}
+import dahu.dataframe.metadata.{:::, ColMeta, EmptyFrame, ReverseIndexOfKey}
 import dahu.dataframe.vector.IndexedVector
 import org.scalatest.FreeSpec
 import shapeless.ops.hlist.Length
 import shapeless.ops.tuple.ToArray
 
-class Test extends FreeSpec {
+class DataFrameTest extends FreeSpec {
 
   import shapeless._
 
@@ -19,25 +19,26 @@ class Test extends FreeSpec {
     type Y = Y.type
     type Z = Z.type
 
-    val df = DataFrame.empty
-    val df2: DataFrame[ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df
-      .withColumn(X, Vector(1, 2, 3))
-      .withColumn(Y, Vector("a", "b", "c"))
+//    val df = DataFrame.empty
+//    val df2: DataFrame[ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df
+//      .withColumn(X, Vector(1, 2, 3))
+//      .withColumn(Y, Vector("a", "b", "c"))
 
-    assert(df2.indexOf[X] == 0)
-    assert(df2.indexOf[Y] == 1)
+//    assert(df2.indexOf[X] == 0)
+//    assert(df2.indexOf[Y] == 1)
 
-//    df2(X)
-    assert(df2(X).values == Vector(1, 2, 3))
-    assert(df2(Y).values == Vector("a", "b", "c"))
 
-    val df3: DataFrame[ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2(X).updated(0, 10)
-//    val df3 = df2.apply(X).updated(0, 10)
-    val sqdsqd: Column[Int, Vector, ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2.apply(X)
-    val xx: Vector[Int] = df3(X).values
-    val yy: Vector[String] = df3(Y).values
-    assert(df3(X).values == Vector(10, 2, 3))
-    assert(df2(Y).values == df3(Y).values)
+//    df2.apply(X)
+//    assert(df2(X).values == Vector(1, 2, 3))
+//    assert(df2(Y).values == Vector("a", "b", "c"))
+
+//    val df3: DataFrame[ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2(X).updated(0, 10)
+////    val df3 = df2.apply(X).updated(0, 10)
+//    val sqdsqd: Column[Int, Vector, ColMeta.Aux[Y, String, Vector] ::: ColMeta.Aux[X, Int, Vector] ::: EmptyFrame] = df2.apply(X)
+//    val xx: Vector[Int] = df3(X).values
+//    val yy: Vector[String] = df3(Y).values
+//    assert(df3(X).values == Vector(10, 2, 3))
+//    assert(df2(Y).values == df3(Y).values)
 
 //    assert(df3(X).swapped(Vector(1,2,3)).cols == df2.cols)
 //

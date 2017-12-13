@@ -2,27 +2,28 @@ package dahu.dataframe.metadata
 
 
 import org.scalatest.FreeSpec
+import shapeless._
 
 class MetadataTest extends FreeSpec {
 
-  trait IntCol extends ColMeta {
-    override type K = String
-    override type V = Int
-  }
-  trait StringCol extends ColMeta {
-    override type K = Symbol
-    override type V = String
-  }
+  object StringCol extends ColumMetadata[String, Int, Vector]
+  type StringCol = StringCol.type
+  case object SymbolColumn extends ColumMetadata[Symbol, Float, Vector]
+  type SymbolColumn = SymbolColumn.type
 
-  implicitly[ColumnMeta[String,  IntCol ::: StringCol ::: EmptyFrame]]
-  implicitly[ColumnMeta[Symbol,  IntCol ::: StringCol ::: EmptyFrame]]
-  implicitly[ColumnMeta[String,  StringCol ::: IntCol ::: EmptyFrame]]
-  implicitly[ColumnMeta[Symbol,  StringCol ::: IntCol ::: EmptyFrame]]
+  Key[StringCol]
+  Value[StringCol]
+
+
+  implicitly[ColumnMeta[String,  StringCol :: SymbolColumn :: HNil]]
+  implicitly[ColumnMeta[Symbol,  StringCol :: SymbolColumn :: HNil]]
+  implicitly[ColumnMeta[String,  SymbolColumn :: StringCol :: HNil]]
+  implicitly[ColumnMeta[Symbol,  SymbolColumn :: StringCol :: HNil]]
 
   "frame-metadata" - {
     "index" in {
-      assert(IndexOf[String, IntCol ::: StringCol ::: EmptyFrame].apply() == 1)
-      assert(IndexOf[Symbol, IntCol ::: StringCol ::: EmptyFrame].apply() == 0)
+      assert(ReverseIndexOfKey[String, StringCol :: SymbolColumn :: HNil].apply() == 1)
+      assert(ReverseIndexOfKey[Symbol, StringCol :: SymbolColumn :: HNil].apply() == 0)
     }
   }
 
