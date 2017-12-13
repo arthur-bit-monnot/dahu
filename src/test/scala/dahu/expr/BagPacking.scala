@@ -25,8 +25,6 @@ class BagPacking extends FreeSpec {
   val valid: Expr[Boolean]  = w <= W
   val utility: Expr[Double] = p1 * x1.toDouble + p2 * x2.toDouble
 
-  println(Algebras.encode(utility))
-
   val decisions = List(x1, x2)
 
   val possibleBinds = List(
