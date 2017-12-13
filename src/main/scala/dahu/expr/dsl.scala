@@ -1,22 +1,20 @@
 package dahu.expr
 
-
 import algebra.Order
 import algebra.ring.{AdditiveSemigroup, CommutativeRing, Field, MultiplicativeSemigroup}
 import spire.std.{DoubleAlgebra, IntAlgebra}
 
-import scala.reflect.runtime.universe.{Type, TypeTag, typeOf}
+import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
 import scala.language.implicitConversions
 
 package object dsl {
 
-
-  implicit class Fun2Ops[I1, I2, O : TypeTag](f: Fun2[I1, I2, O]) {
-    def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1,I2,O] =
+  implicit class Fun2Ops[I1, I2, O: TypeTag](f: Fun2[I1, I2, O]) {
+    def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
       Computation(f, i1, i2)
   }
 
-  def IF[T : TypeTag](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
+  def IF[T: TypeTag](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
     Computation(new dahu.expr.If[T], cond, t, f)
 
   implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
@@ -39,12 +37,11 @@ package object dsl {
 
   implicit class BooleanOps(a: Expr[Boolean]) {
     def toDouble: Expr[Double] = IF(a, Cst(1.0), Cst(0.0))
-    def toInt: Expr[Int] = IF(a, Cst(1), Cst(0))
+    def toInt: Expr[Int]       = IF(a, Cst(1), Cst(0))
   }
-
 
   // common algebra instances that we want to have by default
   implicit val doubleAlgebra: DoubleAlgebra = spire.std.double.DoubleAlgebra
-  implicit val intAlgebra: IntAlgebra = spire.std.int.IntAlgebra
+  implicit val intAlgebra: IntAlgebra       = spire.std.int.IntAlgebra
 
 }

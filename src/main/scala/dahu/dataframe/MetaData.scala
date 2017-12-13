@@ -17,9 +17,9 @@ object MetaData {
   def apply[H <: HList](implicit ev: MetaData[H]): MetaData[H] = ev
 
   implicit def meta[L <: HList, LF <: HList, S <: Nat](
-                                                        implicit natLen: Length.Aux[L, S],
-                                                        len: ToInt[S],
-                                                        evToList: ToTraversable[LF, List]): MetaData.Aux[L, LF] =
+      implicit natLen: Length.Aux[L, S],
+      len: ToInt[S],
+      evToList: ToTraversable[LF, List]): MetaData.Aux[L, LF] =
     new MetaData[L] {
       override type Fields = LF
       override val width: Int = len()
@@ -27,4 +27,3 @@ object MetaData {
       override def toList(l: Fields): List[Any] = evToList(l)
     }
 }
-

@@ -1,10 +1,9 @@
 package dahu.expr
 
-
 import dahu.recursion.Algebras
 import org.scalatest.FreeSpec
 
-import scalaz.{Failure, Success, Validation, \/-}
+import scalaz.{\/-, Failure, Success, Validation}
 
 class BagPacking extends FreeSpec {
 
@@ -22,12 +21,11 @@ class BagPacking extends FreeSpec {
 
   val W = Cst(3.0) // max allowed weight
 
-  val w: Expr[Double] = w1 * x1.toDouble + w2 * x2.toDouble
-  val valid: Expr[Boolean] = w <= W
+  val w: Expr[Double]       = w1 * x1.toDouble + w2 * x2.toDouble
+  val valid: Expr[Boolean]  = w <= W
   val utility: Expr[Double] = p1 * x1.toDouble + p2 * x2.toDouble
 
   println(Algebras.encode(utility))
-
 
   val decisions = List(x1, x2)
 
@@ -40,12 +38,12 @@ class BagPacking extends FreeSpec {
   final case class Error(msg: String) extends Throwable(msg)
 
   def evalBind(instantiations: Boolean*): Validation[Throwable, Double] = {
-    val binds = decisions.zip(instantiations).map{ case (variable, value)=> variable.bind(value) }
+    val binds = decisions.zip(instantiations).map { case (variable, value) => variable.bind(value) }
     Algebras.evaluate(valid, binds).leftMap(_.head) match {
       case Success(true) =>
         Algebras.evaluate(utility, binds).leftMap(_.head)
       case Success(false) => Failure(Error("Invalid instance"))
-      case Failure(x) => Failure(x)
+      case Failure(x)     => Failure(x)
     }
   }
 
@@ -60,11 +58,10 @@ class BagPacking extends FreeSpec {
     import dahu.interpreter._
     val ast = Algebras.encode(valid)
 
-    assert(evaluate(ast, Environment("x1" -> true, "x2" -> false)) == \/-(true))
-    assert(evaluate(ast, Environment("x1" -> true, "x2" -> true)) == \/-(false))
+    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == \/-(true))
+    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == \/-(false))
     assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == \/-(true))
     assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == \/-(false))
   }
-
 
 }

@@ -4,14 +4,15 @@ version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.12.4"
 
-libraryDependencies += "com.slamdata" %% "matryoshka-core" % "0.21.3"
-libraryDependencies += "org.typelevel" %% "spire" % "0.14.1"
-libraryDependencies += "org.scalatest" % "scalatest_2.12" % "3.0.4" % "test"
-libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.2"
+libraryDependencies += "com.slamdata"  %% "matryoshka-core" % "0.21.3"
+libraryDependencies += "org.typelevel" %% "spire"           % "0.14.1"
+libraryDependencies += "org.scalatest" % "scalatest_2.12"   % "3.0.4" % "test"
+libraryDependencies += "com.chuusai"   %% "shapeless"       % "2.3.2"
 
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
-  "-encoding", "UTF-8",
+  "-encoding",
+  "UTF-8",
   "-unchecked",
   "-deprecation",
 //  "-Xfuture",
@@ -24,8 +25,6 @@ scalacOptions ++= Seq(
   "-feature",
   "-language:higherKinds",
   "-language:existentials"
-
-
 )
 
 resolvers += Resolver.sonatypeRepo("releases")

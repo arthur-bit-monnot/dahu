@@ -8,12 +8,12 @@ import Scalaz._
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-final case class PrgState private(memory: Vector[V])
+final case class PrgState private (memory: Vector[V])
 object PrgState {
   def init(code: Code): PrgState = {
     val mem = code.forward.map {
       case cst: Cst => cst.value
-      case _ => null
+      case _        => null
     }
     PrgState(mem)
   }
@@ -42,24 +42,24 @@ final case class ExecutingPrg(ast: AST, state: PrgState) {
       }
 
       def eval(v: FunID): V = {
-        val f = ast.funAt(v).valueOr(throw _)
+        val f    = ast.funAt(v).valueOr(throw _)
         val args = f.args.map(memory(_))
         assert(!args.contains(null))
         f.fun.compute(args)
       }
 
-      while (stack.nonEmpty) {
-        val p@(variable, value) = stack.head
+      while(stack.nonEmpty) {
+        val p @ (variable, value) = stack.head
         stack -= p
-        if (value != memory(variable)) {
+        if(value != memory(variable)) {
           memory = memory.updated(variable, value)
           println(s"Updtated: $value -> $variable: ${ast.at(variable)}")
           println(memory)
           println("deps: " + ast.graph.varFunEdges.get(variable))
-          val dependencies = ast.graph.varFunEdges.getOrElse(variable, Set())
-          val dependenciesWithArgs = dependencies.map(x => ast.at(x))
+          val dependencies           = ast.graph.varFunEdges.getOrElse(variable, Set())
+          val dependenciesWithArgs   = dependencies.map(x => ast.at(x))
           val computableDependencies = dependencies.filter(fID => computable(fID))
-          for (fid <- computableDependencies) {
+          for(fid <- computableDependencies) {
             stack += ((fid, eval(fid)))
           }
         }

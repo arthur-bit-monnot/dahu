@@ -1,8 +1,6 @@
 package dahu.dataframe.metadata
 
-import dahu.dataframe.vector.Vec
 import shapeless._
-import shapeless.ops.nat.ToInt
 
 import scala.annotation.{implicitAmbiguous, implicitNotFound}
 @implicitNotFound(msg = "Could not find key `${K}` in frame metadata `${M}`")
@@ -30,8 +28,7 @@ object ColumnMeta extends LowPriorityColumnMeta {
 
   @implicitAmbiguous("Multiples types with the same key ${K} in ${H :: T}")
   implicit def columnTypeOfOthers[K, H, T <: HList, Out0](
-      implicit ev: ColumnMeta.Aux[K, T, Out0])
-    : ColumnMeta.Aux[K, H :: T, Out0] = {
+      implicit ev: ColumnMeta.Aux[K, T, Out0]): ColumnMeta.Aux[K, H :: T, Out0] = {
     new ColumnMeta[K, H :: T] {
       override type Out = Out0
 

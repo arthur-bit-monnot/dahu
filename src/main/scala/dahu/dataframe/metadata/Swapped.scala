@@ -10,7 +10,8 @@ trait Swapped[K, CM, MD <: HList] {
   type Out <: HList
 
   def apply[V, F[_]](df: DataFrame[MD], newColMeta: CM, newValues: F[V])(
-    implicit value: Value.Aux[CM, V], container: Container.Aux[CM, F]): DataFrame[Out]
+      implicit value: Value.Aux[CM, V],
+      container: Container.Aux[CM, F]): DataFrame[Out]
 }
 
 object Swapped {

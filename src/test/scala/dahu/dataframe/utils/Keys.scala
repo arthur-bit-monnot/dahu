@@ -13,7 +13,6 @@ object Keys {
   object Z
   type Z = Z.type
 
-
   case object XIntCol extends ColumMetadata[X, Int, Vector]
   type XIntCol = XIntCol.type
 

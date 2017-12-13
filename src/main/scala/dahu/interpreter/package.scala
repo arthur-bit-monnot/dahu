@@ -11,17 +11,15 @@ import scala.util.control.NonFatal
 
 package object interpreter {
 
-
-
   type VarID = Int
   type FunID = Int
-  type Expr = ResultF[VarID]
-  type Fun = ComputationF[VarID]
+  type Expr  = ResultF[VarID]
+  type Fun   = ComputationF[VarID]
   type Input = InputF[VarID]
-  type Cst = CstF[VarID]
+  type Cst   = CstF[VarID]
 
   final case class Code(forward: Vector[Expr], backward: Map[Expr, VarID]) {
-    require(backward.toSeq.forall { case (expr, id) => forward(id) == expr} )
+    require(backward.toSeq.forall { case (expr, id) => forward(id) == expr })
   }
 
   type VarName = String
@@ -31,10 +29,9 @@ package object interpreter {
     def right[T](value: T): Res[T] = \/-(value)
   }
 
-
   sealed abstract class Language
   final case class SetVar(input: Input, value: V) extends Language
-  final case class GetVar(output: VarID) extends Language
+  final case class GetVar(output: VarID)          extends Language
 
   type Hist = List[SetVar]
 
@@ -49,10 +46,11 @@ package object interpreter {
     def get(address: VarID): Res[V] =
       ast.at(address).flatMap {
         _ match {
-          case x: Input => environment.inputs.get(x.name) match {
-            case Some(x) => x.right
-            case None => Err(s"Input $x was not set").left
-          }
+          case x: Input =>
+            environment.inputs.get(x.name) match {
+              case Some(x) => x.right
+              case None    => Err(s"Input $x was not set").left
+            }
           case x: Cst => x.value.right
           case x: Fun => x.args.traverse(get(_)).map(x.fun.compute(_))
         }
@@ -61,10 +59,6 @@ package object interpreter {
     get(ast.head)
   }
 
-
   type V = Any
-
-
-
 
 }

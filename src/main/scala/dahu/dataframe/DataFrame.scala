@@ -6,9 +6,8 @@ import shapeless.{::, HList, HNil}
 
 case class DataFrame[MD <: HList](meta: MD, cols: Vector[_]) {
 
-  def withColumn[K0, V0, F0[_]](
-      key: K0,
-      values: F0[V0])(): DataFrame[ColumMetadata[K0, V0, F0] :: MD] = {
+  def withColumn[K0, V0, F0[_]](key: K0,
+                                values: F0[V0])(): DataFrame[ColumMetadata[K0, V0, F0] :: MD] = {
     type CM = ColumMetadata[K0, V0, F0]
     val colMeta: CM = new ColumMetadata[K0, V0, F0] {}
     new DataFrame[CM :: MD](colMeta :: meta, cols :+ values)
@@ -34,13 +33,10 @@ object DataFrame {
       df.cols(index()).asInstanceOf[F[V]]
     }
 
-    def apply[K](k: K)(
-        implicit wi: WithColumn[K, M]): Column[wi.V, wi.F, M] =
+    def apply[K](k: K)(implicit wi: WithColumn[K, M]): Column[wi.V, wi.F, M] =
       Column.from(df, k)
 
     def indexOf[K](implicit ev: ReverseIndexOfKey[K, M]): Int = ev()
-
-
 //    def indexed[K, V0, PrevCM <: ColMeta[K], Out <: FrameMeta](k: K)(
 //        implicit withCol: WithColumn.Aux[K, V0, Vector, M],
 //        swap: Swapped.Aux[K, V0, IndexedVector, ColMeta.Aux[K, V0, IndexedVector], M, Out],

@@ -2,11 +2,9 @@ package dahu.expr
 
 import org.scalatest.FunSpec
 
-
-import scala.reflect.runtime.universe.{Type, TypeTag, typeOf}
+import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
 
 class UnaryConstraints extends FunSpec {
-
 
 //  sealed abstract class Val[+A] {
 //    def flatMap[B](f: A => Val[B]): Val[B]
@@ -18,8 +16,6 @@ class UnaryConstraints extends FunSpec {
 //    override def flatMap[B](f: Nothing => Val[B]): Val[B] = this
 //  }
 //  type Val[T] = Option[T]
-
-
 //  def lift[T](value: T): Val[T] = Some(value)
 //  def subjectTo[T](value: Expr[T], constraint: Expr[Boolean]): Expr[Val[T]] = {
 //    dsl.IF(constraint, Some(value), None)

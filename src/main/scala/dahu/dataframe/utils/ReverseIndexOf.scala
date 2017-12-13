@@ -35,11 +35,9 @@ trait LowPriority {
 }
 
 object ReverseIndexOf extends LowPriority {
-  def apply[X, L <: HList](
-      implicit indexOf: ReverseIndexOf[X, L]): Aux[X, L, indexOf.Out] = indexOf
-
   type Aux[X, L <: HList, Out0] = ReverseIndexOf[X, L] { type Out = Out0 }
 
+  def apply[X, L <: HList](implicit indexOf: ReverseIndexOf[X, L]): Aux[X, L, indexOf.Out] = indexOf
 
   @implicitAmbiguous("Ambiguous implicit: Type ${X} appears multiple times in HList ${H} :: ${T}")
   implicit def indexOfOthers[X, H, T <: HList, N <: Nat](
