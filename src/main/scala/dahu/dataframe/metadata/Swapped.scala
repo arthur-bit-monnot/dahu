@@ -1,10 +1,10 @@
 package dahu.dataframe.metadata
 
 import dahu.dataframe.DataFrame
-import shapeless.{<:!<, HList}
+import shapeless.{::, HList}
 
 /**
-  * Given that the data frame as column X, with key CM.K returns a new dataframe metadata with X replaced by CM
+  * Given that the data frame as column X, with the same key K as CM returns a new dataframe with X replaced by CM
   */
 trait Swapped[K, CM, MD <: HList] {
   type Out <: HList
@@ -15,59 +15,40 @@ trait Swapped[K, CM, MD <: HList] {
 }
 
 object Swapped {
-//  type Aux[K,
-//           V,
-//           F[_],
-//           CM <: ColMeta.Aux[K, V, F],
-//           MD <: FrameMeta,
-//           Out0 <: FrameMeta] =
-//    Swapped[K, V, F, CM, MD] { type Out = Out0 }
+  type Aux[K, CM, MD <: HList, Out0 <: HList] =
+    Swapped[K, CM, MD] { type Out = Out0 }
 
-//  /** Head of metadata has the same key, switch it */
-//  implicit def swappedOfHead[K,
-//                             V,
-//                             F[_],
-//                             CM <: ColMeta.Aux[K, V, F],
-//                             H <: ColMeta[K],
-//                             T <: FrameMeta]
-//    : Swapped.Aux[K, V, F, CM, H ::: T, CM ::: T] = {
-//    new Swapped[K, V, F, CM, H ::: T] {
-//      override type Out = CM ::: T
-//
-//      override def apply(df: DataFrame[H ::: T],
-//                         newColMeta: CM,
-//                         newValues: F[V]): DataFrame[Out] = {
-//        DataFrame[CM ::: T](
-//          newColMeta ::: df.meta.tail,
-//          df.cols.updated(df.meta.size - 1, newValues)
-//        )
-//      }
-//    }
-//  }
-//
-//  implicit def swappedOfOthers[K,
-//                               V,
-//                               F[_],
-//                               CM <: ColMeta.Aux[K, V, F],
-//                               H <: ColMeta[_],
-//                               T <: FrameMeta,
-//                               TOut <: FrameMeta](
-//      implicit tailSwap: Swapped.Aux[K, V, F, CM, T, TOut],
-//      ev2: H <:!< ColMeta[K])
-//    : Swapped.Aux[K, V, F, CM, H ::: T, H ::: TOut] = {
-//    new Swapped[K, V, F, CM, H ::: T] {
-//      override type Out = H ::: TOut
-//
-//      override def apply(df: DataFrame[:::[H, T]],
-//                         newColMeta: CM,
-//                         newValues: F[V]): DataFrame[H ::: TOut] = {
-//        val DataFrame(metaTail, columns) = tailSwap.apply(
-//          DataFrame(df.meta.tail, df.cols),
-//          newColMeta,
-//          newValues)
-//        DataFrame[H ::: TOut](df.meta.head ::: metaTail, columns)
-//      }
-//
-//    }
-//  }
+  /** Head of metadata has the same key, switch it */
+  implicit def swappedOfHead[K, CM, H, T <: HList](
+      implicit prevKey: Key.Aux[H, K],
+      index: ReverseIndexOfKey[K, H :: T]): Swapped.Aux[K, CM, H :: T, CM :: T] = {
+    new Swapped[K, CM, H :: T] {
+      override type Out = CM :: T
+
+      override def apply[V, F[_]](df: DataFrame[H :: T], newColMeta: CM, newValues: F[V])(
+          implicit value: Value.Aux[CM, V],
+          container: Container.Aux[CM, F]
+      ): DataFrame[Out] = {
+        DataFrame[Out](
+          newColMeta :: df.meta.tail,
+          df.cols.updated(index(), newValues)
+        )
+      }
+    }
+  }
+
+  implicit def swappedOfOthers[K, CM, H, T <: HList, TOut <: HList](
+      implicit tailSwap: Swapped.Aux[K, CM, T, TOut]): Swapped.Aux[K, CM, H :: T, H :: TOut] = {
+    new Swapped[K, CM, H :: T] {
+      override type Out = H :: TOut
+
+      override def apply[V, F[_]](df: DataFrame[H :: T], newColMeta: CM, newValues: F[V])(
+          implicit value: Value.Aux[CM, V],
+          container: Container.Aux[CM, F]): DataFrame[H :: TOut] = {
+        val DataFrame(metaTail, columns) =
+          tailSwap.apply(DataFrame(df.meta.tail, df.cols), newColMeta, newValues)
+        DataFrame[H :: TOut](df.meta.head :: metaTail, columns)
+      }
+    }
+  }
 }

@@ -8,6 +8,7 @@ trait WithColumn[K, MD <: HList] {
   type V
   type F[_]
 
+  def size(df: DataFrame[MD]): Int
   def values(df: DataFrame[MD]): F[V]
   def get(df: DataFrame[MD], row: Int): V
   def updated(df: DataFrame[MD], row: Int, value: V): DataFrame[MD]
@@ -26,6 +27,8 @@ object WithColumn {
   ): WithColumn.Aux[K, V0, F0, M] = new WithColumn[K, M] {
     override type V    = V0
     override type F[x] = F0[x]
+
+    override def size(df: DataFrame[M]): Int = vec.size(values(df))
 
     override def values(df: DataFrame[M]): F0[V0] = df.cols(index()).asInstanceOf[F[V]]
 

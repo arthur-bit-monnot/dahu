@@ -1,20 +1,10 @@
 package dahu.dataframe.vector
 
+import dahu.dataframe.errors.{KeyDuplication, KeyMissing, KeyWronglyIndexed}
+
 final case class IndexedVector[A](v: Vector[A], index: Map[A, Int])
 
 object IndexedVector {
-
-  sealed abstract class IndexingError(msg: String) extends Throwable(msg)
-  final case class KeyDuplication[A](key: A)
-      extends IndexingError(s"Key $key is duplicated in an indexed vector")
-
-  final case class KeyMissing[A](key: A)
-      extends IndexingError(
-        s"Indexing error: value $key is not present in the index an indexed vector")
-
-  final case class KeyWronglyIndexed[A](key: A)
-      extends IndexingError(
-        s"Indexing error: value $key is not present in the index an indexed vector")
 
   implicit def vec[A]: Vec[IndexedVector, A] = new Vec[IndexedVector, A] {
     override def empty: IndexedVector[A] = IndexedVector(Vector(), Map())
