@@ -13,6 +13,8 @@ object IndexedVector {
 
     override def at(fa: IndexedVector[A], i: Int): A = fa.v(i)
 
+    override def values(fa: IndexedVector[A]): Iterable[A] = fa.v
+
     override def updated(fa: IndexedVector[A], i: Int, value: A): IndexedVector[A] = {
       val prev = at(fa, i)
       if(value != prev) {
@@ -33,6 +35,7 @@ object IndexedVector {
       val i = fa.v.size
       IndexedVector(fa.v :+ value, fa.index + ((value, i)))
     }
+
   }
 
   implicit def indexTypeclass[A]: Index[IndexedVector, A] = new Index[IndexedVector, A] {

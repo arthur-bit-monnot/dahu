@@ -5,14 +5,7 @@ import dahu.dataframe.metadata._
 import dahu.dataframe.vector.{IndexedVector, Vec}
 import shapeless.{::, HList, HNil}
 
-case class DataFrame[MD <: HList](meta: MD, cols: Vector[_]) {
-
-//
-//  def columnMetadata[K, KMeta <: ColMeta[K]](k: K)(
-//      implicit columnMeta: ColumnMeta.Aux[K, MD, KMeta]): KMeta =
-//    columnMeta.apply(meta)
-
-}
+case class DataFrame[MD <: HList](meta: MD, cols: Vector[_])
 
 object DataFrame {
 
@@ -41,8 +34,16 @@ object DataFrame {
       new DataFrame[CM :: M](colMeta :: df.meta, df.cols :+ values)
     }
 
-    def apply[K](k: K)(implicit wi: WithColumn[K, M]): Column[wi.V, wi.F, M] =
+    /** Base method to retrieve a column. The container type of the column is not required,
+      * which restricts the operations that can made on it.
+      * Look at {{{column()}}} for less restricted implementation. */
+    def apply[K, V](k: K)(implicit wi: WithColumn[K, V, M]): Column[V, M] =
       Column.from(df, k)
+
+    /** Way to retrieve a more feature full implementation of a column but
+      * that requires the container type. */
+    def column[K, V, F[_]](k: K)(implicit wi: WithColumn.Aux[K, V, F, M]): ColumnF[V, F, M] =
+      ColumnF.from(df, k)
 
     def indexOf[K](implicit ev: ReverseIndexOfKey[K, M]): Int = ev()
 

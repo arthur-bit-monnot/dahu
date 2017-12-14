@@ -1,6 +1,6 @@
 package dahu.dataframe
 
-import dahu.dataframe.metadata.Key
+import dahu.dataframe.metadata.{Key, Value}
 import shapeless.{::, HList, HNil}
 
 /**
@@ -17,13 +17,21 @@ trait RowNumber[MD <: HList] {
 
 object RowNumber {
 
-  implicit def sizeByHead[H, T <: HList, K](implicit key: Key.Aux[H, K],
-                                            withColumn: WithColumn[K, H :: T]): RowNumber[H :: T] =
+  implicit def sizeByHead[H, V, T <: HList, K](
+      implicit key: Key.Aux[H, K],
+      value: Value.Aux[H, V],
+      withColumn: WithColumn[K, V, H :: T]): RowNumber[H :: T] =
     new RowNumber[H :: T] {
       override def apply(df: DataFrame[H :: T]): Option[Int] = Some(withColumn.size(df))
     }
 
   implicit def sizeOfEmpty: RowNumber[HNil] = new RowNumber[HNil] {
     override def apply(df: DataFrame[HNil]): Option[Int] = None
+  }
+
+  /** If we have an evidence that there is a column in this dataframe, reuse this one to compute the size. */
+  implicit def rowNumberFromWithColumn[K, V, MD <: HList](
+      implicit withColumn: WithColumn[K, V, MD]): RowNumber[MD] = new RowNumber[MD] {
+    override def apply(df: DataFrame[MD]): Option[Int] = Some(withColumn.size(df))
   }
 }

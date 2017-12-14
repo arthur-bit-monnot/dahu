@@ -27,21 +27,21 @@ class DataFrameTest extends FreeSpec {
 
     "updates" in {
       val df3                    = df2.apply(X).updated(0, 10)
-      val typed1: Vector[Int]    = df3(X).values
-      val typed2: Vector[Symbol] = df3(Y).values
+      val typed1: Vector[Int]    = df3.column(X).content
+      val typed2: Vector[Symbol] = df3.column(Y).content
       assert(df3(X).values == Vector(10, 2, 3))
       assert(df2(Y).values == df3(Y).values)
 
-      assert(df3(X).swapped(Vector(1, 2, 3)).cols == df2.cols)
+      assert(df3.column(X).swapped(Vector(1, 2, 3)).cols == df2.cols)
 
-      assert(df3(X).get(0) == 10)
-      assert(df3(X).get(1) == 2)
-      assert(df3(X).get(2) == 3)
+      assert(df3(X).valueAt(0) == 10)
+      assert(df3(X).valueAt(1) == 2)
+      assert(df3(X).valueAt(2) == 3)
 
       val times10Col = df2(X).values.map(_ * 10)
-      val df4        = df3.withColumn(Z, times10Col)
+      val df4        = df3.withColumn(Z, times10Col.toVector)
 
-      val typed3: Vector[Int] = df4(Z).values
+      val typed3: Vector[Int] = df4.column(Z).content
       assert(df4(Z).values == Vector(10, 20, 30))
     }
 
@@ -50,18 +50,18 @@ class DataFrameTest extends FreeSpec {
     }
 
     "indexing" in {
-      val xIndexed                               = df2.indexed(X)
-      val yIndexed                               = df2.indexed(Y)
-      val colY: Column[Symbol, IndexedVector, _] = yIndexed.apply(Y)
-      val qsdsqd: IndexedVector[Symbol]          = colY.values
+      val xIndexed                                = df2.indexed(X)
+      val yIndexed                                = df2.indexed(Y)
+      val colY: ColumnF[Symbol, IndexedVector, _] = yIndexed.column(Y)
+      val qsdsqd: IndexedVector[Symbol]           = colY.content
 
       assert(yIndexed(X).values == Vector(1, 2, 3))
-      assert(yIndexed(Y).values.v == Vector('a, 'b, 'c))
+      assert(yIndexed(Y).values == Vector('a, 'b, 'c))
 
       val df10 = yIndexed(Y).updated(0, 'd)
       val df11 = df10(Y).updated(1, 'a)
 
-      assert(df11(Y).values.v == Vector('d, 'a, 'c))
+      assert(df11(Y).values == Vector('d, 'a, 'c))
 
       assertThrows[KeyDuplication[Symbol]](df11(Y).updated(2, 'd))
 

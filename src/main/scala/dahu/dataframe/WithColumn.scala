@@ -4,40 +4,46 @@ import dahu.dataframe.metadata._
 import dahu.dataframe.vector.Vec
 import shapeless.HList
 
-trait WithColumn[K, MD <: HList] {
-  type V
+trait WithColumn[K, V, MD <: HList] {
   type F[_]
 
-  def size(df: DataFrame[MD]): Int
-  def values(df: DataFrame[MD]): F[V]
-  def get(df: DataFrame[MD], row: Int): V
-  def updated(df: DataFrame[MD], row: Int, value: V): DataFrame[MD]
-  def swapped(df: DataFrame[MD], values: F[V]): DataFrame[MD]
+  protected val vecInstance: Vec[F, V]
+
+  /** Index of the column in the dataframe's internal structure. */
+  protected val indexInDataFrame: Int
+
+  def columnContent(df: DataFrame[MD]): F[V] = df.cols(indexInDataFrame).asInstanceOf[F[V]]
+
+  def size(df: DataFrame[MD]): Int = vecInstance.size(columnContent(df))
+
+  def valueAt(df: DataFrame[MD], row: Int): V = vecInstance.at(columnContent(df), row)
+
+  def values(df: DataFrame[MD]): Iterable[V] = vecInstance.values(columnContent(df))
+
+  def updated(df: DataFrame[MD], row: Int, value: V): DataFrame[MD] =
+    new DataFrame[MD](
+      df.meta,
+      df.cols.updated(indexInDataFrame, vecInstance.updated(columnContent(df), row, value)))
+
+  /** Replaces the content of the column by the one provided. */
+  def swapped(df: DataFrame[MD], values: F[V]): DataFrame[MD] =
+    new DataFrame[MD](df.meta, df.cols.updated(indexInDataFrame, values))
 }
 
 object WithColumn {
-  type Aux[K, V0, F0[_], MD <: HList] = WithColumn[K, MD] { type V = V0; type F[T] = F0[T] }
+  type Aux[K, V, F0[_], MD <: HList] = WithColumn[K, V, MD] { type F[T] = F0[T] }
 
-  implicit def withColumn[K, V0, F0[_], CM, M <: HList](
+  implicit def withColumn[K, V, F0[_], CM, M <: HList](
       implicit index: ReverseIndexOfKey[K, M],
       meta: ColumnMeta.Aux[K, M, CM],
-      value: Value.Aux[CM, V0],
+      value: Value.Aux[CM, V],
       container: Container.Aux[CM, F0],
-      vec: Vec[F0, V0]
-  ): WithColumn.Aux[K, V0, F0, M] = new WithColumn[K, M] {
-    override type V    = V0
+      vec: Vec[F0, V]
+  ): WithColumn.Aux[K, V, F0, M] = new WithColumn[K, V, M] {
     override type F[x] = F0[x]
 
-    override def size(df: DataFrame[M]): Int = vec.size(values(df))
-
-    override def values(df: DataFrame[M]): F0[V0] = df.cols(index()).asInstanceOf[F[V]]
-
-    override def get(df: DataFrame[M], row: Int): V0 = vec.at(values(df), row)
-
-    override def updated(df: DataFrame[M], row: Int, value: V0): DataFrame[M] =
-      new DataFrame[M](df.meta, df.cols.updated(index(), vec.updated(values(df), row, value)))
-
-    override def swapped(df: DataFrame[M], values: F0[V0]): DataFrame[M] =
-      new DataFrame[M](df.meta, df.cols.updated(index(), values))
+    override protected val indexInDataFrame: Int   = index()
+    override protected val vecInstance: Vec[F0, V] = vec
   }
+
 }
