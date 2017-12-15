@@ -9,9 +9,6 @@ trait WithColumn[K, V, D] {
 
   protected val vecInstance: Vec[F, V]
 
-  /** Index of the column in the dataframe's internal structure. */
-  protected val indexInDataFrame: Int
-
   def columnContent(df: D): F[V]
 
   def size(df: D): Int = vecInstance.size(columnContent(df))
@@ -29,6 +26,21 @@ trait WithColumn[K, V, D] {
 object WithColumn {
   type Aux[K, V, F0[_], D] = WithColumn[K, V, D] { type F[T] = F0[T] }
 
+  def extractColumn[K, V, F0[_], D](k: K, extract: D => F0[V], update: (D, F0[V]) => D)(
+      implicit vec: Vec[F0, V]): WithColumn.Aux[K, V, F0, D] =
+    new WithColumn[K, V, D] {
+      override type F[x] = F0[x]
+      override protected val vecInstance: Vec[F, V] = vec
+
+      override def columnContent(d: D): F[V] = extract(d)
+
+      override def updated(d: D, row: Int, value: V): D =
+        update(d, vecInstance.updated(extract(d), row, value))
+
+      override def swapped(d: D, values: F[V]): D =
+        update(d, values)
+    }
+
   implicit def withColumn[K, V, F0[_], CM, M <: HList](
       implicit index: ReverseIndexOfKey[K, M],
       meta: ColumnMeta.Aux[K, M, CM],
@@ -38,7 +50,7 @@ object WithColumn {
   ): WithColumn.Aux[K, V, F0, DF[M]] = new WithColumn[K, V, DF[M]] {
     override type F[x] = F0[x]
     type D             = DF[M]
-    override protected val indexInDataFrame: Int   = index()
+    private val indexInDataFrame: Int              = index()
     override protected val vecInstance: Vec[F0, V] = vec
 
     override def columnContent(df: DF[M]): F[V] =

@@ -14,6 +14,8 @@ trait Vec[F[_], A] {
 
 object Vec {
 
+  def apply[F[_], A](implicit instance: Vec[F, A]): Vec[F, A] = instance
+
   implicit def ofVector[A]: Vec[Vector, A] = new Vec[Vector, A] {
     override def empty: Vector[A]         = Vector()
     override def size(fa: Vector[A]): Int = fa.size

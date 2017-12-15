@@ -1,8 +1,20 @@
 package dahu.dataframe
 
 import dahu.dataframe.errors.{ColumnsOfDifferentSizes, KeyDuplication}
-import dahu.dataframe.vector.IndexedVector
+import dahu.dataframe.vector.{IndexedVector, Vec}
 import org.scalatest.FreeSpec
+
+/** Marker class that provides extension methods for subclasses */
+trait ColumnContainer
+
+object ColumnContainer {
+
+  implicit class ColumnContainerOps[D <: ColumnContainer](val d: D) extends AnyVal {
+    def column[K, V](k: K)(implicit wi: WithColumn[K, V, D]): Column[V, D] =
+      Column.from(d, k)
+  }
+
+}
 
 class DataFrameTest extends FreeSpec {
 
@@ -64,6 +76,35 @@ class DataFrameTest extends FreeSpec {
       assert(df11(Y).values == Vector('d, 'a, 'c))
 
       assertThrows[KeyDuplication[Symbol]](df11(Y).updated(2, 'd))
+
+    }
+
+    "nesting" in {
+
+      case class AB(col1: Vector[Int], col2: Vector[Double]) extends ColumnContainer
+      object AB {
+        object A
+        type A = A.type
+        object B
+        type B = B.type
+
+        implicit val withColumn1: WithColumn.Aux[A, Int, Vector, AB] =
+          WithColumn.extractColumn[A, Int, Vector, AB](A, _.col1, (d, vs) => d.copy(col1 = vs))
+
+        implicit val withColumn2: WithColumn.Aux[B, Double, Vector, AB] =
+          WithColumn.extractColumn[B, Double, Vector, AB](B, _.col2, (d, vs) => d.copy(col2 = vs))
+      }
+
+      val ab = AB(Vector(1, 2, 3), Vector(1.0, 2.0, 3.0))
+
+      ab.column(AB.A)
+      assert(ab.column(AB.A).valueAt(0) == 1)
+      assert(ab.column(AB.A).valueAt(1) == 2)
+      assert(ab.column(AB.A).valueAt(2) == 3)
+
+      assert(ab.column(AB.B).valueAt(0) == 1.0)
+      assert(ab.column(AB.B).valueAt(1) == 2.0)
+      assert(ab.column(AB.B).valueAt(2) == 3.0)
 
     }
   }
