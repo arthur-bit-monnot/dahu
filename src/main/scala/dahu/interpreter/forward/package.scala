@@ -6,6 +6,7 @@ package object forward {
 
   def evaluate(ast: AST, environment: Environment): Res[V] = {
     val prg = ExecutingPrg(ast, PrgState.init(ast))
+
     val updated = environment.inputs.toSeq.foldLeft(Right(prg): Either[Throwable, ExecutingPrg]) {
       case (pOpt, (variable, value)) =>
         for {

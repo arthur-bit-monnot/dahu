@@ -6,7 +6,7 @@ import dahu.interpreter.ast.AST
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import cats.syntax.either._
-import shapeless.HList
+
 
 final case class PrgState private (memory: Vector[V])
 object PrgState {

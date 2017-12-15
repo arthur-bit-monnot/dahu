@@ -23,6 +23,9 @@ object Columns {
 
 }
 
+import cats._
+import cats.implicits._
+
 final case class ComputationGraph(code: Code) {
   val varFunEdges: Map[VarID, Set[VarID]] =
     code.forward.zipWithIndex
@@ -64,6 +67,7 @@ final case class AST(head: VarID, private val inputCode: IndexedSeq[Expr]) exten
 
   def at(address: VarID): Res[Expr] = Try(code.vector(address)).toEither
 
+
   def funAt(address: FunID): Res[Fun] = at(address) match {
     case valid @ Right(x: Fun) => Right(x)
     case Right(x)              => Left(Err(s"Expected a Fun got: $x"))
@@ -74,6 +78,7 @@ final case class AST(head: VarID, private val inputCode: IndexedSeq[Expr]) exten
     inputs
       .collectFirst { case x if x.name == name => x }
       .toRight(Err(s"Found no input named $name"))
+
 }
 
 object AST {
@@ -94,5 +99,4 @@ object AST {
       _.dependencyGraph,
       (d, vs) => ??? // TODO provide encoding for immutable columns
     )
-
 }
