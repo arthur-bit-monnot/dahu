@@ -8,7 +8,7 @@ class DataFrameTest extends FreeSpec {
 
   import utils.Keys._
 
-  val df  = DataFrame.empty
+  val df  = DF.empty
   val df1 = df.withColumn(X, Vector(1, 2, 3))
   val df2 = df1.withColumn(Y, Vector('a, 'b, 'c))
 

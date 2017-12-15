@@ -6,6 +6,7 @@ import dahu.interpreter.ast.AST
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import cats.syntax.either._
+import shapeless.HList
 
 final case class PrgState private (memory: Vector[V])
 object PrgState {
@@ -18,13 +19,13 @@ object PrgState {
   }
 }
 
-final case class ExecutingPrg(ast: AST, state: PrgState) {
+final case class ExecutingPrg[MD <: HList](ast: AST[MD], state: PrgState) {
 
   def get(v: VarID): Res[V] = {
     Right(state.memory.apply(v))
   }
 
-  def update(v: VarID, value: V): Res[ExecutingPrg] = {
+  def update(v: VarID, value: V): Res[ExecutingPrg[MD]] = {
     if(v >= state.memory.size)
       return Left(Err(s"Address out of Memory: $v"))
 
@@ -51,12 +52,13 @@ final case class ExecutingPrg(ast: AST, state: PrgState) {
         stack -= p
         if(value != memory(variable)) {
           memory = memory.updated(variable, value)
-          val dependencies           = ast.graph.varFunEdges.getOrElse(variable, Set())
-          val dependenciesWithArgs   = dependencies.map(x => ast.at(x))
-          val computableDependencies = dependencies.filter(fID => computable(fID))
-          for(fid <- computableDependencies) {
-            stack += ((fid, eval(fid)))
-          }
+          ???
+//          val dependencies           = ast.graph.varFunEdges.getOrElse(variable, Set())
+//          val dependenciesWithArgs   = dependencies.map(x => ast.at(x))
+//          val computableDependencies = dependencies.filter(fID => computable(fID))
+//          for(fid <- computableDependencies) {
+//            stack += ((fid, eval(fid)))
+//          }
         }
       }
       Right(this.copy(state = PrgState(memory)))

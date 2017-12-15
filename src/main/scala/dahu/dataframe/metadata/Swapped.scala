@@ -1,6 +1,6 @@
 package dahu.dataframe.metadata
 
-import dahu.dataframe.DataFrame
+import dahu.dataframe.DF
 import shapeless.{::, HList}
 
 /**
@@ -9,9 +9,9 @@ import shapeless.{::, HList}
 trait Swapped[K, CM, MD <: HList] {
   type Out <: HList
 
-  def apply[V, F[_]](df: DataFrame[MD], newColMeta: CM, newValues: F[V])(
+  def apply[V, F[_]](df: DF[MD], newColMeta: CM, newValues: F[V])(
       implicit value: Value.Aux[CM, V],
-      container: Container.Aux[CM, F]): DataFrame[Out]
+      container: Container.Aux[CM, F]): DF[Out]
 }
 
 object Swapped {
@@ -25,11 +25,11 @@ object Swapped {
     new Swapped[K, CM, H :: T] {
       override type Out = CM :: T
 
-      override def apply[V, F[_]](df: DataFrame[H :: T], newColMeta: CM, newValues: F[V])(
+      override def apply[V, F[_]](df: DF[H :: T], newColMeta: CM, newValues: F[V])(
           implicit value: Value.Aux[CM, V],
           container: Container.Aux[CM, F]
-      ): DataFrame[Out] = {
-        DataFrame[Out](
+      ): DF[Out] = {
+        DF[Out](
           newColMeta :: df.meta.tail,
           df.cols.updated(index(), newValues)
         )
@@ -42,12 +42,12 @@ object Swapped {
     new Swapped[K, CM, H :: T] {
       override type Out = H :: TOut
 
-      override def apply[V, F[_]](df: DataFrame[H :: T], newColMeta: CM, newValues: F[V])(
+      override def apply[V, F[_]](df: DF[H :: T], newColMeta: CM, newValues: F[V])(
           implicit value: Value.Aux[CM, V],
-          container: Container.Aux[CM, F]): DataFrame[H :: TOut] = {
-        val DataFrame(metaTail, columns) =
-          tailSwap.apply(DataFrame(df.meta.tail, df.cols), newColMeta, newValues)
-        DataFrame[H :: TOut](df.meta.head :: metaTail, columns)
+          container: Container.Aux[CM, F]): DF[H :: TOut] = {
+        val DF(metaTail, columns) =
+          tailSwap.apply(DF(df.meta.tail, df.cols), newColMeta, newValues)
+        DF[H :: TOut](df.meta.head :: metaTail, columns)
       }
     }
   }

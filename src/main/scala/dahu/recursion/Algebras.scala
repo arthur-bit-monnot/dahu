@@ -1,5 +1,6 @@
 package dahu.recursion
 
+import dahu.dataframe.DF
 import dahu.expr._
 import dahu.recursion.TypeAlias._
 import matryoshka._
@@ -14,6 +15,7 @@ import Scalaz._
 import dahu.expr.Bind
 import dahu.interpreter
 import dahu.interpreter.ast.AST
+import dahu.interpreter.ast.Columns.{CodeColumn, CodeKey}
 
 import scala.collection.mutable
 
@@ -82,7 +84,8 @@ object Algebras {
   def pprint(prg: Expr[_]): String =
     rec.cata(prg)(printAlgebra)
 
-  def encode(in: Expr[Any]): AST = {
+  import shapeless.{::, HNil}
+  def encode(in: Expr[Any]): (interpreter.VarID, DF[CodeColumn :: HNil]) = {
     import dahu.interpreter._
     val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
     val alg: Algebra[ResultF, VarID] = e => {
@@ -91,8 +94,11 @@ object Algebras {
 
     val head = in.hylo(alg, coalgebra)
     val code = store.toVector.sortBy(_._2).map(_._1)
+    assert(store(code(0)) == 0)
+    assert(store(code(code.size - 1)) == code.size - 1)
+    val df: DF[CodeColumn :: HNil] = DF.empty.withColumn(CodeKey, code).indexed(CodeKey)
 
-    AST(head, Code(code, store.toMap))
+    (head, df)
   }
 
 }

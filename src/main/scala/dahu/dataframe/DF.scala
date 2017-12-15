@@ -5,14 +5,14 @@ import dahu.dataframe.metadata._
 import dahu.dataframe.vector.{IndexedVector, Vec}
 import shapeless.{::, HList, HNil}
 
-case class DataFrame[MD <: HList](meta: MD, cols: Vector[_])
+case class DF[MD <: HList](meta: MD, cols: Vector[_])
 
-object DataFrame {
+object DF {
 
-  def empty: DataFrame[HNil] =
-    new DataFrame[HNil](HNil, Vector())
+  def empty: DF[HNil] =
+    new DF[HNil](HNil, Vector())
 
-  implicit class DFOps[M <: HList](val df: DataFrame[M]) extends AnyVal {
+  implicit class DFOps[M <: HList](val df: DF[M]) extends AnyVal {
 
     def raw[K, CM, V, F[_]](k: K)(implicit meta: ColumnMeta.Aux[K, M, CM],
                                   value: Value.Aux[CM, V],
@@ -23,7 +23,7 @@ object DataFrame {
 
     def withColumn[K0, V0, F0[_]](key: K0, values: F0[V0])(
         implicit size: RowNumber[M],
-        vec: Vec[F0, V0]): DataFrame[ColumMetadata[K0, V0, F0] :: M] = {
+        vec: Vec[F0, V0]): DF[ColumMetadata[K0, V0, F0] :: M] = {
       size(df) match {
         case Some(x) if x != vec.size(values) =>
           throw ColumnsOfDifferentSizes(s"New column $key has size ${vec.size(values)} != $x")
@@ -31,18 +31,19 @@ object DataFrame {
       }
       type CM = ColumMetadata[K0, V0, F0]
       val colMeta: CM = new ColumMetadata[K0, V0, F0] {}
-      new DataFrame[CM :: M](colMeta :: df.meta, df.cols :+ values)
+      new DF[CM :: M](colMeta :: df.meta, df.cols :+ values)
     }
 
     /** Base method to retrieve a column. The container type of the column is not required,
       * which restricts the operations that can made on it.
       * Look at {{{column()}}} for less restricted implementation. */
-    def apply[K, V](k: K)(implicit wi: WithColumn[K, V, M]): Column[V, M] =
+    def apply[K, V](k: K)(implicit wi: WithColumn[K, V, DF[M]]): Column[V, DF[M]] =
       Column.from(df, k)
 
     /** Way to retrieve a more feature full implementation of a column but
       * that requires the container type. */
-    def column[K, V, F[_]](k: K)(implicit wi: WithColumn.Aux[K, V, F, M]): ColumnF[V, F, M] =
+    def column[K, V, F[_]](k: K)(
+        implicit wi: WithColumn.Aux[K, V, F, DF[M]]): ColumnF[V, F, DF[M]] =
       ColumnF.from(df, k)
 
     def indexOf[K](implicit ev: ReverseIndexOfKey[K, M]): Int = ev()
@@ -52,7 +53,7 @@ object DataFrame {
         value: Value.Aux[PrevCM, V0],
         container: Container.Aux[PrevCM, Vector],
         swapped: Swapped.Aux[K, ColumMetadata[K, V0, IndexedVector], M, MOut],
-        index: ReverseIndexOfKey[K, M]): DataFrame[MOut] = {
+        index: ReverseIndexOfKey[K, M]): DF[MOut] = {
       val v: Vector[V0]     = raw(k)
       val map: Map[V0, Int] = v.zipWithIndex.toMap
       val col               = IndexedVector[V0](v, map)

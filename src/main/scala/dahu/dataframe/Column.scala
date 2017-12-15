@@ -7,30 +7,28 @@ import shapeless.HList
   * Column view that is independent of the container.
   *
   * @tparam V Field type
-  * @tparam MD Metadata of the dataframe containing this column.
+  * @tparam D Type of the datastructure containing the column
   */
-trait Column[V, MD <: HList] {
+trait Column[V, D] {
   def size: Int
   def values: Iterable[V]
   def valueAt(row: Int): V
-  def updated(row: Int, value: V): DataFrame[MD]
+  def updated(row: Int, value: V): D
 }
 
 object Column {
 
-  class ColumnImpl[K, V, MD <: HList](df: DataFrame[MD], wi: WithColumn[K, V, MD])
-      extends Column[V, MD] {
+  class ColumnImpl[K, V, D](df: D, wi: WithColumn[K, V, D]) extends Column[V, D] {
     override def size: Int = wi.size(df)
 
     override def valueAt(row: Int): V = wi.valueAt(df, row)
 
     override def values: Iterable[V] = wi.values(df)
 
-    override def updated(row: Int, value: V): DataFrame[MD] = wi.updated(df, row, value)
+    override def updated(row: Int, value: V): D = wi.updated(df, row, value)
   }
 
-  def from[K, V, MD <: HList](df: DataFrame[MD], k: K)(
-      implicit wi: WithColumn[K, V, MD]): Column[V, MD] =
+  def from[K, V, D](df: D, k: K)(implicit wi: WithColumn[K, V, D]): Column[V, D] =
     new ColumnImpl(df, wi)
 }
 
@@ -39,24 +37,39 @@ object Column {
   *
   * @tparam V Type of the fields
   * @tparam F Container type.
-  * @tparam MD Metadata of the dataframe
+  * @tparam D Type of the data structure containing the column
   */
-trait ColumnF[V, F[_], MD <: HList] extends Column[V, MD] {
+trait ColumnF[V, F[_], D] extends Column[V, D] {
   def content: F[V]
-  def swapped(values: F[V]): DataFrame[MD]
+  def swapped(values: F[V]): D
 }
 
 object ColumnF {
 
-  class ColumnFImpl[K, V, F[_], MD <: HList](df: DataFrame[MD], wi: WithColumn.Aux[K, V, F, MD])
+  class ColumnFImpl[K, V, F[_], D](df: D, wi: WithColumn.Aux[K, V, F, D])
       extends ColumnImpl(df, wi)
-      with ColumnF[V, F, MD] {
+      with ColumnF[V, F, D] {
     override def content: F[V] = wi.columnContent(df)
 
-    override def swapped(values: F[V]): DataFrame[MD] = wi.swapped(df, values)
+    override def swapped(values: F[V]): D = wi.swapped(df, values)
   }
 
-  def from[K, V, F[_], MD <: HList](df: DataFrame[MD], k: K)(
-      implicit wi: WithColumn.Aux[K, V, F, MD]): ColumnF[V, F, MD] =
+  def from[K, V, F[_], D](df: D, k: K)(implicit wi: WithColumn.Aux[K, V, F, D]): ColumnF[V, F, D] =
     new ColumnFImpl(df, wi)
+}
+
+trait IndexedColumn[V, MD <: HList] {
+  def id(v: V): Option[Int]
+  def contains(v: V): Boolean
+  def idUnsafe(v: V): Int
+}
+object IndexedColumn {
+
+  def from[K, V, MD <: HList](df: DF[MD], k: K)(
+      implicit wi: WithIndex[K, V, MD]): IndexedColumn[V, MD] =
+    new IndexedColumn[V, MD] {
+      override def id(v: V): Option[Int]   = wi.id(df, v)
+      override def contains(v: V): Boolean = wi.contains(df, v)
+      override def idUnsafe(v: V): Int     = wi.idUnsafe(df, v)
+    }
 }
