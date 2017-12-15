@@ -2,18 +2,21 @@ package dahu.dataframe.vector
 
 import dahu.dataframe.errors.{KeyDuplication, KeyMissing, KeyWronglyIndexed}
 
-final case class IndexedVector[A](v: Vector[A], index: Map[A, Int])
+final case class IndexedVector[A](vector: Vector[A], index: Map[A, Int])
 
 object IndexedVector {
+
+  def from[A](fa: Vector[A]): IndexedVector[A] =
+    IndexedVector(fa, fa.zipWithIndex.toMap)
 
   implicit def vec[A]: Vec[IndexedVector, A] = new Vec[IndexedVector, A] {
     override def empty: IndexedVector[A] = IndexedVector(Vector(), Map())
 
-    override def size(fa: IndexedVector[A]): Int = fa.v.size
+    override def size(fa: IndexedVector[A]): Int = fa.vector.size
 
-    override def at(fa: IndexedVector[A], i: Int): A = fa.v(i)
+    override def at(fa: IndexedVector[A], i: Int): A = fa.vector(i)
 
-    override def values(fa: IndexedVector[A]): Iterable[A] = fa.v
+    override def values(fa: IndexedVector[A]): Iterable[A] = fa.vector
 
     override def updated(fa: IndexedVector[A], i: Int, value: A): IndexedVector[A] = {
       val prev = at(fa, i)
@@ -22,7 +25,7 @@ object IndexedVector {
         if(fa.index(prev) != i) throw KeyWronglyIndexed(prev)
         if(fa.index.contains(value)) throw KeyDuplication(value)
 
-        val newVector = fa.v.updated(i, value)
+        val newVector = fa.vector.updated(i, value)
         val newMap    = (fa.index - prev) + ((value, i))
         IndexedVector(newVector, newMap)
       } else {
@@ -31,9 +34,9 @@ object IndexedVector {
     }
 
     override def withAppended(fa: IndexedVector[A], value: A): IndexedVector[A] = {
-      if(fa.v.contains(value)) throw KeyDuplication(value)
-      val i = fa.v.size
-      IndexedVector(fa.v :+ value, fa.index + ((value, i)))
+      if(fa.vector.contains(value)) throw KeyDuplication(value)
+      val i = fa.vector.size
+      IndexedVector(fa.vector :+ value, fa.index + ((value, i)))
     }
 
   }

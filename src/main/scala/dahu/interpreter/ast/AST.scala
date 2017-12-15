@@ -34,23 +34,35 @@ final case class ComputationGraph(code: Code) {
       .mapValues(_.map(_._2).toSet)
 }
 
-final case class AST[Cols <: HList](head: VarID, dataFrame: DF[Cols])(
-    implicit withCode: WithColumn[CodeKey, Expr, Cols],
-    withIndexedCode: WithIndex[CodeKey, Expr, Cols]
-) {
-//  private val code  = dataFrame(CodeKey)
-//  private val index = IndexedColumn.from(dataFrame, CodeKey)
+final case class AST(head: VarID, private val inputCode: IndexedSeq[Expr]) extends ColumnContainer {
 
-  override def toString: String = ???
-//    s"AST: $head\n" + code.values.zipWithIndex
-//      .map { case (e, i) => s"$i -> $e" }
-//      .mkString("  ", "\n  ", "")
+  val code: IndexedVector[Expr] = IndexedVector.from(inputCode.toVector)
+  val dependencyGraph: Vector[Set[VarID]] = {
+    val x = code.vector.zipWithIndex
+      .collect {
+        case (x: Fun, id) => x.args.map(varID => (varID, id)).toVector
+      }
+      .flatten
+      .groupBy(_._1)
+      .mapValues(_.map(_._2).toSet)
 
-  lazy val inputs: Seq[Input]      = ??? //code.values.collect { case x: Input => x }.toSeq
-  def address(i: Expr): Res[VarID] = ???
-//    index.id(i).toRight(Err(s"No expr $i"))
+    val arr: Array[Set[VarID]] = Array.fill(code.vector.size)(Set())
+    for((k, v) <- x) {
+      arr(k) = v
+    }
+    arr.toVector
+  }
 
-  def at(address: VarID): Res[Expr] = ??? // Try(code.valueAt(address)).toEither
+  override def toString: String =
+    s"AST: $head\n" + code.vector.zipWithIndex
+      .map { case (e, i) => s"$i -> $e" }
+      .mkString("  ", "\n  ", "")
+
+  lazy val inputs: Seq[Input]      = code.vector.collect { case x: Input => x }
+  def address(i: Expr): Res[VarID] =
+    code.index.get(i).toRight(Err(s"No expr $i"))
+
+  def at(address: VarID): Res[Expr] = Try(code.vector(address)).toEither
 
   def funAt(address: FunID): Res[Fun] = at(address) match {
     case valid @ Right(x: Fun) => Right(x)
@@ -62,53 +74,25 @@ final case class AST[Cols <: HList](head: VarID, dataFrame: DF[Cols])(
     inputs
       .collectFirst { case x if x.name == name => x }
       .toRight(Err(s"Found no input named $name"))
-
-//  lazy val graph = ComputationGraph(code)
 }
 
-object ASTSyntax {
+object AST {
+  object ExprKey
+  type ExprKey = ExprKey.type
 
-//  implicit class ASTOps[Cols <: HList](val df: DataFrame[Cols])(
-//      implicit withCode: WithColumn[CodeKey, Expr, Cols],
-//      withIndexedCode: WithIndex[CodeKey, Expr, Cols]
-//  ) extends AnyVal {
-//    private def code  = df(CodeKey)
-//    private def index = IndexedColumn.from(df, CodeKey)
-//
-//    def inputs: Seq[Input] = code.values.collect { case x: Input => x }.toSeq
-//
-//    def address(i: Expr): Res[VarID] =
-//      index.id(i).toRight(Err(s"No expr $i"))
-//
-//    def at(address: VarID): Res[Expr] = Try(code.valueAt(address)).toEither
-//
-//    def funAt(address: FunID): Res[Fun] = at(address) match {
-//      case valid @ Right(x: Fun) => Right(x)
-//      case Right(x)              => Left(Err(s"Expected a Fun got: $x"))
-//      case Left(x)               => Left(x)
-//    }
-//
-//    def inputOf(name: String): Res[Input] =
-//      inputs
-//        .collectFirst { case x if x.name == name => x }
-//        .toRight(Err(s"Found no input named $name"))
-//
-//    import shapeless.{::, HList}
-//    def withComputationGraph(df: DF[Cols]): DF[CGraphColumn :: Cols] = {
-//      val x = df(CodeKey).values.zipWithIndex
-//        .collect {
-//          case (x: Fun, id) => x.args.map(varID => (varID, id)).toVector
-//        }
-//        .flatten
-//        .groupBy(_._1)
-//        .mapValues(_.map(_._2).toSet)
-//
-//      val arr: Array[Set[VarID]] = Array.fill(withCode.size(df))(Set())
-//      for((k, v) <- x) {
-//        arr(k) = v
-//      }
-//      df.withColumn(CGraphKey, arr.toVector)
-//    }
-//  }
+  object Dependencies
+  type Dependencies = Dependencies.type
+
+  implicit def exprColumn: WithColumn.Aux[ExprKey, Expr, IndexedVector, AST] =
+    WithColumn.extractColumn[ExprKey, Expr, IndexedVector, AST](
+      _.code,
+      (d, vs) => ??? // TODO provide encoding for immutable columns
+    )
+
+  implicit def depColumn: WithColumn.Aux[Dependencies, Set[VarID], Vector, AST] =
+    WithColumn.extractColumn[Dependencies, Set[VarID], Vector, AST](
+      _.dependencyGraph,
+      (d, vs) => ??? // TODO provide encoding for immutable columns
+    )
 
 }

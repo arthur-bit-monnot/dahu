@@ -58,10 +58,10 @@ class BagPacking extends FreeSpec {
     import dahu.interpreter._
     val ast = Algebras.encode(valid)
 
-//    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == Right(true))
-//    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == Right(false))
-//    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == Right(true))
-//    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == Right(false))
+    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == Right(true))
+    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == Right(false))
+    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == Right(true))
+    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == Right(false))
   }
 
 }

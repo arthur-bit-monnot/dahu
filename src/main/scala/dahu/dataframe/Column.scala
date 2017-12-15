@@ -3,16 +3,19 @@ package dahu.dataframe
 import dahu.dataframe.Column.ColumnImpl
 import shapeless.HList
 
+trait ColumnView[V] {
+  def size: Int
+  def values: Iterable[V]
+  def valueAt(row: Int): V
+}
+
 /**
   * Column view that is independent of the container.
   *
   * @tparam V Field type
-  * @tparam D Type of the datastructure containing the column
+  * @tparam D Type of the datastructure containing the vector structure
   */
-trait Column[V, D] {
-  def size: Int
-  def values: Iterable[V]
-  def valueAt(row: Int): V
+trait Column[V, D] extends ColumnView[V] {
   def updated(row: Int, value: V): D
 }
 

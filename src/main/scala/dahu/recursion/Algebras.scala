@@ -87,7 +87,7 @@ object Algebras {
     rec.cata(prg)(printAlgebra)
 
   import shapeless.{::, HNil}
-  def encode(in: Expr[Any]): (interpreter.VarID, DF[CodeColumn :: HNil]) = {
+  def encode(in: Expr[Any]): AST = {
     import dahu.interpreter._
     val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
     val alg: Algebra[ResultF, VarID] = e => {
@@ -98,10 +98,8 @@ object Algebras {
     val code = store.toVector.sortBy(_._2).map(_._1)
     assert(store(code(0)) == 0)
     assert(store(code(code.size - 1)) == code.size - 1)
-    val df: DF[CodeColumn :: HNil] =
-      DF.empty.withColumn(CodeKey, code).indexed(CodeKey)
 
-    (head, df)
+    AST(head, code)
   }
 
 }

@@ -40,22 +40,22 @@ package object interpreter {
 
   final case class Err(msg: String) extends Throwable(msg)
 
-//  def evaluate(ast: AST, environment: Environment): Res[V] = {
-//    def get(address: VarID): Res[V] =
-//      ast.at(address).flatMap {
-//        _ match {
-//          case x: Input =>
-//            environment.inputs.get(x.name) match {
-//              case Some(x) => Right(x)
-//              case None    => Left(Err(s"Input $x was not set"))
-//            }
-//          case x: Cst => Right(x.value)
-//          case x: Fun => x.args.traverse(get(_)).map(x.fun.compute(_))
-//        }
-//      }
-//
-//    get(ast.head)
-//  }
+  def evaluate(ast: AST, environment: Environment): Res[V] = {
+    def get(address: VarID): Res[V] =
+      ast.at(address).flatMap {
+        _ match {
+          case x: Input =>
+            environment.inputs.get(x.name) match {
+              case Some(x) => Right(x)
+              case None    => Left(Err(s"Input $x was not set"))
+            }
+          case x: Cst => Right(x.value)
+          case x: Fun => x.args.traverse(get(_)).map(x.fun.compute(_))
+        }
+      }
+
+    get(ast.head)
+  }
 
   type V = Any
 

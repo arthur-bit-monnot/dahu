@@ -10,22 +10,23 @@ import shapeless.HList
 
 final case class PrgState private (memory: Vector[V])
 object PrgState {
-  def init(code: Code): PrgState = {
-    val mem = code.forward.map {
+  def init(code: AST): PrgState = {
+
+    val mem = code(AST.ExprKey).values.map {
       case cst: Cst => cst.value
       case _        => null
     }
-    PrgState(mem)
+    PrgState(mem.toVector)
   }
 }
 
-final case class ExecutingPrg[MD <: HList](ast: AST[MD], state: PrgState) {
+final case class ExecutingPrg(ast: AST, state: PrgState) {
 
   def get(v: VarID): Res[V] = {
     Right(state.memory.apply(v))
   }
 
-  def update(v: VarID, value: V): Res[ExecutingPrg[MD]] = {
+  def update(v: VarID, value: V): Res[ExecutingPrg] = {
     if(v >= state.memory.size)
       return Left(Err(s"Address out of Memory: $v"))
 
@@ -52,13 +53,12 @@ final case class ExecutingPrg[MD <: HList](ast: AST[MD], state: PrgState) {
         stack -= p
         if(value != memory(variable)) {
           memory = memory.updated(variable, value)
-          ???
-//          val dependencies           = ast.graph.varFunEdges.getOrElse(variable, Set())
-//          val dependenciesWithArgs   = dependencies.map(x => ast.at(x))
-//          val computableDependencies = dependencies.filter(fID => computable(fID))
-//          for(fid <- computableDependencies) {
-//            stack += ((fid, eval(fid)))
-//          }
+          val dependencies           = ast.dependencyGraph(variable)
+          val dependenciesWithArgs   = dependencies.map(x => ast.at(x))
+          val computableDependencies = dependencies.filter(fID => computable(fID))
+          for(fid <- computableDependencies) {
+            stack += ((fid, eval(fid)))
+          }
         }
       }
       Right(this.copy(state = PrgState(memory)))
