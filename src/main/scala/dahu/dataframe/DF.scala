@@ -5,12 +5,12 @@ import dahu.dataframe.metadata._
 import dahu.dataframe.vector.{IndexedVector, Vec}
 import shapeless.{::, HList, HNil}
 
-case class DF[MD <: HList](meta: MD, cols: Vector[_])
+case class DF[MD <: HList](cols: Vector[_])
 
 object DF {
 
   def empty: DF[HNil] =
-    new DF[HNil](HNil, Vector())
+    new DF[HNil](Vector())
 
   implicit class DFOps[M <: HList](val df: DF[M]) extends AnyVal {
 
@@ -31,7 +31,7 @@ object DF {
       }
       type CM = ColumMetadata[K0, V0, F0]
       val colMeta: CM = new ColumMetadata[K0, V0, F0] {}
-      new DF[CM :: M](colMeta :: df.meta, df.cols :+ values)
+      new DF[CM :: M](df.cols :+ values)
     }
 
     /** Base method to retrieve a column. The container type of the column is not required,

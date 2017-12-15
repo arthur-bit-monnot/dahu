@@ -30,7 +30,6 @@ object Swapped {
           container: Container.Aux[CM, F]
       ): DF[Out] = {
         DF[Out](
-          newColMeta :: df.meta.tail,
           df.cols.updated(index(), newValues)
         )
       }
@@ -45,9 +44,8 @@ object Swapped {
       override def apply[V, F[_]](df: DF[H :: T], newColMeta: CM, newValues: F[V])(
           implicit value: Value.Aux[CM, V],
           container: Container.Aux[CM, F]): DF[H :: TOut] = {
-        val DF(metaTail, columns) =
-          tailSwap.apply(DF(df.meta.tail, df.cols), newColMeta, newValues)
-        DF[H :: TOut](df.meta.head :: metaTail, columns)
+        val DF(columns) = tailSwap.apply(DF(df.cols), newColMeta, newValues)
+        DF[H :: TOut](columns)
       }
     }
   }

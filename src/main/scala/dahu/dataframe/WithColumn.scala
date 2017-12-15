@@ -58,12 +58,11 @@ object WithColumn {
 
     def updated(df: DF[M], row: Int, value: V): DF[M] =
       new DF[M](
-        df.meta,
         df.cols.updated(indexInDataFrame, vecInstance.updated(columnContent(df), row, value)))
 
     /** Replaces the content of the column by the one provided. */
     def swapped(df: DF[M], values: F[V]): DF[M] =
-      new DF[M](df.meta, df.cols.updated(indexInDataFrame, values))
+      new DF[M](df.cols.updated(indexInDataFrame, values))
   }
 
 }
