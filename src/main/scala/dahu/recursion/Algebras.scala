@@ -32,11 +32,13 @@ object Algebras {
   }
 
   val coalgebra: Coalgebra[ResultF, Expr[_]] = {
-    case x @ Input(name)                   => InputF(name, x.typ)
-    case x @ Cst(value)                    => CstF(value, x.typ)
-    case x @ Computation1(fun, arg)        => ComputationF(fun, List(arg), x.typ)
-    case x @ Computation2(fun, arg1, arg2) => ComputationF(fun, List(arg1, arg2), x.typ)
-    case x @ Computation3(fun, a1, a2, a3) => ComputationF(fun, List(a1, a2, a3), x.typ)
+    case x @ Input(name)            => InputF(name, x.typ)
+    case x @ Cst(value)             => CstF(value, x.typ)
+    case x @ Computation1(fun, arg) => ComputationF(fun, List(arg), x.typ)
+    case x @ Computation2(fun, arg1, arg2) =>
+      ComputationF(fun, List(arg1, arg2), x.typ)
+    case x @ Computation3(fun, a1, a2, a3) =>
+      ComputationF(fun, List(a1, a2, a3), x.typ)
   }
 
   val printAlgebra: Algebra[ResultF, String] = {
@@ -96,7 +98,8 @@ object Algebras {
     val code = store.toVector.sortBy(_._2).map(_._1)
     assert(store(code(0)) == 0)
     assert(store(code(code.size - 1)) == code.size - 1)
-    val df: DF[CodeColumn :: HNil] = DF.empty.withColumn(CodeKey, code).indexed(CodeKey)
+    val df: DF[CodeColumn :: HNil] =
+      DF.empty.withColumn(CodeKey, code).indexed(CodeKey)
 
     (head, df)
   }

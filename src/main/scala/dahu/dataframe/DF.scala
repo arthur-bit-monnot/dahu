@@ -34,6 +34,9 @@ object DF {
       new DF[CM :: M](df.cols :+ values)
     }
 
+    def withContainer[A <: ColumnContainer](container: A): DF[A :: M] =
+      DF[A :: M](df.cols :+ container)
+
     /** Base method to retrieve a column. The container type of the column is not required,
       * which restricts the operations that can made on it.
       * Look at {{{column()}}} for less restricted implementation. */

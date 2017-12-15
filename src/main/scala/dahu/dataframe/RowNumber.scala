@@ -22,7 +22,8 @@ object RowNumber {
       value: Value.Aux[H, V],
       withColumn: WithColumn[K, V, DF[H :: T]]): RowNumber[H :: T] =
     new RowNumber[H :: T] {
-      override def apply(df: DF[H :: T]): Option[Int] = Some(withColumn.size(df))
+      override def apply(df: DF[H :: T]): Option[Int] =
+        Some(withColumn.size(df))
     }
 
   implicit def sizeOfEmpty: RowNumber[HNil] = new RowNumber[HNil] {
@@ -31,7 +32,8 @@ object RowNumber {
 
   /** If we have an evidence that there is a column in this dataframe, reuse this one to compute the size. */
   implicit def rowNumberFromWithColumn[K, V, MD <: HList](
-      implicit withColumn: WithColumn[K, V, DF[MD]]): RowNumber[MD] = new RowNumber[MD] {
-    override def apply(df: DF[MD]): Option[Int] = Some(withColumn.size(df))
-  }
+      implicit withColumn: WithColumn[K, V, DF[MD]]): RowNumber[MD] =
+    new RowNumber[MD] {
+      override def apply(df: DF[MD]): Option[Int] = Some(withColumn.size(df))
+    }
 }

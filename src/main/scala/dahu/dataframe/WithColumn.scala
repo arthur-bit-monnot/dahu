@@ -1,13 +1,14 @@
 package dahu.dataframe
 
 import dahu.dataframe.metadata._
+import dahu.dataframe.utils.ReverseIndexOf
 import dahu.dataframe.vector.Vec
-import shapeless.HList
+import shapeless.{::, HList}
 
 trait WithColumn[K, V, D] {
   type F[_]
 
-  protected val vecInstance: Vec[F, V]
+  val vecInstance: Vec[F, V]
 
   def columnContent(df: D): F[V]
 
@@ -26,11 +27,11 @@ trait WithColumn[K, V, D] {
 object WithColumn {
   type Aux[K, V, F0[_], D] = WithColumn[K, V, D] { type F[T] = F0[T] }
 
-  def extractColumn[K, V, F0[_], D](k: K, extract: D => F0[V], update: (D, F0[V]) => D)(
+  def extractColumn[K, V, F0[_], D](extract: D => F0[V], update: (D, F0[V]) => D)(
       implicit vec: Vec[F0, V]): WithColumn.Aux[K, V, F0, D] =
     new WithColumn[K, V, D] {
       override type F[x] = F0[x]
-      override protected val vecInstance: Vec[F, V] = vec
+      override val vecInstance: Vec[F, V] = vec
 
       override def columnContent(d: D): F[V] = extract(d)
 
@@ -39,30 +40,34 @@ object WithColumn {
 
       override def swapped(d: D, values: F[V]): D =
         update(d, values)
-    }
+    }.asInstanceOf[WithColumn.Aux[K, V, F0, D]] // to remove red squiggles in IntelliJ
 
-  implicit def withColumn[K, V, F0[_], CM, M <: HList](
-      implicit index: ReverseIndexOfKey[K, M],
-      meta: ColumnMeta.Aux[K, M, CM],
-      value: Value.Aux[CM, V],
-      container: Container.Aux[CM, F0],
-      vec: Vec[F0, V]
-  ): WithColumn.Aux[K, V, F0, DF[M]] = new WithColumn[K, V, DF[M]] {
-    override type F[x] = F0[x]
-    type D             = DF[M]
-    private val indexInDataFrame: Int              = index()
-    override protected val vecInstance: Vec[F0, V] = vec
+  implicit def withUnaryColumnInHead[K, V, F[_], H, T <: HList](
+      implicit index: ReverseIndexOf[H, H :: T],
+      key: Key.Aux[H, K],
+      value: Value.Aux[H, V],
+      container: Container.Aux[H, F],
+      vec: Vec[F, V]
+  ): WithColumn.Aux[K, V, F, DF[H :: T]] =
+    extractColumn[K, V, F, DF[H :: T]](
+      df => df.cols(index()).asInstanceOf[F[V]],
+      (df, vs) => DF(df.cols.updated(index(), vs))
+    )
 
-    override def columnContent(df: DF[M]): F[V] =
-      df.cols(indexInDataFrame).asInstanceOf[F[V]]
-
-    def updated(df: DF[M], row: Int, value: V): DF[M] =
-      new DF[M](
-        df.cols.updated(indexInDataFrame, vecInstance.updated(columnContent(df), row, value)))
-
-    /** Replaces the content of the column by the one provided. */
-    def swapped(df: DF[M], values: F[V]): DF[M] =
-      new DF[M](df.cols.updated(indexInDataFrame, values))
+  implicit def withNestedColumnInHead[K, V, F[_], H, T <: HList](
+      implicit
+      nested: WithColumn.Aux[K, V, F, H],
+      index: ReverseIndexOf[H, H :: T]
+  ): WithColumn.Aux[K, V, F, DF[H :: T]] = {
+    extractColumn[K, V, F, DF[H :: T]](
+      df => nested.columnContent(df.cols(index()).asInstanceOf[H]),
+      (df, vs) => DF(df.cols.updated(index(), nested.swapped(df.cols(index()).asInstanceOf[H], vs)))
+    )(nested.vecInstance)
   }
 
+  implicit def withColumnInOthers[K, V, F[_], H, T <: HList](
+      implicit
+      inTail: WithColumn.Aux[K, V, F, DF[T]]
+  ): WithColumn.Aux[K, V, F, DF[H :: T]] =
+    inTail.asInstanceOf[Aux[K, V, F, DF[H :: T]]]
 }

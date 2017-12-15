@@ -1,19 +1,23 @@
 package dahu.dataframe
 
 import dahu.dataframe.errors.{ColumnsOfDifferentSizes, KeyDuplication}
+import dahu.dataframe.utils.ReverseIndexOf
 import dahu.dataframe.vector.{IndexedVector, Vec}
 import org.scalatest.FreeSpec
+import shapeless._
 
-/** Marker class that provides extension methods for subclasses */
-trait ColumnContainer
+case class AB(col1: Vector[Int], col2: Vector[Double]) extends ColumnContainer
+object AB {
+  object A
+  type A = A.type
+  object B
+  type B = B.type
 
-object ColumnContainer {
+  implicit def withColumn1: WithColumn.Aux[A, Int, Vector, AB] =
+    WithColumn.extractColumn[A, Int, Vector, AB](_.col1, (d, vs) => d.copy(col1 = vs))
 
-  implicit class ColumnContainerOps[D <: ColumnContainer](val d: D) extends AnyVal {
-    def column[K, V](k: K)(implicit wi: WithColumn[K, V, D]): Column[V, D] =
-      Column.from(d, k)
-  }
-
+  implicit def withColumn2: WithColumn.Aux[B, Double, Vector, AB] =
+    WithColumn.extractColumn[B, Double, Vector, AB](_.col2, (d, vs) => d.copy(col2 = vs))
 }
 
 class DataFrameTest extends FreeSpec {
@@ -81,20 +85,6 @@ class DataFrameTest extends FreeSpec {
 
     "nesting" in {
 
-      case class AB(col1: Vector[Int], col2: Vector[Double]) extends ColumnContainer
-      object AB {
-        object A
-        type A = A.type
-        object B
-        type B = B.type
-
-        implicit val withColumn1: WithColumn.Aux[A, Int, Vector, AB] =
-          WithColumn.extractColumn[A, Int, Vector, AB](A, _.col1, (d, vs) => d.copy(col1 = vs))
-
-        implicit val withColumn2: WithColumn.Aux[B, Double, Vector, AB] =
-          WithColumn.extractColumn[B, Double, Vector, AB](B, _.col2, (d, vs) => d.copy(col2 = vs))
-      }
-
       val ab = AB(Vector(1, 2, 3), Vector(1.0, 2.0, 3.0))
 
       ab.column(AB.A)
@@ -106,6 +96,27 @@ class DataFrameTest extends FreeSpec {
       assert(ab.column(AB.B).valueAt(1) == 2.0)
       assert(ab.column(AB.B).valueAt(2) == 3.0)
 
+      val df = DF.empty
+        .withColumn(X, Vector(0, 1, 2))
+        .withContainer(ab)
+        .withColumn(Y, Vector("a", "b", "c"))
+        .indexed(X)
+
+      df.column(AB.A)
+      assert(df(X).values == Vector(0, 1, 2))
+      assert(df(AB.A).values == Vector(1, 2, 3))
+      assert(df(AB.B).values == Vector(1.0, 2.0, 3.0))
+      assert(df(Y).values == Vector("a", "b", "c"))
+
+      val df2 = df(AB.A).updated(0, 10)
+
+      assert(df2(X).values == Vector(0, 1, 2))
+      assert(df2(AB.A).values == Vector(10, 2, 3))
+      assert(df2(AB.B).values == Vector(1.0, 2.0, 3.0))
+      assert(df2(Y).values == Vector("a", "b", "c"))
+
+      assert(df(AB.A).valueAt(0) == 1)
+      assert(df2(AB.A).valueAt(0) == 10)
     }
   }
 

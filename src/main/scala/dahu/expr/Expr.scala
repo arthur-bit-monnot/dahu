@@ -15,11 +15,13 @@ sealed abstract class Computation[O: TypeTag] extends Expr[O]
 final case class Bind[T](variable: Input[T], value: T)
 
 object Computation {
-  def apply[I, O: TypeTag](f: Fun1[I, O], in: Expr[I]): Computation1[I, O] = Computation1(f, in)
+  def apply[I, O: TypeTag](f: Fun1[I, O], in: Expr[I]): Computation1[I, O] =
+    Computation1(f, in)
 
   def apply[I1, I2, O: TypeTag](f: Fun2[I1, I2, O],
                                 in1: Expr[I1],
-                                in2: Expr[I2]): Computation2[I1, I2, O] = Computation2(f, in1, in2)
+                                in2: Expr[I2]): Computation2[I1, I2, O] =
+    Computation2(f, in1, in2)
 
   def apply[I1, I2, I3, O: TypeTag](f: Fun3[I1, I2, I3, O],
                                     in1: Expr[I1],

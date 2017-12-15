@@ -38,8 +38,10 @@ object IndexedVector {
 
   }
 
-  implicit def indexTypeclass[A]: Index[IndexedVector, A] = new Index[IndexedVector, A] {
-    override def contains(fa: IndexedVector[A], a: A): Boolean = fa.index.contains(a)
-    override def idUnsafe(fa: IndexedVector[A], a: A): Int     = fa.index(a)
-  }
+  implicit def indexTypeclass[A]: Index[IndexedVector, A] =
+    new Index[IndexedVector, A] {
+      override def contains(fa: IndexedVector[A], a: A): Boolean =
+        fa.index.contains(a)
+      override def idUnsafe(fa: IndexedVector[A], a: A): Int = fa.index(a)
+    }
 }

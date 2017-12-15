@@ -2,6 +2,7 @@ package dahu.dataframe.utils
 
 import shapeless._
 import shapeless.ops.hlist.Length
+import shapeless.ops.nat.ToInt
 
 import scala.annotation.{implicitAmbiguous, implicitNotFound}
 
@@ -18,6 +19,7 @@ import scala.annotation.{implicitAmbiguous, implicitNotFound}
 @implicitNotFound(msg = "No type ${X} in ${L}")
 trait ReverseIndexOf[X, L <: HList] {
   type Out <: Nat
+  def apply(): Int
 }
 
 trait LowPriority {
@@ -28,9 +30,11 @@ trait LowPriority {
     * by putting it in this trait so that ambiguity arises when the object
     * is in the head AND the tail.*/
   implicit def indexOfHead[X, T <: HList, N <: Nat](
-      implicit ev: Length.Aux[T, N]): ReverseIndexOf.Aux[X, X :: T, N] =
+      implicit ev: Length.Aux[T, N],
+      toInt: ToInt[N]): ReverseIndexOf.Aux[X, X :: T, N] =
     new ReverseIndexOf[X, X :: T] {
       override type Out = N
+      override def apply(): Int = toInt()
     }
 }
 
@@ -42,7 +46,6 @@ object ReverseIndexOf extends LowPriority {
   @implicitAmbiguous("Ambiguous implicit: Type ${X} appears multiple times in HList ${H} :: ${T}")
   implicit def indexOfOthers[X, H, T <: HList, N <: Nat](
       implicit ev: Aux[X, T, N]): Aux[X, H :: T, N] =
-    new ReverseIndexOf[X, H :: T] {
-      override type Out = N
-    }
+    ev.asInstanceOf[Aux[X, H :: T, N]]
+
 }

@@ -29,7 +29,8 @@ object Math extends App {
   def multiplication2[T: MultiplicativeSemigroup: TypeTag] = new Fun2[T, T, T] {
     val mulSG = implicitly[MultiplicativeSemigroup[T]]
 
-    override def of(in1: T, in2: T): T = MultiplicativeSemigroup[T].times(in1, in2)
+    override def of(in1: T, in2: T): T =
+      MultiplicativeSemigroup[T].times(in1, in2)
 
     override def name: String = "mul"
   }

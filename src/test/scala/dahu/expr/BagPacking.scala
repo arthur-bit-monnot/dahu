@@ -36,7 +36,9 @@ class BagPacking extends FreeSpec {
   final case class Error(msg: String) extends Throwable(msg)
 
   def evalBind(instantiations: Boolean*): Validation[Throwable, Double] = {
-    val binds = decisions.zip(instantiations).map { case (variable, value) => variable.bind(value) }
+    val binds = decisions.zip(instantiations).map {
+      case (variable, value) => variable.bind(value)
+    }
     Algebras.evaluate(valid, binds).leftMap(_.head) match {
       case Success(true) =>
         Algebras.evaluate(utility, binds).leftMap(_.head)
