@@ -10,6 +10,9 @@ libraryDependencies += "org.typelevel" %% "cats-core"       % "0.9.0"
 libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
 libraryDependencies += "com.chuusai"   %% "shapeless"       % "2.3.2"
 
+// pulled by matryoshka and causing problems in IntelliJ and sbt-assembly
+excludeDependencies += "org.typelevel" % "scala-library"
+
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
   "-encoding",

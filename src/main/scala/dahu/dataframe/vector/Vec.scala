@@ -9,7 +9,6 @@ trait Vec[F[_]] {
 
   def updated[A](fa: F[A], i: Int, value: A): F[A]
   def withAppended[A](fa: F[A], value: A): F[A]
-
 }
 
 object Vec {

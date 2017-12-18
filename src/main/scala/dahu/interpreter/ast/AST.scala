@@ -23,9 +23,6 @@ object Columns {
 
 }
 
-import cats._
-import cats.implicits._
-
 final case class ComputationGraph(code: Code) {
   val varFunEdges: Map[VarID, Set[VarID]] =
     code.forward.zipWithIndex
