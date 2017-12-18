@@ -23,7 +23,7 @@ object DF {
 
     def withColumn[K0, V0, F0[_]](key: K0, values: F0[V0])(
         implicit size: RowNumber[M],
-        vec: Vec[F0, V0]): DF[ColumMetadata[K0, V0, F0] :: M] = {
+        vec: Vec[F0]): DF[ColumMetadata[K0, V0, F0] :: M] = {
       size(df) match {
         case Some(x) if x != vec.size(values) =>
           throw ColumnsOfDifferentSizes(s"New column $key has size ${vec.size(values)} != $x")

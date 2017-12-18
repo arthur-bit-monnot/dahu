@@ -8,7 +8,7 @@ import shapeless.{::, HList}
 trait WithColumn[K, V, D] {
   type F[_]
 
-  val vecInstance: Vec[F, V]
+  val vecInstance: Vec[F]
 
   def columnContent(df: D): F[V]
 
@@ -28,10 +28,10 @@ object WithColumn {
   type Aux[K, V, F0[_], D] = WithColumn[K, V, D] { type F[T] = F0[T] }
 
   def extractColumn[K, V, F0[_], D](extract: D => F0[V], update: (D, F0[V]) => D)(
-      implicit vec: Vec[F0, V]): WithColumn.Aux[K, V, F0, D] =
+      implicit vec: Vec[F0]): WithColumn.Aux[K, V, F0, D] =
     new WithColumn[K, V, D] {
       override type F[x] = F0[x]
-      override val vecInstance: Vec[F, V] = vec
+      override val vecInstance: Vec[F] = vec
 
       override def columnContent(d: D): F[V] = extract(d)
 
@@ -47,7 +47,7 @@ object WithColumn {
       key: Key.Aux[H, K],
       value: Value.Aux[H, V],
       container: Container.Aux[H, F],
-      vec: Vec[F, V]
+      vec: Vec[F]
   ): WithColumn.Aux[K, V, F, DF[H :: T]] =
     extractColumn[K, V, F, DF[H :: T]](
       df => df.cols(index()).asInstanceOf[F[V]],

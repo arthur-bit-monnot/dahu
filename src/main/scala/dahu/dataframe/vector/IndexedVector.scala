@@ -9,16 +9,16 @@ object IndexedVector {
   def from[A](fa: Vector[A]): IndexedVector[A] =
     IndexedVector(fa, fa.zipWithIndex.toMap)
 
-  implicit def vec[A]: Vec[IndexedVector, A] = new Vec[IndexedVector, A] {
-    override def empty: IndexedVector[A] = IndexedVector(Vector(), Map())
+  implicit val vec: Vec[IndexedVector] = new Vec[IndexedVector] {
+    override def empty[A]: IndexedVector[A] = IndexedVector(Vector(), Map())
 
-    override def size(fa: IndexedVector[A]): Int = fa.vector.size
+    override def size[A](fa: IndexedVector[A]): Int = fa.vector.size
 
-    override def at(fa: IndexedVector[A], i: Int): A = fa.vector(i)
+    override def at[A](fa: IndexedVector[A], i: Int): A = fa.vector(i)
 
-    override def values(fa: IndexedVector[A]): Iterable[A] = fa.vector
+    override def values[A](fa: IndexedVector[A]): Iterable[A] = fa.vector
 
-    override def updated(fa: IndexedVector[A], i: Int, value: A): IndexedVector[A] = {
+    override def updated[A](fa: IndexedVector[A], i: Int, value: A): IndexedVector[A] = {
       val prev = at(fa, i)
       if(value != prev) {
         if(!fa.index.contains(prev)) throw KeyMissing(prev)
@@ -33,7 +33,7 @@ object IndexedVector {
       }
     }
 
-    override def withAppended(fa: IndexedVector[A], value: A): IndexedVector[A] = {
+    override def withAppended[A](fa: IndexedVector[A], value: A): IndexedVector[A] = {
       if(fa.vector.contains(value)) throw KeyDuplication(value)
       val i = fa.vector.size
       IndexedVector(fa.vector :+ value, fa.index + ((value, i)))
