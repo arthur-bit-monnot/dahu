@@ -2,8 +2,6 @@ package dahu.expr
 
 import org.scalatest.FunSpec
 
-import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
-
 class UnaryConstraints extends FunSpec {
 
 //  sealed abstract class Val[+A] {

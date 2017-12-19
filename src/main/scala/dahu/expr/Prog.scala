@@ -2,8 +2,6 @@ package dahu.expr
 
 import spire.algebra.Ring
 
-import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
-
 class If[O: TypeTag] extends Fun3[Boolean, O, O, O] {
   override def name                                = "if"
   override def of(in1: Boolean, in2: O, in3: O): O = if(in1) in2 else in3

@@ -17,17 +17,17 @@ import scala.collection.mutable
 
 object Algebras {
 
-  implicit def traverse: Traverse[ResultF] = new Traverse[ResultF] {
-    override def traverseImpl[G[_], A, B](fa: ResultF[A])(f: (A) => G[B])(
+  implicit def traverse: Traverse[ExprF] = new Traverse[ExprF] {
+    override def traverseImpl[G[_], A, B](fa: ExprF[A])(f: (A) => G[B])(
         implicit G: Applicative[G]) = fa match {
       case InputF(name, typ) => G.point(InputF(name, typ))
       case CstF(value, typ)  => G.point(CstF(value, typ))
       case ComputationF(fun, args, typ) =>
-        ^^(G.point(fun), args.traverse(f), G.point(typ))(ComputationF(_, _, _): ResultF[B])
+        ^^(G.point(fun), args.traverse(f), G.point(typ))(ComputationF(_, _, _): ExprF[B])
     }
   }
 
-  val coalgebra: Coalgebra[ResultF, Expr[_]] = {
+  val coalgebra: Coalgebra[ExprF, Expr[_]] = {
     case x @ Input(name)            => InputF(name, x.typ)
     case x @ Cst(value)             => CstF(Value(value), x.typ)
     case x @ Computation1(fun, arg) => ComputationF(fun, List(arg), x.typ)
@@ -37,7 +37,7 @@ object Algebras {
       ComputationF(fun, List(a1, a2, a3), x.typ)
   }
 
-  val printAlgebra: Algebra[ResultF, String] = {
+  val printAlgebra: Algebra[ExprF, String] = {
     case InputF(v, _)             => v
     case CstF(v, _)               => v.toString
     case ComputationF(f, args, _) => f.name + args.mkString("(", ",", ")")
@@ -57,7 +57,7 @@ object Algebras {
 
   type TryEval[T] = ValidationNel[Throwable, T]
 
-  def evalAlgebra(inputs: Map[String, Value]): Algebra[ResultF, TryEval[Value]] = {
+  def evalAlgebra(inputs: Map[String, Value]): Algebra[ExprF, TryEval[Value]] = {
     case InputF(v, _) => attempt { inputs(v) }
     case CstF(v, _)   => attempt { v }
     case ComputationF(f, args, _) =>
@@ -69,13 +69,16 @@ object Algebras {
   }
   val rec = Recursive.fromCoalgebra(coalgebra)
 
-  def liftFix(in: Expr[Any]): Fix[ResultF] =
-    in.ana[Fix[ResultF]].apply(coalgebra)
+  def liftFix(in: Expr[Any]): Fix[ExprF] =
+    in.ana[Fix[ExprF]].apply(coalgebra)
 
   def evaluate[T](prg: Expr[T], inputs: Seq[Bind[_]]): TryEval[T] = {
-    val inputMap: Map[String, Value] = inputs.map {
-      case Bind(variable, value) => variable.name -> value
-    }.toMap.mapValues(Value(_))
+    val inputMap: Map[String, Value] = inputs
+      .map {
+        case Bind(variable, value) => variable.name -> value
+      }
+      .toMap
+      .mapValues(Value(_))
     rec.cata(prg)(evalAlgebra(inputMap)).asInstanceOf[TryEval[T]]
   }
 
@@ -98,10 +101,10 @@ object Algebras {
 //    AST(head, code)
 //  }
 
-  def encodeAsPair(in: Expr[Any]): (Int, Vector[ResultF[Int]]) = {
+  def encodeAsPair(in: Expr[Any]): (Int, Vector[ExprF[Int]]) = {
     import dahu.interpreter._
-    val store = mutable.LinkedHashMap[ResultF[Int], Int]()
-    val alg: Algebra[ResultF, Int] = e => {
+    val store = mutable.LinkedHashMap[ExprF[Int], Int]()
+    val alg: Algebra[ExprF, Int] = e => {
       store.getOrElseUpdate(e, store.size)
     }
 

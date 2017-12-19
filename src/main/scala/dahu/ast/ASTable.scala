@@ -1,7 +1,7 @@
 package dahu.ast
 
 import dahu.arrows.{==>, TypeInstances}
-import dahu.recursion.{InputF, ResultF}
+import dahu.recursion.{ExprF, InputF}
 
 sealed abstract class IndexLabelImpl {
   type T
@@ -19,7 +19,7 @@ trait ASTable {
   }
   type EId = this.EId.T
 
-  type Expr     = ResultF[EId]
+  type Expr     = ExprF[EId]
   type Variable = InputF[EId]
 
   def root: EId

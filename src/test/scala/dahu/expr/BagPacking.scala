@@ -1,6 +1,7 @@
 package dahu.expr
 
 import dahu.recursion.Algebras
+import dahu.utils.Errors.Error
 import org.scalatest.FreeSpec
 
 import scalaz.{Failure, Success, Validation}
@@ -33,7 +34,6 @@ class BagPacking extends FreeSpec {
     List(true, false),
     List(true, true)
   )
-  final case class Error(msg: String) extends Throwable(msg)
 
   def evalBind(instantiations: Boolean*): Validation[Throwable, Double] = {
     val binds = decisions.zip(instantiations).map {

@@ -4,7 +4,6 @@ import algebra.Order
 import algebra.ring.{AdditiveSemigroup, CommutativeRing, Field, MultiplicativeSemigroup}
 import spire.std.{DoubleAlgebra, IntAlgebra}
 
-import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
 import scala.language.implicitConversions
 
 package object dsl {

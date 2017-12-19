@@ -1,7 +1,5 @@
 package dahu.expr
 
-import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
-
 sealed abstract class Expr[+T: TypeTag] {
   final val typ = typeOf[T]
 }

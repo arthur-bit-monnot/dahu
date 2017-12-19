@@ -2,6 +2,8 @@ package dahu.utils
 
 object Errors {
 
-  def err(msg: => String): Throwable = new Throwable(msg)
+  final case class Error(msg: String) extends Throwable(msg)
+
+  def err(msg: => String): Throwable = Error(msg)
 
 }
