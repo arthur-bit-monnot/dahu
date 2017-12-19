@@ -1,21 +1,17 @@
 package dahu.recursion
 
-import dahu.dataframe.DF
 import dahu.expr._
-import dahu.recursion.TypeAlias._
 import matryoshka._
 import matryoshka.data._
 import matryoshka.implicits._
 
-import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
-import scala.util.Try
 import scala.util.control.NonFatal
 import scalaz.{Divide => _, _}
 import Scalaz._
 import dahu.expr.Bind
 import dahu.interpreter
-import dahu.interpreter.ast.AST
-import dahu.interpreter.ast.Columns.{CodeColumn, CodeKey}
+
+import dahu.expr.labels.Labels.Value
 
 import scala.collection.mutable
 
@@ -33,7 +29,7 @@ object Algebras {
 
   val coalgebra: Coalgebra[ResultF, Expr[_]] = {
     case x @ Input(name)            => InputF(name, x.typ)
-    case x @ Cst(value)             => CstF(value, x.typ)
+    case x @ Cst(value)             => CstF(Value(value), x.typ)
     case x @ Computation1(fun, arg) => ComputationF(fun, List(arg), x.typ)
     case x @ Computation2(fun, arg1, arg2) =>
       ComputationF(fun, List(arg1, arg2), x.typ)
@@ -61,12 +57,12 @@ object Algebras {
 
   type TryEval[T] = ValidationNel[Throwable, T]
 
-  def evalAlgebra(inputs: Map[String, Any]): Algebra[ResultF, TryEval[Top]] = {
+  def evalAlgebra(inputs: Map[String, Value]): Algebra[ResultF, TryEval[Value]] = {
     case InputF(v, _) => attempt { inputs(v) }
     case CstF(v, _)   => attempt { v }
     case ComputationF(f, args, _) =>
       args.sequenceU match {
-        case Success(as) => attempt { f.compute(as) }
+        case Success(as) => attempt { Value(f.compute(as)) }
         case Failure(x)  => Failure(x)
       }
 
@@ -77,35 +73,35 @@ object Algebras {
     in.ana[Fix[ResultF]].apply(coalgebra)
 
   def evaluate[T](prg: Expr[T], inputs: Seq[Bind[_]]): TryEval[T] = {
-    val inputMap: Map[String, Any] = inputs.map {
+    val inputMap: Map[String, Value] = inputs.map {
       case Bind(variable, value) => variable.name -> value
-    }.toMap
+    }.toMap.mapValues(Value(_))
     rec.cata(prg)(evalAlgebra(inputMap)).asInstanceOf[TryEval[T]]
   }
 
   def pprint(prg: Expr[_]): String =
     rec.cata(prg)(printAlgebra)
 
-  import shapeless.{::, HNil}
-  def encode(in: Expr[Any]): AST = {
-    import dahu.interpreter._
-    val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
-    val alg: Algebra[ResultF, VarID] = e => {
-      store.getOrElseUpdate(e, store.size)
-    }
-
-    val head = in.hylo(alg, coalgebra)
-    val code = store.toVector.sortBy(_._2).map(_._1)
-    assert(store(code(0)) == 0)
-    assert(store(code(code.size - 1)) == code.size - 1)
-
-    AST(head, code)
-  }
+//  import shapeless.{::, HNil}
+//  def encode(in: Expr[Any]): AST = {
+//    import dahu.interpreter._
+//    val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
+//    val alg: Algebra[ResultF, VarID] = e => {
+//      store.getOrElseUpdate(e, store.size)
+//    }
+//
+//    val head = in.hylo(alg, coalgebra)
+//    val code = store.toVector.sortBy(_._2).map(_._1)
+//    assert(store(code(0)) == 0)
+//    assert(store(code(code.size - 1)) == code.size - 1)
+//
+//    AST(head, code)
+//  }
 
   def encodeAsPair(in: Expr[Any]): (Int, Vector[ResultF[Int]]) = {
     import dahu.interpreter._
-    val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
-    val alg: Algebra[ResultF, VarID] = e => {
+    val store = mutable.LinkedHashMap[ResultF[Int], Int]()
+    val alg: Algebra[ResultF, Int] = e => {
       store.getOrElseUpdate(e, store.size)
     }
 
