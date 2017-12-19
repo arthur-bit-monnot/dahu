@@ -6,7 +6,6 @@ trait NullableVec[F[_]] {
   def init[A](size: Int): F[A]
   def size[A](fa: F[A]): Int
 
-
   def get[A](fa: F[A], i: Int): Option[A]
   def getUnsafe[A](fa: F[A], i: Int): A
   def getOrElse[A](fa: F[A], i: Int, default: => A): A = get(fa, i).getOrElse(default)
@@ -21,7 +20,8 @@ trait NullableVec[F[_]] {
 
 object NullableVec {
 
-  implicit val ofVector: NullableVec[Vector] = new NullableVec[Vector] {override def withAppended[A](fa: Vector[A], value: A): Vector[A] = ???
+  implicit val ofVector: NullableVec[Vector] = new NullableVec[Vector] {
+    override def withAppended[A](fa: Vector[A], value: A): Vector[A] = ???
 
     override def isSet[A](fa: Vector[A], i: Int): Boolean = fa(i) != null
 
@@ -41,5 +41,3 @@ object NullableVec {
   }
 
 }
-
-

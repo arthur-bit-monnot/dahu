@@ -1,6 +1,3 @@
 package dahu.dataframe
 
-package object vector {
-
-
-}
+package object vector {}

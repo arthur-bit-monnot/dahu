@@ -6,10 +6,10 @@ import Graph._
 class UtilsTests extends FreeSpec {
 
   // graph with 2 SCC
-  val g1: Map[Int, Set[Int]] = Map(1 -> Set(2,3), 2 -> Set(1))
+  val g1: Map[Int, Set[Int]] = Map(1 -> Set(2, 3), 2 -> Set(1))
 
   // directed acyclic graphs
-  val dag1: Map[Int, Set[Int]] = Map(1 -> Set(2), 2 -> Set(3), 3 -> Set(4))
+  val dag1: Map[Int, Set[Int]] = Map(1 -> Set(2), 2    -> Set(3), 3    -> Set(4))
   val dag2: Map[Int, Set[Int]] = Map(1 -> Set(2, 4), 2 -> Set(3, 4), 3 -> Set(4))
 
   "graph-utils" - {

@@ -58,12 +58,11 @@ final case class AST(head: VarID, private val inputCode: IndexedSeq[Expr]) exten
       .map { case (e, i) => s"$i -> $e" }
       .mkString("  ", "\n  ", "")
 
-  lazy val inputs: Seq[Input]      = code.vector.collect { case x: Input => x }
+  lazy val inputs: Seq[Input] = code.vector.collect { case x: Input => x }
   def address(i: Expr): Res[VarID] =
     code.index.get(i).toRight(Err(s"No expr $i"))
 
   def at(address: VarID): Res[Expr] = Try(code.vector(address)).toEither
-
 
   def funAt(address: FunID): Res[Fun] = at(address) match {
     case valid @ Right(x: Fun) => Right(x)

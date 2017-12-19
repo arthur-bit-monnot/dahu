@@ -21,7 +21,6 @@ package object forward {
       case Left(x) => return Left(x)
     }
 
-
     val prg = ExecutingPrg(ast)
 
     val updated = environment.inputs.toSeq.foldLeft(Right(prg): Either[Throwable, ExecutingPrg]) {

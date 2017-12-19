@@ -11,7 +11,6 @@ import dahu.dataframe.vector.NullableVec
 import dahu.dataframe.vector.mutable.NullableArray
 import dahu.utils.Errors._
 
-
 final case class PrgState private (memory: Vector[V])
 object PrgState {
   def init(code: AST): PrgState = {
@@ -25,8 +24,10 @@ object PrgState {
 }
 
 final class ExecutionState(ast: AST) {
-  val topo: Array[VarID] = dahu.utils.Graph.topologicalOrder(ast.dependencyGraph.zipWithIndex.map(_.swap).toMap)
-      .getOrElse(sys.error("AST is not a DAG")).toArray
+  val topo: Array[VarID] = dahu.utils.Graph
+    .topologicalOrder(ast.dependencyGraph.zipWithIndex.map(_.swap).toMap)
+    .getOrElse(sys.error("AST is not a DAG"))
+    .toArray
 
   val memory: NullableArray[V] = NullableArray.ofSize[V](topo.size)
 
@@ -35,16 +36,16 @@ final class ExecutionState(ast: AST) {
     while(i < memory.size) {
       ast.code.vector(i) match {
         case cs: Cst => memory.set(i, cs.value)
-        case _ =>
+        case _       =>
       }
       i += 1
     }
   }
 
   private var nextInTopo = 0
-  def cur: VarID = topo(nextInTopo)
-  def hasNext: Boolean = nextInTopo < topo.length-1
-  def gotoNext(): Unit = nextInTopo += 1
+  def cur: VarID         = topo(nextInTopo)
+  def hasNext: Boolean   = nextInTopo < topo.length - 1
+  def gotoNext(): Unit   = nextInTopo += 1
 
   def update(v: VarID, value: V): Unit = {
     assert(value != null)
@@ -56,7 +57,8 @@ final class ExecutionState(ast: AST) {
       gotoNext()
       ast.code.vector(cur) match {
         case f: Fun =>
-          assert(f.args.forall(memory.isSet), "One of the dependencies of a function is not set when reaching it")
+          assert(f.args.forall(memory.isSet),
+                 "One of the dependencies of a function is not set when reaching it")
           val evaluated = f.fun.compute(f.args.map(memory.getUnsafe))
           memory.set(cur, evaluated)
         case _ =>
@@ -69,7 +71,7 @@ final class ExecutionState(ast: AST) {
 
 final case class ExecutingPrg private (ast: AST, partiallyEvaluated: Vector[V]) {
   type F[x] = Vector[x]
-  private val vec : NullableVec[F] = implicitly[NullableVec[F]]
+  private val vec: NullableVec[F] = implicitly[NullableVec[F]]
 
   def get(v: VarID): Res[V] = {
     if(v >= vec.size(partiallyEvaluated))
@@ -119,5 +121,6 @@ final case class ExecutingPrg private (ast: AST, partiallyEvaluated: Vector[V]) 
 
 object ExecutingPrg {
 
-  def apply(ast: AST)(implicit vec: NullableVec[Vector]) = new ExecutingPrg(ast, vec.init(ast.code.vector.size))
+  def apply(ast: AST)(implicit vec: NullableVec[Vector]) =
+    new ExecutingPrg(ast, vec.init(ast.code.vector.size))
 }
