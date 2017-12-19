@@ -1,7 +1,7 @@
 package dahu.ast
 
 import cats.Functor
-import dahu.arrows.{==>, Arrow, TypeInstances}
+import dahu.arrows.{==>, Arrow, OpaqueIntSubset, TypeInstances}
 import dahu.expr.labels.Labels.Value
 import dahu.recursion._
 
@@ -16,8 +16,16 @@ object Ops {
 
       override val arrow: EId ==> Expr = Arrow.lift(x => vec(EId.unwrap(x)))
 
-      override def ids: TypeInstances[EId] = new TypeInstances[EId] {
-        override val enumerate: Array[EId] = vec.indices.toArray.asInstanceOf[Array[EId]]
+      override val ids: OpaqueIntSubset[EId] = new OpaqueIntSubset[EId] {
+        override def first: EId = EId(0)
+        override def last       = EId(tableInt.size - 1)
+
+        override def wrap(i: Int): EId                 = EId(i)
+        override def unwrap(a: EId): Int               = EId.unwrap(a)
+        override def subst[F[_]](fi: F[Int]): F[EId]   = EId.subst(fi)
+        override def unsubst[F[_]](fa: F[EId]): F[Int] = EId.unsubst(fa)
+
+        override val enumerate: Array[EId] = EId.subst(tableInt.indices.toArray)
       }
     }
   })

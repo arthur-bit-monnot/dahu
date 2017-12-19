@@ -1,5 +1,7 @@
 package dahu.expr.labels
 
+import scala.reflect.ClassTag
+
 object Labels {
   sealed abstract class ValueLabelImpl {
     type T
@@ -15,4 +17,6 @@ object Labels {
   }
 
   type Value = Value.T
+
+  implicit val classTag: ClassTag[Value] = ClassTag.Any.asInstanceOf[ClassTag[Value]]
 }
