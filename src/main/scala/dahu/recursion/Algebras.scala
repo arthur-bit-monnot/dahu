@@ -102,4 +102,19 @@ object Algebras {
     AST(head, code)
   }
 
+  def encodeAsPair(in: Expr[Any]): (Int, Vector[ResultF[Int]]) = {
+    import dahu.interpreter._
+    val store = mutable.LinkedHashMap[interpreter.Expr, VarID]()
+    val alg: Algebra[ResultF, VarID] = e => {
+      store.getOrElseUpdate(e, store.size)
+    }
+
+    val head = in.hylo(alg, coalgebra)
+    val code = store.toVector.sortBy(_._2).map(_._1)
+    assert(store(code(0)) == 0)
+    assert(store(code(code.size - 1)) == code.size - 1)
+
+    (head, code)
+  }
+
 }

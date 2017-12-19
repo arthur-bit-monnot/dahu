@@ -3,9 +3,11 @@ package dahu.recursion
 import dahu.expr.Fun
 import matryoshka.instances.fixedpoint.Cofree
 
-import scala.reflect.runtime.universe.{typeOf, Type, TypeTag}
+import scala.reflect.runtime.universe.{Type, TypeTag, typeOf}
+import scalaz.@@
 
 object TypeAlias {
+  sealed trait ValueTag
   type TT  = Type
   type Top = Any
 }
