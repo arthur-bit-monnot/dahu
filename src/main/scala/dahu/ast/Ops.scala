@@ -3,6 +3,7 @@ package dahu.ast
 import cats.Functor
 import dahu.arrows._
 import dahu.arrows.memoization.Cache
+import dahu.arrows.recursion.Algebra
 import dahu.expr.Type
 import dahu.expr.labels.Labels.Value
 import dahu.recursion._
@@ -57,47 +58,11 @@ object Ops {
     Arrow.lift(go)
   }
 
-  type Algebra[F[_], X]   = F[X] ==> X
-  type Coalgebra[F[_], X] = X ==> F[X]
   def evalAlgebra(ast: ASTable)(inputs: ast.Variable ==> Value): Algebra[ExprF, Value] =
     Arrow.lift {
       case CstF(v, _)               => v
       case x @ InputF(_, _)         => inputs(x)
       case ComputationF(f, args, _) => Value(f.compute(args))
     }
-
-  def hylo[A, B, F[_]](coalgebra: Coalgebra[F, A], algebra: Algebra[F, B])(
-      implicit F: Functor[F]): A ==> B = {
-    def go(id: A): B =
-      algebra(F.map(coalgebra(id))(go))
-    Arrow.lift(go)
-  }
-
-  def memoizedHylo[A, B, F[_]](coalgebra: Coalgebra[F, A],
-                               algebra: Algebra[F, B],
-                               cache: Cache[A, B])(implicit F: Functor[F]): A ==> B = {
-    def go(id: A): B =
-      cache.getOrElseUpdate(id, algebra(F.map(coalgebra(id))(go)))
-    Arrow.lift(go)
-  }
-
-//  def astHylo[X](ast: ASTable)(algebra: Algebra[ExprF, X]): ast.EId ==> X = hylo(ast.coalgebra, algebra)
-//
-//  def astMemoizedHylo[X](ast: ASTable)(algebra: Algebra[ExprF, X]): ast.EId ==> X = memoizedHylo(ast.coalgebra, algebra, ast.ids.newCache)
-//
-//  def cata[X](ast: ASTable)(alg: Algebra[ExprF, X])(implicit F: Functor[ExprF]): ast.EId ==> X = {
-//    def go(id: ast.EId): X =
-//      alg(F.map(ast.coalgebra(id))(go))
-//    Arrow.lift(go)
-//  }
-//
-//  def memoizedCata[X](ast: ASTable)(
-//      alg: Algebra[ExprF, X])(implicit F: Functor[ExprF], classTag: ClassTag[X]): ast.EId ==> X = {
-//    val cache = ast.ids.newCache[X]
-//    def go(id: ast.EId): X =
-//      cache.getOrElseUpdate(id, alg(F.map(ast.coalgebra(id))(go)))
-//
-//    Arrow.lift(go)
-//  }
 
 }

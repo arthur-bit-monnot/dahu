@@ -1,7 +1,7 @@
 package dahu.ast
 
-import dahu.arrows.{==>, OpaqueIntSubset}
-import dahu.ast.Ops.Algebra
+import dahu.arrows.recursion.Algebra
+import dahu.arrows.{==>, recursion, OpaqueIntSubset}
 import dahu.recursion.{ExprF, InputF}
 
 import scala.reflect.ClassTag
@@ -54,13 +54,13 @@ trait ASTable {
   type Variable = InputF[EId]
 
   def root: EId
-  def coalgebra: EId ==> Expr // equivalent to CoAlgebra[ExprF, EId]
+  def coalgebra: EId ==> Expr // equivalent to Coalgebra[ExprF, EId]
 
   def ids: OpaqueIntSubset[EId]
   def variableIds: OpaqueIntSubset[VarId]
 
-  def hylo[X](algebra: Algebra[ExprF, X]): EId ==> X = Ops.hylo(coalgebra, algebra)
+  def hylo[X](algebra: Algebra[ExprF, X]): EId ==> X = recursion.hylo(coalgebra, algebra)
 
   def memoizedHylo[X](algebra: Algebra[ExprF, X])(implicit classTag: ClassTag[X]): EId ==> X =
-    Ops.memoizedHylo(coalgebra, algebra, ids.newCache[X])
+    recursion.memoizedHylo(coalgebra, algebra, ids.newCache[X])
 }
