@@ -1,7 +1,9 @@
 package dahu.ast
 
 import cats.Functor
-import dahu.arrows.{==>, Arrow, OpaqueIntSubset, TypeInstances}
+import dahu.arrows._
+import dahu.arrows.memoization.Cache
+import dahu.expr.Type
 import dahu.expr.labels.Labels.Value
 import dahu.recursion._
 import spire.ClassTag
@@ -15,31 +17,38 @@ object Ops {
     new ASTable {
       private val vec: Array[ExprF[EId]] = tableInt.asInstanceOf[Vector[Expr]].toArray
 
-      override val root: EId = headInt.asInstanceOf[EId]
+      override val root: EId = EId(headInt)
 
-      override val arrow: EId ==> Expr = Arrow.lift(x => vec(EId.unwrap(x)))
+      override val coalgebra: EId ==> Expr = Arrow.lift(x => vec(EId.toInt(x)))
 
       override val ids: OpaqueIntSubset[EId] = new OpaqueIntSubset[EId] {
-        override def first: EId = EId(0)
-        override def last       = EId(tableInt.size - 1)
+        override def wrap(i: Int): EId                 = EId.fromInt(i)
+        override def unwrap(a: EId): Int               = EId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[EId]   = EId.fromIntF(fi)
+        override def unsubst[F[_]](fa: F[EId]): F[Int] = EId.toIntF(fa)
 
-        override def wrap(i: Int): EId                 = EId(i)
-        override def unwrap(a: EId): Int               = EId.unwrap(a)
-        override def subst[F[_]](fi: F[Int]): F[EId]   = EId.subst(fi)
-        override def unsubst[F[_]](fa: F[EId]): F[Int] = EId.unsubst(fa)
+        override val enumerate: Array[EId] = subst(tableInt.indices.toArray)
+      }
 
-        override val enumerate: Array[EId] = EId.subst(tableInt.indices.toArray)
+      override val variableIds: OpaqueIntSubset[VarId] = new OpaqueIntSubset[VarId] {
+        override def wrap(i: Int): VarId                 = VarId.fromInt(i)
+        override def unwrap(a: VarId): Int               = VarId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[VarId]   = VarId.fromIntF(fi)
+        override def unsubst[F[_]](fa: F[VarId]): F[Int] = VarId.toIntF(fa)
+
+        override val enumerate: Array[VarId] =
+          subst(tableInt.indices.filter(vec(_).isInstanceOf[Variable]).toArray)
       }
     }
   })
 
-  def extractType[X]: ExprF[X] ==> String = Arrow.lift(_.typ.toString)
+  def extractType[X]: ExprF[X] ==> Type = Arrow.lift(_.typ)
 
-  def types(ast: ASTable): ast.EId ==> String = ast.arrow.andThen(extractType)
+  def types(ast: ASTable): ast.EId ==> Type = ast.coalgebra.andThen(extractType)
 
   def evaluator(ast: ASTable)(inputs: ast.Variable ==> Value): ast.EId ==> Value = {
     def go(i: ast.EId): Value = {
-      ast.arrow(i) match {
+      ast.coalgebra(i) match {
         case CstF(v, _)               => v
         case x @ InputF(_, _)         => inputs(x)
         case ComputationF(f, args, _) => Value(f.compute(args.map(go)))
@@ -48,7 +57,8 @@ object Ops {
     Arrow.lift(go)
   }
 
-  type Algebra[F[_], X] = F[X] ==> X
+  type Algebra[F[_], X]   = F[X] ==> X
+  type Coalgebra[F[_], X] = X ==> F[X]
   def evalAlgebra(ast: ASTable)(inputs: ast.Variable ==> Value): Algebra[ExprF, Value] =
     Arrow.lift {
       case CstF(v, _)               => v
@@ -56,19 +66,38 @@ object Ops {
       case ComputationF(f, args, _) => Value(f.compute(args))
     }
 
-  def cata[X](ast: ASTable)(alg: Algebra[ExprF, X])(implicit F: Functor[ExprF]): ast.EId ==> X = {
-    def go(id: ast.EId): X =
-      alg(F.map(ast.arrow(id))(go))
+  def hylo[A, B, F[_]](coalgebra: Coalgebra[F, A], algebra: Algebra[F, B])(
+      implicit F: Functor[F]): A ==> B = {
+    def go(id: A): B =
+      algebra(F.map(coalgebra(id))(go))
     Arrow.lift(go)
   }
 
-  def memoizedCata[X](ast: ASTable)(
-      alg: Algebra[ExprF, X])(implicit F: Functor[ExprF], classTag: ClassTag[X]): ast.EId ==> X = {
-    val cache = ast.ids.newCache[X]
-    def go(id: ast.EId): X =
-      cache.getOrElseUpdate(id, alg(F.map(ast.arrow(id))(go)))
-
+  def memoizedHylo[A, B, F[_]](coalgebra: Coalgebra[F, A],
+                               algebra: Algebra[F, B],
+                               cache: Cache[A, B])(implicit F: Functor[F]): A ==> B = {
+    def go(id: A): B =
+      cache.getOrElseUpdate(id, algebra(F.map(coalgebra(id))(go)))
     Arrow.lift(go)
   }
+
+//  def astHylo[X](ast: ASTable)(algebra: Algebra[ExprF, X]): ast.EId ==> X = hylo(ast.coalgebra, algebra)
+//
+//  def astMemoizedHylo[X](ast: ASTable)(algebra: Algebra[ExprF, X]): ast.EId ==> X = memoizedHylo(ast.coalgebra, algebra, ast.ids.newCache)
+//
+//  def cata[X](ast: ASTable)(alg: Algebra[ExprF, X])(implicit F: Functor[ExprF]): ast.EId ==> X = {
+//    def go(id: ast.EId): X =
+//      alg(F.map(ast.coalgebra(id))(go))
+//    Arrow.lift(go)
+//  }
+//
+//  def memoizedCata[X](ast: ASTable)(
+//      alg: Algebra[ExprF, X])(implicit F: Functor[ExprF], classTag: ClassTag[X]): ast.EId ==> X = {
+//    val cache = ast.ids.newCache[X]
+//    def go(id: ast.EId): X =
+//      cache.getOrElseUpdate(id, alg(F.map(ast.coalgebra(id))(go)))
+//
+//    Arrow.lift(go)
+//  }
 
 }

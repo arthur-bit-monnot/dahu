@@ -1,6 +1,5 @@
 package dahu.exploration
 
-import dahu.arrows.memoization.Memo.ArrayMemo
 import dahu.arrows.{==>, Arrow}
 import dahu.ast.ASTable
 import dahu.expr.BagPacking
@@ -26,8 +25,8 @@ class Arrows extends FreeSpec {
 
       val evaluationAlgebra: Algebra[ExprF, Value] = evalAlgebra(ast)(inputs)
 
-      val ev2 = cata(ast)(evaluationAlgebra)
-      val ev3 = memoizedCata(ast)(evaluationAlgebra)
+      val ev2 = ast.hylo(evaluationAlgebra)
+      val ev3 = ast.memoizedHylo(evaluationAlgebra)
 
       for(i <- ast.ids.enumerate) {
         assert(ev(i) == ev2(i))
