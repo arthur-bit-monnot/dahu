@@ -1,6 +1,6 @@
 package dahu.arrows
 
-sealed trait Arrow[-Domain, +CoDomain] {
+trait Arrow[-Domain, +CoDomain] {
 
   def apply(v: Domain): CoDomain
 

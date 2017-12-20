@@ -33,7 +33,7 @@ trait ASTable {
     override def fromIntF[F[_]](fs: F[Int]): F[T] = fs
     override def toIntF[F[_]](fs: F[T]): F[Int]   = fs
   }
-  type EId = this.EId.T
+  type EId = EId.T
 
   val VarId: SubIndexLabelImpl[EId] = new SubIndexLabelImpl[EId] {
     type T = EId
@@ -55,6 +55,8 @@ trait ASTable {
 
   def root: EId
   def coalgebra: EId ==> Expr // equivalent to Coalgebra[ExprF, EId]
+
+  def variableCoalgebra: VarId ==> Variable = id => coalgebra(VarId.unwrap(id)).asInstanceOf[Variable]
 
   def ids: OpaqueIntSubset[EId]
   def variableIds: OpaqueIntSubset[VarId]

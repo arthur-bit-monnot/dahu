@@ -1,11 +1,12 @@
 package dahu.exploration
 
-import dahu.arrows.{==>, Arrow}
+import dahu.arrows.recursion.Algebra
+import dahu.arrows.{==>, Arrow, MutableInputs}
 import dahu.ast.ASTable
 import dahu.expr.BagPacking
 import dahu.expr.labels.Labels._
 import dahu.ast.Ops._
-import dahu.recursion.ExprF
+import dahu.recursion.{ComputationF, CstF, ExprF, InputF}
 import org.scalatest.FreeSpec
 
 class Arrows extends FreeSpec {
@@ -33,6 +34,36 @@ class Arrows extends FreeSpec {
         assert(ev(i) == ev3(i))
       }
 
+    }
+
+    "mutation" in {
+      import cats._
+      import cats.implicits._
+      def evalAlgebra(ast: ASTable)(inputs: MutableInputs[ast.Variable, Value]): Algebra[ExprF, Option[Value]] =
+        Arrow.lift {
+          case CstF(v, _)               => Some(v)
+          case x @ InputF(_, _)         => inputs(x)
+          case ComputationF(f, args, _) => args.sequence.map(as => Value(f.compute(as)))
+        }
+
+      val inputs = new MutableInputs[ast.Variable, Value]()
+      val alg = evalAlgebra(ast)(inputs)
+      val ev = ast.hylo(alg)
+
+      assert(ev(ast.root).isEmpty)
+
+      for(i <- ast.variableIds.enumerate.map(i => ast.variableCoalgebra(i))) {
+        inputs.update(i, Value(false))
+      }
+
+      assert(ev(ast.root).contains(true))
+      for(i <- ast.variableIds.enumerate.map(i => ast.variableCoalgebra(i))) {
+        inputs.update(i, Value(true))
+      }
+      assert(ev(ast.root).contains(false))
+
+      inputs.unset(ast.variableIds.enumerate.map(i => ast.variableCoalgebra(i)).head)
+      assert(ev(ast.root).isEmpty)
     }
   }
 
