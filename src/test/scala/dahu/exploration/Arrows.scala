@@ -6,9 +6,8 @@ import dahu.ast.ASTable
 import dahu.expr.BagPacking
 import dahu.expr.labels.Labels._
 import dahu.ast.Ops._
+import dahu.recursion.ExprF
 import org.scalatest.FreeSpec
-
-import scala.reflect.ClassTag
 
 class Arrows extends FreeSpec {
 
@@ -23,17 +22,18 @@ class Arrows extends FreeSpec {
     "evaluation equivalence" in {
       val inputs = inputsByName(ast, Map("x1" -> false, "x2" -> true))
 
-      val ev  = evaluator(ast)(inputs)
-      val ev2 = asRecursiveFold(ast)(evalAlgebra(ast)(inputs))
+      val ev = evaluator(ast)(inputs)
 
-      for(i <- ast.ids.enumerate)
+      val evaluationAlgebra: Algebra[ExprF, Value] = evalAlgebra(ast)(inputs)
+
+      val ev2 = cata(ast)(evaluationAlgebra)
+      val ev3 = memoizedCata(ast)(evaluationAlgebra)
+
+      for(i <- ast.ids.enumerate) {
         assert(ev(i) == ev2(i))
+        assert(ev(i) == ev3(i))
+      }
 
-      implicit val instance = ast.ids
-//      implicit val ct = ClassTag.Any.asInstanceOf[ClassTag[Value]]
-      val memo = new ArrayMemo[ast.EId, Value](ev)
-
-      println(memo.memory.mkString("\n"))
     }
   }
 

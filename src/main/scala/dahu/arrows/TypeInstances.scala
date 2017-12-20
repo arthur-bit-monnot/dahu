@@ -1,15 +1,14 @@
 package dahu.arrows
 
-import scalaz.Memo
+import dahu.arrows.memoization.{ArrayCache, Cache}
 
-//import dahu.arrows.memoization.Memo.Memo
+import scala.reflect.ClassTag
 
 trait TypeInstances[@specialized(Int) T] {
 
   /** All instances of T in no particular order. */
   def enumerate: Array[T]
 
-  type Col[x] <: Memo[T, x]
 }
 
 trait OpaqueIntSubset[@specialized(Int) T] extends TypeInstances[T] {
@@ -21,4 +20,6 @@ trait OpaqueIntSubset[@specialized(Int) T] extends TypeInstances[T] {
 
   def subst[F[_]](fi: F[Int]): F[T]
   def unsubst[F[_]](fa: F[T]): F[Int]
+
+  def newCache[B](implicit classTag: ClassTag[B]): Cache[T, B] = new ArrayCache[T, B](this)
 }

@@ -4,6 +4,9 @@ import cats.Functor
 import dahu.arrows.{==>, Arrow, OpaqueIntSubset, TypeInstances}
 import dahu.expr.labels.Labels.Value
 import dahu.recursion._
+import spire.ClassTag
+
+import scala.collection.mutable
 
 object Ops {
 
@@ -53,10 +56,18 @@ object Ops {
       case ComputationF(f, args, _) => Value(f.compute(args))
     }
 
-  def asRecursiveFold[X](ast: ASTable)(alg: Algebra[ExprF, X])(
-      implicit F: Functor[ExprF]): ast.EId ==> X = {
+  def cata[X](ast: ASTable)(alg: Algebra[ExprF, X])(implicit F: Functor[ExprF]): ast.EId ==> X = {
     def go(id: ast.EId): X =
       alg(F.map(ast.arrow(id))(go))
+    Arrow.lift(go)
+  }
+
+  def memoizedCata[X](ast: ASTable)(
+      alg: Algebra[ExprF, X])(implicit F: Functor[ExprF], classTag: ClassTag[X]): ast.EId ==> X = {
+    val cache = ast.ids.newCache[X]
+    def go(id: ast.EId): X =
+      cache.getOrElseUpdate(id, alg(F.map(ast.arrow(id))(go)))
+
     Arrow.lift(go)
   }
 
