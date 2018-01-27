@@ -43,7 +43,7 @@ class Arrows extends FreeSpec {
         Arrow.lift {
           case CstF(v, _)               => Some(v)
           case x @ InputF(_, _)         => inputs(x)
-          case ComputationF(f, args, _) => args.sequence.map(as => Value(f.compute(as)))
+          case ComputationF(f, args, _) => args.toList.sequence.map(as => Value(f.compute(as)))
         }
 
       val inputs = new MutableInputs[ast.Variable, Value]()

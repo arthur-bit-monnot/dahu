@@ -10,6 +10,10 @@ libraryDependencies += "org.typelevel" %% "cats-core"       % "0.9.0"
 libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
 libraryDependencies += "com.chuusai"   %% "shapeless"       % "2.3.2"
 
+libraryDependencies += "com.propensive" %% "magnolia" % "0.6.1"
+
+unmanagedJars in Compile += file("lib/ILOG.CP.jar")
+
 // pulled by matryoshka and causing problems in IntelliJ and sbt-assembly
 excludeDependencies += "org.typelevel" % "scala-library"
 

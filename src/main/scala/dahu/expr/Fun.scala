@@ -4,7 +4,7 @@ import dahu.expr.labels.Labels.Value
 
 import scala.reflect.runtime.universe._
 
-abstract class Fun[+O: TypeTag] {
+abstract class Fun[+O: WTypeTag] {
   final val outType = typeOf[O]
   def compute(args: Seq[Value]): O
 
@@ -13,18 +13,18 @@ abstract class Fun[+O: TypeTag] {
   override def toString: String = name
 }
 
-abstract class Fun1[-I: TypeTag, +O: TypeTag] extends Fun[O] {
+abstract class Fun1[-I: WTypeTag, +O: WTypeTag] extends Fun[O] {
   final val inType = typeOf[I]
 
   override final def compute(args: Seq[Value]): O = {
     require(args.size == 1)
-    apply(args(0).asInstanceOf[I])
+    of(args(0).asInstanceOf[I])
   }
 
-  def apply(in: I): O
+  def of(in: I): O
 }
 
-abstract class Fun2[-I1: TypeTag, -I2: TypeTag, +O: TypeTag] extends Fun[O] {
+abstract class Fun2[-I1: WTypeTag, -I2: WTypeTag, +O: WTypeTag] extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
 
@@ -36,7 +36,7 @@ abstract class Fun2[-I1: TypeTag, -I2: TypeTag, +O: TypeTag] extends Fun[O] {
   def of(in1: I1, in2: I2): O
 }
 
-abstract class Fun3[-I1: TypeTag, -I2: TypeTag, -I3: TypeTag, +O: TypeTag] extends Fun[O] {
+abstract class Fun3[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, +O: WTypeTag] extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
@@ -47,4 +47,25 @@ abstract class Fun3[-I1: TypeTag, -I2: TypeTag, -I3: TypeTag, +O: TypeTag] exten
   }
 
   def of(in1: I1, in2: I2, in3: I3): O
+}
+
+abstract class Fun4[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, -I4: WTypeTag, +O: WTypeTag] extends Fun[O] {
+  final val inType1 = typeOf[I1]
+  final val inType2 = typeOf[I2]
+  final val inType3 = typeOf[I3]
+  final val inType4 = typeOf[I4]
+
+  override final def compute(args: Seq[Value]): O = {
+    require(args.size == 4, "Wrong number of arguments, expected 3")
+    of(args(0).asInstanceOf[I1], args(1).asInstanceOf[I2], args(2).asInstanceOf[I3], args(3).asInstanceOf[I4])
+  }
+
+  def of(in1: I1, in2: I2, in3: I3, in4: I4): O
+}
+
+abstract class FunN[-I: WTypeTag, +O: WTypeTag] extends Fun[O] {
+
+  override final def compute(args: Seq[Value]): O = of(args.asInstanceOf[Seq[I]])
+
+  def of(args: Seq[I]): O
 }

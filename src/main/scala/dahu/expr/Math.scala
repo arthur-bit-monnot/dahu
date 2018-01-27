@@ -18,7 +18,7 @@ object Math extends App {
   println("test")
   import scala.reflect.runtime.universe.TypeTag
 
-  def addition2[T: AdditiveSemigroup: TypeTag] = new Fun2[T, T, T] {
+  def addition2[T: AdditiveSemigroup: WTypeTag] = new Fun2[T, T, T] {
     val additiveSemigroup = implicitly[AdditiveSemigroup[T]]
 
     override def of(in1: T, in2: T): T = additiveSemigroup.plus(in1, in2)
@@ -26,7 +26,7 @@ object Math extends App {
     override def name: String = "add"
   }
 
-  def multiplication2[T: MultiplicativeSemigroup: TypeTag] = new Fun2[T, T, T] {
+  def multiplication2[T: MultiplicativeSemigroup: WTypeTag] = new Fun2[T, T, T] {
     val mulSG = implicitly[MultiplicativeSemigroup[T]]
 
     override def of(in1: T, in2: T): T =
@@ -35,11 +35,16 @@ object Math extends App {
     override def name: String = "mul"
   }
 
-  def leq2[T: Order: TypeTag] = new Fun2[T, T, Boolean] {
+  def leq2[T: Order: WTypeTag] = new Fun2[T, T, Boolean] {
     val order = implicitly[Order[T]]
 
     override def of(in1: T, in2: T): Boolean = order.lteqv(in1, in2)
 
     override def name: String = "leq"
+  }
+
+  def and = new Fun2[Boolean, Boolean, Boolean] {
+    override def name: String = "and"
+    override def of(in1: Boolean, in2: Boolean): Boolean = in1 && in2
   }
 }

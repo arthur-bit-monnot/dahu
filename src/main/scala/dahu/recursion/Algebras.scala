@@ -23,24 +23,26 @@ object Algebras {
       case InputF(name, typ) => G.point(InputF(name, typ))
       case CstF(value, typ)  => G.point(CstF(value, typ))
       case ComputationF(fun, args, typ) =>
-        ^^(G.point(fun), args.traverse(f), G.point(typ))(ComputationF(_, _, _): ExprF[B])
+        ^^(G.point(fun), args.toList.traverse(f), G.point(typ))(ComputationF(_, _, _): ExprF[B])
+      case ProductF(members, typ) =>
+        ^(members.toList.traverse(f), G.point(typ))(ProductF(_, _))
     }
   }
 
   val coalgebra: Coalgebra[ExprF, Expr[_]] = {
-    case x @ Input(name)            => InputF(name, x.typ)
-    case x @ Cst(value)             => CstF(Value(value), x.typ)
-    case x @ Computation1(fun, arg) => ComputationF(fun, List(arg), x.typ)
-    case x @ Computation2(fun, arg1, arg2) =>
-      ComputationF(fun, List(arg1, arg2), x.typ)
-    case x @ Computation3(fun, a1, a2, a3) =>
-      ComputationF(fun, List(a1, a2, a3), x.typ)
+    case x @ Input(name)    => InputF(name, x.typ)
+    case x @ Cst(value)     => CstF(Value(value), x.typ)
+    case x: Computation[_]  => ComputationF(x.f, x.args, x.typ)
+    case x @ Product(value) => ???
+//      val c = x.asComputation
+//      ComputationF(c.f, c.args, c.typ)
   }
 
   val printAlgebra: Algebra[ExprF, String] = {
     case InputF(v, _)             => v
     case CstF(v, _)               => v.toString
     case ComputationF(f, args, _) => f.name + args.mkString("(", ",", ")")
+    case ProductF(members, _)     => members.mkString("(", ", ", ")")
   }
 
   sealed abstract class EvalError
@@ -61,11 +63,11 @@ object Algebras {
     case InputF(v, _) => attempt { inputs(v) }
     case CstF(v, _)   => attempt { v }
     case ComputationF(f, args, _) =>
-      args.sequenceU match {
+      args.toList.sequenceU match {
         case Success(as) => attempt { Value(f.compute(as)) }
         case Failure(x)  => Failure(x)
       }
-
+    case ProductF(members, _) => members.toList.sequenceU.map(Value(_))
   }
   val rec = Recursive.fromCoalgebra(coalgebra)
 
@@ -84,6 +86,12 @@ object Algebras {
 
   def pprint(prg: Expr[_]): String =
     rec.cata(prg)(printAlgebra)
+
+  def pprint[T](coalgebra: Coalgebra[ExprF, T], expr: T): String = {
+    // todo: use zygo directly
+    val rec = Recursive.fromCoalgebra(coalgebra)
+    rec.cata(expr)(printAlgebra)
+  }
 
 //  import shapeless.{::, HNil}
 //  def encode(in: Expr[Any]): AST = {

@@ -17,6 +17,7 @@ object ExprF {
       case x @ CstF(_, _)   => x
       case x @ ComputationF(fun, args, typ) =>
         ComputationF(fun, args.map(f), typ)
+      case x @ ProductF(members, typ) => ProductF(members.map(f), typ)
     }
   }
 }
@@ -35,6 +36,10 @@ object CstF {
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }
 
-final case class ComputationF[F](fun: Fun[_], args: List[F], typ: Type) extends ExprF[F] {
+final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends ExprF[F] {
   override def toString: String = s"λ: $fun(${args.mkString(", ")})"
+}
+
+final case class ProductF[F](members: Seq[F], typ: Type) extends ExprF[F] {
+  override def toString: String = members.mkString("(", ", ", ")")
 }
