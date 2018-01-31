@@ -1,7 +1,7 @@
 package dahu.constraints.domains
 
 import java.util
-import java.util.Objects
+import dahu.utils.debug._
 
 object IBitSet {
   private final val WORD_MASK     = 0xffffffffffffffffL
@@ -9,13 +9,15 @@ object IBitSet {
 
   private def updateArray(elems: Array[Long], idx: Int, w: Long): Array[Long] = {
     var len = elems.length
-    while (len > 0 && (elems(len - 1) == 0L || w == 0L && idx == len - 1)) len -= 1
+    while(len > 0 && (elems(len - 1) == 0L || w == 0L && idx == len - 1)) len -= 1
     var newlen = len
-    if (idx >= newlen && w != 0L) newlen = idx + 1
+    if(idx >= newlen && w != 0L) newlen = idx + 1
     val newelems = new Array[Long](newlen)
     Array.copy(elems, 0, newelems, 0, len)
-    if (idx < newlen) newelems(idx) = w
-    else assert(w == 0L)
+    if(idx < newlen)
+      newelems(idx) = w
+    else
+      assert(w == 0L)
     newelems
   }
 }
@@ -29,7 +31,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   def max: Int = lastSetBit
 
   private def words(i: Int): Long =
-    if (i < elems.length) elems(i)
+    if(i < elems.length) elems(i)
     else 0L
   private def wordIndex(i: Int) = i >> 6
 
@@ -37,7 +39,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
     0 <= elem && (words(elem >> 6) & (1L << elem)) != 0L
 
   override def +(elem: Int): IBitSet =
-    if (contains(elem))
+    if(contains(elem))
       this
     else {
       val w = words(elem >> 6) | (1L << elem)
@@ -49,25 +51,26 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   }
 
   override def -(elem: Int): IBitSet =
-    if (!contains(elem))
+    if(!contains(elem))
       this
     else {
       val w = words(elem >> 6) & ~(1L << elem)
       new IBitSet(updateArray(elems, elem >> 6, w))
     }
 
-  import java.lang.Long.{lowestOneBit, numberOfTrailingZeros}
   private def lastSetBit: Int = {
     var u    = nwords - 1
     var word = words(u)
-    while (true) {
-      if (word != 0) {
-        val ret = (u * BITS_PER_WORD) + numberOfTrailingZeros(lowestOneBit(word))
-        assert(contains(ret) && nextSetBit(ret) == -1)
+    while(true) {
+      if(word != 0) {
+        val ret = (u * BITS_PER_WORD) + BITS_PER_WORD - java.lang.Long
+          .numberOfLeadingZeros(word) - 1
+        assert3(contains(ret))
+        assert3(nextSetBit(ret + 1) == -1)
         return ret
       }
       u -= 1
-      if (u == -1)
+      if(u == -1)
         return -1
       word = words(u)
     }
@@ -77,17 +80,17 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   private def nextSetBit(from: Int): Int = {
     require(from >= 0)
     var u = wordIndex(from)
-    if (u >= nwords)
+    if(u >= nwords)
       return -1
     var word = words(u) & (WORD_MASK << from)
-    while (true) {
-      if (word != 0) {
-        val ret = (u * BITS_PER_WORD) + numberOfTrailingZeros(word)
-        assert(contains(ret))
+    while(true) {
+      if(word != 0) {
+        val ret = (u * BITS_PER_WORD) + java.lang.Long.numberOfTrailingZeros(word)
+        assert3(contains(ret))
         return ret
       }
       u += 1
-      if (u == nwords)
+      if(u == nwords)
         return -1
       word = words(u)
     }
@@ -98,7 +101,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
     val newSize      = Math.min(nwords, o.nwords)
     val intersection = new Array[Long](newSize)
     var i            = 0
-    while (i < newSize) {
+    while(i < newSize) {
       intersection(i) = words(i) & o.words(i)
       i += 1
     }
@@ -109,7 +112,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
     val newSize = Math.max(nwords, o.nwords)
     val union   = new Array[Long](newSize)
     var i       = 0
-    while (i < newSize) {
+    while(i < newSize) {
       union(i) = words(i) | o.words(i)
       i += 1
     }
@@ -119,8 +122,8 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   def sharesOneElement(o: IBitSet): Boolean = {
     val newSize = Math.min(nwords, o.nwords)
     var i       = 0
-    while (i < newSize) {
-      if (words(i) != 0 && o.words(i) != 0 && (words(i) & o.words(i)) != 0)
+    while(i < newSize) {
+      if(words(i) != 0 && o.words(i) != 0 && (words(i) & o.words(i)) != 0)
         return true
       i += 1
     }
@@ -136,9 +139,9 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   override final lazy val isEmpty: Boolean = {
     var i     = nwords
     var empty = true
-    while (empty && i > 0) {
+    while(empty && i > 0) {
       i -= 1
-      if (words(i) != 0)
+      if(words(i) != 0)
         empty = false
     }
     empty
@@ -147,7 +150,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   override final lazy val size: Int = {
     var s = 0
     var i = nwords
-    while (i > 0) {
+    while(i > 0) {
       i -= 1
       s += java.lang.Long.bitCount(words(i))
     }
