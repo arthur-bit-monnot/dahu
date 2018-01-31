@@ -1,5 +1,8 @@
 package dahu.constraints.domains
 
+import java.util
+import java.util.Objects
+
 object IBitSet {
   private final val WORD_MASK     = 0xffffffffffffffffL
   private final val BITS_PER_WORD = 64
@@ -17,10 +20,10 @@ object IBitSet {
   }
 }
 
-class IBitSet(val elems: Array[Long]) extends Set[Int] {
+class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   def this() = this(Array.fill(1)(0))
   import IBitSet._
-  val nwords = elems.length
+  private val nwords = elems.length
 
   def min: Int = nextSetBit(0)
   def max: Int = lastSetBit
@@ -149,5 +152,10 @@ class IBitSet(val elems: Array[Long]) extends Set[Int] {
       s += java.lang.Long.bitCount(words(i))
     }
     s
+  }
+
+  override def hashCode(): Int = util.Arrays.hashCode(elems)
+  override def equals(o: Any): Boolean = o match {
+    case x: IBitSet => util.Arrays.equals(elems, x.elems)
   }
 }

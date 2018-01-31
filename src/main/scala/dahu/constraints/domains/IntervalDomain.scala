@@ -65,6 +65,15 @@ class IntervalDomain(val lb: Int, val ub: Int) extends IntDomain {
     case o => super.union(other)
   }
 
+  override def equals(o: Any): Boolean = o match {
+    case x: IntDomain if isEmpty && x.isEmpty => true
+    case x: IntDomain if isEmpty || x.isEmpty => false
+    case x: IntervalDomain => lb == x.lb && ub == x.ub
+    case x: EnumeratedDomain => lb == x.lb && ub == x.ub && size == x.size // continuous enumerated domain
+    case _ => super.equals(o)
+  }
+
+
   def shift(increment: Int): IntervalDomain = new IntervalDomain(lb + increment, ub + increment)
 
   override def toString = s"[$lb, $ub]"

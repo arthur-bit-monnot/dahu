@@ -1,5 +1,7 @@
 package dahu.constraints.domains
 
+import java.util.Objects
+
 import dahu.utils.assertions._
 
 trait IntDomain {
@@ -32,22 +34,22 @@ trait IntDomain {
 
   def +(other: IntDomain): IntDomain = union(other)
 
-  def emptyIntersection(other: IntDomain) = (this & other).size == 0
+  def emptyIntersection(other: IntDomain): Boolean = (this & other).size == 0
 
-  def containedBy(other: IntDomain) = (this & other).size == this.size
+  def containedBy(other: IntDomain): Boolean = (this & other).size == this.size
 
   def isSingleton: Boolean = size == 1
 
   def head: Int = { assert1(nonEmpty); values.head }
 
-  def isEmpty: Boolean = size <= 0
+  def isEmpty: Boolean = size == 0
 
-  def nonEmpty = !isEmpty
+  def nonEmpty: Boolean = !isEmpty
 
   def remove(toRm: IntDomain): IntDomain =
     new EnumeratedDomain(values.toSet.filterNot(toRm.contains))
 
-  def -(toRm: IntDomain) = remove(toRm)
+  def -(toRm: IntDomain): IntDomain = remove(toRm)
 
   def remove(toRm: Int): IntDomain =
     new EnumeratedDomain(values.toSet - toRm)
@@ -66,6 +68,8 @@ trait IntDomain {
     case o: IntDomain => o.values.toSet == values.toSet
     case _         => false
   }
+
+  override def hashCode(): Int = lb + ub * 31 + size * 31 * 31
 
   override def toString: String =
     if (isSingleton)
