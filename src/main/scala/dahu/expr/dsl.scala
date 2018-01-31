@@ -32,17 +32,28 @@ package object dsl {
     def *(b: Expr[T]) = Computation(Math.multiplication2[T], a, b)
   }
 
-  implicit class OrderOps[T: Order: WTypeTag](a: Expr[T]) {
-    def <=(b: Expr[T]): Expr[Boolean]  = Computation(Math.leq2[T], a, b)
-    def >=(b: Expr[T]): Expr[Boolean]  = b <= a
-    def ===(b: Expr[T]): Expr[Boolean] = a <= b && b <= a
+//  implicit class OrderOps[T: Order: WTypeTag](a: Expr[T]) {
+//    def <=(b: Expr[T]): Expr[Boolean]  = Computation(Math.leq2[T], a, b)
+//    def >=(b: Expr[T]): Expr[Boolean]  = b <= a
+//    def ===(b: Expr[T]): Expr[Boolean] = a <= b && b <= a
+//  }
+  implicit class OrderIntOps(a: Expr[Int]) {
+    def <=(b: Expr[Int]): Expr[Boolean]  = Computation(int.LEQ, a, b)
+    def >=(b: Expr[Int]): Expr[Boolean]  = b <= a
+    def ===(b: Expr[Int]): Expr[Boolean] = a <= b && b <= a
   }
+  implicit class OrderDoubleOps(a: Expr[Double]) {
+    def <=(b: Expr[Double]): Expr[Boolean]  = Computation(double.LEQ, a, b)
+    def >=(b: Expr[Double]): Expr[Boolean]  = b <= a
+    def ===(b: Expr[Double]): Expr[Boolean] = a <= b && b <= a
+  }
+
 
   implicit class BooleanOps(a: Expr[Boolean]) {
     def toDouble: Expr[Double]              = IF(a, Cst(1.0), Cst(0.0))
     def toInt: Expr[Int]                    = IF(a, Cst(1), Cst(0))
-    def &&(b: Expr[Boolean]): Expr[Boolean] = a * b
-    def ||(b: Expr[Boolean]): Expr[Boolean] = a + b
+    def &&(b: Expr[Boolean]): Expr[Boolean] = Computation(bool.And, Array(a, b))
+    def ||(b: Expr[Boolean]): Expr[Boolean] = Computation(bool.Or, Array(a, b))
     def unary_~(): Expr[Boolean]            = Computation(bool.Not, a)
   }
 

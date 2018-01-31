@@ -6,6 +6,8 @@ trait Arrow[-Domain, +CoDomain] {
 
   def andThen[Res](next: Arrow[CoDomain, Res]): Arrow[Domain, Res] =
     ComposedArrow(this, next)
+
+  def asScalaFunction: Domain => CoDomain = x => this.apply(x)
 }
 
 object Arrow {

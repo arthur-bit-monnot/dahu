@@ -7,10 +7,12 @@ scalaVersion := "2.12.4"
 libraryDependencies += "com.slamdata"  %% "matryoshka-core" % "0.21.3"
 libraryDependencies += "org.typelevel" %% "spire"           % "0.14.1"
 libraryDependencies += "org.typelevel" %% "cats-core"       % "0.9.0"
-libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
 libraryDependencies += "com.chuusai"   %% "shapeless"       % "2.3.2"
-
 libraryDependencies += "com.propensive" %% "magnolia" % "0.6.1"
+
+libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
+
 
 unmanagedJars in Compile += file("lib/ILOG.CP.jar")
 

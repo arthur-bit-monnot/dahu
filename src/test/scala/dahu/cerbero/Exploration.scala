@@ -2,6 +2,7 @@ package dahu.cerbero
 
 import cats.Id
 import dahu.cerberdo.Planning.Structs.IntervalF
+import dahu.constraints.CSP
 import dahu.recursion.{ComputationF, ExprF, ProductF}
 import matryoshka.data.Fix
 import matryoshka.instances.fixedpoint.Cofree
@@ -72,7 +73,6 @@ object Planner extends App {
 
   val x = dahu.recursion.Algebras.pprint(Algebras.coalgebra, pb.satProblem)
   println(x)
-
   import matryoshka._
   import matryoshka.implicits._
   import dahu.recursion.Algebras._
@@ -94,28 +94,30 @@ object Planner extends App {
   println(y.cata(printCoffre))
   println(y.cata(collectCofree).mkString("\n"))
 
-  def transpile[T](t: T, coalgebra: Coalgebra[ExprF, T]): (T => Int, Coalgebra[ExprF, Int]) = {
 
-    import scala.collection.mutable
-    val store = mutable.LinkedHashMap[ExprF[Int], Int]()
-    val astStore = mutable.LinkedHashMap[Int, mutable.ArrayBuffer[T]]()
-    val alg: Algebra[EnvT[T, ExprF, ?], Int] = {
-      case EnvT((x, e)) =>
-        val i = store.getOrElseUpdate(e, store.size)
-        astStore.getOrElseUpdate(i, mutable.ArrayBuffer()) += x
-        i
-    }
-    val tmp = t.hylo(alg, matryoshka.attributeCoalgebra(coalgebra))
-    val reverseAstStore = astStore.flatMap(kp => kp._2.map((_, kp._1))).toMap
-    val reverseStore = store.map(_.swap).toMap
-    val forward: T => Int = x => reverseAstStore(x)
-    val expr: Int => ExprF[Int] = reverseStore(_)
-    (forward, expr)
-  }
 //  println(y.cata(alg))
 //  pb.satProblem.asInstanceOf[Ast].hylo(alg, withAtt)
 //  println(store.mkString("\n"))
 
 //  println(astStore.map(t => t._1.toString+"\n  "+t._2.mkString("\n  ")).mkString("\n"))
-  transpile(pb.satProblem, Algebras.coalgebra)
+  val tmp = transpile(pb.satProblem, Algebras.coalgebra)
+  val tmp2 = transpile(tmp.root, tmp.coalgebra.asScalaFunction)
+  val f: Ast => Option[tmp2.EId] = x => tmp.compiledForm(x).flatMap(y => tmp2.compiledForm(y))
+  println(tmp)
+
+  val csp = new CSP(tmp)
+  csp.solve
+
+  println(tmp2)
+
+  {
+    val p: Ast = pb.satProblem
+    val tree = p.ana[Fix[ExprF]].apply(Algebras.coalgebra)
+    val flattened = tree.transCata[Fix[ExprF]].apply(dahu.recursion.Algebras.passes).cata(pprint)
+//    val flattened2 = tree.prepro(dahu.recursion.Algebras.passes, pprint)
+
+    def withSize(s: String) = s"${s.length}: $s"
+    println(withSize(tree.cata(pprint)))
+    println(withSize(flattened))
+  }
 }

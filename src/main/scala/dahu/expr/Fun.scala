@@ -64,6 +64,7 @@ abstract class Fun4[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, -I4: WTypeTag, 
 }
 
 abstract class FunN[-I: WTypeTag, +O: WTypeTag] extends Fun[O] {
+  final val inTypes = typeOf[I]
 
   override final def compute(args: Seq[Value]): O = of(args.asInstanceOf[Seq[I]])
 

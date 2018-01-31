@@ -2,7 +2,7 @@ package dahu
 
 package object expr {
 
-  type Type       = scala.reflect.runtime.universe.Type
-  type WTypeTag[x] = scala.reflect.runtime.universe.WeakTypeTag[x]
-  def typeOf[T](implicit ttag: WTypeTag[T]): Type = ttag.tpe
+  type Type       = types.Tag[_]
+  type WTypeTag[x] = types.Tag[x]
+  def typeOf[T](implicit ttag: WTypeTag[T]): Type = ttag
 }

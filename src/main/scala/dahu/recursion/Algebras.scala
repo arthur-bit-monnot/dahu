@@ -1,5 +1,6 @@
 package dahu.recursion
 
+import dahu.arrows.{==>, OpaqueIntSubset}
 import dahu.expr._
 import matryoshka._
 import matryoshka.data._
@@ -9,9 +10,10 @@ import scala.util.control.NonFatal
 import scalaz.{Divide => _, _}
 import Scalaz._
 import dahu.expr.Bind
+import dahu.expr.bool.And
 import dahu.interpreter
-
 import dahu.expr.labels.Labels.Value
+import matryoshka.patterns.EnvT
 
 import scala.collection.mutable
 
@@ -124,4 +126,112 @@ object Algebras {
     (head, code)
   }
 
+  def transpile[T](t: T, coalgebra: Coalgebra[ExprF, T]): ASDAG[T] = {
+
+    import scala.collection.mutable
+    val store    = mutable.LinkedHashMap[ExprF[Int], Int]()
+    val astStore = mutable.LinkedHashMap[Int, mutable.ArrayBuffer[T]]()
+    val alg: Algebra[EnvT[T, ExprF, ?], Int] = {
+      case EnvT((x, e)) =>
+        val i = store.getOrElseUpdate(e, store.size)
+        astStore.getOrElseUpdate(i, mutable.ArrayBuffer()) += x
+        i
+    }
+    // this is only used to force traversal and populate the hash maps
+    val rootExprID: Int = t.hylo(alg, matryoshka.attributeCoalgebra(coalgebra))
+
+    val reverseAstStore           = astStore.flatMap(kp => kp._2.map((_, kp._1))).toMap
+    val reverseStore              = store.map(_.swap).toMap
+    val forward: T => Option[Int] = x => reverseAstStore.get(x)
+    val expr: Int => ExprF[Int]   = reverseStore(_)
+    import dahu.arrows._
+    new ASDAG[T] {
+      private val exprAlgebraData: Array[Expr] =
+        store.toArray.sortBy(_._2).map(e => EId.fromIntF(e._1))
+      private val compilationAlgebra: Map[T, EId] = reverseAstStore.asInstanceOf[Map[T, EId]]
+
+      override def coalgebra: EId ==> Expr = Arrow.lift(x => exprAlgebraData(EId.toInt(x)))
+
+      override def root: EId = EId.fromInt(rootExprID)
+
+      override def ids: OpaqueIntSubset[EId] = new OpaqueIntSubset[EId] {
+        override def wrap(i: Int): EId                 = EId.fromInt(i)
+        override def unwrap(a: EId): Int               = EId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[EId]   = EId.fromIntF(fi)
+        override def unsubst[F[_]](fa: F[EId]): F[Int] = EId.toIntF(fa)
+
+        override val enumerate: Array[EId] = subst(exprAlgebraData.indices.toArray)
+      }
+      override def variableIds: OpaqueIntSubset[VarId] = new OpaqueIntSubset[VarId] {
+        override def wrap(i: Int): VarId                 = VarId.fromInt(i)
+        override def unwrap(a: VarId): Int               = VarId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[VarId]   = VarId.fromIntF(fi)
+        override def unsubst[F[_]](fa: F[VarId]): F[Int] = VarId.toIntF(fa)
+
+        override val enumerate: Array[VarId] =
+          subst(exprAlgebraData.indices.filter(exprAlgebraData(_).isInstanceOf[Variable]).toArray)
+      }
+
+      override def compiledForm: T ==> Option[EId] = Arrow.lift(compilationAlgebra.get)
+    }
+
+  }
+
+  private val collapsable: Set[FunN[_, _]] = Set(bool.And, bool.Or)
+  private def isCollapsable(op: Fun[_]): Boolean = op match {
+    case x: FunN[_, _] => collapsable.contains(x)
+    case _             => false
+  }
+  val flatten: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
+    case ComputationF(operator, args, typ) if isCollapsable(operator) =>
+      val flattenedArgs = args.flatMap {
+        case Fix(ComputationF(`operator`, subargs, _)) => subargs
+        case x                                         => List(x)
+      }
+      ComputationF(operator, flattenedArgs, typ)
+    case x => x
+  }
+  val constantElimination: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
+    case ComputationF(bool.Not, Seq(Fix(CstF(v, t))), typ) =>
+      v match {
+        case true  => CstF(Value(false), t)
+        case false => CstF(Value(true), t)
+        case _     => ???
+      }
+    case ComputationF(bool.And, Seq(), typ) =>
+      CstF(Value(true), typ)
+    case ComputationF(bool.Or, Seq(), typ) =>
+      CstF(Value(false), typ)
+
+    case ComputationF(int.EQ, Seq(Fix(CstF(v1, _)), Fix(CstF(v2, _))), t) =>
+      CstF(Value(v1 == v2), t)
+
+    case ComputationF(int.LEQ, Seq(Fix(CstF(v1: Int, _)), Fix(CstF(v2: Int, _))), t) =>
+      CstF(Value(v1 <= v2), t)
+    case x => x
+  }
+  val simplifyOr: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
+    case ComputationF(bool.And, args, typ) if args.exists(isFalse) =>
+      CstF(Value(false), typ)
+    case ComputationF(bool.And, args, typ) =>
+      ComputationF(bool.And, args.filterNot(isTrue), typ)
+
+    case ComputationF(bool.Or, args, typ) if args.exists(isTrue) =>
+      CstF(Value(true), typ)
+    case ComputationF(bool.Or, args, typ) =>
+      ComputationF(bool.Or, args.filterNot(isFalse), typ)
+    case x => x
+  }
+
+  val passes = simplifyOr.andThen(constantElimination).andThen(flatten)
+
+  type Simplification[X] = ExprF[ExprF[X]] => ExprF[ExprF[X]]
+  def isTrue(f: Fix[ExprF]): Boolean = f match {
+    case Fix(CstF(true, _)) => true
+    case _                  => false
+  }
+  def isFalse(f: Fix[ExprF]): Boolean = f match {
+    case Fix(CstF(false, _)) => true
+    case _                   => false
+  }
 }

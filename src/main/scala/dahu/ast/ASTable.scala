@@ -6,7 +6,7 @@ import dahu.recursion.{ExprF, InputF}
 
 import scala.reflect.ClassTag
 
-sealed abstract class IndexLabelImpl {
+abstract class IndexLabelImpl {
   type T
   def apply(s: Int): T = fromInt(s)
 
@@ -16,7 +16,7 @@ sealed abstract class IndexLabelImpl {
   def toIntF[F[_]](fs: F[T]): F[Int]
 }
 
-sealed abstract class SubIndexLabelImpl[UB] extends IndexLabelImpl {
+abstract class SubIndexLabelImpl[UB] extends IndexLabelImpl {
   def wrap(s: UB): T
   def unwrap(lbl: T): UB
   def subst[F[_]](fs: F[UB]): F[T]

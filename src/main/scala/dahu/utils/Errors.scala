@@ -6,4 +6,6 @@ object Errors {
 
   def err(msg: => String): Throwable = Error(msg)
 
+  def unexpected: Nothing = throw new RuntimeException("Unexpected")
+  def unexpected(msg: String): Nothing = throw new RuntimeException(msg)
 }

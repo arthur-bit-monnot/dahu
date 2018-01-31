@@ -77,6 +77,11 @@ object Computation {
                                      in2: Expr[I2],
                                      in3: Expr[I3]): Computation3[I1, I2, I3, O] =
     Computation3(f, in1, in2, in3)
+
+  def apply[I, O: WTypeTag](fun: FunN[I, O], arguments: Seq[Expr[I]]): Computation[O] = new Computation {
+    override def f: Fun[O] = fun
+    override def args: Seq[Expr[Any]] = arguments
+  }
 }
 final case class Computation1[I, O: WTypeTag](f: Fun1[I, O], in: Expr[I]) extends Computation[O] {
   override val args: Seq[Expr[Any]] = Array(in)
