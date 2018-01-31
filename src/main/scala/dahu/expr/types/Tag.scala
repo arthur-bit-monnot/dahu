@@ -18,6 +18,7 @@ trait TagIsoInt[T] extends Tag[T] {
 
   val min: Int
   val max: Int
+  val numInstances: Int = max - min +1
 }
 
 object Tag {

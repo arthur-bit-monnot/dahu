@@ -57,19 +57,19 @@ class EnumeratedDomain(val vals: IBitSet) extends IntDomain {
 
   override def nonEmpty = !isEmpty
 
-  override def remove(toRm: IntDomain): IntDomain = {
+  override def without(toRm: IntDomain): IntDomain = {
     toRm match {
       case toRm: EnumeratedDomain =>
         new EnumeratedDomain(vals -- toRm.vals)
       case _ =>
-        super.remove(toRm)
+        super.without(toRm)
     }
   }
 
-  override def remove(toRm: Int): EnumeratedDomain =
+  override def without(toRm: Int): EnumeratedDomain =
     new EnumeratedDomain(vals - toRm)
 
-  override def add(value: Int): EnumeratedDomain = {
+  override def wizz(value: Int): EnumeratedDomain = {
     new EnumeratedDomain(vals + value)
   }
 

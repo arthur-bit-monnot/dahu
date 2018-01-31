@@ -6,43 +6,7 @@ import dahu.expr._
 import dahu.recursion.ComputationF
 import dahu.utils.Errors.unexpected
 
-case class IntDomain(min: Int, max: Int) {
-  def this() = this(0, 100000)
-  def this(v: Int) = this(v, v)
-
-  def max(o: IntDomain): IntDomain = IntDomain(math.max(min, o.min), math.max(max, o.max))
-  def min(o: IntDomain): IntDomain = IntDomain(math.min(min, o.min), math.min(max, o.max))
-  def +(o: IntDomain)              = IntDomain(min + o.min, max + o.max)
-  def negated: IntDomain           = IntDomain(-max, -min)
-  def -(o: IntDomain): IntDomain   = this + o.negated
-  def -(value: Int): IntDomain =
-    if(value == min) IntDomain(min+1, max)
-    else if(value == max) IntDomain(min, max-1)
-    else this
-
-  def inter(o: IntDomain): IntDomain = IntDomain(math.max(min, o.min), math.min(max, o.max))
-
-  def isEmpty: Boolean = min > max
-  def isSet: Boolean   = min == max
-
-  override def equals(o: scala.Any): Boolean = o match {
-    case IntDomain(omin, omax) =>
-      (min > max && omin > omax) || (min == omin && max == omax)
-  }
-
-  def size: Int = math.max(0, max - min + 1)
-
-  override def toString: String =
-    if(isEmpty) "{}"
-    else if(isSet) min.toString
-    else s"[$min, $max]"
-}
-object BoolDomains {
-  val True    = new IntDomain(1)
-  val False   = new IntDomain(0)
-  val Unknown = IntDomain(0, 1)
-
-}
+import dahu.constraints.domains._
 
 trait Propagator {}
 
@@ -50,7 +14,7 @@ object Propagator {
   def forward(fun: Fun[_]): ForwardPropagator = fun match {
     case int.Add  => AddForwardPropagator
     case int.LEQ  => LEQForwardPropagator
-    case int.EQ => EqForwardPropagator
+    case int.EQ   => EqForwardPropagator
     case bool.Or  => OrForwardPropagator
     case bool.And => AndForwardPropagator
     case bool.Not => NotForwardPropagator
@@ -62,7 +26,7 @@ object Propagator {
   def backward(fun: Fun[_]): BackwardPropagator = fun match {
     case int.Add  => AddBackwardPropagator
     case int.LEQ  => LEQBackwardPropagator
-    case int.EQ => EqBackwardPropagator
+    case int.EQ   => EqBackwardPropagator
     case bool.Or  => OrBackwardPropagator
     case bool.And => AndBackwardPropagator
     case bool.Not => NotBackwardPropagator
@@ -125,12 +89,12 @@ object ForwardPropagator {
       .map(translator =>
         new ForwardPropagator {
           override def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain =
-            if(args.map(dom).forall(d => d.min == d.max)) {
-              val argValues: Seq[Value] = translator.argsFromInt(args.map(a => dom(a).min))
+            if(args.map(dom).forall(_.isSingleton)) {
+              val argValues: Seq[Value] = translator.argsFromInt(args.map(a => dom(a).head))
               val eval                  = translator.outToInt(Value(f.compute(argValues)))
-              new IntDomain(eval)
+              SingletonDomain(eval)
             } else {
-              new IntDomain()
+              FullDomain
             }
       })
   }
@@ -192,49 +156,43 @@ case object AddForwardPropagator extends ForwardPropagator2 {
 case object AddBackwardPropagator extends BackwardPropagator2 {
   override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) = {
     (
-      l.inter(out - r),
-      r.inter(out - l)
+      l & (out - r),
+      r & (out - l)
     )
   }
 }
 
 case object LEQForwardPropagator extends ForwardPropagator2 {
   override def propagate(l: IntDomain, r: IntDomain): IntDomain =
-    if(l.max <= r.min) BoolDomains.True
-    else if(l.min > r.max) BoolDomains.False
-    else BoolDomains.Unknown
+    if(l.ub <= r.lb) True
+    else if(l.lb > r.ub) False
+    else TrueOrFalse
 }
 case object LEQBackwardPropagator extends BackwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) =
-    if(out == BoolDomains.True)
-      (IntDomain(l.min, math.min(l.max, r.min)), IntDomain(math.max(r.min, l.max), r.max))
-    else if(out == BoolDomains.False)
-      (IntDomain(math.max(l.min, r.min + 1), l.max), IntDomain(r.min, math.min(r.max, l.max - 1)))
+  override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) = {
+    if(out == True)
+      (IntervalDomain(l.lb, math.min(l.ub, r.ub)), IntervalDomain(math.max(r.lb, l.lb), r.ub))
+    else if(out == False)
+      (IntervalDomain(math.max(l.lb, r.lb + 1), l.ub),
+       IntervalDomain(r.lb, math.min(r.ub, l.ub - 1)))
     else
       (l, r)
-}
-
-case object OrForwardPropagator extends ForwardPropagatorN {
-  override def propagate(domains: Seq[IntDomain]): IntDomain = domains.tail.foldLeft(domains.head) {
-    case (acc, d) => acc.max(d)
   }
 }
 
-//case object OrBackwardPropagator extends BackwardPropagator2 {
-//  override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) =
-//    (l.inter(out - r), r.inter(out - l))
-//}
+case object OrForwardPropagator extends ForwardPropagatorN {
+  override def propagate(domains: Seq[IntDomain]): IntDomain = domains.foldLeft(False)(_.max(_))
+}
 
 case object OrBackwardPropagator extends BackwardPropagatorN {
-  import BoolDomains._
   override def propagate(domains: Seq[IntDomain], out: IntDomain): Seq[IntDomain] = {
     if(out == True) {
       if(domains.contains(True))
         domains
-      else if(domains.count(_ == Unknown) == 1)
-        domains.map(x => if(x == Unknown) True else x)
+      else if(domains.count(_.size > 1) == 1)
+        domains.map(x => if(x.size > 1) True else x)
       else if(domains.forall(_ == False))
-        domains.map(_ => IntDomain(1, 0))
+        domains.map(_ => EmptyDomain)
       else
         domains
     } else if(out == False) {
@@ -246,23 +204,21 @@ case object OrBackwardPropagator extends BackwardPropagatorN {
 }
 
 case object AndForwardPropagator extends ForwardPropagatorN {
-  override def propagate(domains: Seq[IntDomain]): IntDomain = domains.tail.foldLeft(domains.head) {
-    case (acc, d) => acc.min(d)
-  }
+  override def propagate(domains: Seq[IntDomain]): IntDomain = domains.foldLeft(True)(_.min(_))
 }
 
 case object AndBackwardPropagator extends BackwardPropagatorN {
-  import BoolDomains._
+
   override def propagate(domains: Seq[IntDomain], out: IntDomain): Seq[IntDomain] = {
-    if(out == BoolDomains.True) {
-      domains.map(x => BoolDomains.True)
-    } else if(out == BoolDomains.False) {
+    if(out == True) {
+      domains.map(x => True)
+    } else if(out == False) {
       if(domains.contains(False))
         domains
-      else if(domains.count(_ == Unknown) == 1)
-        domains.map(x => if(x == Unknown) False else x)
+      else if(domains.count(_.size > 1) == 1)
+        domains.map(x => if(x.size > 1) False else x)
       else if(domains.forall(_ == True))
-        domains.map(_ => IntDomain(1, 0))
+        domains.map(_ => EmptyDomain)
       else
         domains
     } else {
@@ -273,36 +229,39 @@ case object AndBackwardPropagator extends BackwardPropagatorN {
 
 case object NotForwardPropagator extends ForwardPropagator1 {
   override def propagate(d: IntDomain): IntDomain =
-    if(d == BoolDomains.False) BoolDomains.True
-    else if(d == BoolDomains.True) BoolDomains.False
-    else BoolDomains.Unknown
+    if(d == False) True
+    else if(d == True) False
+    else TrueOrFalse
 }
 
 case object NotBackwardPropagator extends BackwardPropagator1 {
   override def propagate(in: IntDomain, out: IntDomain): IntDomain =
-    if(out == BoolDomains.False) BoolDomains.True
-    else if(out == BoolDomains.True) BoolDomains.False
-    else BoolDomains.Unknown
+    if(out == False) True
+    else if(out == True) False
+    else TrueOrFalse
 }
 
 case object EqForwardPropagator extends ForwardPropagator2 {
   override def propagate(l: IntDomain, r: IntDomain): IntDomain =
-    if(l.isSet && r.isSet && l.min == r.min) BoolDomains.True
-    else if(l.max < r.min || r.max < l.min) BoolDomains.False
-    else BoolDomains.Unknown
+    if(l.isSingleton && r.isSingleton && l.lb == r.lb)
+      True
+    else if(l.ub < r.lb || r.ub < l.lb)
+      False
+    else
+      TrueOrFalse
 }
 
 case object EqBackwardPropagator extends BackwardPropagator2 {
   override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) =
-    if(out == BoolDomains.True) {
-      val d = l inter r
+    if(out == True) {
+      val d = l & r
       (d, d)
-    } else if(out == BoolDomains.False) {
-      if(l.isSet) (l, r - l.min)
-      else if(r.isSet) (l - r.min, r)
+    } else if(out == False) {
+      if(l.isSingleton && r.isSingleton && l == r) (EmptyDomain, EmptyDomain)
+      else if(l.isSingleton) (l, r \ l.head)
+      else if(r.isSingleton) (l \ r.head, r)
       else (l, r)
     } else {
       (l, r)
     }
-
 }

@@ -1,8 +1,6 @@
 package dahu.constraints.domains
 
-import java.util.Objects
-
-import dahu.utils.assertions._
+import dahu.utils.debug._
 
 trait IntDomain {
 
@@ -20,23 +18,32 @@ trait IntDomain {
   /** Highest value in the domain */
   def ub: Int
 
-  def intersection(other: IntDomain): IntDomain = {
-    val intersection = this.values.toSet.filter(other.contains)
+  def intersection(other: IntDomain): IntDomain = slow {
+    val intersection = this.values.toSet.filter(i => other.contains(i))
     new EnumeratedDomain(intersection)
   }
 
   def &(other: IntDomain): IntDomain = intersection(other)
 
-  def union(other: IntDomain): IntDomain = {
+  def union(other: IntDomain): IntDomain = slow {
     val union = this.values.toSet ++ other.values
     new EnumeratedDomain(union)
   }
 
-  def +(other: IntDomain): IntDomain = union(other)
+  def min(other: IntDomain): IntDomain = slow {
+    IntDomain(values.filter(_ <= other.ub).toSet ++ other.values.filter(_ <= ub).toSet)
+  }
+  def max(other: IntDomain): IntDomain = slow {
+    IntDomain(values.filter(_ >= other.lb).toSet ++ other.values.filter(_ >= lb).toSet)
+  }
+
+  def U(other: IntDomain): IntDomain = union(other)
 
   def emptyIntersection(other: IntDomain): Boolean = (this & other).size == 0
 
   def containedBy(other: IntDomain): Boolean = (this & other).size == this.size
+
+  final def contains(other: IntDomain): Boolean = other.containedBy(this)
 
   def isSingleton: Boolean = size == 1
 
@@ -46,26 +53,34 @@ trait IntDomain {
 
   def nonEmpty: Boolean = !isEmpty
 
-  def remove(toRm: IntDomain): IntDomain =
-    new EnumeratedDomain(values.toSet.filterNot(toRm.contains))
+  def without(toRm: IntDomain): IntDomain =
+    slow { new EnumeratedDomain(values.toSet.filterNot(i => toRm.contains(i))) }
 
-  def -(toRm: IntDomain): IntDomain = remove(toRm)
+  final def \(toRm: IntDomain): IntDomain = without(toRm)
 
-  def remove(toRm: Int): IntDomain =
-    new EnumeratedDomain(values.toSet - toRm)
+  def without(toRm: Int): IntDomain =
+    slow { new EnumeratedDomain(values.toSet - toRm) }
 
-  def -(toRm: Int): IntDomain = remove(toRm)
+  final def \(toRm: Int): IntDomain = without(toRm)
 
-  def --(toRemove: Iterable[Int]): IntDomain =
-    toRemove.foldLeft(this)((dom, toRm) => dom - toRm)
+  def wizz(value: Int): IntDomain =
+    slow { new EnumeratedDomain(values.toSet + value) }
 
-  def add(value: Int): IntDomain =
-    new EnumeratedDomain(values.toSet + value)
+  def +(o: IntDomain): IntDomain =
+    slow { new EnumeratedDomain((for(i <- values; j <- o.values) yield i + j).toSet) }
 
-  def +(value: Int): IntDomain = add(value)
+  def -(o: IntDomain): IntDomain =
+    slow { new EnumeratedDomain((for(i <- values; j <- o.values) yield i - j).toSet) }
+
+  def +(o: Int): IntDomain =
+    slow { new EnumeratedDomain(values.map(_ + o).toSet) }
+
+  def -(o: Int): IntDomain = this.+(-o)
+
+  final def U(value: Int): IntDomain = wizz(value)
 
   override def equals(o: Any): Boolean = o match {
-    case o: IntDomain => o.values.toSet == values.toSet
+    case o: IntDomain => slow { o.values.toSet == values.toSet }
     case _         => false
   }
 
@@ -88,5 +103,5 @@ object IntDomain {
     else if (values.size == 1) SingletonDomain(values.head)
     else new EnumeratedDomain(values)
 
-  def apply(values: Int*): IntDomain = IntDomain(values.toSet)
+//  def apply(values: Int*): IntDomain = IntDomain(values.toSet)
 }

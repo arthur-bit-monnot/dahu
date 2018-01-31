@@ -17,7 +17,7 @@ import scala.annotation.elidable._
   *
   * Assertion can be remove at compile time with "-Xelide-below" parameter to scalac.
   */
-object assertions {
+object debug {
 
   var DEBUG_LEVEL = 3
 
@@ -48,4 +48,10 @@ object assertions {
     if (DEBUG_LEVEL >= 4 && !assertion)
       throw new java.lang.AssertionError("assertion failed: " + message)
   }
+
+  /** Use to annotate blocks that should not be in hot paths, typically here to maintain genericity.
+    *
+    * Intended use is to gather runtime information to identify blocks that should be further optimized.
+    */
+  final def slow[T](value: T): T = value
 }

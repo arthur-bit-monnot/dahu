@@ -1,6 +1,7 @@
 package dahu.constraints
 
 import dahu.constraints.Constraint.Updater
+import dahu.constraints.domains._
 import dahu.dataframe.metadata.Value
 import dahu.recursion.{ASDAG, ComputationF, CstF, InputF}
 import dahu.expr._
@@ -23,12 +24,12 @@ object Constraint {
 
   type Updater = CSP => Seq[Inference]
 
-  val emptyUpdate = Array[Inference]()
+  private val emptyUpdate = Array[Inference]()
 
   def fromForward(id: Int, c: ComputationF[Int], prop: ForwardPropagator): Updater = {
     (csp: CSP) => {
       val d = prop.propagate(c.args, csp.dom)
-      val d2 = d.inter(csp.dom(id))
+      val d2 = d & csp.dom(id)
       if(csp.dom(id) != d2) {
         Array(Inference(id, d2, csp.dom(id)))
       } else {
@@ -42,7 +43,7 @@ object Constraint {
       assert(doms.size == c.args.size)
       c.args
         .zip(doms)
-        .map { case (i, d) => (i, d.inter(csp.dom(i))) }
+        .map { case (i, d) => (i, d & csp.dom(i)) }
         .filter{ case (i, d) => csp.dom(i) != d }
         .map{ case (i, d) => Inference(i, d, csp.dom(i)) }
         .toArray[Inference]
@@ -59,11 +60,11 @@ class CSP(val asg: ASDAG[_]) {
   val dom: Array[IntDomain] = new Array(asg.ids.last+1)
   for(i <- asg.ids.enumerate) {
     if(i == asg.root) {
-      dom(i) = IntDomain(1, 1) // root is always true
+      dom(i) = True // root is always true
     } else {
       val d = asg.coalgebra(i) match {
-        case CstF(value, t: TagIsoInt[_]) => new IntDomain(t.toIntUnsafe(value))
-        case x if x.typ.isInstanceOf[TagIsoInt[_]] => IntDomain(
+        case CstF(value, t: TagIsoInt[_]) => SingletonDomain(t.toIntUnsafe(value))
+        case x if x.typ.isInstanceOf[TagIsoInt[_]] => IntervalDomain(
           x.typ.asInstanceOf[TagIsoInt[_]].min,
           x.typ.asInstanceOf[TagIsoInt[_]].max
         )
@@ -90,7 +91,7 @@ class CSP(val asg: ASDAG[_]) {
     }
   }
   private def consistent: Boolean = asg.ids.enumerate.forall(i => !dom(i).isEmpty)
-  private def solution: Boolean = asg.ids.enumerate.forall(i => dom(i).isSet)
+  private def solution: Boolean = asg.ids.enumerate.forall(i => dom(i).isSingleton)
 
   def solve: Option[asg.EId => Int] = {
     if(!consistent)
@@ -114,10 +115,7 @@ class CSP(val asg: ASDAG[_]) {
           dom(i) = previous
           revertLastDecision()
         case Some(Decision(i, dec, previous)) =>
-          val restricted = dec match {
-            case IntDomain(min, max) if min == max && min == previous.min => IntDomain(previous.min+1, previous.max)
-            case _ => ???
-          }
+          val restricted = previous \ dec
           val e = Inference(i, restricted, previous)
           dom(i) = restricted
           enforce(e)
@@ -161,19 +159,21 @@ class CSP(val asg: ASDAG[_]) {
         println("solution")
         assert(consistent)
         val domains = dom.clone() // save solution
-        return Some(x => domains(x).min)
+        return Some(x => domains(x).head)
       } else if(!consistent) {
         println("backtrack")
         exhausted = revertLastDecision()
       } else {
         // consistent but not a solution
-        val vars = asg.ids.enumerate.sortBy(v => (math.min(dom(v).size, 100), dom(v).min)) //.reverse
+
+        // a sort variable by domain size and lower bound of the domain
+        val vars = asg.ids.enumerate.sortBy(v => (math.min(dom(v).size, 100), dom(v).lb))
         val variable: Option[asg.EId] = vars.collectFirst {
           case i if dom(i).isEmpty => unexpected("Empty domain in consistent CSP")
-          case i if !dom(i).isSet => i
+          case i if !dom(i).isSingleton => i
         }
         val v = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
-        val decision = Decision(v, new IntDomain(dom(v).min), dom(v))
+        val decision = Decision(v, SingletonDomain(dom(v).lb), dom(v))
 //        println(s"Decision: ${asg.coalgebra(v)} <- ${decision.domain}")
         enforce(decision)
       }
