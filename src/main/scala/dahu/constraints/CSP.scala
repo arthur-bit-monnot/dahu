@@ -58,48 +58,27 @@ object Constraint {
   }
 }
 
-class CSP(val asg: ASDAG[_]) {
-  import scala.language.implicitConversions
-  implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
-  implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
+trait Solver[EId] {
+  def solve: Option[EId => Int]
+}
 
-  val dom: Array[IntDomain] = new Array(asg.ids.last + 1)
-  for(i <- asg.ids.enumerate) {
-    if(i == asg.root) {
-      dom(i) = True // root is always true
-    } else {
-      val d = asg.coalgebra(i) match {
-        case CstF(value, t: TagIsoInt[_]) => SingletonDomain(t.toIntUnsafe(value))
-        case x if x.typ.isInstanceOf[TagIsoInt[_]] =>
-          IntervalDomain(
-            x.typ.asInstanceOf[TagIsoInt[_]].min,
-            x.typ.asInstanceOf[TagIsoInt[_]].max
-          )
-      }
-      dom(i) = d
-    }
-  }
 
-  // populate propagators
-  val propagators: Array[mutable.ArrayBuffer[Updater]] =
-    Array.fill(asg.ids.last + 1)(mutable.ArrayBuffer())
-  for(i <- asg.ids.enumerate) {
-    asg.coalgebra(i) match {
-      case c @ ComputationF(f, args, _) =>
-        val fw            = Propagator.forward(f)
-        val fwUp: Updater = Constraint.fromForward(i, c, fw)
-        val bw            = Propagator.backward(f)
-        val bwUp: Updater = Constraint.fromBackward(i, c, bw)
-        for(a <- c.args) {
-          propagators(a) += fwUp
-          propagators(a) += bwUp
-        }
-        propagators(i) += bwUp
-      case _ =>
-    }
-  }
-  private def consistent: Boolean = asg.ids.enumerate.forall(i => !dom(i).isEmpty)
-  private def solution: Boolean   = asg.ids.enumerate.forall(i => dom(i).isSingleton)
+class CSP(val initialDomains: Array[IntDomain], val propagators: Array[Array[Updater]], val root: Int, val ids: Array[Int]) {
+
+  require(ids.contains(root))
+  require(ids.forall(initialDomains(_) != null))
+  require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
+
+  type Var = Int
+  // current domains
+  private val domains: Array[IntDomain] = initialDomains.clone()
+  def dom(v: Var): IntDomain = domains(v)
+
+
+
+
+  private def consistent: Boolean = ids.forall(i => !dom(i).isEmpty)
+  private def solution: Boolean   = ids.forall(i => dom(i).isSingleton)
 
   private val history = mutable.ArrayBuffer[Event]()
   private def pop(): Option[Event] = {
@@ -116,7 +95,7 @@ class CSP(val asg: ASDAG[_]) {
   @tailrec final def backtrack(): Option[Decision] = {
     pop() match {
       case Some(Inference(i, _, previous)) =>
-        dom(i) = previous
+        domains(i) = previous
         backtrack()
       case Some(backtrackPoint: Decision) =>
         Some(backtrackPoint)
@@ -129,7 +108,7 @@ class CSP(val asg: ASDAG[_]) {
     * Returns false if a variable was given the empty domain. */
   final def enforce(update: DomainUpdate): Boolean = {
     assert(update.domain != update.previous)
-    dom(update.id) = update.domain
+    domains(update.id) = update.domain
     push(update)
     if(update.domain.isEmpty)
       return false
@@ -138,8 +117,8 @@ class CSP(val asg: ASDAG[_]) {
       case x: Decision  => "decision: "
       case x: Inference => "   infer: "
     }
-    println(
-      s"$head ${asg.coalgebra(update.id.asInstanceOf[asg.EId])} <- ${update.domain}       (prev: ${update.previous})")
+//    println(
+//      s"$head ${asg.coalgebra(update.id.asInstanceOf[asg.EId])} <- ${update.domain}       (prev: ${update.previous})")
 
     val props = propagators(update.id)
     for(p <- props) {
@@ -152,18 +131,18 @@ class CSP(val asg: ASDAG[_]) {
     true
   }
 
-  def solve: Option[asg.EId => Int] = {
+  def solve: Option[Var => Int] = {
     if(!consistent)
       return None
 
     var exhausted = false
     while(!exhausted) {
-      println(asg.ids.enumerate.map(i => s"$i: ${dom(i)}").mkString("domains: [", ",   ", "]"))
+      println(ids.map(i => s"$i: ${dom(i)}").mkString("domains: [", ",   ", "]"))
       if(solution) {
         println("solution")
         assert(consistent)
-        val domains = dom.clone() // save solution
-        return Some(x => domains(x).head)
+        val domainsBackup = domains.clone() // save solution
+        return Some(x => domainsBackup(x).head)
       } else if(!consistent) {
         println("backtrack")
         backtrack() match {
@@ -179,14 +158,14 @@ class CSP(val asg: ASDAG[_]) {
         // consistent but not a solution
 
         // a sort variable by domain size and lower bound of the domain
-        val vars = asg.ids.enumerate.sortBy(v => (math.min(dom(v).size, 100), dom(v).lb))
-        val variable: Option[asg.EId] = vars.collectFirst {
+        val vars = ids.sortBy(v => (math.min(dom(v).size, 100), dom(v).lb))
+        val variable: Option[Var] = vars.collectFirst {
           case i if dom(i).isEmpty      => unexpected("Empty domain in consistent CSP")
           case i if !dom(i).isSingleton => i
         }
         val v        = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
         val decision = Decision(v, SingletonDomain(dom(v).lb), dom(v))
-//        println(s"Decision: ${asg.coalgebra(v)} <- ${decision.domain}")
+        //        println(s"Decision: ${asg.coalgebra(v)} <- ${decision.domain}")
         enforce(decision)
       }
     }
@@ -194,4 +173,56 @@ class CSP(val asg: ASDAG[_]) {
     None
   }
 
+}
+
+object CSP {
+
+  def from(asg: ASDAG[_]): Solver[asg.EId] = {
+    import scala.language.implicitConversions
+    implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
+    implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
+
+    val dom: Array[IntDomain] = new Array(asg.ids.last + 1)
+    for(i <- asg.ids.enumerate) {
+      if(i == asg.root) {
+        dom(i) = True // root is always true
+      } else {
+        val d = asg.coalgebra(i) match {
+          case CstF(value, t: TagIsoInt[_]) => SingletonDomain(t.toIntUnsafe(value))
+          case x if x.typ.isInstanceOf[TagIsoInt[_]] =>
+            IntervalDomain(
+              x.typ.asInstanceOf[TagIsoInt[_]].min,
+              x.typ.asInstanceOf[TagIsoInt[_]].max
+            )
+        }
+        dom(i) = d
+      }
+    }
+
+    // populate propagators
+    val propagators: Array[mutable.ArrayBuffer[Updater]] =
+      Array.fill(asg.ids.last + 1)(mutable.ArrayBuffer())
+    for(i <- asg.ids.enumerate) {
+      asg.coalgebra(i) match {
+        case c @ ComputationF(f, args, _) =>
+          val fw            = Propagator.forward(f)
+          val fwUp: Updater = Constraint.fromForward(i, c, fw)
+          val bw            = Propagator.backward(f)
+          val bwUp: Updater = Constraint.fromBackward(i, c, bw)
+          for(a <- c.args) {
+            propagators(a) += fwUp
+            propagators(a) += bwUp
+          }
+          propagators(i) += bwUp
+        case _ =>
+      }
+    }
+
+    val csp = new CSP(dom, propagators.map(_.toArray), asg.root, asg.ids.enumerate)
+
+    new Solver[asg.EId] {
+      override def solve: Option[asg.EId => Int] =
+        csp.solve.map(f => (x => f(x)))
+    }
+  }
 }

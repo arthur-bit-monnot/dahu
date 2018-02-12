@@ -3,6 +3,7 @@ package dahu.expr
 import algebra.Order
 import algebra.instances.BooleanAlgebra
 import algebra.ring.{AdditiveSemigroup, CommutativeRing, Field, MultiplicativeSemigroup}
+import dahu.expr.types.TagIsoInt
 import spire.std.{DoubleAlgebra, IntAlgebra}
 
 import scala.language.implicitConversions
@@ -40,7 +41,22 @@ package object dsl {
   implicit class OrderIntOps(a: Expr[Int]) {
     def <=(b: Expr[Int]): Expr[Boolean]  = Computation(int.LEQ, a, b)
     def >=(b: Expr[Int]): Expr[Boolean]  = b <= a
-    def ===(b: Expr[Int]): Expr[Boolean] = a <= b && b <= a
+    def ===(b: Expr[Int]): Expr[Boolean] = Computation(int.EQ, a, b)
+    def =!=(b: Expr[Int]): Expr[Boolean] = Computation(int.NEQ, a, b)
+  }
+  implicit class OrderIsoIntOps[T](a: Expr[T])(implicit tag: TagIsoInt[T]) {
+    def ===(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T,Boolean](int.EQ), a, b)
+    def =!=(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T,Boolean](int.NEQ), a, b)
+  }
+  case class WrappedFun2[I1: TagIsoInt, I2: TagIsoInt, O: TagIsoInt](f: Fun2[Int,Int,O]) extends Fun2[I1,I2,O] {
+    override def of(in1: I1, in2: I2): O = f.of(TagIsoInt[I1].toInt(in1), TagIsoInt[I2].toInt(in2))
+    override def name: String = s"wrapped-${f.name}"
+  }
+  object OrderIsoIntOps {
+    def wrap[T, O](f: Fun2[Int, Int, O])(implicit tag: TagIsoInt[T], outTag: TagIsoInt[O]): Fun2[T,T,O] = new Fun2[T, T, O] {
+      override def of(in1: T, in2: T): O = f.of(tag.toInt(in1), tag.toInt(in2))
+      override def name: String = s"wrapped-${f.name}"
+    }
   }
   implicit class OrderDoubleOps(a: Expr[Double]) {
     def <=(b: Expr[Double]): Expr[Boolean]  = Computation(double.LEQ, a, b)

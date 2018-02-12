@@ -53,7 +53,10 @@ object Planner extends App {
     Token(itv, i, CstInt(i), isEffect = true)
   }
 
-  val goals = Seq(Token(interval(), 0, targetLoc, isEffect = false))
+  val goals = Seq(
+    Token(interval(), 0, targetLoc, isEffect = false),
+    Token(interval(), 1, targetLoc, isEffect = false)
+  )
 
   val actions: Seq[Opt[Action]] = for(i <- 0 until size) yield {
     val itv     = interval()
@@ -61,6 +64,7 @@ object Planner extends App {
     val cond    = Token(interval(10), i, initLoc, isEffect = false)
     val effect  = Token(interval(10), i, targetLoc, isEffect = true)
     val constraints = and(
+      strictlyBefore(itv.start, itv.end),
       equal(itv.start, cond.itv.start),
       equal(itv.end, effect.itv.end),
       equal(cond.itv.end, effect.itv.start)
@@ -105,19 +109,29 @@ object Planner extends App {
   val f: Ast => Option[tmp2.EId] = x => tmp.compiledForm(x).flatMap(y => tmp2.compiledForm(y))
   println(tmp)
 
-  val csp = new CSP(tmp)
-  csp.solve
-
-  println(tmp2)
-
-  {
-    val p: Ast = pb.satProblem
-    val tree = p.ana[Fix[ExprF]].apply(Algebras.coalgebra)
-    val flattened = tree.transCata[Fix[ExprF]].apply(dahu.recursion.Algebras.passes).cata(pprint)
-//    val flattened2 = tree.prepro(dahu.recursion.Algebras.passes, pprint)
-
-    def withSize(s: String) = s"${s.length}: $s"
-    println(withSize(tree.cata(pprint)))
-    println(withSize(flattened))
+  val csp = CSP.from(tmp)
+  val result: Option[tmp.EId => Int] = csp.solve
+  result match {
+    case Some(f) =>
+      println("Got a solution!")
+      val view = (ast: Ast) => tmp.compiledForm(ast).map(id => f(id))
+      for(act <- pb.actions) {
+        println(s"present: ${view(act.present)}")
+        println(s"start: ${view(act.value.itv.start)}: -> ${view(act.value.itv.end)}")
+        println(s"C: ${view(act.value.constraints)}")
+      }
+    case None =>
+      println("NO SOLUTION")
   }
+
+//  {
+//    val p: Ast = pb.satProblem
+//    val tree = p.ana[Fix[ExprF]].apply(Algebras.coalgebra)
+//    val flattened = tree.transCata[Fix[ExprF]].apply(dahu.recursion.Algebras.passes).cata(pprint)
+////    val flattened2 = tree.prepro(dahu.recursion.Algebras.passes, pprint)
+//
+//    def withSize(s: String) = s"${s.length}: $s"
+//    println(withSize(tree.cata(pprint)))
+//    println(withSize(flattened))
+//  }
 }

@@ -78,6 +78,18 @@ object IntCompatibleFunc {
   }
 }
 
+abstract class IntsToIntFunction {
+  def apply(params: Array[Int]): Int
+}
+object Types {
+  type Var = Int
+  type Val = Int
+  type Evaluator = Array[Val] => Val  // FunN[Int,Int]
+  type EvaluatorX = (Array[Val], Val => Var) => Val
+  type FwProp = (Array[Var], Var => IntDomain) => IntDomain
+  type BwProp = (Array[Var], Var, Var => IntDomain) => Array[IntDomain]
+}
+
 trait ForwardPropagator {
   def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain
 }

@@ -14,6 +14,7 @@ object Planning extends App {
 
   case class Before(left: Time, right: Time) extends BooleanExpr
   def equal(left: Time, right: Time): BooleanExpr = and(Before(left, right), Before(right, left))
+  def strictlyBefore(l: Time, r: Time): BooleanExpr = Before(RelativeTime(l, CstInt(1)), r)
 
   sealed trait BooleanExpr extends Ast
   case class CstBoolean(value: Boolean) extends BooleanExpr
@@ -37,13 +38,16 @@ object Planning extends App {
   case class LEQ(left: IntExpr, right: IntExpr) extends BooleanExpr
   case class Sum(left: IntExpr, right: IntExpr) extends IntExpr
 
+  def nonOverlappingActions(actions: Seq[Opt[Action]]): BooleanExpr = {
+    nonOverlapping(actions.map(oa => oa.map(a => a.itv)))
+  }
   def nonOverlapping(intervals: Seq[Opt[Interval]]) : BooleanExpr = {
     val conjuncts = for(i <- intervals.indices; j <- intervals.indices if i < j) yield {
       val a = intervals(i)
       val b = intervals(j)
       ifThen(
         and(a.present, b.present),
-        or(Before(a.value.end, b.value.start), Before(b.value.end, a.value.start))
+        or(strictlyBefore(a.value.end, b.value.start), strictlyBefore(b.value.end, a.value.start))
       )
     }
     And(conjuncts)
@@ -80,6 +84,9 @@ object Planning extends App {
   def action() = Action(interval(), Seq(token(), token()))
   case class Opt[V <: Ast](value: V, present: BooleanExpr) extends Ast {
     def subjectTo(f: V => BooleanExpr): BooleanExpr = ifThen(present, f(value))
+
+    def map[B <: Ast](f: V => B): Opt[B] = Opt(f(value), present)
+    def flatMap[B <: Ast](f: V => Opt[B]): Opt[B] = Opt(f(value).value, and(present, f(value).present))
   }
   object Opt {
 
@@ -141,7 +148,7 @@ object Planning extends App {
         and(supportOfConditions, nonOverlappingEffects)
       }
       val actionsConstraints = And(actions.map(_.subjectTo(_.constraints)))
-      and(And(supportsByTimeline.toSeq), actionsConstraints)
+      and(And(supportsByTimeline.toSeq), actionsConstraints, nonOverlappingActions(actions))//, And(actions.map(a => Not(a.present)))) // TODO: remove
     }
   }
 

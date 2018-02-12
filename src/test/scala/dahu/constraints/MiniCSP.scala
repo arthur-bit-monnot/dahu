@@ -1,6 +1,7 @@
 package dahu.constraints
 
-import dahu.expr.{Input, bool}
+import dahu.expr.types.TagIsoInt
+import dahu.expr.{Expr, Input, bool}
 
 object MiniCSP extends App {
 
@@ -10,14 +11,29 @@ object MiniCSP extends App {
   val y = Input[Int]("y")
   val b = Input[Boolean]("b")
   val leq = x <= y
-  val root = leq || b
+  val root = leq && b
 
   import dahu.recursion.Algebras._
 
   val asd = transpile(root, coalgebra)
-  val csp = new CSP(asd)
+  val csp = CSP.from(asd)
 
-  println(csp.solve)
+  csp.solve match {
+    case Some(assignment) =>
+      def view[T](x: Expr[T])(implicit tag: TagIsoInt[T]): Option[T] = {
+        asd.compiledForm(x)
+          .map(y => assignment(y))
+          .map(z => tag.fromInt(z))
+      }
+      println(view(root))
+      println(view(leq))
+      println(view(b))
+      assert(view(root) == Some(true))
+      println(assignment)
+    case None =>
+  }
+
+//  println(csp.dom)
 
   println("done.")
 

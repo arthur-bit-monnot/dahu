@@ -1,5 +1,7 @@
 package dahu.expr.types
 
+import dahu.expr.types.Tag.Type
+
 import scala.annotation.switch
 
 trait Tag[T] {
@@ -18,7 +20,25 @@ trait TagIsoInt[T] extends Tag[T] {
 
   val min: Int
   val max: Int
-  val numInstances: Int = max - min +1
+  def numInstances: Int = max - min +1
+}
+
+object TagIsoInt {
+
+  def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
+
+  import scala.reflect.runtime.universe
+  def fromEnum[T: universe.WeakTypeTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
+    override def toInt(t: T): Int = values.indexOf(t)
+    override def fromInt(i: Int): T = values(i)
+
+    override val min: Int = 0
+    override val max: Int = values.size-1
+
+    override def typ: Tag.Type = Tag.typeOf[T]
+
+    assert(numInstances == max-min+1)
+  }
 }
 
 object Tag {
