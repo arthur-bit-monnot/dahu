@@ -12,6 +12,7 @@ libraryDependencies += "com.propensive" %% "magnolia" % "0.6.1"
 
 libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
+libraryDependencies += "io.estatico" %% "newtype" % "0.1.0"
 
 
 unmanagedJars in Compile += file("lib/ILOG.CP.jar")

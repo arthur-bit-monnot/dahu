@@ -1,12 +1,14 @@
 package dahu.constraints
 
+import dahu.arrows.recursion.Coalgebra
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
-import dahu.dataframe.metadata.Value
-import dahu.recursion.{ASDAG, ComputationF, CstF, InputF}
+import dahu.recursion._
 import dahu.expr._
 import dahu.expr.types.TagIsoInt
+import dahu.interpreter.domains.Domain
 import dahu.utils.Errors.unexpected
+import io.estatico.newtype.NewType
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -175,7 +177,93 @@ class CSP(val initialDomains: Array[IntDomain], val propagators: Array[Array[Upd
 
 }
 
+object IntProblem {
+
+  type Var = Var.Type
+  object Var extends NewType.Of[Int]
+
+//  type Val = Val.Type
+//  object Val extends NewType.Of[Int]
+  type Val = Int
+
+  type Vars = Vars.Type
+  object Vars extends NewType.Of[Array[Var]] {
+    def apply(vars: Array[Var]) = vars.clone().asInstanceOf[Vars]
+  }
+
+  type Vals = Vals.Type
+  object Vals extends NewType.Default[Array[Val]] {
+    implicit class Ops(val v: Vals) extends AnyVal {
+      def unwrap: Array[Val] = v.asInstanceOf[Array[Val]]
+    }
+  }
+
+  type Func = Vals => Val
+
+  /** Computation is a function applied to some variables. */
+  type Comp = (Func, Vars)
+
+  type Expr = (IntDomain, Option[Comp])
+}
+import IntProblem._
 object CSP {
+
+
+  trait Problem[V] {
+    def vars: Array[Var]
+    def hasVar(v: Var): Boolean
+    def dom: Var => Option[Domain[V]]
+
+  }
+
+  abstract class IntCSP {
+    def vars: Array[Var]
+    def dom: Var => IntDomain
+    def exprs: Var => Option[Comp]
+  }
+  object IntCSP {
+    def translate(id: Var, coalgebra: Var => ExprF[Var]): Option[IntProblem.Expr] = {
+      import dahu.expr.labels.Labels.Value
+      def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
+      def asIntFunction(f: Fun[_]): Option[Vals => Val] = {
+        IntCompatibleFunc.compat(f).map(icl => (args: Vals) => {
+          icl.outToInt(Value(f.compute(icl.argsFromInt(args.unwrap))))
+        })
+      }
+      coalgebra(id) match {
+        case InputF(_, typ: TagIsoInt[_]) =>
+          Some((domainOfType(typ), None))
+        case CstF(value, typ: TagIsoInt[_]) =>
+          Some((SingletonDomain(typ.toIntUnsafe(value)), None))
+        case ComputationF(f, args, typ: TagIsoInt[_]) =>
+          val expr: Option[Comp] = asIntFunction(f).map(fi => (fi, Vars(args.toArray)))
+          Some((domainOfType(typ), expr))
+//          asIntFunction(f)
+//            .map(fi => (domainOfType(typ), Some((fi, args.toArray))))
+        case _ =>
+          None
+
+      }
+    }
+  }
+
+  def intSubProblem(asg: ASDAG[_])(candidates: asg.EId => Boolean): IntCSP = {
+    implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
+    implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
+    val variables = mutable.ArrayBuffer[Var]()
+    val domains = new Array[IntDomain](asg.ids.last+1)
+    val exprs = new Array[Option[Comp]](asg.ids.last+1)
+//    for(i <- asg.ids.enumerate) {
+//      IntCSP.translate(i, )
+//    }
+
+    new IntCSP {
+
+      override def dom: Var => IntDomain = ???
+      override def exprs: Var => Option[(Func, Vars)] = ???
+      override def vars: Array[Var] = ???
+    }
+  }
 
   def from(asg: ASDAG[_]): Solver[asg.EId] = {
     import scala.language.implicitConversions

@@ -76,6 +76,8 @@ object IntCompatibleFunc {
         case _ => None
       }
   }
+
+
 }
 
 abstract class IntsToIntFunction {
