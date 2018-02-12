@@ -7,8 +7,8 @@ import dahu.recursion._
 import dahu.expr._
 import dahu.expr.types.TagIsoInt
 import dahu.interpreter.domains.Domain
+import dahu.recursion.Types._
 import dahu.utils.Errors.unexpected
-import io.estatico.newtype.NewType
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -18,12 +18,12 @@ abstract class Constraint {
 }
 
 sealed abstract class Event
-class DomainUpdate(val id: Int, val domain: IntDomain, val previous: IntDomain) extends Event
-case class Inference(override val id: Int,
+class DomainUpdate(val id: ExprId, val domain: IntDomain, val previous: IntDomain) extends Event
+case class Inference(override val id: ExprId,
                      override val domain: IntDomain,
                      override val previous: IntDomain)
     extends DomainUpdate(id, domain, previous)
-case class Decision(override val id: Int,
+case class Decision(override val id: ExprId,
                     override val domain: IntDomain,
                     override val previous: IntDomain)
     extends DomainUpdate(id, domain, previous)
@@ -34,7 +34,7 @@ object Constraint {
 
   private val emptyUpdate = Array[Inference]()
 
-  def fromForward(id: Int, c: ComputationF[Int], prop: ForwardPropagator): Updater = { (csp: CSP) =>
+  def fromForward(id: ExprId, c: ComputationF[ExprId], prop: ForwardPropagator): Updater = { (csp: CSP) =>
     {
       val d  = prop.propagate(c.args, csp.dom)
       val d2 = d & csp.dom(id)
@@ -45,7 +45,7 @@ object Constraint {
       }
     }
   }
-  def fromBackward(id: Int, c: ComputationF[Int], prop: BackwardPropagator): Updater = {
+  def fromBackward(id: ExprId, c: ComputationF[ExprId], prop: BackwardPropagator): Updater = {
     (csp: CSP) =>
       {
         val doms = prop.propagate(c.args, id, csp.dom)
@@ -60,18 +60,18 @@ object Constraint {
   }
 }
 
-trait Solver[EId] {
-  def solve: Option[EId => Int]
+trait Solver {
+  def solve: Option[ExprId => Int]
 }
 
 
-class CSP(val initialDomains: Array[IntDomain], val propagators: Array[Array[Updater]], val root: Int, val ids: Array[Int]) {
+class CSP(val initialDomains: Array[IntDomain], val propagators: Array[Array[Updater]], val root: Int, val ids: Array[ExprId]) {
 
   require(ids.contains(root))
   require(ids.forall(initialDomains(_) != null))
   require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
 
-  type Var = Int
+  type Var = ExprId
   // current domains
   private val domains: Array[IntDomain] = initialDomains.clone()
   def dom(v: Var): IntDomain = domains(v)
@@ -178,25 +178,12 @@ class CSP(val initialDomains: Array[IntDomain], val propagators: Array[Array[Upd
 }
 
 object IntProblem {
-
-  type Var = Var.Type
-  object Var extends NewType.Of[Int]
-
-//  type Val = Val.Type
-//  object Val extends NewType.Of[Int]
+  import Types._
+  type Var = ExprId
   type Val = Int
 
-  type Vars = Vars.Type
-  object Vars extends NewType.Of[Array[Var]] {
-    def apply(vars: Array[Var]) = vars.clone().asInstanceOf[Vars]
-  }
-
-  type Vals = Vals.Type
-  object Vals extends NewType.Default[Array[Val]] {
-    implicit class Ops(val v: Vals) extends AnyVal {
-      def unwrap: Array[Val] = v.asInstanceOf[Array[Val]]
-    }
-  }
+  type Vars = Array[Var]
+  type Vals = Array[Val]
 
   type Func = Vals => Val
 
@@ -227,7 +214,7 @@ object CSP {
       def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
       def asIntFunction(f: Fun[_]): Option[Vals => Val] = {
         IntCompatibleFunc.compat(f).map(icl => (args: Vals) => {
-          icl.outToInt(Value(f.compute(icl.argsFromInt(args.unwrap))))
+          icl.outToInt(Value(f.compute(icl.argsFromInt(args))))
         })
       }
       coalgebra(id) match {
@@ -236,7 +223,7 @@ object CSP {
         case CstF(value, typ: TagIsoInt[_]) =>
           Some((SingletonDomain(typ.toIntUnsafe(value)), None))
         case ComputationF(f, args, typ: TagIsoInt[_]) =>
-          val expr: Option[Comp] = asIntFunction(f).map(fi => (fi, Vars(args.toArray)))
+          val expr: Option[Comp] = asIntFunction(f).map(fi => (fi, args.toArray))
           Some((domainOfType(typ), expr))
 //          asIntFunction(f)
 //            .map(fi => (domainOfType(typ), Some((fi, args.toArray))))
@@ -247,12 +234,12 @@ object CSP {
     }
   }
 
-  def intSubProblem(asg: ASDAG[_])(candidates: asg.EId => Boolean): IntCSP = {
-    implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
-    implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
+  def intSubProblem(asg: ASDAG[_])(candidates: ExprId => Boolean): IntCSP = {
+//    implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
+//    implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
     val variables = mutable.ArrayBuffer[Var]()
-    val domains = new Array[IntDomain](asg.ids.last+1)
-    val exprs = new Array[Option[Comp]](asg.ids.last+1)
+    val domains = new Array[IntDomain](asg.ids.last.value+1)
+    val exprs = new Array[Option[Comp]](asg.ids.last.value+1)
 //    for(i <- asg.ids.enumerate) {
 //      IntCSP.translate(i, )
 //    }
@@ -265,15 +252,17 @@ object CSP {
     }
   }
 
-  def from(asg: ASDAG[_]): Solver[asg.EId] = {
+  def from(asg: ASDAG[_]): Solver = {
     import scala.language.implicitConversions
-    implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
-    implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
+//    implicit def eid2int(id: asg.EId): Int              = asg.EId.toInt(id)
+//    implicit def eid2intF[F[_]](id: F[asg.EId]): F[Int] = asg.EId.toIntF(id)
 
-    val dom: Array[IntDomain] = new Array(asg.ids.last + 1)
+    val domArray: Array[IntDomain] = new Array(asg.ids.last.value + 1)
+    def dom(v: ExprId) = domArray(v.value)
+    def updateDomain(v: ExprId, domain: IntDomain): Unit = domArray(v.value) = domain
     for(i <- asg.ids.enumerate) {
       if(i == asg.root) {
-        dom(i) = True // root is always true
+        updateDomain(i, True) // root is always true
       } else {
         val d = asg.coalgebra(i) match {
           case CstF(value, t: TagIsoInt[_]) => SingletonDomain(t.toIntUnsafe(value))
@@ -283,13 +272,13 @@ object CSP {
               x.typ.asInstanceOf[TagIsoInt[_]].max
             )
         }
-        dom(i) = d
+        updateDomain(i, d)
       }
     }
 
     // populate propagators
     val propagators: Array[mutable.ArrayBuffer[Updater]] =
-      Array.fill(asg.ids.last + 1)(mutable.ArrayBuffer())
+      Array.fill(asg.ids.last.value + 1)(mutable.ArrayBuffer())
     for(i <- asg.ids.enumerate) {
       asg.coalgebra(i) match {
         case c @ ComputationF(f, args, _) =>
@@ -306,10 +295,10 @@ object CSP {
       }
     }
 
-    val csp = new CSP(dom, propagators.map(_.toArray), asg.root, asg.ids.enumerate)
+    val csp = new CSP(domArray, propagators.map(_.toArray), asg.root, asg.ids.enumerate)
 
-    new Solver[asg.EId] {
-      override def solve: Option[asg.EId => Int] =
+    new Solver {
+      override def solve: Option[ExprId => Int] =
         csp.solve.map(f => (x => f(x)))
     }
   }

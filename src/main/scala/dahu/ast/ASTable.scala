@@ -3,27 +3,14 @@ package dahu.ast
 import dahu.arrows.recursion.Algebra
 import dahu.arrows.{==>, recursion, OpaqueIntSubset}
 import dahu.recursion.{ExprF, InputF}
+import dahu.recursion.Types._
 
 import scala.reflect.ClassTag
 
-abstract class IndexLabelImpl {
-  type T
-  def apply(s: Int): T = fromInt(s)
 
-  def fromInt(s: Int): T
-  def toInt(lbl: T): Int
-  def fromIntF[F[_]](fs: F[Int]): F[T]
-  def toIntF[F[_]](fs: F[T]): F[Int]
-}
-
-abstract class SubIndexLabelImpl[UB] extends IndexLabelImpl {
-  def wrap(s: UB): T
-  def unwrap(lbl: T): UB
-  def subst[F[_]](fs: F[UB]): F[T]
-  def unsubst[F[_]](fs: F[T]): F[UB]
-}
 
 trait ASTable {
+
 
   /** Opaque type representing the IDs of the expression in this table. */
   val EId: IndexLabelImpl = new IndexLabelImpl {

@@ -13,6 +13,7 @@ import dahu.expr.Bind
 import dahu.expr.bool.And
 import dahu.interpreter
 import dahu.expr.labels.Labels.Value
+import dahu.recursion.Types._
 import matryoshka.patterns.EnvT
 
 import scala.collection.mutable
@@ -147,32 +148,23 @@ object Algebras {
     import dahu.arrows._
     new ASDAG[T] {
       private val exprAlgebraData: Array[Expr] =
-        store.toArray.sortBy(_._2).map(e => EId.fromIntF(e._1))
-      private val compilationAlgebra: Map[T, EId] = reverseAstStore.asInstanceOf[Map[T, EId]]
+        store.toArray.sortBy(_._2).map(e => ExprId.fromIntF(e._1))
+      private val compilationAlgebra: Map[T, ExprId] = reverseAstStore.asInstanceOf[Map[T, ExprId]]
 
-      override def coalgebra: EId ==> Expr = Arrow.lift(x => exprAlgebraData(EId.toInt(x)))
+      override def coalgebra: ExprId ==> Expr = Arrow.lift(x => exprAlgebraData(x))
 
-      override def root: EId = EId.fromInt(rootExprID)
+      override def root: ExprId = ExprId.fromInt(rootExprID)
 
-      override def ids: OpaqueIntSubset[EId] = new OpaqueIntSubset[EId] {
-        override def wrap(i: Int): EId                 = EId.fromInt(i)
-        override def unwrap(a: EId): Int               = EId.toInt(a)
-        override def subst[F[_]](fi: F[Int]): F[EId]   = EId.fromIntF(fi)
-        override def unsubst[F[_]](fa: F[EId]): F[Int] = EId.toIntF(fa)
+      override def ids: OpaqueIntSubset[ExprId] = new OpaqueIntSubset[ExprId] {
+        override def wrap(i: Int): ExprId                 = ExprId.fromInt(i)
+        override def unwrap(a: ExprId): Int               = ExprId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[ExprId]   = ExprId.fromIntF(fi)
+        override def unsubst[F[_]](fa: F[ExprId]): F[Int] = ExprId.toIntF(fa)
 
-        override val enumerate: Array[EId] = subst(exprAlgebraData.indices.toArray)
-      }
-      override def variableIds: OpaqueIntSubset[VarId] = new OpaqueIntSubset[VarId] {
-        override def wrap(i: Int): VarId                 = VarId.fromInt(i)
-        override def unwrap(a: VarId): Int               = VarId.toInt(a)
-        override def subst[F[_]](fi: F[Int]): F[VarId]   = VarId.fromIntF(fi)
-        override def unsubst[F[_]](fa: F[VarId]): F[Int] = VarId.toIntF(fa)
-
-        override val enumerate: Array[VarId] =
-          subst(exprAlgebraData.indices.filter(exprAlgebraData(_).isInstanceOf[Variable]).toArray)
+        override val enumerate: Array[ExprId] = subst(exprAlgebraData.indices.toArray)
       }
 
-      override def compiledForm: T ==> Option[EId] = Arrow.lift(compilationAlgebra.get)
+      override def compiledForm: T ==> Option[ExprId] = Arrow.lift(compilationAlgebra.get)
     }
 
   }

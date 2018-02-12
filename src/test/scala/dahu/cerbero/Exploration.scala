@@ -3,6 +3,7 @@ package dahu.cerbero
 import cats.Id
 import dahu.cerberdo.Planning.Structs.IntervalF
 import dahu.constraints.CSP
+import dahu.recursion.Types.ExprId
 import dahu.recursion.{ComputationF, ExprF, ProductF}
 import matryoshka.data.Fix
 import matryoshka.instances.fixedpoint.Cofree
@@ -106,11 +107,11 @@ object Planner extends App {
 //  println(astStore.map(t => t._1.toString+"\n  "+t._2.mkString("\n  ")).mkString("\n"))
   val tmp = transpile(pb.satProblem, Algebras.coalgebra)
   val tmp2 = transpile(tmp.root, tmp.coalgebra.asScalaFunction)
-  val f: Ast => Option[tmp2.EId] = x => tmp.compiledForm(x).flatMap(y => tmp2.compiledForm(y))
+  val f: Ast => Option[ExprId] = x => tmp.compiledForm(x).flatMap(y => tmp2.compiledForm(y))
   println(tmp)
 
   val csp = CSP.from(tmp)
-  val result: Option[tmp.EId => Int] = csp.solve
+  val result: Option[ExprId => Int] = csp.solve
   result match {
     case Some(f) =>
       println("Got a solution!")

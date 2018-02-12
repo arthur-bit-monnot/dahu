@@ -7,6 +7,7 @@ import dahu.expr.{Fun, Type}
 import dahu.expr.labels.Labels.Value
 
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 sealed abstract class ExprF[F] {
   def typ: Type
@@ -47,6 +48,44 @@ final case class ProductF[F](members: Seq[F], typ: Type) extends ExprF[F] {
 }
 
 
+object Types {
+
+  abstract class IndexLabelImpl {
+    type T
+    def apply(s: Int): T = fromInt(s)
+
+    def fromInt(s: Int): T
+    def toInt(lbl: T): Int
+    def fromIntF[F[_]](fs: F[Int]): F[T]
+    def toIntF[F[_]](fs: F[T]): F[Int]
+  }
+
+  abstract class SubIndexLabelImpl[UB] extends IndexLabelImpl {
+    def wrap(s: UB): T
+    def unwrap(lbl: T): UB
+    def subst[F[_]](fs: F[UB]): F[T]
+    def unsubst[F[_]](fs: F[T]): F[UB]
+  }
+
+  val ExprId: IndexLabelImpl = new IndexLabelImpl {
+    type T = Int
+    override def fromInt(s: Int): T               = s
+    override def toInt(lbl: T): Int               = lbl
+    override def fromIntF[F[_]](fs: F[Int]): F[T] = fs
+    override def toIntF[F[_]](fs: F[T]): F[Int]   = fs
+  }
+  type ExprId = ExprId.T
+
+  /** Implicit conversion to Int, mainly to facilitate usage as index. */
+  implicit def exprIdAsInt(i: ExprId): Int = ExprId.toInt(i)
+  implicit class ExprIdOps(val i: ExprId) extends AnyVal {
+    def value: Int = ExprId.toInt(i)
+  }
+
+  implicit val classTag: ClassTag[ExprId] = ExprId.fromIntF(implicitly[ClassTag[Int]])
+}
+
+
 /**
   * Abstract Syntax Directed Acyclic Graph.
   * Provides:
@@ -59,43 +98,20 @@ final case class ProductF[F](members: Seq[F], typ: Type) extends ExprF[F] {
   * A coalgebra EId => ExprF[EId]
   */
 trait ASDAG[T] {
+  import Types._
 
   /** Opaque type representing the IDs of the expression in this table. */
-  val EId: IndexLabelImpl = new IndexLabelImpl {
-    type T = Int
-    override def fromInt(s: Int): T               = s
-    override def toInt(lbl: T): Int               = lbl
-    override def fromIntF[F[_]](fs: F[Int]): F[T] = fs
-    override def toIntF[F[_]](fs: F[T]): F[Int]   = fs
-  }
-  type EId = EId.T
+  type VariableId = ExprId
 
-  val VarId: SubIndexLabelImpl[EId] = new SubIndexLabelImpl[EId] {
-    type T = EId
+  type Expr     = ExprF[ExprId]
+  type Variable = InputF[ExprId]
 
-    override def fromInt(s: Int): EId               = EId.fromInt(s)
-    override def toInt(lbl: T): Int                 = EId.toInt(lbl)
-    override def toIntF[F[_]](fs: F[EId]): F[Int]   = EId.toIntF(fs)
-    override def fromIntF[F[_]](fs: F[Int]): F[EId] = EId.fromIntF(fs)
+  def root: ExprId
+  def coalgebra: ExprId ==> Expr // equivalent to Coalgebra[ExprF, EId]
 
-    override def wrap(s: EId): T                 = s
-    override def unwrap(lbl: T): EId             = lbl
-    override def subst[F[_]](fs: F[EId]): F[T]   = fs
-    override def unsubst[F[_]](fs: F[T]): F[EId] = fs
-  }
-  type VarId = VarId.T
+  def compiledForm: T ==> Option[ExprId]
 
-  type Expr     = ExprF[EId]
-  type Variable = InputF[EId]
+  def variableCoalgebra: VariableId ==> Variable = id => coalgebra(id).asInstanceOf[Variable] // TODO: unsafe as VarID is just an alias for ExprId
 
-  def root: EId
-  def coalgebra: EId ==> Expr // equivalent to Coalgebra[ExprF, EId]
-
-  def compiledForm: T ==> Option[EId]
-
-  def variableCoalgebra: VarId ==> Variable = id => coalgebra(VarId.unwrap(id)).asInstanceOf[Variable]
-
-  def ids: OpaqueIntSubset[EId]
-  def variableIds: OpaqueIntSubset[VarId]
-
+  def ids: OpaqueIntSubset[ExprId]
 }
