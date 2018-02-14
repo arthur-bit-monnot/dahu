@@ -1,8 +1,9 @@
 package dahu.constraints.domains
 
+import dahu.solver.Domain
 import dahu.utils.debug._
 
-trait IntDomain {
+trait IntDomain extends Domain[Int] {
 
   /** Number of values in the domain */
   def size: Int

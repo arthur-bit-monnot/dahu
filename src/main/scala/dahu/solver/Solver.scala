@@ -2,6 +2,7 @@ package dahu.solver
 
 import dahu.expr.Expr
 import dahu.expr.types.TagIsoInt
+import dahu.recursion.Types.ExprId
 import dahu.recursion.{ComputationF, ExprF, InputF}
 import dahu.utils.Errors.Error
 
@@ -36,68 +37,10 @@ class IntConstraintSatisfactionProblem extends Problem {
   override def accepts(e: ExprF[Id]): Boolean =fullyTranslatableToInts(e)
 }
 
-trait XSolver {
+trait Domain[V]
 
-  type Solution = Int => Int
-  type State = Int => Set[Int]
-  val problem: Problem
+trait Solver[V, D <: Domain[V]] {
 
-  protected def state: State
-
-  // create an initial state
-  def initState
-
-  // mutates state
-  def solve(state: State): Unit
-
-  def branchAndPropagate
-}
-
-abstract class Solver {
-
-  def extend(i: Id, e: ExprF[Id]): Either[Error, Unit]
-
-}
-
-abstract class MetaCSP() extends Solver {
-  val subsolvers: mutable.ArrayBuffer[Solver]
-
-  override def extend(i: Id, e: ExprF[Id]): Either[Error, Unit] = ???
-//  {
-//    var i = 0
-//    while(i < subsolvers.length) {
-//      if(subsolvers(i).extend(i, e).isRight)
-//        i = Integer.MAX_VALUE // exit loop
-//      else
-//        i += 1
-//    }
-//
-//    for(i <- subsolvers.indices) {
-//
-//    }
-//    val (applied, res) = subsolvers.foldLeft((false, Seq[Solver]())){
-//      case ((true, seq), solver) => (true, seq :+ solver)
-//      case ((false, seq), solver) => (solver.extend(i, e).isRight, seq :+ solver)
-////        solver.extend(i, e) match {
-////          case Left(err) => (false, seq :+ solver)
-////          case Right(_) => (true, seq :+ solver)
-////        }
-//    }
-//    if(applied)
-//      Right(new MetaCSP(subsolvers))
-//    else
-//      Left(Error(s"No subsolver supporting $e"))
-//  }
-
-}
-
-
-class CSPSolver extends Solver {
-  override def extend(i: Id, e: ExprF[Id]): Either[Error, Unit] = e match {
-    case InputF(_, typ) if typ.isInstanceOf[TagIsoInt[_]] =>
-      Right(())
-    case ComputationF(f, args, typ) =>
-
-      Right(())
-  }
+  def enforce(variable: ExprId, domain: D)
+  def solve: Option[ExprId => V]
 }

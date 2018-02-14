@@ -11,7 +11,7 @@ object MiniCSP extends App {
   val y = Input[Int]("y")
   val b = Input[Boolean]("b")
   val leq = x <= y
-  val root = leq && b
+  val root = leq || b
 
   import dahu.recursion.Algebras._
 
@@ -28,7 +28,7 @@ object MiniCSP extends App {
       println(view(root))
       println(view(leq))
       println(view(b))
-      assert(view(root) == Some(true))
+      assert(view(root).contains(true))
       println(assignment)
     case None =>
   }

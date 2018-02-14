@@ -1,7 +1,6 @@
 package dahu.arrows
 
 import dahu.arrows.memoization.{ArrayCache, Cache}
-import dahu.ast.IndexLabelImpl
 
 import scala.reflect.ClassTag
 

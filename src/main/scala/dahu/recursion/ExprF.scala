@@ -2,7 +2,6 @@ package dahu.recursion
 
 import cats.Functor
 import dahu.arrows.{==>, OpaqueIntSubset}
-import dahu.ast.{IndexLabelImpl, SubIndexLabelImpl}
 import dahu.expr.{Fun, Type}
 import dahu.expr.labels.Labels.Value
 
@@ -78,6 +77,7 @@ object Types {
 
   /** Implicit conversion to Int, mainly to facilitate usage as index. */
   implicit def exprIdAsInt(i: ExprId): Int = ExprId.toInt(i)
+  implicit val ordering: Ordering[ExprId] = ExprId.fromIntF(Ordering[Int])
   implicit class ExprIdOps(val i: ExprId) extends AnyVal {
     def value: Int = ExprId.toInt(i)
   }
