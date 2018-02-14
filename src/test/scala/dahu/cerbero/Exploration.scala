@@ -2,8 +2,8 @@ package dahu.cerbero
 
 import cats.Id
 import dahu.cerberdo.Planning.Structs.IntervalF
-import dahu.constraints.CSP
-import dahu.recursion.Types.ExprId
+import dahu.constraints.{CSP, IntFunc}
+import dahu.recursion.Types._
 import dahu.recursion.{ComputationF, ExprF, ProductF}
 import matryoshka.data.Fix
 import matryoshka.instances.fixedpoint.Cofree
@@ -111,11 +111,11 @@ object Planner extends App {
   println(tmp)
 
   val csp = CSP.from(tmp)
-  val result: Option[ExprId => Int] = csp.solve
+  val result: Option[IntFunc[Int]] = csp.solve
   result match {
     case Some(f) =>
       println("Got a solution!")
-      val view = (ast: Ast) => tmp.compiledForm(ast).map(id => f(id))
+      val view = (ast: Ast) => tmp.compiledForm(ast).flatMap(id => f.get(id))
       for(act <- pb.actions) {
         println(s"present: ${view(act.present)}")
         println(s"start: ${view(act.value.itv.start)}: -> ${view(act.value.itv.end)}")

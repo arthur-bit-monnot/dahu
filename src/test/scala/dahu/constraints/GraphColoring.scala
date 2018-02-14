@@ -3,6 +3,7 @@ package dahu.constraints
 import dahu.expr.{Expr, Input}
 import dahu.expr.types.TagIsoInt
 import org.scalatest.FunSuite
+import dahu.recursion.Types._
 
 class GraphColoring extends FunSuite {
 
@@ -49,7 +50,7 @@ class GraphColoring extends FunSuite {
         case Some(assignment) =>
           def view[T](x: Expr[T])(implicit tag: TagIsoInt[T]): Option[T] = {
             asd.compiledForm(x)
-              .map(y => assignment(y))
+              .flatMap(y => assignment.get(y))
               .map(z => tag.fromInt(z))
           }
           for(x <- vars) {

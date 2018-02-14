@@ -77,12 +77,24 @@ object Types {
 
   /** Implicit conversion to Int, mainly to facilitate usage as index. */
   implicit def exprIdAsInt(i: ExprId): Int = ExprId.toInt(i)
-  implicit val ordering: Ordering[ExprId] = ExprId.fromIntF(Ordering[Int])
+  implicit val orderingExprId: Ordering[ExprId] = ExprId.fromIntF(Ordering[Int])
   implicit class ExprIdOps(val i: ExprId) extends AnyVal {
     def value: Int = ExprId.toInt(i)
   }
 
-  implicit val classTag: ClassTag[ExprId] = ExprId.fromIntF(implicitly[ClassTag[Int]])
+  private val intClassTag: ClassTag[Int] = implicitly[ClassTag[Int]]
+
+  implicit val classTagExpr: ClassTag[ExprId] = ExprId.fromIntF(implicitly[ClassTag[Int]])
+
+
+
+  /** To specify a subset of integers in the type system. */
+  trait TaggedInt[U] { self: Int => }
+  type KI[T] = Int with TaggedInt[T] // todo: check if the compiler needs help to consider KI[T] as a primitive int
+  type SubKI[T, ST] = KI[T] with TaggedInt[ST]
+
+  implicit def classTag[T]: ClassTag[KI[T]] = intClassTag.asInstanceOf[ClassTag[KI[T]]]
+  implicit def ordering[T]: Ordering[KI[T]] = implicitly[Ordering[Int]].asInstanceOf[Ordering[KI[T]]]
 }
 
 
