@@ -2,6 +2,7 @@ package dahu.constraints
 
 import java.util
 
+import algebra.Order
 import dahu.arrows.recursion.Coalgebra
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
@@ -15,6 +16,8 @@ import dahu.recursion.Types._
 import dahu.solver.Solver
 import dahu.utils.Errors.unexpected
 import spire.math.Trilean
+import dahu.utils.structures._
+import spire.implicits._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -128,7 +131,7 @@ object MutableArrayIntFunc {
 class CSP[T](params: IntFunc.Aux[T, (IntDomain, Option[Comp])]) extends Solver[T, Int, IntDomain] {
   type Var = KI[T]
   type Vars = Array[Var]
-  val ids: Array[Var] = params.domain.toArray
+  val ids: debox.Buffer[Var] = debox.Buffer.fromIterable(params.domain)
   def initialDomains(v: Var): IntDomain = params(v)._1
   def dag(v: Var): Option[Comp] = params(v)._2
 
@@ -237,7 +240,7 @@ class CSP[T](params: IntFunc.Aux[T, (IntDomain, Option[Comp])]) extends Solver[T
 
     var exhausted = false
     while(!exhausted) {
-      println(ids.map(i => s"$i: ${dom(i)}").mkString("domains: [", ",   ", "]"))
+      println(ids.map(i => s"$i: ${dom(i)}").toIterable().mkString("domains: [", ",   ", "]"))
       if(solution) {
         println("solution")
         assert(arcConsistent)
@@ -256,10 +259,15 @@ class CSP[T](params: IntFunc.Aux[T, (IntDomain, Option[Comp])]) extends Solver[T
         }
       } else {
         // consistent but not a solution
-
+//        implicit def tupleOrder[A: Order, B: Order]: Order[(A, B)] = new Order[(A,B)] {
+//          override def compare(x: (A, B), y: (A, B)): Int = (x, y) match {
+//            case ((xa, xb), (ya, yb)) if Order[A].compare(xa, ya) == 0 => Order[B].compare(xb, yb)
+//            case ((xa, _), (ya, _)) => Order[A].compare(xa, ya)
+//          }
+//        }
         // a sort variable by domain size and lower bound of the domain
-        val vars: Array[Var] = ids.sortBy(v => (math.min(dom(v).size, 100), dom(v).lb)).toArray // to array is necessary because sortBy returns an array of objects
-        val variable: Option[Var] = vars.collectFirst {
+        val vars: debox.Buffer[Var] = ids.sortBy(v => (math.min(dom(v).size, 100), dom(v).lb)) // to array is necessary because sortBy returns an array of objects
+        val variable: Option[Var] = vars.toIterable().collectFirst {
           case i if dom(i).isEmpty      => unexpected("Empty domain in consistent CSP")
           case i if !dom(i).isSingleton => i
         }

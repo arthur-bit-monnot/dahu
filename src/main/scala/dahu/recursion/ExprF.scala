@@ -4,6 +4,7 @@ import cats.Functor
 import dahu.arrows.{==>, OpaqueIntSubset}
 import dahu.expr.{Fun, Type}
 import dahu.expr.labels.Labels.Value
+import spire.algebra.Order
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -95,6 +96,9 @@ object Types {
 
   implicit def classTag[T]: ClassTag[KI[T]] = intClassTag.asInstanceOf[ClassTag[KI[T]]]
   implicit def ordering[T]: Ordering[KI[T]] = implicitly[Ordering[Int]].asInstanceOf[Ordering[KI[T]]]
+
+  import spire.implicits._
+  implicit def order[T]: Order[KI[T]] = spire.implicits.IntAlgebra.asInstanceOf[Order[KI[T]]]
 }
 
 

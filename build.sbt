@@ -9,6 +9,7 @@ libraryDependencies += "org.typelevel" %% "spire"           % "0.14.1"
 libraryDependencies += "org.typelevel" %% "cats-core"       % "0.9.0"
 libraryDependencies += "com.chuusai"   %% "shapeless"       % "2.3.2"
 libraryDependencies += "com.propensive" %% "magnolia" % "0.6.1"
+libraryDependencies += "org.spire-math" %% "debox" % "0.8.0"
 
 libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
