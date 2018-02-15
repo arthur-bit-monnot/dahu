@@ -44,5 +44,18 @@ class IntervalTests extends FreeSpec {
       assert(Seq(0, 1, 2, 3) == I(0, 3).values)
     }
 
+    "without" in {
+      assert(empty \ I(0, 0) == empty)
+      assert(I(0, 10) \ empty == I(0,10))
+      assert(I(0, 10) \ I(5,10) == I(0,4))
+      assert(I(0, 10) \ I(-5,-1) == I(0, 10))
+    }
+
+    "min" in {
+      assert(I(0, 10).min(I(5, 7)) == I(0, 7))
+      assert(I(0, 10).min(I(20, 25)) == I(0, 10))
+      assert(I(0, 10).min(empty) == empty)
+    }
+
   }
 }
