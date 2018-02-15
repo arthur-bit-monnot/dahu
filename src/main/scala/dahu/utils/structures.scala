@@ -1,22 +1,24 @@
 package dahu.utils
 
 import algebra.Order
+import spire.syntax.cfor._
 
 object structures {
 
+  /** todo: check if we need to specialized this, e.g. requiring `A <: Int` to avoid boxing. */
   implicit class BufferOps[A](val buff: debox.Buffer[A]) extends AnyVal {
 
+    def indices: Range = 0 until buff.length
+
     def forall(f: A => Boolean): Boolean = {
-      var i = 0
-      while(i < buff.length) {
+      cforRange(0 until buff.length){ i =>
         if(!f(buff(i)))
           return false
-        i += 1
       }
       true
     }
 
-    def sortBy[B: Order](f: A => B): debox.Buffer[A] = {
+    def sortedBy[B: Order](f: A => B): debox.Buffer[A] = {
       val orderB = Order[B]
       buff.copy()
       val orderA = new Order[A] {

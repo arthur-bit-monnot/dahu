@@ -86,6 +86,8 @@ object IntFunc {
   type Aux[T0, V] = IntFunc[V] { type T = T0 }
 }
 trait MutableIntFunc[V] extends IntFunc[V] {
+  // todo: remove and provide builder instances instead.
+  // extending allows to by pass type safety, as there is no guarantee that two IntFunc with the same Key type share the same set of keys
   def extend(key: Int, value: V)
   def update(key: Key, value: V)
 }
@@ -159,15 +161,10 @@ class CSP[T](params: IntFunc.Aux[T, (IntDomain, Option[Comp])]) extends Solver[T
   require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
 
   // current domains
-  private val domains: MutableArrayIntFunc.Aux[T, IntDomain] = {
+  private val domains: MutableArrayIntFunc.Aux[T, IntDomain] =
     MutableArrayIntFunc.map(params)((x: (IntDomain, Option[Comp])) => x._1)
-//    val domainsBuilder = Array.fill[IntDomain](ids.max +1)(null)
-//    for(i <- ids)
-//      domainsBuilder(i) = initialDomains(i)
-//    domainsBuilder
-  }
-  def dom(v: Var): IntDomain = domains(v)
 
+  def dom(v: Var): IntDomain = domains(v)
 
   override def consistent: Trilean =
     if(solution) Trilean.True
@@ -259,14 +256,8 @@ class CSP[T](params: IntFunc.Aux[T, (IntDomain, Option[Comp])]) extends Solver[T
         }
       } else {
         // consistent but not a solution
-//        implicit def tupleOrder[A: Order, B: Order]: Order[(A, B)] = new Order[(A,B)] {
-//          override def compare(x: (A, B), y: (A, B)): Int = (x, y) match {
-//            case ((xa, xb), (ya, yb)) if Order[A].compare(xa, ya) == 0 => Order[B].compare(xb, yb)
-//            case ((xa, _), (ya, _)) => Order[A].compare(xa, ya)
-//          }
-//        }
-        // a sort variable by domain size and lower bound of the domain
-        val vars: debox.Buffer[Var] = ids.sortBy(v => (math.min(dom(v).size, 100), dom(v).lb)) // to array is necessary because sortBy returns an array of objects
+        // sort variable by domain size and lower bound of the domain
+        val vars: debox.Buffer[Var] = ids.sortedBy(v => (math.min(dom(v).size, 100), dom(v).lb)) // to array is necessary because sortBy returns an array of objects
         val variable: Option[Var] = vars.toIterable().collectFirst {
           case i if dom(i).isEmpty      => unexpected("Empty domain in consistent CSP")
           case i if !dom(i).isSingleton => i

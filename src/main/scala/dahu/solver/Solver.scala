@@ -4,9 +4,6 @@ import dahu.constraints.IntFunc
 import dahu.recursion.Types._
 import spire.math.Trilean
 
-import scala.collection.mutable
-
-
 
 trait Domain[V]
 
