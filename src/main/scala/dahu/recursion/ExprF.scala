@@ -89,16 +89,19 @@ object Types {
 
 
 
-  /** To specify a subset of integers in the type system. */
-  trait TaggedInt[U] { self: Int => }
-  type KI[T] = Int with TaggedInt[T] // todo: check if the compiler needs help to consider KI[T] as a primitive int
-  type SubKI[T, ST] = KI[T] with TaggedInt[ST]
+  /** To specify a subset of integers in the type system.
+    *
+    * TaggedInt is constrained to be an instance of Int so that the compiler can properly infer that
+    * the actual type is Int and avoid boxing in arrays and function parameters.
+    * This is due to the fact that Int is a final class.
+    * */
+  trait TaggedInt[Tag] { self: Int => }
+  type KI[T] = Int with TaggedInt[T]
 
   implicit def classTag[T]: ClassTag[KI[T]] = intClassTag.asInstanceOf[ClassTag[KI[T]]]
   implicit def ordering[T]: Ordering[KI[T]] = implicitly[Ordering[Int]].asInstanceOf[Ordering[KI[T]]]
 
-  import spire.implicits._
-  implicit def order[T]: Order[KI[T]] = spire.implicits.IntAlgebra.asInstanceOf[Order[KI[T]]]
+  implicit def order[T]: Order[KI[T]] = (spire.implicits.IntAlgebra: Order[Int]).asInstanceOf[Order[KI[T]]]
 }
 
 

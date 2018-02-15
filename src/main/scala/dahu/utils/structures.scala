@@ -29,4 +29,16 @@ object structures {
     }
   }
 
+
+  trait Default[A] {
+    def apply(): A
+  }
+  object Default {
+    def apply[A](implicit instance: Default[A]): Default[A] = instance
+    def of[A](implicit instance: Default[A]): A = instance()
+
+    implicit val defaultInt: Default[Int] = () => 0
+    implicit val defaultAnyRef: Default[AnyRef] = () => null
+    implicit def defaultRef[A <: AnyRef]: Default[A] = defaultAnyRef.asInstanceOf[Default[A]]
+  }
 }

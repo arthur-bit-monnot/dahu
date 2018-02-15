@@ -21,6 +21,7 @@ import spire.implicits._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 sealed abstract class Event[T]
 class DomainUpdate[T](val id: KI[T], val domain: IntDomain, val previous: IntDomain) extends Event[T]
@@ -76,43 +77,48 @@ trait IntFunc[V] {
   protected def wrap(i: Int): Key = i.asInstanceOf[Key]
   protected def wrapF[F[_]](f: F[Int]): F[Key] = f.asInstanceOf[F[Key]]
 
-  def domain: Set[Key]
+  def domain: debox.Set[Key]
   def apply(key: Key): V
-  def isInDomain(i: Int): Boolean = domain.contains(wrap(i))
+  def isInDomain(i: Int): Boolean = domain(wrap(i))
 
-  def get(key: Int): Option[V] = if(domain.contains(wrap(key))) Some(apply(wrap(key))) else None
+  def get(key: Int): Option[V] = if(domain(wrap(key))) Some(apply(wrap(key))) else None
 }
 object IntFunc {
   type Aux[T0, V] = IntFunc[V] { type T = T0 }
 }
-trait MutableIntFunc[V] extends IntFunc[V] {
+trait MutableIntFunc[@specialized V] extends IntFunc[V] {
   // todo: remove and provide builder instances instead.
   // extending allows to by pass type safety, as there is no guarantee that two IntFunc with the same Key type share the same set of keys
   def extend(key: Int, value: V)
   def update(key: Key, value: V)
 }
-class MutableMapIntFunc[V] extends MutableIntFunc[V] {
-  private val buff = mutable.HashMap[Int, V]()
-  override def domain = wrapF(buff.keySet.toSet)
-  override def apply(value: Key): V = buff(value)
+class MutableMapIntFunc[@specialized V: ClassTag] extends MutableIntFunc[V] {
+  private val map = debox.Map[Key, V]()
+  override def domain = map.keysSet
+  override def apply(value: Key): V = map(value)
   override def extend(key: Int, value: V): Unit = {
-    assert(!buff.contains(key))
-    buff.put(key, value)
+    assert(!map.contains(wrap(key)))
+    map.update(wrap(key), value)
   }
    override def update(key: Key, value: V): Unit = {
-    assert(buff.contains(key))
-    buff.put(key, value)
+    assert(map.contains(key))
+    map.update(key, value)
   }
 }
-class MutableArrayIntFunc[V] extends MutableIntFunc[V] {
-  val buff = mutable.ArrayBuffer[V]()
+class MutableArrayIntFunc[@specialized V: ClassTag: Default] extends MutableIntFunc[V] {
+  private val keys: debox.Set[Key] = debox.Set[Key]()
+  private val buff = debox.Buffer[V]()
 
-  override def domain: Set[Key] = wrapF(buff.indices.filter(buff(_) != null).toSet)
+  override def domain: debox.Set[Key] = keys.copy()
   override def apply(value: Key): V = buff(value)
 
   override def extend(key: Int, value: V): Unit = {
-    for(i <- buff.size to key)
-      buff.append(null.asInstanceOf[V])
+    if(!keys.add(wrap(key)))
+      throw new IllegalArgumentException(s"Key $key is already recorded.")
+
+    val defaultValue = Default.of[V]
+    while(buff.length <= key)
+      buff.append(defaultValue)
     buff(key) = value
   }
 
@@ -120,7 +126,7 @@ class MutableArrayIntFunc[V] extends MutableIntFunc[V] {
 }
 object MutableArrayIntFunc {
   type Aux[T0,V] = MutableIntFunc[V] { type T = T0 }
-  def map[T0,A,B](intFunc: IntFunc.Aux[T0, A])(f: A => B): Aux[T0,B] = {
+  def map[T0,A,B: ClassTag: Default](intFunc: IntFunc.Aux[T0, A])(f: A => B): Aux[T0,B] = {
     val tmp = new MutableArrayIntFunc[B] {
       type T = T0
     }
@@ -133,7 +139,7 @@ object MutableArrayIntFunc {
 class CSP[T](params: IntFunc.Aux[T, (IntDomain, Option[Comp])]) extends Solver[T, Int, IntDomain] {
   type Var = KI[T]
   type Vars = Array[Var]
-  val ids: debox.Buffer[Var] = debox.Buffer.fromIterable(params.domain)
+  val ids: debox.Buffer[Var] = debox.Buffer.fromIterable(params.domain.toIterable())
   def initialDomains(v: Var): IntDomain = params(v)._1
   def dag(v: Var): Option[Comp] = params(v)._2
 

@@ -29,12 +29,11 @@ object IntProblem {
 }
 import IntProblem._
 
-abstract class IntCSP extends Problem[Int] {
-  def vars: Array[Var]
-  def dom: Var => Option[IntDomain]
-  def exprs: Var => Option[Comp]
+abstract class IntCSP[T] extends Problem[T,Int] {
+  override def dom: KI[T] => IntDomain
+  def exprs: KI[T] => Option[Comp]
 
-  def getSolver: CSP[_]
+  def getSolver: CSP[T]
 }
 object IntCSP {
   def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
@@ -67,8 +66,8 @@ object IntCSP {
     }
   }
 
-  def intSubProblem(asg: ASDAG[_])(candidates: ExprId => Boolean): IntCSP = {
-    val xxx = new MutableMapIntFunc[(IntDomain, Option[Comp])] { type T = Any }
+  def intSubProblem[T0](asg: ASDAG[_])(candidates: ExprId => Boolean): IntCSP[T0] = {
+    val xxx = new MutableMapIntFunc[(IntDomain, Option[Comp])] { type T = T0 }
 //    val variables = mutable.ArrayBuffer[Var]()
 //    val domains = new Array[IntDomain](asg.ids.last.value + 1)
 //    val expressions = new Array[Comp](asg.ids.last.value + 1)
@@ -90,11 +89,12 @@ object IntCSP {
       }
     val externalInputs: Set[Var] = {
       xxx.domain
+        .toScalaSet()
         .flatMap((v: xxx.Key) =>
           asg.coalgebra(ExprId.fromInt(v)) match {
             case ComputationF(_, args, _) => args.toSet
             case _                        => Set[Var]()
-        })
+          })
         .filterNot(candidates)
     }
     for(v <- externalInputs) {
@@ -107,18 +107,16 @@ object IntCSP {
       }
       xxx.extend(v, (dom, None))
     }
-    new IntCSP {
-      private val pb: IntFunc.Aux[xxx.T, (IntDomain, Option[Comp])] = xxx
-      override def dom: Var => Option[IntDomain] = pb.get(_).map(_._1)
+    new IntCSP[T0] {
+      private val pb: IntFunc.Aux[T0, (IntDomain, Option[Comp])] = xxx
+      override def dom: KI[T0] => IntDomain = pb(_)._1
 
-      override def exprs: Var => Option[Comp] = pb.get(_).flatMap(_._2)
+      override def exprs: KI[T0] => Option[Comp] = pb(_)._2
 
-      override def vars: Array[Var] = ExprId.fromIntF(pb.domain.toArray)
+      override def vars: Array[KI[T0]] = pb.domain.toArray
 
-      override def hasVar(v: ExprId): Boolean = pb.isInDomain(v)
-
-      override def getSolver: CSP[_] =
-        new CSP[pb.T](pb)
+      override def getSolver: CSP[T0] =
+        new CSP(pb)
     }
   }
 }
