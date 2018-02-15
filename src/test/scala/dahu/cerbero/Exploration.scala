@@ -2,9 +2,10 @@ package dahu.cerbero
 
 import cats.Id
 import dahu.cerberdo.Planning.Structs.IntervalF
-import dahu.constraints.{CSP, IntFunc}
+import dahu.constraints.CSP
 import dahu.recursion.Types._
 import dahu.recursion.{ComputationF, ExprF, ProductF}
+import dahu.structures.IntFunc
 import matryoshka.data.Fix
 import matryoshka.instances.fixedpoint.Cofree
 import matryoshka.patterns.EnvT
@@ -111,7 +112,7 @@ object Planner extends App {
   println(tmp)
 
   val csp = CSP.from(tmp)
-  val result: Option[IntFunc[Int]] = csp.solve
+  val result: Option[IntFunc[_, Int]] = csp.solve
   result match {
     case Some(f) =>
       println("Got a solution!")

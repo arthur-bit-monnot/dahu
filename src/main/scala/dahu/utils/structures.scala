@@ -39,6 +39,7 @@ object structures {
 
     implicit val defaultInt: Default[Int] = () => 0
     implicit val defaultAnyRef: Default[AnyRef] = () => null
+    implicit val defaultAny: Default[Any] = () => null
     implicit def defaultRef[A <: AnyRef]: Default[A] = defaultAnyRef.asInstanceOf[Default[A]]
   }
 }

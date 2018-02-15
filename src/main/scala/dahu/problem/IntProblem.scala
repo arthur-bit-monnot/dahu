@@ -7,6 +7,7 @@ import dahu.expr.types.TagIsoInt
 import dahu.recursion._
 import dahu.recursion.Types._
 import dahu.constraints.domains._
+import dahu.structures.{ArrayIntFunc, IntFuncBuilder, MutableMapIntFunc}
 import dahu.utils.Errors._
 
 import scala.collection.mutable
@@ -67,10 +68,8 @@ object IntCSP {
   }
 
   def intSubProblem[T0](asg: ASDAG[_])(candidates: ExprId => Boolean): IntCSP[T0] = {
-    val xxx = new MutableMapIntFunc[(IntDomain, Option[Comp])] { type T = T0 }
-//    val variables = mutable.ArrayBuffer[Var]()
-//    val domains = new Array[IntDomain](asg.ids.last.value + 1)
-//    val expressions = new Array[Comp](asg.ids.last.value + 1)
+    val factory = new IntFuncBuilder[(IntDomain, Option[Comp])]
+//    val xxx = new MutableMapIntFunc[T0, (IntDomain, Option[Comp])]
     asg.ids.enumerate
       .map(i => IntCSP.translate(i, asg.coalgebra.asScalaFunction).map((i, _)))
       .foreach {
@@ -84,13 +83,13 @@ object IntCSP {
           // only treat as computation if it is representable and is in the candidate set
           val e = expr.comp
             .flatMap(c => if(candidates(i)) Some(c) else None)
-          xxx.extend(i, (dom, e))
+          factory += (i, (dom, e))
         case _ => // not representable or not in candidate set, ignore
       }
     val externalInputs: Set[Var] = {
-      xxx.domain
+      factory.currentKeys
         .toScalaSet()
-        .flatMap((v: xxx.Key) =>
+        .flatMap((v: Int) =>
           asg.coalgebra(ExprId.fromInt(v)) match {
             case ComputationF(_, args, _) => args.toSet
             case _                        => Set[Var]()
@@ -98,17 +97,17 @@ object IntCSP {
         .filterNot(candidates)
     }
     for(v <- externalInputs) {
-      assert(!xxx.isInDomain(v))
+      assert(!factory.contains(v))
       val dom = asg.coalgebra(v).typ match {
         case t: TagIsoInt[_] => IntCSP.domainOfType(t)
         case _ =>
           unexpected(
             "Some computation in IntCSP depends on an expression whose type is not isomorphic to Int.")
       }
-      xxx.extend(v, (dom, None))
+      factory += (v, (dom, None))
     }
     new IntCSP[T0] {
-      private val pb: IntFunc.Aux[T0, (IntDomain, Option[Comp])] = xxx
+      private val pb: ArrayIntFunc[T0, (IntDomain, Option[Comp])] = factory.toImmutableArray
       override def dom: KI[T0] => IntDomain = pb(_)._1
 
       override def exprs: KI[T0] => Option[Comp] = pb(_)._2

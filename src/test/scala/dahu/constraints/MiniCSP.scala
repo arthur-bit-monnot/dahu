@@ -3,6 +3,7 @@ package dahu.constraints
 import dahu.expr.types.TagIsoInt
 import dahu.expr.{Expr, Input, bool}
 import dahu.recursion.Types._
+import dahu.solver.MetaSolver1
 
 object MiniCSP extends App {
 
@@ -17,14 +18,16 @@ object MiniCSP extends App {
   import dahu.recursion.Algebras._
 
   val asd = transpile(root, coalgebra)
-  val csp = CSP.from(asd)
+//  val csp = CSP.from(asd)
+  val solver = new MetaSolver1[Integer](asd)
 
-  csp.solve match {
+  solver.solve match {
     case Some(assignment) =>
-      def view[T](x: Expr[T])(implicit tag: TagIsoInt[T]): Option[T] = {
+      def view[T](x: Expr[T]): Option[T] = {
         asd.compiledForm(x)
           .flatMap(y => assignment.get(y))
-          .map(z => tag.fromInt(z))
+          .map(_.asInstanceOf[T])
+//          .map(z => tag.fromInt(z))
       }
       println(view(root))
       println(view(leq))
