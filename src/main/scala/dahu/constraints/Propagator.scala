@@ -21,7 +21,7 @@ object Propagator {
     case bool.And => AndForwardPropagator
     case bool.Not => NotForwardPropagator
     case f =>
-      println(s"warning: default forward propagator for $fun")
+//      println(s"warning: default forward propagator for $fun")
       ForwardPropagator.default(f).getOrElse(unexpected("No propagator for $f"))
 
   }
@@ -33,7 +33,7 @@ object Propagator {
     case bool.And => AndBackwardPropagator
     case bool.Not => NotBackwardPropagator
     case _ =>
-      println(s"warning: no backward propagator for $fun")
+//      println(s"warning: no backward propagator for $fun")
       BackwardPropagator.NoOp
   }
 }

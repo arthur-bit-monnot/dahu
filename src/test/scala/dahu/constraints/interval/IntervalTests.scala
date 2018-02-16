@@ -40,11 +40,6 @@ class IntervalTests extends FreeSpec {
       assert(I(0, 10).unionApproximation(I(20,30)) == I(0, 30), "Expected behavior due to approximation")
     }
 
-    "values" in {
-      assert(Seq() == empty.values)
-      assert(Seq(0, 1, 2, 3) == I(0, 3).values)
-    }
-
     "without" in {
       assert(empty.withoutApproximation(I(0, 0)) == empty)
       assert(I(0, 10).withoutApproximation(empty) == I(0,10))
@@ -52,6 +47,12 @@ class IntervalTests extends FreeSpec {
       assert(I(0, 10).withoutApproximation(I(-5,-1)) == I(0, 10))
       assert(I(0, 1).withoutApproximation(I(0)) == I(1))
       assert(I(0, 1).withoutApproximation(I(1)) == I(0))
+      assert(I(0, 2).withoutApproximation(I(1)) == I(0, 2), "Expected result due to approximation")
+    }
+
+    "values" in {
+      assert(Seq() == empty.values)
+      assert(Seq(0, 1, 2, 3) == I(0, 3).values)
     }
 
     "min" in {

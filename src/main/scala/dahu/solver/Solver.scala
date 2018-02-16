@@ -42,7 +42,7 @@ trait Solver[Tag, V, D] {
   def domainIso: DomainIso[D, V]
 
   def enforce(variable: KI[Tag], domain: D)
-  def solve: Option[ArrayIntFunc[Tag, V]]
+  def nextSolution(): Option[ArrayIntFunc[Tag, V]]
 
   def consistent: Trilean
 }
@@ -64,7 +64,7 @@ class MetaSolver1[Tag](asg: ASDAG[_]) extends Solver[Tag, Any, Domain[Any]] {
     solver.enforce(unsafe(variable), Interval(tmp.lb, tmp.ub))
   }
 
-  override def solve: Option[ArrayIntFunc[Tag, Any]] = solver.solve match {
+  override def nextSolution(): Option[ArrayIntFunc[Tag, Any]] = solver.nextSolution match {
     case Some(f) =>
       val f2 = f.mapFromKey {
         case (k, v) => typeOf(k) match {

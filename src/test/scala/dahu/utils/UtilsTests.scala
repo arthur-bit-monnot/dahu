@@ -14,12 +14,11 @@ class UtilsTests extends FreeSpec {
 
   "graph-utils" - {
     "tarjan" in {
-
       assert(tarjan(g1) == Seq(Set(1, 2), Set(3)))
       assert(tarjan(dag1) == (1 to 4).map(Set(_)))
       assert(tarjan(dag2) == (1 to 4).map(Set(_)))
-
     }
+
     "topological-order" in {
       assert(topologicalOrder(g1).isEmpty)
       assert(topologicalOrder(dag1).contains(1 to 4))

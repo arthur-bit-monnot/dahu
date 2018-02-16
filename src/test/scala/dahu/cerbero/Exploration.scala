@@ -112,7 +112,7 @@ object Planner extends App {
   println(tmp)
 
   val csp = CSP.from(tmp)
-  val result: Option[IntFunc[_, Int]] = csp.solve
+  val result: Option[IntFunc[_, Int]] = csp.nextSolution
   result match {
     case Some(f) =>
       println("Got a solution!")

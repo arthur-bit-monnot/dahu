@@ -25,10 +25,9 @@ import spire.implicits._
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-
 sealed abstract class Event[T]
-class DomainUpdate[T](val id: KI[T], val domain: Interval, val previous: Interval)
-    extends Event[T]
+final case class SolutionFound[T](sol: ArrayIntFunc[T, Int])                       extends Event[T]
+class DomainUpdate[T](val id: KI[T], val domain: Interval, val previous: Interval) extends Event[T]
 case class Inference[T](override val id: KI[T],
                         override val domain: Interval,
                         override val previous: Interval)
@@ -77,8 +76,10 @@ object Constraint {
 }
 
 class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[T, Int, Interval] {
-  type Var  = KI[T]
-  type Vars = Array[Var]
+  type Var        = KI[T]
+  type Vars       = Array[Var]
+  type Assignment = ArrayIntFunc[T, Int]
+
   val ids: debox.Buffer[Var]            = params.domain.toSortedBuffer
   def initialDomains(v: Var): IntDomain = params(v)._1
   def dag(v: Var): Option[Comp]         = params(v)._2
@@ -110,7 +111,7 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
 
   // current domains
   private val domains: MutableArrayIntFunc[T, Interval] =
-    params.map{ case (d, _) => Interval(d.lb, d.ub) }.toMutable
+    params.map { case (d, _) => Interval(d.lb, d.ub) }.toMutable
 
   def dom(v: Var): Interval = domains(v)
 
@@ -141,6 +142,8 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
         backtrack()
       case Some(backtrackPoint: LocalDecision[T]) =>
         Some(backtrackPoint)
+      case Some(SolutionFound(_)) =>
+        backtrack()
       case _ =>
         None
     }
@@ -179,19 +182,20 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
     true
   }
 
-  def solve: Option[ArrayIntFunc[T, Int]] = {
-    if(!arcConsistent)
-      return None
-
+  override def nextSolution(): Option[Assignment] = {
     var exhausted = false
     while(!exhausted) {
-      println(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
-      if(solution) {
-        println("solution")
+//      println(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
+      if(solution && !history.lastOption.forall(_.isInstanceOf[SolutionFound[T]])) {
+        // just reached new solution
+//        println("solution")
         assert(arcConsistent)
-        return Some(domains.map(_.lb).toImmutable)
-      } else if(!arcConsistent) {
-        println("backtrack")
+        val sol = domains.map(_.lb).toImmutable
+        push(SolutionFound[T](sol))
+        return Some(sol)
+      } else if(!arcConsistent || solution) {
+        // inconsistent or already explored solution
+//        println("backtrack")
         backtrack() match {
           case Some(LocalDecision(v, dec, previous)) =>
             assert(!previous.strictlyContains(dec), "The without approximation is identity.")
@@ -212,12 +216,26 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
         }
         val v        = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
         val decision = LocalDecision(v, Interval(dom(v).lb), dom(v))
-        println(s"Decision: $v <- ${decision.domain}")
+//        println(s"Decision: $v <- ${decision.domain.show}")
         enforce(decision)
       }
     }
 
     None
+  }
+
+  def enumerateSolutions(maxSolutions: Option[Int] = None, onSolutionFound: Assignment => Unit = _ => ()): Int = {
+    var count = 0
+    while(maxSolutions.forall(count < _)) {
+      nextSolution() match {
+        case Some(sol) =>
+          onSolutionFound(sol)
+          count += 1
+        case None =>
+          return count
+      }
+    }
+    count
   }
 
 }

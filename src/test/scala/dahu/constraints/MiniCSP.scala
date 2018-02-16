@@ -21,7 +21,7 @@ object MiniCSP extends App {
 //  val csp = CSP.from(asd)
   val solver = new MetaSolver1[Integer](asd)
 
-  solver.solve match {
+  solver.nextSolution match {
     case Some(assignment) =>
       def view[T](x: Expr[T]): Option[T] = {
         asd.compiledForm(x)
