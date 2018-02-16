@@ -1,7 +1,5 @@
 name := "dahu"
 
-version := "0.1-SNAPSHOT"
-
 scalaVersion := "2.12.4"
 
 libraryDependencies += "com.slamdata"  %% "matryoshka-core" % "0.21.3"
@@ -14,8 +12,6 @@ libraryDependencies += "org.spire-math" %% "debox" % "0.8.0"
 libraryDependencies += "org.scalatest" %% "scalatest"       % "3.0.4" % "test"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 
-
-unmanagedJars in Compile += file("lib/ILOG.CP.jar")
 
 // pulled by matryoshka and causing problems in IntelliJ and sbt-assembly
 excludeDependencies += "org.typelevel" % "scala-library"
