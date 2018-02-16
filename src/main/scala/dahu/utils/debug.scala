@@ -54,4 +54,6 @@ object debug {
     * Intended use is to gather runtime information to identify blocks that should be further optimized.
     */
   final def slow[T](value: T): T = value
+
+  final def approximation[T](value: T) = value
 }

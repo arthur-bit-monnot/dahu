@@ -26,17 +26,18 @@ class IntervalTests extends FreeSpec {
     }
 
     "intersection" in {
-      assert(I(0, 10).intersection(I(5, 20)) == I(5, 10))
-      assert(I(0, 2).intersection(I(2, 5)) == I(2, 2))
-      assert(I(0, 5).intersection(I(6, 10)) == empty)
-      assert(I(-100, 100).intersection(empty) == empty)
+      assert(I(0, 10).inter(I(5, 20)) == I(5, 10))
+      assert(I(0, 2).inter(I(2, 5)) == I(2, 2))
+      assert(I(0, 5).inter(I(6, 10)) == empty)
+      assert(I(-100, 100).inter(empty) == empty)
     }
 
     "union" in {
-      assertResult(I(0,10))(empty union I(0, 10))
-      assertResult(I(0,10))(I(0, 10) union empty)
-      assertResult(I(0, 20))(I(0, 10) union I(11, 20))
-      assertResult(I(0, 20))(I(0, 10) union I(4, 20))
+      assertResult(I(0,10))(empty unionApproximation I(0, 10))
+      assertResult(I(0,10))(I(0, 10) unionApproximation empty)
+      assertResult(I(0, 20))(I(0, 10) unionApproximation I(11, 20))
+      assertResult(I(0, 20))(I(0, 10) unionApproximation I(4, 20))
+      assert(I(0, 10).unionApproximation(I(20,30)) == I(0, 30), "Expected behavior due to approximation")
     }
 
     "values" in {
@@ -45,16 +46,35 @@ class IntervalTests extends FreeSpec {
     }
 
     "without" in {
-      assert(empty \ I(0, 0) == empty)
-      assert(I(0, 10) \ empty == I(0,10))
-      assert(I(0, 10) \ I(5,10) == I(0,4))
-      assert(I(0, 10) \ I(-5,-1) == I(0, 10))
+      assert(empty.withoutApproximation(I(0, 0)) == empty)
+      assert(I(0, 10).withoutApproximation(empty) == I(0,10))
+      assert(I(0, 10).withoutApproximation(I(5,10)) == I(0,4))
+      assert(I(0, 10).withoutApproximation(I(-5,-1)) == I(0, 10))
+      assert(I(0, 1).withoutApproximation(I(0)) == I(1))
+      assert(I(0, 1).withoutApproximation(I(1)) == I(0))
     }
 
     "min" in {
       assert(I(0, 10).min(I(5, 7)) == I(0, 7))
       assert(I(0, 10).min(I(20, 25)) == I(0, 10))
       assert(I(0, 10).min(empty) == empty)
+    }
+
+    "max" in {
+      assert(I(0, 10).max(I(5, 7)) == I(5, 10))
+      assert(I(0, 10).max(I(20, 25)) == I(20, 25))
+      assert(I(0, 10).max(empty) == empty)
+    }
+
+    "minus" in {
+      assert(I(0, 3).minus(I(1)) == I(-1, 2))
+      assert(I(0, 3).minus(I(0, 1)) == I(-1, 3))
+
+      val i1 = I(45, 49)
+      val i2 = I(45)
+      val o = I(92)
+      assert((i1 inter (o minus i2)) == I(47))
+      assert((i2 inter (o minus i1)) == I(45))
     }
 
   }

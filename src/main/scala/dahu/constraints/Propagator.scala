@@ -5,8 +5,10 @@ import dahu.expr.types.TagIsoInt
 import dahu.expr._
 import dahu.recursion.ComputationF
 import dahu.utils.Errors.unexpected
+import dahu.constraints.interval._
 
-import dahu.constraints.domains._
+import BooleanDomain._
+
 
 trait Propagator {}
 
@@ -88,12 +90,12 @@ object Types {
   type Val = Int
   type Evaluator = Array[Val] => Val  // FunN[Int,Int]
   type EvaluatorX = (Array[Val], Val => Var) => Val
-  type FwProp = (Array[Var], Var => IntDomain) => IntDomain
-  type BwProp = (Array[Var], Var, Var => IntDomain) => Array[IntDomain]
+  type FwProp = (Array[Var], Var => Interval) => Interval
+  type BwProp = (Array[Var], Var, Var => Interval) => Array[Interval]
 }
 
 trait ForwardPropagator {
-  def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain
+  def propagate[T](args: Seq[T], dom: T => Interval): Interval
 }
 object ForwardPropagator {
 
@@ -102,111 +104,112 @@ object ForwardPropagator {
       .compat(f)
       .map(translator =>
         new ForwardPropagator {
-          override def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain =
+          override def propagate[T](args: Seq[T], dom: T => Interval): Interval =
             if(args.map(dom).forall(_.isSingleton)) {
-              val argValues: Seq[Value] = translator.argsFromInt(args.map(a => dom(a).head))
+              val argValues: Seq[Value] = translator.argsFromInt(args.map(a => dom(a).lb))
               val eval                  = translator.outToInt(Value(f.compute(argValues)))
-              SingletonDomain(eval)
+              Interval(eval)
             } else {
-              FullDomain
+              Interval.full
             }
       })
   }
 
 }
 trait BackwardPropagator {
-  def propagate[T](args: Seq[T], out: T, dom: T => IntDomain): Seq[IntDomain]
+  def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval]
 }
 object BackwardPropagator {
   case object NoOp extends BackwardPropagator {
-    override def propagate[T](args: Seq[T], otr: T, dom: T => IntDomain): Seq[IntDomain] =
+    override def propagate[T](args: Array[T], otr: T, dom: T => Interval): Array[Interval] =
       args.map(dom)
   }
 }
 
 abstract class ForwardPropagator1 extends ForwardPropagator {
-  def propagate(d: IntDomain): IntDomain
+  def propagate(d: Interval): Interval
 
-  override def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain =
+  override def propagate[T](args: Seq[T], dom: T => Interval): Interval =
     propagate(dom(args.head))
 }
 abstract class ForwardPropagator2 extends ForwardPropagator {
-  def propagate(l: IntDomain, r: IntDomain): IntDomain
-  def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain =
+  def propagate(l: Interval, r: Interval): Interval
+  def propagate[T](args: Seq[T], dom: T => Interval): Interval =
     propagate(dom(args(0)), dom(args(1)))
 }
 abstract class ForwardPropagatorN extends ForwardPropagator {
-  def propagate(domains: Seq[IntDomain]): IntDomain
-  def propagate[T](args: Seq[T], dom: T => IntDomain): IntDomain =
+  def propagate(domains: Seq[Interval]): Interval
+  def propagate[T](args: Seq[T], dom: T => Interval): Interval =
     propagate(args.map(dom))
 }
 
 abstract class BackwardPropagator1 extends BackwardPropagator {
-  def propagate(in: IntDomain, out: IntDomain): IntDomain
+  def propagate(in: Interval, out: Interval): Interval
 
-  override def propagate[T](args: Seq[T], out: T, dom: T => IntDomain): Seq[IntDomain] =
+  override def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval] =
     Array(propagate(dom(args.head), dom(out)))
 }
 abstract class BackwardPropagator2 extends BackwardPropagator {
-  def propagate(in1: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain)
+  def propagate(in1: Interval, r: Interval, out: Interval): (Interval, Interval)
 
-  override def propagate[T](args: Seq[T], out: T, dom: T => IntDomain): Seq[IntDomain] = {
+  override def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval] = {
     val (d1, d2) = propagate(dom(args(0)), dom(args(1)), dom(out))
-    Seq(d1, d2)
+    Array(d1, d2)
   }
 }
 abstract class BackwardPropagatorN extends BackwardPropagator {
-  def propagate(in: Seq[IntDomain], out: IntDomain): Seq[IntDomain]
+  def propagate(in: Array[Interval], out: Interval): Array[Interval]
 
-  override def propagate[T](args: Seq[T], out: T, dom: T => IntDomain): Seq[IntDomain] = {
+  override def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval] = {
     propagate(args.map(dom), dom(out))
   }
 }
 
 case object AddForwardPropagator extends ForwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain): IntDomain = l + r
+  override def propagate(l: Interval, r: Interval): Interval = l plus r
 }
 
 case object AddBackwardPropagator extends BackwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) = {
+  override def propagate(l: Interval, r: Interval, out: Interval): (Interval, Interval) = {
     (
-      l & (out - r),
-      r & (out - l)
+      l inter (out minus r),
+      r inter (out minus l)
     )
   }
 }
 
 case object LEQForwardPropagator extends ForwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain): IntDomain =
-    if(l.ub <= r.lb) True
-    else if(l.lb > r.ub) False
-    else TrueOrFalse
+  override def propagate(l: Interval, r: Interval): BooleanDomain =
+    if(l.ub <= r.lb) BooleanDomain.True
+    else if(l.lb > r.ub) BooleanDomain.False
+    else BooleanDomain.Unknown
 }
 case object LEQBackwardPropagator extends BackwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) = {
+  override def propagate(l: Interval, r: Interval, out: Interval): (Interval, Interval) = {
     if(out == True)
-      (IntervalDomain(l.lb, math.min(l.ub, r.ub)), IntervalDomain(math.max(r.lb, l.lb), r.ub))
+      (Interval(l.lb, math.min(l.ub, r.ub)), Interval(math.max(r.lb, l.lb), r.ub))
     else if(out == False)
-      (IntervalDomain(math.max(l.lb, r.lb + 1), l.ub),
-       IntervalDomain(r.lb, math.min(r.ub, l.ub - 1)))
+      (Interval(math.max(l.lb, r.lb + 1), l.ub),
+       Interval(r.lb, math.min(r.ub, l.ub - 1)))
     else
       (l, r)
   }
 }
 
 case object OrForwardPropagator extends ForwardPropagatorN {
-  override def propagate(domains: Seq[IntDomain]): IntDomain = domains.foldLeft(False)(_.max(_))
+  override def propagate(domains: Seq[Interval]): Interval =
+    BooleanDomain.asBooleanDomains(domains.toArray).foldLeft(False)(_.or(_))
 }
 
 case object OrBackwardPropagator extends BackwardPropagatorN {
-  override def propagate(domains: Seq[IntDomain], out: IntDomain): Seq[IntDomain] = {
+  override def propagate(domains: Array[Interval], out: Interval): Array[Interval] = {
     if(out == True) {
       if(domains.contains(True))
         domains
       else if(domains.count(_.size > 1) == 1)
         domains.map(x => if(x.size > 1) True else x)
       else if(domains.forall(_ == False))
-        domains.map(_ => EmptyDomain)
+        domains.map(_ => BooleanDomain.empty)
       else
         domains
     } else if(out == False) {
@@ -218,12 +221,13 @@ case object OrBackwardPropagator extends BackwardPropagatorN {
 }
 
 case object AndForwardPropagator extends ForwardPropagatorN {
-  override def propagate(domains: Seq[IntDomain]): IntDomain = domains.foldLeft(True)(_.min(_))
+  override def propagate(domains: Seq[Interval]): Interval =
+    BooleanDomain.asBooleanDomains(domains.toArray).foldLeft(True)(_.and(_))
 }
 
 case object AndBackwardPropagator extends BackwardPropagatorN {
 
-  override def propagate(domains: Seq[IntDomain], out: IntDomain): Seq[IntDomain] = {
+  override def propagate(domains: Array[Interval], out: Interval): Array[Interval] = {
     if(out == True) {
       domains.map(x => True)
     } else if(out == False) {
@@ -232,7 +236,7 @@ case object AndBackwardPropagator extends BackwardPropagatorN {
       else if(domains.count(_.size > 1) == 1)
         domains.map(x => if(x.size > 1) False else x)
       else if(domains.forall(_ == True))
-        domains.map(_ => EmptyDomain)
+        domains.map(_ => BooleanDomain.empty)
       else
         domains
     } else {
@@ -242,38 +246,38 @@ case object AndBackwardPropagator extends BackwardPropagatorN {
 }
 
 case object NotForwardPropagator extends ForwardPropagator1 {
-  override def propagate(d: IntDomain): IntDomain =
+  override def propagate(d: Interval): BooleanDomain =
     if(d == False) True
     else if(d == True) False
-    else TrueOrFalse
+    else BooleanDomain.Unknown
 }
 
 case object NotBackwardPropagator extends BackwardPropagator1 {
-  override def propagate(in: IntDomain, out: IntDomain): IntDomain =
+  override def propagate(in: Interval, out: Interval): BooleanDomain =
     if(out == False) True
     else if(out == True) False
-    else TrueOrFalse
+    else BooleanDomain.Unknown
 }
 
 case object EqForwardPropagator extends ForwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain): IntDomain =
+  override def propagate(l: Interval, r: Interval): BooleanDomain =
     if(l.isSingleton && r.isSingleton && l.lb == r.lb)
       True
     else if(l.ub < r.lb || r.ub < l.lb)
       False
     else
-      TrueOrFalse
+      Unknown
 }
 
 case object EqBackwardPropagator extends BackwardPropagator2 {
-  override def propagate(l: IntDomain, r: IntDomain, out: IntDomain): (IntDomain, IntDomain) =
+  override def propagate(l: Interval, r: Interval, out: Interval): (Interval, Interval) =
     if(out == True) {
-      val d = l & r
+      val d = l inter r
       (d, d)
     } else if(out == False) {
-      if(l.isSingleton && r.isSingleton && l == r) (EmptyDomain, EmptyDomain)
-      else if(l.isSingleton) (l, r \ l.head)
-      else if(r.isSingleton) (l \ r.head, r)
+      if(l.isSingleton && r.isSingleton && l == r) (empty, empty)
+      else if(l.isSingleton) (l, r withoutApproximation l)
+      else if(r.isSingleton) (l withoutApproximation r, r)
       else (l, r)
     } else {
       (l, r)

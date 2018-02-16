@@ -1,8 +1,9 @@
 package dahu.solver
 
 import dahu.constraints.CSP
-import dahu.constraints.domains.IntDomain
-import dahu.expr.types.TagIsoInt
+import dahu.constraints.domains.{IntDomain, IntervalDomain}
+import dahu.constraints.interval.Interval
+import dahu.expr.types.{Tag, TagIsoInt}
 import dahu.problem.{IntCSP, IntProblem}
 import dahu.recursion.ASDAG
 import dahu.recursion.Types._
@@ -11,9 +12,34 @@ import dahu.utils.Errors._
 import spire.math.Trilean
 
 
-trait Domain[V]
+trait Domain[V] {
+  def iterable: Iterable[V] = ???
+}
 
-trait Solver[Tag, V, D <: Domain[V]] {
+trait DomainIso[D, V] {
+
+  def to(d: Domain[V]): D
+  def from(d: D): Domain[V]
+}
+object DomainIso {
+  private val identityIso = new DomainIso[Domain[Any], Any] {
+    override def to(d: Domain[Any]): Domain[Any] = d
+    override def from(d: Domain[Any]): Domain[Any] = d
+  }
+  def identity[V]: DomainIso[Domain[V], V] = identityIso.asInstanceOf[DomainIso[Domain[V], V]]
+
+  val intervalIso: DomainIso[Interval, Int] = new DomainIso[Interval, Int] {
+    override def to(d: Domain[Int]): Interval = d match {
+      case x: IntervalDomain => Interval(x.lb, x.ub)
+      case _ => unexpected("No completly faithfull translation of non interval domains")
+    }
+    override def from(d: Interval): IntervalDomain = IntervalDomain(d.lb, d.ub)
+  }
+}
+
+trait Solver[Tag, V, D] {
+
+  def domainIso: DomainIso[D, V]
 
   def enforce(variable: KI[Tag], domain: D)
   def solve: Option[ArrayIntFunc[Tag, V]]
@@ -23,6 +49,7 @@ trait Solver[Tag, V, D <: Domain[V]] {
 
 
 class MetaSolver1[Tag](asg: ASDAG[_]) extends Solver[Tag, Any, Domain[Any]] {
+  override def domainIso: DomainIso[Domain[Any], Any] = DomainIso.identity
 
   type T1 = Tag with Integer
   def trans(id: KI[T1]): KI[Tag] = id.asInstanceOf[KI[Tag]] // ideally KI[T1] should be a subtype of KI[Tag]
@@ -32,7 +59,10 @@ class MetaSolver1[Tag](asg: ASDAG[_]) extends Solver[Tag, Any, Domain[Any]] {
   val solver: CSP[T1] = intSubProblem.getSolver
 
 
-  override def enforce(variable: KI[Tag], domain: Domain[Any]): Unit = solver.enforce(unsafe(variable), domain.asInstanceOf[IntDomain])
+  override def enforce(variable: KI[Tag], domain: Domain[Any]): Unit = {
+    val tmp = domain.asInstanceOf[IntDomain]
+    solver.enforce(unsafe(variable), Interval(tmp.lb, tmp.ub))
+  }
 
   override def solve: Option[ArrayIntFunc[Tag, Any]] = solver.solve match {
     case Some(f) =>

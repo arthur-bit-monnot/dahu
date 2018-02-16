@@ -13,31 +13,33 @@ import dahu.interpreter.domains.Domain
 import dahu.problem.{IntCSP, IntProblem}
 import dahu.problem.IntProblem.{Comp, Func, Var}
 import dahu.recursion.Types._
-import dahu.solver.Solver
+import dahu.solver.{DomainIso, Solver}
 import dahu.structures.{ArrayIntFunc, MutableArrayIntFunc}
 import dahu.utils.Errors.unexpected
 import spire.math.Trilean
 import dahu.utils.structures._
+import dahu.constraints.interval._
+import dahu.solver
 import spire.implicits._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.reflect.ClassTag
+
 
 sealed abstract class Event[T]
-class DomainUpdate[T](val id: KI[T], val domain: IntDomain, val previous: IntDomain)
+class DomainUpdate[T](val id: KI[T], val domain: Interval, val previous: Interval)
     extends Event[T]
 case class Inference[T](override val id: KI[T],
-                        override val domain: IntDomain,
-                        override val previous: IntDomain)
+                        override val domain: Interval,
+                        override val previous: Interval)
     extends DomainUpdate[T](id, domain, previous)
 case class LocalDecision[T](override val id: KI[T],
-                            override val domain: IntDomain,
-                            override val previous: IntDomain)
+                            override val domain: Interval,
+                            override val previous: Interval)
     extends DomainUpdate[T](id, domain, previous)
 case class ExternalDecision[T](override val id: KI[T],
-                               override val domain: IntDomain,
-                               override val previous: IntDomain)
+                               override val domain: Interval,
+                               override val previous: Interval)
     extends DomainUpdate(id, domain, previous)
 
 object Constraint {
@@ -51,7 +53,7 @@ object Constraint {
     (csp: CSP[T]) =>
       {
         val d  = prop.propagate(args, csp.dom)
-        val d2 = d & csp.dom(id)
+        val d2 = d inter csp.dom(id)
         if(csp.dom(id) != d2) {
           Array(Inference(id, d2, csp.dom(id)))
         } else {
@@ -66,7 +68,7 @@ object Constraint {
         assert(doms.size == args.size)
         args
           .zip(doms)
-          .map { case (i, d) => (i, d & csp.dom(i)) }
+          .map { case (i, d) => (i, d inter csp.dom(i)) }
           .filter { case (i, d) => csp.dom(i) != d }
           .map { case (i, d) => Inference(i, d, csp.dom(i)) }
           .toArray[Inference[T]]
@@ -74,12 +76,14 @@ object Constraint {
   }
 }
 
-class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[T, Int, IntDomain] {
+class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[T, Int, Interval] {
   type Var  = KI[T]
   type Vars = Array[Var]
-  val ids: debox.Buffer[Var]            = debox.Buffer.fromIterable(params.domain.toIterable())
+  val ids: debox.Buffer[Var]            = params.domain.toSortedBuffer
   def initialDomains(v: Var): IntDomain = params(v)._1
   def dag(v: Var): Option[Comp]         = params(v)._2
+
+  override def domainIso: DomainIso[Interval, Int] = DomainIso.intervalIso
 
   val propagators: Array[Array[Updater[T]]] = {
     val propagatorsBuilder = Array.fill(ids.max + 1)(mutable.ArrayBuffer[Updater[T]]())
@@ -105,10 +109,10 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
   require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
 
   // current domains
-  private val domains: MutableArrayIntFunc[T, IntDomain] =
-    params.map(_._1).toMutable
+  private val domains: MutableArrayIntFunc[T, Interval] =
+    params.map{ case (d, _) => Interval(d.lb, d.ub) }.toMutable
 
-  def dom(v: Var): IntDomain = domains(v)
+  def dom(v: Var): Interval = domains(v)
 
   override def consistent: Trilean =
     if(solution) Trilean.True
@@ -142,7 +146,7 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
     }
   }
 
-  override def enforce(variable: Var, domain: IntDomain): Unit = {
+  override def enforce(variable: Var, domain: Interval): Unit = {
     require(dom(variable).contains(domain))
     val up = ExternalDecision(variable, domain, dom(variable))
     enforce(up)
@@ -181,16 +185,17 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
 
     var exhausted = false
     while(!exhausted) {
-      println(ids.map(i => s"$i: ${dom(i)}").toIterable().mkString("domains: [", ",   ", "]"))
+      println(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
       if(solution) {
         println("solution")
         assert(arcConsistent)
-        return Some(domains.map(_.head).toImmutable)
+        return Some(domains.map(_.lb).toImmutable)
       } else if(!arcConsistent) {
         println("backtrack")
         backtrack() match {
           case Some(LocalDecision(v, dec, previous)) =>
-            val restricted = previous \ dec
+            assert(!previous.strictlyContains(dec), "The without approximation is identity.")
+            val restricted = previous withoutApproximation dec
             val e          = Inference(v, restricted, previous)
             enforce(e)
 
@@ -206,7 +211,7 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
           case i if !dom(i).isSingleton => i
         }
         val v        = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
-        val decision = LocalDecision(v, SingletonDomain(dom(v).lb), dom(v))
+        val decision = LocalDecision(v, Interval(dom(v).lb), dom(v))
         println(s"Decision: $v <- ${decision.domain}")
         enforce(decision)
       }
