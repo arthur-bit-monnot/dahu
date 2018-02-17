@@ -82,15 +82,15 @@ trait IntDomain extends Domain[Int] {
 
   override def equals(o: Any): Boolean = o match {
     case o: IntDomain => slow { o.values.toSet == values.toSet }
-    case _         => false
+    case _            => false
   }
 
   override def hashCode(): Int = lb + ub * 31 + size * 31 * 31
 
   override def toString: String =
-    if (isSingleton)
+    if(isSingleton)
       values.head.toString
-    else if (size <= 6)
+    else if(size <= 6)
       s"{${values.mkString(", ")}}"
     else
       s"{${values.take(3).mkString(", ")}, ..., ${values.takeRight(3)}}"
@@ -100,8 +100,8 @@ object IntDomain {
 
   /** Factory for Domain, using the most adapted representation for the given values */
   def apply(values: Set[Int]): IntDomain =
-    if (values.isEmpty) EmptyDomain
-    else if (values.size == 1) SingletonDomain(values.head)
+    if(values.isEmpty) EmptyDomain
+    else if(values.size == 1) SingletonDomain(values.head)
     else new EnumeratedDomain(values)
 
 //  def apply(values: Int*): IntDomain = IntDomain(values.toSet)

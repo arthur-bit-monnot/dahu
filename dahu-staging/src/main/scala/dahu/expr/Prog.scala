@@ -57,7 +57,7 @@ object int {
     override def of(in1: Int, in2: Int): Boolean = in1 == in2
   }
   object NEQ extends Fun2[Int, Int, Boolean] {
-    override def name: String = "neq"
+    override def name: String                    = "neq"
     override def of(in1: Int, in2: Int): Boolean = in1 != in2
   }
 

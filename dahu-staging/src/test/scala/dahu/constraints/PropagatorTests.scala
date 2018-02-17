@@ -36,13 +36,13 @@ class PropagatorTests extends FunSuite with PropertyChecks {
       samples.getOrElseUpdate(tag, (0 to 5).flatMap(_ => Gen.choose(tag.min, tag.max).sample.toSeq))
     for {
       size   <- Gen.choose(-1, math.min(5, tag.numInstances))
-      offset <- Gen.choose(0, 0)//size + 1)
+      offset <- Gen.choose(0, 0) //size + 1)
       min    <- Gen.oneOf(tag.min, math.max(tag.min, -10))
       max    <- Gen.oneOf(tag.max, math.min(tag.max, 50))
       // choose starts points, biased around point of interest
-      start  <- Gen.chooseNum(min - offset, math.max(min,max - size) - offset, poi: _*)
+      start <- Gen.chooseNum(min - offset, math.max(min, max - size) - offset, poi: _*)
       st = start + offset
-      ed = start + offset + size -1
+      ed = start + offset + size - 1
       _ = {
         assert(tag.min <= st)
         assert(ed <= tag.max)
@@ -125,12 +125,15 @@ class PropagatorTests extends FunSuite with PropertyChecks {
       // inputDomains.zip(resultDomains).foreach{
       //   case (in, out) => assert(in.contains(out))
       // }
-      val removedValues: Array[Set[Int]] = inputDomains.zip(resultDomains).map { case (in, out) => in.values.toSet.filterNot(out.contains(_)) }
+      val removedValues: Array[Set[Int]] = inputDomains.zip(resultDomains).map {
+        case (in, out) => in.values.toSet.filterNot(out.contains(_))
+      }
 
       // if a value was removed from a domain, check that it could not be used to generate a value in the function's codomain
       for(focus <- removedValues.indices) {
         val testInputDomains =
-          removedValues.indices.map(i => if(i == focus) removedValues(i) else inputDomains(i).values.toSet)
+          removedValues.indices.map(i =>
+            if(i == focus) removedValues(i) else inputDomains(i).values.toSet)
         val testInputs = combinations(testInputDomains)
         for(input <- testInputs) {
           val convertedInputs = types.zip(input).map { case (t, i) => Labels.Value(t.fromInt(i)) }

@@ -67,7 +67,7 @@ lazy val staging = project
   .settings(libraryDependencies ++= Seq(
     "com.slamdata"  %% "matryoshka-core" % "0.21.3",
     "org.typelevel" %% "spire"           % "0.14.1",
-    "org.typelevel" %% "cats-core"       % "1.0.1",
+    "org.typelevel" %% "cats-core"       % "0.9.0",
     "com.chuusai"   %% "shapeless"       % "2.3.3",
   ))
 

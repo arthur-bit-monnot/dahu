@@ -33,18 +33,19 @@ class IntervalTests extends FreeSpec {
     }
 
     "union" in {
-      assertResult(I(0,10))(empty unionApproximation I(0, 10))
-      assertResult(I(0,10))(I(0, 10) unionApproximation empty)
+      assertResult(I(0, 10))(empty unionApproximation I(0, 10))
+      assertResult(I(0, 10))(I(0, 10) unionApproximation empty)
       assertResult(I(0, 20))(I(0, 10) unionApproximation I(11, 20))
       assertResult(I(0, 20))(I(0, 10) unionApproximation I(4, 20))
-      assert(I(0, 10).unionApproximation(I(20,30)) == I(0, 30), "Expected behavior due to approximation")
+      assert(I(0, 10).unionApproximation(I(20, 30)) == I(0, 30),
+             "Expected behavior due to approximation")
     }
 
     "without" in {
       assert(empty.withoutApproximation(I(0, 0)) == empty)
-      assert(I(0, 10).withoutApproximation(empty) == I(0,10))
-      assert(I(0, 10).withoutApproximation(I(5,10)) == I(0,4))
-      assert(I(0, 10).withoutApproximation(I(-5,-1)) == I(0, 10))
+      assert(I(0, 10).withoutApproximation(empty) == I(0, 10))
+      assert(I(0, 10).withoutApproximation(I(5, 10)) == I(0, 4))
+      assert(I(0, 10).withoutApproximation(I(-5, -1)) == I(0, 10))
       assert(I(0, 1).withoutApproximation(I(0)) == I(1))
       assert(I(0, 1).withoutApproximation(I(1)) == I(0))
       assert(I(0, 2).withoutApproximation(I(1)) == I(0, 2), "Expected result due to approximation")
@@ -73,7 +74,7 @@ class IntervalTests extends FreeSpec {
 
       val i1 = I(45, 49)
       val i2 = I(45)
-      val o = I(92)
+      val o  = I(92)
       assert((i1 inter (o minus i2)) == I(47))
       assert((i2 inter (o minus i1)) == I(45))
     }

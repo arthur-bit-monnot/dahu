@@ -58,4 +58,3 @@ class NumSolutionsTest extends FreeSpec {
     }
   }
 }
-

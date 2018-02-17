@@ -30,7 +30,7 @@ object IntProblem {
 }
 import IntProblem._
 
-abstract class IntCSP[T] extends Problem[T,Int] {
+abstract class IntCSP[T] extends Problem[T, Int] {
   override def dom: KI[T] => IntDomain
   def exprs: KI[T] => Option[Comp]
 
@@ -93,7 +93,7 @@ object IntCSP {
           asg.coalgebra(ExprId.fromInt(v)) match {
             case ComputationF(_, args, _) => args.toSet
             case _                        => Set[Var]()
-          })
+        })
         .filterNot(candidates)
     }
     for(v <- externalInputs) {
@@ -108,7 +108,7 @@ object IntCSP {
     }
     new IntCSP[T0] {
       private val pb: ArrayIntFunc[T0, (IntDomain, Option[Comp])] = factory.toImmutableArray
-      override def dom: KI[T0] => IntDomain = pb(_)._1
+      override def dom: KI[T0] => IntDomain                       = pb(_)._1
 
       override def exprs: KI[T0] => Option[Comp] = pb(_)._2
 

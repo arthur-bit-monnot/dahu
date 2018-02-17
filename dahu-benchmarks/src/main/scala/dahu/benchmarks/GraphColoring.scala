@@ -4,6 +4,8 @@ import dahu.expr.{Cst, Input}
 import dahu.expr.types.TagIsoInt
 import dahu.expr.dsl._
 
+import scala.language.implicitConversions
+
 object GraphColoring extends Family("graph-coloring") {
   sealed trait Color
   object Color {

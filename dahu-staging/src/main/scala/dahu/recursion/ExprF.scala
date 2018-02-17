@@ -47,7 +47,6 @@ final case class ProductF[F](members: Seq[F], typ: Type) extends ExprF[F] {
   override def toString: String = members.mkString("(", ", ", ")")
 }
 
-
 object Types {
 
   abstract class IndexLabelImpl {
@@ -77,7 +76,7 @@ object Types {
   type ExprId = ExprId.T
 
   /** Implicit conversion to Int, mainly to facilitate usage as index. */
-  implicit def exprIdAsInt(i: ExprId): Int = ExprId.toInt(i)
+  implicit def exprIdAsInt(i: ExprId): Int      = ExprId.toInt(i)
   implicit val orderingExprId: Ordering[ExprId] = ExprId.fromIntF(Ordering[Int])
   implicit class ExprIdOps(val i: ExprId) extends AnyVal {
     def value: Int = ExprId.toInt(i)
@@ -87,23 +86,23 @@ object Types {
 
   implicit val classTagExpr: ClassTag[ExprId] = ExprId.fromIntF(implicitly[ClassTag[Int]])
 
-
-
   /** To specify a subset of integers in the type system.
     *
     * TaggedInt is constrained to be an instance of Int so that the compiler can properly infer that
     * the actual type is Int and avoid boxing in arrays and function parameters.
     * This is due to the fact that Int is a final class.
     * */
-  trait TaggedInt[Tag] { self: Int => }
+  trait TaggedInt[Tag] { self: Int =>
+  }
   type KI[T] = Int with TaggedInt[T]
 
   implicit def classTag[T]: ClassTag[KI[T]] = intClassTag.asInstanceOf[ClassTag[KI[T]]]
-  implicit def ordering[T]: Ordering[KI[T]] = implicitly[Ordering[Int]].asInstanceOf[Ordering[KI[T]]]
+  implicit def ordering[T]: Ordering[KI[T]] =
+    implicitly[Ordering[Int]].asInstanceOf[Ordering[KI[T]]]
 
-  implicit def order[T]: Order[KI[T]] = (spire.implicits.IntAlgebra: Order[Int]).asInstanceOf[Order[KI[T]]]
+  implicit def order[T]: Order[KI[T]] =
+    (spire.implicits.IntAlgebra: Order[Int]).asInstanceOf[Order[KI[T]]]
 }
-
 
 /**
   * Abstract Syntax Directed Acyclic Graph.
@@ -130,7 +129,8 @@ trait ASDAG[T] {
 
   def compiledForm: T ==> Option[ExprId]
 
-  def variableCoalgebra: VariableId ==> Variable = id => coalgebra(id).asInstanceOf[Variable] // TODO: unsafe as VarID is just an alias for ExprId
+  def variableCoalgebra: VariableId ==> Variable =
+    id => coalgebra(id).asInstanceOf[Variable] // TODO: unsafe as VarID is just an alias for ExprId
 
   def ids: OpaqueIntSubset[ExprId]
 }

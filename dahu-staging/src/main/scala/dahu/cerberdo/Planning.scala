@@ -102,7 +102,7 @@ object Planning {
   object Structs extends App {
 
     case class IntervalF[F[_]](start: F[Int], duration: F[Int], end: F[Int], present: F[Boolean])
-    type Interval = IntervalF[Id]
+    type Interval     = IntervalF[Id]
     type IntervalExpr = Product[IntervalF, IntervalF[Expr]]
 
 //    type IntervalExpr = Product[IntervalF]
@@ -113,12 +113,13 @@ object Planning {
     type Token[V] = TokenF[Id, V]
 
     class TokenExpr[V](override val itv: IntervalExpr,
-                            override val timeline: Cst[Timeline[V]],
-                            override val value: Expr[V],
-                            override val isEffect: Cst[Boolean])
+                       override val timeline: Cst[Timeline[V]],
+                       override val value: Expr[V],
+                       override val isEffect: Cst[Boolean])
         extends TokenF[Expr, V](itv, timeline, value, isEffect)
 
-    def interval: IntervalExpr = Product[IntervalF, IntervalF[Expr]](IntervalF[Expr](Cst(1), Cst(2), Cst(3), Cst(true)))
+    def interval: IntervalExpr =
+      Product[IntervalF, IntervalF[Expr]](IntervalF[Expr](Cst(1), Cst(2), Cst(3), Cst(true)))
 
 //    val x = Product(IntervalF[Expr](Cst(1), Cst(1), Cst(2), Cst(true)))
     import scala.reflect.runtime.universe._

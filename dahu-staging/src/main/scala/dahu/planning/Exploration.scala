@@ -4,14 +4,14 @@ import dahu.expr.{Expr, Input}
 
 object Exploration {
 
-
   trait Container {
 //    def variables: Seq[Expr[Any]]
     def presence: Expr[Boolean]
     def constraints: Expr[Boolean]
   }
 
-  case class Interval(start: Timepoint, duration: Duration, end: Timepoint, presence: Presence) extends Container {
+  case class Interval(start: Timepoint, duration: Duration, end: Timepoint, presence: Presence)
+      extends Container {
     import dahu.expr.dsl._
 
     val constraints: Expr[Boolean] = ((start + duration) === end) && (duration >= 0)

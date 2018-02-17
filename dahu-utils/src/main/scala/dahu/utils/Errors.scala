@@ -6,6 +6,6 @@ object Errors {
 
   def err(msg: => String): Throwable = Error(msg)
 
-  def unexpected: Nothing = throw new AssertionError("Unexpected")
+  def unexpected: Nothing              = throw new AssertionError("Unexpected")
   def unexpected(msg: String): Nothing = throw new AssertionError(msg)
 }

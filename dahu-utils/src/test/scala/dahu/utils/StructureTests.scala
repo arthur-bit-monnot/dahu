@@ -6,13 +6,11 @@ import org.scalatest.FreeSpec
 import debox._
 import spire.implicits._
 
-
 class StructureTests extends FreeSpec {
-
 
   "debox-buffer" - {
     "indices" in {
-      assert(Buffer(1,2,3).indices == Seq(0, 1, 2))
+      assert(Buffer(1, 2, 3).indices == Seq(0, 1, 2))
       assert(Buffer().indices == Seq())
       assert(Buffer(10).indices == Seq(0))
     }
@@ -31,7 +29,5 @@ class StructureTests extends FreeSpec {
 
     }
   }
-
-
 
 }

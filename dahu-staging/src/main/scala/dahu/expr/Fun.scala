@@ -49,7 +49,8 @@ abstract class Fun3[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, +O: WTypeTag] e
   def of(in1: I1, in2: I2, in3: I3): O
 }
 
-abstract class Fun4[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, -I4: WTypeTag, +O: WTypeTag] extends Fun[O] {
+abstract class Fun4[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, -I4: WTypeTag, +O: WTypeTag]
+    extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
@@ -57,7 +58,10 @@ abstract class Fun4[-I1: WTypeTag, -I2: WTypeTag, -I3: WTypeTag, -I4: WTypeTag, 
 
   override final def compute(args: Seq[Value]): O = {
     require(args.size == 4, "Wrong number of arguments, expected 3")
-    of(args(0).asInstanceOf[I1], args(1).asInstanceOf[I2], args(2).asInstanceOf[I3], args(3).asInstanceOf[I4])
+    of(args(0).asInstanceOf[I1],
+       args(1).asInstanceOf[I2],
+       args(2).asInstanceOf[I3],
+       args(3).asInstanceOf[I4])
   }
 
   def of(in1: I1, in2: I2, in3: I3, in4: I4): O

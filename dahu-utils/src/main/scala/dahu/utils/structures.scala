@@ -11,7 +11,7 @@ object structures {
     def indices: Range = 0 until buff.length
 
     def forall(f: A => Boolean): Boolean = {
-      cforRange(0 until buff.length){ i =>
+      cforRange(0 until buff.length) { i =>
         if(!f(buff(i)))
           return false
       }
@@ -29,17 +29,16 @@ object structures {
     }
   }
 
-
   trait Default[A] {
     def apply(): A
   }
   object Default {
     def apply[A](implicit instance: Default[A]): Default[A] = instance
-    def of[A](implicit instance: Default[A]): A = instance()
+    def of[A](implicit instance: Default[A]): A             = instance()
 
-    implicit val defaultInt: Default[Int] = () => 0
-    implicit val defaultAnyRef: Default[AnyRef] = () => null
-    implicit val defaultAny: Default[Any] = () => null
+    implicit val defaultInt: Default[Int]            = () => 0
+    implicit val defaultAnyRef: Default[AnyRef]      = () => null
+    implicit val defaultAny: Default[Any]            = () => null
     implicit def defaultRef[A <: AnyRef]: Default[A] = defaultAnyRef.asInstanceOf[Default[A]]
   }
 }

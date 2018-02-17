@@ -3,7 +3,8 @@ package dahu.constraints.domains
 import dahu.utils.debug._
 
 class IntervalDomain(val lb: Int, val ub: Int) extends IntDomain {
-  require(ub < Integer.MAX_VALUE / 2 && lb > Integer.MIN_VALUE/2, "To avoid overflow when computing size")
+  require(ub < Integer.MAX_VALUE / 2 && lb > Integer.MIN_VALUE / 2,
+          "To avoid overflow when computing size")
 
   override def size: Int = math.max(0, ub - lb + 1)
 

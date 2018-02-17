@@ -13,14 +13,13 @@ trait Tag[T] {
 /** A type for which an isomophism to a subset of integers is known. */
 trait TagIsoInt[T] extends Tag[T] {
 
-
   def fromInt(i: Int): T
-  def toInt(t: T) : Int
+  def toInt(t: T): Int
   def toIntUnsafe(t: Any): Int = toInt(t.asInstanceOf[T])
 
   val min: Int
   val max: Int
-  def numInstances: Int = max - min +1
+  def numInstances: Int = max - min + 1
 }
 
 object TagIsoInt {
@@ -29,15 +28,15 @@ object TagIsoInt {
 
   import scala.reflect.runtime.universe
   def fromEnum[T: universe.WeakTypeTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
-    override def toInt(t: T): Int = values.indexOf(t)
+    override def toInt(t: T): Int   = values.indexOf(t)
     override def fromInt(i: Int): T = values(i)
 
     override val min: Int = 0
-    override val max: Int = values.size-1
+    override val max: Int = values.size - 1
 
     override def typ: Tag.Type = Tag.typeOf[T]
 
-    assert(numInstances == max-min+1)
+    assert(numInstances == max - min + 1)
   }
 }
 
@@ -45,19 +44,19 @@ object Tag {
   import scala.reflect.runtime.universe
   type Type = universe.Type
 
-  def typeOf[T](implicit ttag:universe.WeakTypeTag[T]): universe.Type = ttag.tpe
+  def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
   implicit case object IntTag extends TagIsoInt[Int] {
-    override val typ: Type = typeOf[Int]
+    override val typ: Type            = typeOf[Int]
     override def fromInt(i: Int): Int = i
-    override def toInt(t: Int): Int = t
+    override def toInt(t: Int): Int   = t
 
-    override val min: Int = 0 //Integer.MIN_VALUE /2 +1
+    override val min: Int = 0   //Integer.MIN_VALUE /2 +1
     override val max: Int = 100 //Integer.MAX_VALUE /2 -1
   }
 
   implicit case object BoolTag extends TagIsoInt[Boolean] {
-    override def typ: Type = typeOf[Boolean]
+    override def typ: Type              = typeOf[Boolean]
     override def toInt(t: Boolean): Int = if(t) 1 else 0
     def fromInt(i: Int): Boolean = (i: @switch) match {
       case 0 => false

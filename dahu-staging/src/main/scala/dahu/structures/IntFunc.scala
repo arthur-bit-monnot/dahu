@@ -24,7 +24,7 @@ class IntFuncBuilder[@specialized A: ClassTag]() {
   private val map = debox.Map[Int, A]()
 
   def currentKeys: debox.Set[Int] = map.keysSet
-  def contains(k: Int): Boolean = map.contains(k)
+  def contains(k: Int): Boolean   = map.contains(k)
 
   def +=(k: Int, v: A): Unit = {
     require(!map.contains(k))
@@ -34,9 +34,9 @@ class IntFuncBuilder[@specialized A: ClassTag]() {
   def toImmutableArray[T](implicit default: Default[A]): ArrayIntFunc[T, A] = {
     val keys: debox.Set[Int] = map.keysSet
     require(keys.toIterable().min >= 0)
-    val max = keys.toIterable().max
-    val buff = debox.Buffer.fill(max+1)(default.apply())
-    map.foreach{ case (k, v) => buff(k) = v }
+    val max  = keys.toIterable().max
+    val buff = debox.Buffer.fill(max + 1)(default.apply())
+    map.foreach { case (k, v) => buff(k) = v }
     new ArrayIntFunc[T, A](keys.asInstanceOf[debox.Set[KI[T]]], buff)
   }
 }
@@ -47,8 +47,6 @@ trait MutableIntFunc[T, @specialized V] extends IntFunc[T, V] {
 //  def extend(key: Int, value: V)
   def update(key: Key, value: V)
 }
-
-
 
 class MutableMapIntFunc[T, @specialized V: ClassTag] private[structures] (
     private val mapImpl: debox.Map[KI[T], V]
@@ -71,7 +69,6 @@ class MutableMapIntFunc[T, @specialized V: ClassTag] private[structures] (
 object MutableMapIntFunc {
   def apply[T, V: ClassTag](): MutableMapIntFunc[T, V] = new MutableMapIntFunc(debox.Map())
 }
-
 
 class ArrayIntFunc[T, @specialized V: ClassTag: Default] private[structures] (
     private val keys: debox.Set[KI[T]], // todo: should be immutable
@@ -100,7 +97,6 @@ class ArrayIntFunc[T, @specialized V: ClassTag: Default] private[structures] (
   def toMutable: MutableArrayIntFunc[T, V] = new MutableArrayIntFunc[T, V](keys.copy(), buff.copy())
 }
 
-
 class MutableArrayIntFunc[T, @specialized V: ClassTag: Default] private[structures] (
     private val keys: debox.Set[KI[T]], // todo: should be immutable
     private val buff: debox.Buffer[V]
@@ -128,7 +124,7 @@ class MutableArrayIntFunc[T, @specialized V: ClassTag: Default] private[structur
     new MutableArrayIntFunc[T, B](keys.copy(), newBuff)
   }
 
-  def toImmutable: ArrayIntFunc[T, V] = new ArrayIntFunc[T,V](keys, buff.copy())
+  def toImmutable: ArrayIntFunc[T, V] = new ArrayIntFunc[T, V](keys, buff.copy())
 }
 object MutableArrayIntFunc {
   def apply[T, A: ClassTag: Default](): MutableArrayIntFunc[T, A] =

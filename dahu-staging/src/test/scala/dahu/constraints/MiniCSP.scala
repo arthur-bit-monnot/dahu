@@ -1,7 +1,7 @@
 package dahu.constraints
 
 import dahu.expr.types.TagIsoInt
-import dahu.expr.{Expr, Input, bool}
+import dahu.expr.{bool, Expr, Input}
 import dahu.recursion.Types._
 import dahu.solver.MetaSolver1
 
@@ -9,10 +9,10 @@ object MiniCSP extends App {
 
   import dahu.expr.dsl._
 
-  val x = Input[Int]("x")
-  val y = Input[Int]("y")
-  val b = Input[Boolean]("b")
-  val leq = x <= y
+  val x    = Input[Int]("x")
+  val y    = Input[Int]("y")
+  val b    = Input[Boolean]("b")
+  val leq  = x <= y
   val root = leq || b
 
   import dahu.recursion.Algebras._
@@ -24,7 +24,8 @@ object MiniCSP extends App {
   solver.nextSolution match {
     case Some(assignment) =>
       def view[T](x: Expr[T]): Option[T] = {
-        asd.compiledForm(x)
+        asd
+          .compiledForm(x)
           .flatMap(y => assignment.get(y))
           .map(_.asInstanceOf[T])
 //          .map(z => tag.fromInt(z))

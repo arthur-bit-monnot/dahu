@@ -224,7 +224,8 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
     None
   }
 
-  def enumerateSolutions(maxSolutions: Option[Int] = None, onSolutionFound: Assignment => Unit = _ => ()): Int = {
+  def enumerateSolutions(maxSolutions: Option[Int] = None,
+                         onSolutionFound: Assignment => Unit = _ => ()): Int = {
     var count = 0
     while(maxSolutions.forall(count < _)) {
       nextSolution() match {

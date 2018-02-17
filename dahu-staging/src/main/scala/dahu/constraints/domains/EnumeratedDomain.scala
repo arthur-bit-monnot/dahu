@@ -48,9 +48,9 @@ class EnumeratedDomain(val vals: IBitSet) extends IntDomain {
   override def equals(o: Any): Boolean = o match {
     case x: IntDomain if isEmpty && x.isEmpty => true
     case x: IntDomain if isEmpty || x.isEmpty => false
-    case x: IntervalDomain => lb == x.lb && ub == x.ub && size == x.size
-    case x: EnumeratedDomain => vals == x.vals
-    case _ => super.equals(o)
+    case x: IntervalDomain                    => lb == x.lb && ub == x.ub && size == x.size
+    case x: EnumeratedDomain                  => vals == x.vals
+    case _                                    => super.equals(o)
   }
 
   override def isEmpty: Boolean = vals.isEmpty

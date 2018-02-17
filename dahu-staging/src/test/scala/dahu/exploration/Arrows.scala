@@ -39,7 +39,8 @@ class Arrows extends FreeSpec {
     "mutation" in {
       import cats._
       import cats.implicits._
-      def evalAlgebra(ast: ASTable)(inputs: MutableInputs[ast.Variable, Value]): Algebra[ExprF, Option[Value]] =
+      def evalAlgebra(ast: ASTable)(
+          inputs: MutableInputs[ast.Variable, Value]): Algebra[ExprF, Option[Value]] =
         Arrow.lift {
           case CstF(v, _)               => Some(v)
           case x @ InputF(_, _)         => inputs(x)
@@ -47,8 +48,8 @@ class Arrows extends FreeSpec {
         }
 
       val inputs = new MutableInputs[ast.Variable, Value]()
-      val alg = evalAlgebra(ast)(inputs)
-      val ev = ast.hylo(alg)
+      val alg    = evalAlgebra(ast)(inputs)
+      val ev     = ast.hylo(alg)
 
       assert(ev(ast.root).isEmpty)
 

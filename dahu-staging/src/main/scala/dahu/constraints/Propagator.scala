@@ -9,7 +9,6 @@ import dahu.constraints.interval._
 
 import BooleanDomain._
 
-
 trait Propagator {}
 
 object Propagator {
@@ -20,7 +19,7 @@ object Propagator {
     case bool.Or  => OrForwardPropagator
     case bool.And => AndForwardPropagator
     case bool.Not => NotForwardPropagator
-    case f =>
+    case f        =>
 //      println(s"warning: default forward propagator for $fun")
       ForwardPropagator.default(f).getOrElse(unexpected("No propagator for $f"))
 
@@ -32,7 +31,7 @@ object Propagator {
     case bool.Or  => OrBackwardPropagator
     case bool.And => AndBackwardPropagator
     case bool.Not => NotBackwardPropagator
-    case _ =>
+    case _        =>
 //      println(s"warning: no backward propagator for $fun")
       BackwardPropagator.NoOp
   }
@@ -79,19 +78,18 @@ object IntCompatibleFunc {
       }
   }
 
-
 }
 
 abstract class IntsToIntFunction {
   def apply(params: Array[Int]): Int
 }
 object Types {
-  type Var = Int
-  type Val = Int
-  type Evaluator = Array[Val] => Val  // FunN[Int,Int]
+  type Var        = Int
+  type Val        = Int
+  type Evaluator  = Array[Val] => Val // FunN[Int,Int]
   type EvaluatorX = (Array[Val], Val => Var) => Val
-  type FwProp = (Array[Var], Var => Interval) => Interval
-  type BwProp = (Array[Var], Var, Var => Interval) => Array[Interval]
+  type FwProp     = (Array[Var], Var => Interval) => Interval
+  type BwProp     = (Array[Var], Var, Var => Interval) => Array[Interval]
 }
 
 trait ForwardPropagator {
@@ -189,8 +187,7 @@ case object LEQBackwardPropagator extends BackwardPropagator2 {
     if(out == True)
       (Interval(l.lb, math.min(l.ub, r.ub)), Interval(math.max(r.lb, l.lb), r.ub))
     else if(out == False)
-      (Interval(math.max(l.lb, r.lb + 1), l.ub),
-       Interval(r.lb, math.min(r.ub, l.ub - 1)))
+      (Interval(math.max(l.lb, r.lb + 1), l.ub), Interval(r.lb, math.min(r.ub, l.ub - 1)))
     else
       (l, r)
   }

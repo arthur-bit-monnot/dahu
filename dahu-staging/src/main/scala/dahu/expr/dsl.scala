@@ -45,17 +45,19 @@ package object dsl {
     def =!=(b: Expr[Int]): Expr[Boolean] = Computation(int.NEQ, a, b)
   }
   implicit class OrderIsoIntOps[T](a: Expr[T])(implicit tag: TagIsoInt[T]) {
-    def ===(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T,Boolean](int.EQ), a, b)
-    def =!=(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T,Boolean](int.NEQ), a, b)
+    def ===(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T, Boolean](int.EQ), a, b)
+    def =!=(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T, Boolean](int.NEQ), a, b)
   }
-  case class WrappedFun2[I1: TagIsoInt, I2: TagIsoInt, O: TagIsoInt](f: Fun2[Int,Int,O]) extends Fun2[I1,I2,O] {
+  case class WrappedFun2[I1: TagIsoInt, I2: TagIsoInt, O: TagIsoInt](f: Fun2[Int, Int, O])
+      extends Fun2[I1, I2, O] {
     override def of(in1: I1, in2: I2): O = f.of(TagIsoInt[I1].toInt(in1), TagIsoInt[I2].toInt(in2))
-    override def name: String = s"wrapped-${f.name}"
+    override def name: String            = s"wrapped-${f.name}"
   }
   object OrderIsoIntOps {
-    def wrap[T, O](f: Fun2[Int, Int, O])(implicit tag: TagIsoInt[T], outTag: TagIsoInt[O]): Fun2[T,T,O] = new Fun2[T, T, O] {
+    def wrap[T, O](f: Fun2[Int, Int, O])(implicit tag: TagIsoInt[T],
+                                         outTag: TagIsoInt[O]): Fun2[T, T, O] = new Fun2[T, T, O] {
       override def of(in1: T, in2: T): O = f.of(tag.toInt(in1), tag.toInt(in2))
-      override def name: String = s"wrapped-${f.name}"
+      override def name: String          = s"wrapped-${f.name}"
     }
   }
   implicit class OrderDoubleOps(a: Expr[Double]) {
@@ -63,7 +65,6 @@ package object dsl {
     def >=(b: Expr[Double]): Expr[Boolean]  = b <= a
     def ===(b: Expr[Double]): Expr[Boolean] = a <= b && b <= a
   }
-
 
   implicit class BooleanOps(a: Expr[Boolean]) {
     def toDouble: Expr[Double]              = IF(a, Cst(1.0), Cst(0.0))

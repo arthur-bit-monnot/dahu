@@ -7,10 +7,7 @@ import dahu.recursion.Types._
 
 import scala.reflect.ClassTag
 
-
-
 trait ASTable {
-
 
   /** Opaque type representing the IDs of the expression in this table. */
   val EId: IndexLabelImpl = new IndexLabelImpl {
@@ -43,7 +40,8 @@ trait ASTable {
   def root: EId
   def coalgebra: EId ==> Expr // equivalent to Coalgebra[ExprF, EId]
 
-  def variableCoalgebra: VarId ==> Variable = id => coalgebra(VarId.unwrap(id)).asInstanceOf[Variable]
+  def variableCoalgebra: VarId ==> Variable =
+    id => coalgebra(VarId.unwrap(id)).asInstanceOf[Variable]
 
   def ids: OpaqueIntSubset[EId]
   def variableIds: OpaqueIntSubset[VarId]
