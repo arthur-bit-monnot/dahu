@@ -46,7 +46,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val root = project.in(file(".")).
-  aggregate(utils, staging).
+  aggregate(utils, staging, benchmarks).
   settings(
     publish := {},
     publishLocal := {}
@@ -58,7 +58,6 @@ lazy val utils = project
   .settings(libraryDependencies ++= Seq(
     "org.spire-math" %% "debox" % "0.8.0",
   ))
-
 
 lazy val staging = project
   .in(file("dahu-staging"))
@@ -72,7 +71,10 @@ lazy val staging = project
     "com.chuusai"   %% "shapeless"       % "2.3.3",
   ))
 
-
+lazy val benchmarks = project
+  .in(file("dahu-benchmarks"))
+  .dependsOn(utils, staging)
+  .settings(commonSettings: _*)
 
 
 

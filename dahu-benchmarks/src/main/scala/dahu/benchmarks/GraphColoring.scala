@@ -1,11 +1,8 @@
-package dahu.constraints
+package dahu.benchmarks
 
-import dahu.expr.{Cst, Expr, Input}
+import dahu.expr.{Cst, Input}
 import dahu.expr.types.TagIsoInt
 import dahu.expr.dsl._
-import dahu.solver.{Exactly, Family, SatProblem}
-
-import scala.language.implicitConversions
 
 object GraphColoring extends Family("graph-coloring") {
   sealed trait Color
@@ -53,5 +50,4 @@ object GraphColoring extends Family("graph-coloring") {
       SatProblem(sat && SA =!= Red, Exactly(4))
     )
   }
-
 }

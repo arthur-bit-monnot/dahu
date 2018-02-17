@@ -1,4 +1,4 @@
-package dahu.solver
+package dahu.benchmarks
 
 import dahu.expr.Expr
 
