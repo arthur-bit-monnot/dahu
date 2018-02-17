@@ -36,13 +36,12 @@ lazy val commonSettings = Seq(
     "-language:existentials"
   ),
 
-
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
   addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
 
   libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest"       % "3.0.4" % "test",
-    "org.scalacheck" %% "scalacheck" % "1.13.4" % "test",
+    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
+    "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
   )
 )
 
@@ -69,9 +68,8 @@ lazy val staging = project
   .settings(libraryDependencies ++= Seq(
     "com.slamdata"  %% "matryoshka-core" % "0.21.3",
     "org.typelevel" %% "spire"           % "0.14.1",
-    "org.typelevel" %% "cats-core"       % "0.9.0",
-    "com.chuusai"   %% "shapeless"       % "2.3.2",
-    "com.propensive" %% "magnolia" % "0.6.1",
+    "org.typelevel" %% "cats-core"       % "1.0.1",
+    "com.chuusai"   %% "shapeless"       % "2.3.3",
   ))
 
 
