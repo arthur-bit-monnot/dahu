@@ -55,5 +55,5 @@ object debug {
     */
   final def slow[T](value: T): T = value
 
-  final def approximation[T](value: T) = value
+  final def approximation[T](value: T): T = value
 }
