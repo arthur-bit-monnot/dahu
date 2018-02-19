@@ -128,10 +128,10 @@ object Algebras {
     val expr: Int => ExprF[Int] = reverseStore(_)
 
     val tree: ArrayIntFunc[ExprF[Int]] = ArrayIntFunc.build(store.values, expr)
-    val casted: ArrayIntFunc.Aux[tree.Key, ExprF[tree.Key]] = tree.map(_.asInstanceOf[ExprF[tree.Key]])
+    val casted: ArrayIntFunc.Aux[tree.K, ExprF[tree.K]] = tree.map(_.asInstanceOf[ExprF[tree.K]])
     assert(casted.isInDomain(rootExprID))
-    val root = rootExprID.asInstanceOf[tree.Key]
-    val fromInput = forward.asInstanceOf[T => Option[tree.Key]]
+    val root = rootExprID.asInstanceOf[tree.K]
+    val fromInput = forward.asInstanceOf[T => Option[tree.K]]
     new ASTImpl(casted, root, fromInput)
   }
 

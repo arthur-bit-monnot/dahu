@@ -19,13 +19,13 @@ class ArrowsTests extends FreeSpec {
       assert(!isOdd.isInDomain(-1))
       assert(!isOdd.isInDomain(10))
 
-      val typeTest: debox.Set[isOdd.Key] = isOdd.domain
+      val typeTest: debox.Set[isOdd.K] = isOdd.domain
 
       val isEven = isOdd.map(!_)
 
-      implicitly[isOdd.Key =:= isEven.Key]
-      val typeTest2: debox.Set[isOdd.Key] = isEven.domain
-      val typeTest3: debox.Set[isEven.Key] = isEven.domain
+      implicitly[isOdd.K =:= isEven.K]
+      val typeTest2: debox.Set[isOdd.K] = isEven.domain
+      val typeTest3: debox.Set[isEven.K] = isEven.domain
 
       for(i <- isOdd.domain) {
         if(i % 2 == 0) {
@@ -65,10 +65,10 @@ class ArrowsTests extends FreeSpec {
       val evens = isOdd.filter(!_)
 
       assert(odds.domain.forall(_ % 2 == 0))
-      implicitly[odds.Key <:< isOdd.Key]
+      implicitly[odds.K <:< isOdd.K]
       assertDoesNotCompile("implicitly[odds.Key =:= isOdd.Key]")
 
-      implicitly[evens.Key <:< isOdd.Key]
+      implicitly[evens.K <:< isOdd.K]
       assertDoesNotCompile("implicitly[evens.Key =:= isOdd.Key]")
 
       assertDoesNotCompile("implicitly[evens.Key =:= odds.Key]")
@@ -80,7 +80,7 @@ class ArrowsTests extends FreeSpec {
         assert(isOdd(i)) // checks that odds.
         assertTypeError("evens(i)")
       }
-      val x: evens.Key = evens.domain.toIterable().head
+      val x: evens.K = evens.domain.toIterable().head
       assertTypeError("val y: odds.Key = evens.domain.toIterable().head")
 
     }

@@ -7,21 +7,20 @@ import scala.{specialized => sp}
 
 /** TODO: rename to IArrow once refactoring is finished. */
 trait IntFunc[@sp V] {
-  type T <: SubInt
-  type Key = T
-  protected def wrap(i: Int): Key              = i.asInstanceOf[Key]
-  protected def wrapF[F[_]](f: F[Int]): F[Key] = f.asInstanceOf[F[Key]]
+  type K <: SubInt
+  protected def wrap(i: Int): K              = i.asInstanceOf[K]
+  protected def wrapF[F[_]](f: F[Int]): F[K] = f.asInstanceOf[F[K]]
 
-  def domain: debox.Set[Key]
-  def apply(key: Key): V
+  def domain: debox.Set[K]
+  def apply(key: K): V
   def isInDomain(i: Int): Boolean = domain(wrap(i))
 
   def get(key: Int): Option[V] = if(domain(wrap(key))) Some(apply(wrap(key))) else None
 
-  def map[@sp B: ClassTag: Default](f: V => B): IntFunc.Aux[T, B]
+  def map[@sp B: ClassTag: Default](f: V => B): IntFunc.Aux[K, B]
 }
 object IntFunc {
-  type Aux[K0, V] = IntFunc[V] { type T = K0 }
+  type Aux[K0, V] = IntFunc[V] { type K = K0 }
 }
 
 class IntFuncBuilder[@sp A: ClassTag]() {
@@ -46,7 +45,7 @@ class IntFuncBuilder[@sp A: ClassTag]() {
 }
 
 trait MutableIntFunc[@sp V] extends IntFunc[V] {
-  def update(key: Key, value: V)
+  def update(key: K, value: V)
 }
 
 class MutableMapIntFunc[@sp V: ClassTag] private[arrows] (
@@ -54,18 +53,18 @@ class MutableMapIntFunc[@sp V: ClassTag] private[arrows] (
 ) extends MutableIntFunc[V] {
 
   override def domain             = wrapF(mapImpl.keysSet)
-  override def apply(value: T): V = mapImpl(value)
+  override def apply(value: K): V = mapImpl(value)
 
-  override def update(key: T, value: V): Unit = {
+  override def update(key: K, value: V): Unit = {
     assert(mapImpl.contains(key))
     mapImpl.update(key, value)
   }
 
-  def map[@sp B: ClassTag: Default](f: V => B): MutableMapIntFunc.Aux[T, B] =
-    new MutableMapIntFunc[B](mapImpl.mapValues(f)).asInstanceOf[MutableMapIntFunc.Aux[T, B]]
+  def map[@sp B: ClassTag: Default](f: V => B): MutableMapIntFunc.Aux[K, B] =
+    new MutableMapIntFunc[B](mapImpl.mapValues(f)).asInstanceOf[MutableMapIntFunc.Aux[K, B]]
 }
 object MutableMapIntFunc {
-  type Aux[K0, B] = MutableMapIntFunc[B] { type T = K0 }
+  type Aux[K0, B] = MutableMapIntFunc[B] { type K = K0 }
 }
 
 class ArrayIntFunc[@sp V: ClassTag] private[arrows] (
@@ -73,20 +72,20 @@ class ArrayIntFunc[@sp V: ClassTag] private[arrows] (
     private val buff: debox.Buffer[V]
 ) extends IntFunc[V] {
 
-  private def keys: debox.Set[T] = wrapF(keysAsInt)
+  private def keys: debox.Set[K] = wrapF(keysAsInt)
 
-  override def domain: debox.Set[Key] = wrapF(keysAsInt.copy())
-  override def apply(value: Key): V   = buff(value)
+  override def domain: debox.Set[K] = wrapF(keysAsInt.copy())
+  override def apply(value: K): V   = buff(value)
 
-  override def map[@sp B: ClassTag: Default](f: V => B): ArrayIntFunc.Aux[T, B] = {
+  override def map[@sp B: ClassTag: Default](f: V => B): ArrayIntFunc.Aux[K, B] = {
     val default = Default.of[B]
     val newBuff = debox.Buffer.fill(buff.length)(default)
     keys.foreach(i => newBuff(i) = f(buff(i)))
 
-    new ArrayIntFunc[B](keysAsInt, newBuff).asInstanceOf[ArrayIntFunc.Aux[T, B]]
+    new ArrayIntFunc[B](keysAsInt, newBuff).asInstanceOf[ArrayIntFunc.Aux[K, B]]
   }
 
-  def mapFromKey[@sp B: ClassTag: Default](f: (T, V) => B): ArrayIntFunc.Aux[T, B] = {
+  def mapFromKey[@sp B: ClassTag: Default](f: (K, V) => B): ArrayIntFunc.Aux[K, B] = {
     val default = Default.of[B]
     val newBuff = debox.Buffer.fill(buff.length)(default)
     keys.foreach(i => newBuff(i) = f(i, buff(i)))
@@ -94,24 +93,16 @@ class ArrayIntFunc[@sp V: ClassTag] private[arrows] (
     ArrayIntFunc.noCopy(keys, newBuff)
   }
 
-  def filter[TT](predicate: V => Boolean)(implicit ev: TT =:= predicate.type): ArrayIntFunc.Aux[SubSubInt[T,TT], V] = {
-    type subKey = SubSubInt[T, TT] // Int with SubInt with T with ev.T
+  def filter[TT](predicate: V => Boolean)(implicit ev: TT =:= predicate.type): ArrayIntFunc.Aux[SubSubInt[K,TT], V] = {
+    type subKey = SubSubInt[K, TT] // Int with SubInt with T with ev.T
     val subKeys = keys.copy().asInstanceOf[debox.Set[subKey]]
-    println(subKeys.toIterable())
     subKeys.filterSelf(i => predicate(apply(i)))
-    println(subKeys.toIterable())
-
-//    new ArrayIntFunc(untagged(subKeys), buff) {
-//      type T = subKey
-//    }
-//      .asInstanceOf[ArrayIntFunc.Aux[subKey, V]]
     ArrayIntFunc.noCopy(subKeys, buff)
-//      .asInstanceOf[ArrayIntFunc.Aux[T with ev.T, V]]
   }
 
-  def toMutable: MutableArrayIntFunc.Aux[T, V] = MutableArrayIntFunc.noCopy(keys, buff.copy())
+  def toMutable: MutableArrayIntFunc.Aux[K, V] = MutableArrayIntFunc.noCopy(keys, buff.copy())
 
-  def toIterable: Iterable[(T,V)] = keys.toIterable().map(i => (i, buff(i)))
+  def toIterable: Iterable[(K,V)] = keys.toIterable().map(i => (i, buff(i)))
 
   override def hashCode(): Int = toIterable.hashCode()
 
@@ -121,7 +112,7 @@ class ArrayIntFunc[@sp V: ClassTag] private[arrows] (
   }
 }
 object ArrayIntFunc {
-  type Aux[K0, B] = ArrayIntFunc[B] { type T = K0 }
+  type Aux[K0, B] = ArrayIntFunc[B] { type K = K0 }
 
   def noCopy[K <: SubInt, @sp V: ClassTag](
       keys: debox.Set[K],
@@ -144,14 +135,14 @@ class MutableArrayIntFunc[@sp V: ClassTag] private[arrows] (
     private val intKeys: debox.Set[Int], // todo: should be immutable
     private val buff: debox.Buffer[V]
 ) extends MutableIntFunc[V] {
-  def keys: debox.Set[T] = wrapF(intKeys)
+  def keys: debox.Set[K] = wrapF(intKeys)
 
-  override def domain: debox.Set[Key] = keys.copy()
-  override def apply(value: Key): V   = buff(value)
+  override def domain: debox.Set[K] = keys.copy()
+  override def apply(value: K): V   = buff(value)
 
-  override def update(key: Key, value: V): Unit = buff(key) = value
+  override def update(key: K, value: V): Unit = buff(key) = value
 
-  override def map[@sp B: ClassTag: Default](f: V => B): MutableArrayIntFunc.Aux[T, B] = {
+  override def map[@sp B: ClassTag: Default](f: V => B): MutableArrayIntFunc.Aux[K, B] = {
     val default = Default.of[B]
     val newBuff = debox.Buffer.fill(buff.length)(default)
     keys.foreach(i => newBuff(i) = f(buff(i)))
@@ -159,11 +150,11 @@ class MutableArrayIntFunc[@sp V: ClassTag] private[arrows] (
     MutableArrayIntFunc.noCopy(keys, newBuff)
   }
 
-  def toImmutable: ArrayIntFunc.Aux[T, V] =
+  def toImmutable: ArrayIntFunc.Aux[K, V] =
     ArrayIntFunc.noCopy(keys, buff.copy())
 }
 object MutableArrayIntFunc {
-  type Aux[K0, V] = MutableArrayIntFunc[V] { type T = K0 }
+  type Aux[K0, V] = MutableArrayIntFunc[V] { type K = K0 }
 
   def apply[K0 <: SubInt, A: ClassTag](): MutableArrayIntFunc.Aux[K0, A] =
     new MutableArrayIntFunc(debox.Set(), debox.Buffer[A]())
