@@ -1,5 +1,7 @@
 package dahu.model.compiler
 
+import dahu.arrows.ArrayIntFunc
+import dahu.arrows.ArrayIntFunc.Aux
 import dahu.model.input._
 import dahu.model.ir._
 import matryoshka._
@@ -106,47 +108,31 @@ object Algebras {
     (head, code)
   }
 
-  // TODO: reintroduce after clean up of ASDAG
-//  def transpile[T](t: T, coalgebra: Coalgebra[ExprF, T]): ASDAG[T] = {
-//
-//    import scala.collection.mutable
-//    val store    = mutable.LinkedHashMap[ExprF[Int], Int]()
-//    val astStore = mutable.LinkedHashMap[Int, mutable.ArrayBuffer[T]]()
-//    val alg: Algebra[EnvT[T, ExprF, ?], Int] = {
-//      case EnvT((x, e)) =>
-//        val i = store.getOrElseUpdate(e, store.size)
-//        astStore.getOrElseUpdate(i, mutable.ArrayBuffer()) += x
-//        i
-//    }
-//    // this is only used to force traversal and populate the hash maps
-//    val rootExprID: Int = t.hylo(alg, matryoshka.attributeCoalgebra(coalgebra))
-//
-//    val reverseAstStore           = astStore.flatMap(kp => kp._2.map((_, kp._1))).toMap
-//    val reverseStore              = store.map(_.swap).toMap
-//    val forward: T => Option[Int] = x => reverseAstStore.get(x)
-//    val expr: Int => ExprF[Int]   = reverseStore(_)
-//    import dahu.arrows._
-//    new ASDAG[T] {
-//      private val exprAlgebraData: Array[Expr] =
-//        store.toArray.sortBy(_._2).map(e => ExprId.fromIntF(e._1))
-//      private val compilationAlgebra: Map[T, ExprId] = reverseAstStore.asInstanceOf[Map[T, ExprId]]
-//
-//      override def coalgebra: ExprId ==> Expr = Arrow.lift(x => exprAlgebraData(x))
-//
-//      override def root: ExprId = ExprId.fromInt(rootExprID)
-//
-//      override def ids: OpaqueIntSubset[ExprId] = new OpaqueIntSubset[ExprId] {
-//        override def wrap(i: Int): ExprId                 = ExprId.fromInt(i)
-//        override def unwrap(a: ExprId): Int               = ExprId.toInt(a)
-//        override def subst[F[_]](fi: F[Int]): F[ExprId]   = ExprId.fromIntF(fi)
-//        override def unsubst[F[_]](fa: F[ExprId]): F[Int] = ExprId.toIntF(fa)
-//
-//        override val enumerate: Array[ExprId] = subst(exprAlgebraData.indices.toArray)
-//      }
-//
-//      override def compiledForm: T ==> Option[ExprId] = Arrow.lift(compilationAlgebra.get)
-//    }
-//
-//  }
+  def transpile[T](t: T, coalgebra: Coalgebra[ExprF, T]): AST[T] = {
+
+    import scala.collection.mutable
+    val store = mutable.LinkedHashMap[ExprF[Int], Int]()
+    val astStore = mutable.LinkedHashMap[Int, mutable.ArrayBuffer[T]]()
+    val alg: Algebra[EnvT[T, ExprF, ?], Int] = {
+      case EnvT((x, e)) =>
+        val i = store.getOrElseUpdate(e, store.size)
+        astStore.getOrElseUpdate(i, mutable.ArrayBuffer()) += x
+        i
+    }
+    // this is only used to force traversal and populate the hash maps
+    val rootExprID: Int = t.hylo(alg, matryoshka.attributeCoalgebra(coalgebra))
+
+    val reverseAstStore = astStore.flatMap(kp => kp._2.map((_, kp._1))).toMap
+    val reverseStore = store.map(_.swap).toMap
+    val forward: T => Option[Int] = x => reverseAstStore.get(x)
+    val expr: Int => ExprF[Int] = reverseStore(_)
+
+    val tree: ArrayIntFunc[ExprF[Int]] = ArrayIntFunc.build(store.values, expr)
+    val casted: ArrayIntFunc.Aux[tree.Key, ExprF[tree.Key]] = tree.map(_.asInstanceOf[ExprF[tree.Key]])
+    assert(casted.isInDomain(rootExprID))
+    val root = rootExprID.asInstanceOf[tree.Key]
+    val fromInput = forward.asInstanceOf[T => Option[tree.Key]]
+    new ASTImpl(casted, root, fromInput)
+  }
 
 }
