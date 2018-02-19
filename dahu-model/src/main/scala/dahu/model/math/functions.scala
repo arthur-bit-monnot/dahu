@@ -1,7 +1,7 @@
-package dahu.expr
+package dahu.model.math
 
-import dahu.expr.labels.Labels.Value
-import spire.algebra.Ring
+import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
+import dahu.model.types.WTypeTag
 
 object double {
 

@@ -1,14 +1,15 @@
-package dahu.expr
+package dahu.model.input
 
-import algebra.Order
 import algebra.instances.BooleanAlgebra
-import algebra.ring.{AdditiveSemigroup, CommutativeRing, Field, MultiplicativeSemigroup}
-import dahu.expr.types.TagIsoInt
+import algebra.ring.{AdditiveSemigroup, MultiplicativeSemigroup}
+import dahu.model.functions.Fun2
+import dahu.model.math._
+import dahu.model.types.{TagIsoInt, WTypeTag}
 import spire.std.{DoubleAlgebra, IntAlgebra}
 
 import scala.language.implicitConversions
 
-package object dsl {
+object dsl {
 
   implicit class Fun2Ops[I1, I2, O: WTypeTag](f: Fun2[I1, I2, O]) {
     def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
@@ -16,7 +17,7 @@ package object dsl {
   }
 
   def IF[T: WTypeTag](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
-    Computation(new dahu.expr.bool.If[T], cond, t, f)
+    Computation(new dahu.model.math.bool.If[T], cond, t, f)
 
   implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
   implicit def int2Cst(value: Int): Cst[Int]          = Cst(value)
@@ -25,14 +26,14 @@ package object dsl {
     def d(args: Any*): Input[Double] = Input[Double](sc.s(args: _*))
   }
 
-  implicit class ResultAddOps[T: AdditiveSemigroup: WTypeTag](a: Expr[T]) {
-    def +(b: Expr[T]) = Computation(Math.addition2[T], a, b)
-  }
-
-  implicit class ResultMulOps[T: MultiplicativeSemigroup: WTypeTag](a: Expr[T]) {
-    def *(b: Expr[T]) = Computation(Math.multiplication2[T], a, b)
-  }
-
+//  implicit class ResultAddOps[T: AdditiveSemigroup: WTypeTag](a: Expr[T]) {
+//    def +(b: Expr[T]) = Computation(Math.addition2[T], a, b)
+//  }
+//
+//  implicit class ResultMulOps[T: MultiplicativeSemigroup: WTypeTag](a: Expr[T]) {
+//    def *(b: Expr[T]) = Computation(Math.multiplication2[T], a, b)
+//  }
+//
 //  implicit class OrderOps[T: Order: WTypeTag](a: Expr[T]) {
 //    def <=(b: Expr[T]): Expr[Boolean]  = Computation(Math.leq2[T], a, b)
 //    def >=(b: Expr[T]): Expr[Boolean]  = b <= a

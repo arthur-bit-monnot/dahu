@@ -1,6 +1,8 @@
-package dahu.expr
+package dahu.model.input
 
-import cats.{~>, Id}
+import cats.Id
+import dahu.model.functions._
+import dahu.model.types._
 
 sealed abstract class Expr[+T: WTypeTag] {
   final val typ = typeOf[T]

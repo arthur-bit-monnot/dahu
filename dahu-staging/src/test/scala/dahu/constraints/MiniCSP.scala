@@ -1,6 +1,6 @@
 package dahu.constraints
 
-import dahu.expr.types.TagIsoInt
+import dahu.model.types.TagIsoInt
 import dahu.expr.{bool, Expr, Input}
 import dahu.recursion.Types._
 import dahu.solver.MetaSolver1

@@ -1,6 +1,4 @@
-package dahu.expr.types
-
-import dahu.expr.types.Tag.Type
+package dahu.model.types
 
 import scala.annotation.switch
 

@@ -4,7 +4,6 @@ import dahu.arrows.recursion.Algebra
 import dahu.arrows.{==>, Arrow, MutableInputs}
 import dahu.ast.ASTable
 import dahu.expr.BagPacking
-import dahu.expr.labels.Labels._
 import dahu.ast.Ops._
 import dahu.recursion.{ComputationF, CstF, ExprF, InputF}
 import org.scalatest.FreeSpec

@@ -3,7 +3,7 @@ package dahu.solver
 import dahu.constraints.CSP
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints.interval.Interval
-import dahu.expr.types.{Tag, TagIsoInt}
+import dahu.model.types.{Tag, TagIsoInt}
 import dahu.problem.{IntCSP, IntProblem}
 import dahu.recursion.ASDAG
 import dahu.recursion.Types._
@@ -53,7 +53,7 @@ class MetaSolver1[Tag](asg: ASDAG[_]) extends Solver[Tag, Any, Domain[Any]] {
   def trans(id: KI[T1]): KI[Tag] =
     id.asInstanceOf[KI[Tag]] // ideally KI[T1] should be a subtype of KI[Tag]
   def unsafe(id: KI[Tag]): KI[T1]               = id.asInstanceOf[KI[T1]]
-  def typeOf(id: KI[_]): dahu.expr.types.Tag[_] = asg.coalgebra(id.asInstanceOf[ExprId]).typ
+  def typeOf(id: KI[_]): dahu.model.types.Tag[_] = asg.coalgebra(id.asInstanceOf[ExprId]).typ
   val intSubProblem: IntCSP[T1]                 = IntCSP.intSubProblem(asg)(_ => true)
   val solver: CSP[T1]                           = intSubProblem.getSolver
 

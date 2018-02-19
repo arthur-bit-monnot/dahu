@@ -1,7 +1,7 @@
 package dahu.constraints
 
-import dahu.expr.labels.Labels.Value
-import dahu.expr.types.TagIsoInt
+import .Value
+import dahu.model.types.TagIsoInt
 import dahu.expr._
 import dahu.recursion.ComputationF
 import dahu.utils.Errors.unexpected

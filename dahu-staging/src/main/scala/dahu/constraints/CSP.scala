@@ -8,7 +8,7 @@ import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
 import dahu.recursion._
 import dahu.expr._
-import dahu.expr.types.TagIsoInt
+import dahu.model.types.TagIsoInt
 import dahu.interpreter.domains.Domain
 import dahu.problem.{IntCSP, IntProblem}
 import dahu.problem.IntProblem.{Comp, Func, Var}

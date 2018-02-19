@@ -1,7 +1,6 @@
-package dahu.structures
+package dahu.arrows
 
 import debox._
-import dahu.recursion.Types._
 import dahu.utils.structures.Default
 
 import scala.reflect.ClassTag
@@ -42,22 +41,16 @@ class IntFuncBuilder[@specialized A: ClassTag]() {
 }
 
 trait MutableIntFunc[T, @specialized V] extends IntFunc[T, V] {
-  // todo: remove and provide builder instances instead.
-  // extending allows to by pass type safety, as there is no guarantee that two IntFunc with the same Key type share the same set of keys
-//  def extend(key: Int, value: V)
   def update(key: Key, value: V)
 }
 
-class MutableMapIntFunc[T, @specialized V: ClassTag] private[structures] (
+class MutableMapIntFunc[T, @specialized V: ClassTag] private[arrows] (
     private val mapImpl: debox.Map[KI[T], V]
 ) extends MutableIntFunc[T, V] {
 
   override def domain               = mapImpl.keysSet
   override def apply(value: Key): V = mapImpl(value)
-//  override def extend(key: Int, value: V): Unit = {
-//    assert(!mapImpl.contains(wrap(key)))
-//    mapImpl.update(wrap(key), value)
-//  }
+
   override def update(key: Key, value: V): Unit = {
     assert(mapImpl.contains(key))
     mapImpl.update(key, value)
@@ -70,7 +63,7 @@ object MutableMapIntFunc {
   def apply[T, V: ClassTag](): MutableMapIntFunc[T, V] = new MutableMapIntFunc(debox.Map())
 }
 
-class ArrayIntFunc[T, @specialized V: ClassTag: Default] private[structures] (
+class ArrayIntFunc[T, @specialized V: ClassTag: Default] private[arrows] (
     private val keys: debox.Set[KI[T]], // todo: should be immutable
     private val buff: debox.Buffer[V]
 ) extends IntFunc[T, V] {
@@ -97,22 +90,13 @@ class ArrayIntFunc[T, @specialized V: ClassTag: Default] private[structures] (
   def toMutable: MutableArrayIntFunc[T, V] = new MutableArrayIntFunc[T, V](keys.copy(), buff.copy())
 }
 
-class MutableArrayIntFunc[T, @specialized V: ClassTag: Default] private[structures] (
+class MutableArrayIntFunc[T, @specialized V: ClassTag: Default] private[arrows] (
     private val keys: debox.Set[KI[T]], // todo: should be immutable
     private val buff: debox.Buffer[V]
 ) extends MutableIntFunc[T, V] {
 
   override def domain: debox.Set[Key] = keys.copy()
   override def apply(value: Key): V   = buff(value)
-
-//  override def extend(key: Int, value: V): Unit = {
-//    if(!keys.add(wrap(key)))
-//      throw new IllegalArgumentException(s"Key $key is already recorded.")
-//
-//    val defaultValue = Default.of[V]
-//    while(buff.length <= key) buff.append(defaultValue)
-//    buff(key) = value
-//  }
 
   override def update(key: Key, value: V): Unit = buff(key) = value
 

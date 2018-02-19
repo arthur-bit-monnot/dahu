@@ -3,7 +3,7 @@ package dahu.problem
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
 import dahu.expr.Fun
-import dahu.expr.types.TagIsoInt
+import dahu.model.types.TagIsoInt
 import dahu.recursion._
 import dahu.recursion.Types._
 import dahu.constraints.domains._
@@ -40,7 +40,7 @@ object IntCSP {
   def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
 
   def translate(id: Var, coalgebra: Var => ExprF[Var]): Option[IntProblem.Expr] = {
-    import dahu.expr.labels.Labels.Value
+    import .Value
 
     def asIntFunction(f: Fun[_]): Option[Func] = {
       // todo: cache generated function

@@ -4,8 +4,6 @@ import cats.Functor
 import dahu.arrows._
 import dahu.arrows.memoization.Cache
 import dahu.arrows.recursion.Algebra
-import dahu.expr.Type
-import dahu.expr.labels.Labels.Value
 import dahu.recursion._
 import spire.ClassTag
 

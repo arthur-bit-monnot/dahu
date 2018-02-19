@@ -2,7 +2,7 @@ package dahu.benchmarks
 
 import dahu.constraints.CSP
 import dahu.expr.{Cst, Expr, Input}
-import dahu.expr.types.TagIsoInt
+import dahu.model.types.TagIsoInt
 import org.scalatest.FreeSpec
 import dahu.expr.dsl._
 import dahu.solver

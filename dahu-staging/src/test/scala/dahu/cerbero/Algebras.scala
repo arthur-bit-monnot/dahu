@@ -7,7 +7,6 @@ object Algebras {
   import Planning._
   import dahu.expr._
   import dahu.recursion._
-  import dahu.expr.labels.Labels._
 
   implicit class FunOps[O: WTypeTag](f: Fun[O]) {
     def apply(seq: Ast*): ComputationF[Ast] = ComputationF(f, seq, typeOf[O])

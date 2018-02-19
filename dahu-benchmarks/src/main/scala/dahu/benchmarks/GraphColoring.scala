@@ -1,7 +1,7 @@
 package dahu.benchmarks
 
 import dahu.expr.{Cst, Input}
-import dahu.expr.types.TagIsoInt
+import dahu.model.types.TagIsoInt
 import dahu.expr.dsl._
 
 import scala.language.implicitConversions

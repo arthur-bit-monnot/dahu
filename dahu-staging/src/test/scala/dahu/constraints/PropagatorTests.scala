@@ -2,8 +2,7 @@ package dahu.constraints
 
 import dahu.constraints.interval._
 import dahu.expr._
-import dahu.expr.labels.Labels
-import dahu.expr.types.TagIsoInt
+import dahu.model.types.TagIsoInt
 import org.scalacheck.{Gen, Prop}
 import org.scalacheck.Prop._
 import org.scalactic.anyvals.PosZDouble

@@ -1,52 +1,5 @@
 package dahu.recursion
 
-import cats.Functor
-import dahu.arrows.{==>, OpaqueIntSubset}
-import dahu.expr.{Fun, Type}
-import dahu.expr.labels.Labels.Value
-import spire.algebra.Order
-
-import scala.language.implicitConversions
-import scala.reflect.ClassTag
-
-sealed abstract class ExprF[F] {
-  def typ: Type
-}
-object ExprF {
-
-  implicit val functor: Functor[ExprF] = new Functor[ExprF] {
-    override def map[A, B](fa: ExprF[A])(f: A => B): ExprF[B] = fa match {
-      case x @ InputF(_, _) => x
-      case x @ CstF(_, _)   => x
-      case x @ ComputationF(fun, args, typ) =>
-        ComputationF(fun, args.map(f), typ)
-      case x @ ProductF(members, typ) => ProductF(members.map(f), typ)
-    }
-  }
-}
-
-case class InputF[F](name: String, typ: Type) extends ExprF[F] {
-  override def toString: String = s"?$name"
-}
-object InputF {
-  implicit def typeParamConversion[F, G](fa: InputF[F]): InputF[G] = fa.asInstanceOf[InputF[G]]
-}
-
-case class CstF[F](value: Value, typ: Type) extends ExprF[F] {
-  override def toString: String = value.toString
-}
-object CstF {
-  implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
-}
-
-final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends ExprF[F] {
-  override def toString: String = s"λ: $fun(${args.mkString(", ")})"
-}
-
-final case class ProductF[F](members: Seq[F], typ: Type) extends ExprF[F] {
-  override def toString: String = members.mkString("(", ", ", ")")
-}
-
 object Types {
 
   abstract class IndexLabelImpl {
@@ -86,22 +39,7 @@ object Types {
 
   implicit val classTagExpr: ClassTag[ExprId] = ExprId.fromIntF(implicitly[ClassTag[Int]])
 
-  /** To specify a subset of integers in the type system.
-    *
-    * TaggedInt is constrained to be an instance of Int so that the compiler can properly infer that
-    * the actual type is Int and avoid boxing in arrays and function parameters.
-    * This is due to the fact that Int is a final class.
-    * */
-  trait TaggedInt[Tag] { self: Int =>
-  }
-  type KI[T] = Int with TaggedInt[T]
 
-  implicit def classTag[T]: ClassTag[KI[T]] = intClassTag.asInstanceOf[ClassTag[KI[T]]]
-  implicit def ordering[T]: Ordering[KI[T]] =
-    implicitly[Ordering[Int]].asInstanceOf[Ordering[KI[T]]]
-
-  implicit def order[T]: Order[KI[T]] =
-    (spire.implicits.IntAlgebra: Order[Int]).asInstanceOf[Order[KI[T]]]
 }
 
 /**

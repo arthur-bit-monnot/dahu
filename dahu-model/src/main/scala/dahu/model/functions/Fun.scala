@@ -1,8 +1,8 @@
-package dahu.expr
+package dahu.model.functions
 
-import dahu.expr.labels.Labels.Value
+import dahu.model.types.Value
 
-import scala.reflect.runtime.universe._
+import dahu.model.types._
 
 abstract class Fun[+O: WTypeTag] {
   final val outType = typeOf[O]
