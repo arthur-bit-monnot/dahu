@@ -1,6 +1,7 @@
 package dahu.arrows
 
 import org.scalatest.FreeSpec
+import dahu.utils.debug._
 
 class ArrowsTests extends FreeSpec {
 
@@ -29,9 +30,9 @@ class ArrowsTests extends FreeSpec {
 
       for(i <- isOdd.domain) {
         if(i % 2 == 0) {
-          assert(isOdd(i) && !isEven(i))
+          assert(isOdd(i) && !isEven(i)).ignoreResult
         } else {
-          assert(!isOdd(i) && isEven(i))
+          assert(!isOdd(i) && isEven(i)).ignoreResult
         }
       }
 
@@ -77,7 +78,7 @@ class ArrowsTests extends FreeSpec {
 
       for(i <- odds.domain) {
         assert(odds(i))
-        assert(isOdd(i)) // checks that odds.
+        assert(isOdd(i)) // compiler checks that odds.K <: isOdd.K
         assertTypeError("evens(i)")
       }
       val x: evens.K = evens.domain.toIterable().head

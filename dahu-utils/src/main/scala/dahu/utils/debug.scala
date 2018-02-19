@@ -55,4 +55,9 @@ object debug {
   final def slow[T](value: T): T = value
 
   final def approximation[T](value: T): T = value
+
+  implicit final class IgnoreResultOps[T](val value: T) extends AnyVal {
+    /** Does nothing, only to ignore compiler warning regarding unused values. */
+    def ignoreResult: Unit = ()
+  }
 }
