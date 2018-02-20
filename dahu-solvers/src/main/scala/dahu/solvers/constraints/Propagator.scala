@@ -1,13 +1,12 @@
 package dahu.constraints
 
-import .Value
-import dahu.model.types.TagIsoInt
-import dahu.expr._
-import dahu.recursion.ComputationF
+
+import dahu.model.types._
+import dahu.model.math._
 import dahu.utils.Errors.unexpected
 import dahu.constraints.interval._
-
 import BooleanDomain._
+import dahu.model.functions.{Fun, Fun1, Fun2, FunN}
 
 trait Propagator {}
 

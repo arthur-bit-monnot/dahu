@@ -1,6 +1,6 @@
 package dahu.constraints.domains
 
-import dahu.solver.Domain
+import dahu.solvers.Domain
 import dahu.utils.debug._
 
 trait IntDomain extends Domain[Int] {

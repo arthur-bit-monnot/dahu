@@ -2,19 +2,18 @@ package dahu.problem
 
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
-import dahu.expr.Fun
-import dahu.model.types.TagIsoInt
-import dahu.recursion._
-import dahu.recursion.Types._
+import dahu.model.types._
 import dahu.constraints.domains._
-import dahu.structures.{ArrayIntFunc, IntFuncBuilder, MutableMapIntFunc}
+import dahu.maps.{ArrayMap, IMapBuilder, SInt, SubInt}
+import dahu.model.functions.Fun
+import dahu.model.ir._
 import dahu.utils.Errors._
 
 import scala.collection.mutable
 
 object IntProblem {
 
-  type Var = ExprId
+  type Var = Int
   type Val = Int
 
   type Vars = Array[Var]
@@ -30,18 +29,16 @@ object IntProblem {
 }
 import IntProblem._
 
-abstract class IntCSP[T] extends Problem[T, Int] {
-  override def dom: KI[T] => IntDomain
-  def exprs: KI[T] => Option[Comp]
+abstract class IntCSP[K <: SubInt] extends Problem[K, Int] {
+  override def dom: K => IntDomain
+  def exprs: K => Option[Comp]
 
-  def getSolver: CSP[T]
+  def getSolver: CSP[K]
 }
 object IntCSP {
   def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
 
-  def translate(id: Var, coalgebra: Var => ExprF[Var]): Option[IntProblem.Expr] = {
-    import .Value
-
+  def translate[T <: SubInt](id: T, coalgebra: T => ExprF[T]): Option[IntProblem.Expr] = {
     def asIntFunction(f: Fun[_]): Option[Func] = {
       // todo: cache generated function
       IntCompatibleFunc
@@ -67,15 +64,17 @@ object IntCSP {
     }
   }
 
-  def intSubProblem[T0](asg: ASDAG[_])(candidates: ExprId => Boolean): IntCSP[T0] = {
-    val factory = new IntFuncBuilder[(IntDomain, Option[Comp])]
+  def intSubProblem(ast: AST[_])(candidates: Var => Boolean): IntCSP[ast.ID] = {
+    type T0 = ast.ID
+    val factory = new IMapBuilder[(IntDomain, Option[Comp])]
 //    val xxx = new MutableMapIntFunc[T0, (IntDomain, Option[Comp])]
-    asg.ids.enumerate
-      .map(i => IntCSP.translate(i, asg.coalgebra.asScalaFunction).map((i, _)))
+    ast.tree.domain
+      .toIterable()
+      .map(i => IntCSP.translate(i, ast.tree.asFunction).map((i, _)))
       .foreach {
         case Some((i, expr)) if candidates(i) =>
           val dom =
-            if(i == asg.root)
+            if(i == ast.root)
               True // todo: should be set externally
             else
               expr.domain
@@ -86,33 +85,35 @@ object IntCSP {
           factory += (i, (dom, e))
         case _ => // not representable or not in candidate set, ignore
       }
-    val externalInputs: Set[Var] = {
+    val externalInputs: Set[ast.ID] = {
       factory.currentKeys
         .toScalaSet()
         .flatMap((v: Int) =>
-          asg.coalgebra(ExprId.fromInt(v)) match {
-            case ComputationF(_, args, _) => args.toSet
-            case _                        => Set[Var]()
+          ast.tree.get(v) match {
+            case Some(ComputationF(_, args, _)) => args.toSet
+            case Some(_)                        => Set[ast.ID]()
+            case _                              => unexpected
         })
         .filterNot(candidates)
     }
     for(v <- externalInputs) {
       assert(!factory.contains(v))
-      val dom = asg.coalgebra(v).typ match {
-        case t: TagIsoInt[_] => IntCSP.domainOfType(t)
-        case _ =>
+      val dom = ast.tree.get(v).map(_.typ) match {
+        case Some(t: TagIsoInt[_]) => IntCSP.domainOfType(t)
+        case Some(_) =>
           unexpected(
             "Some computation in IntCSP depends on an expression whose type is not isomorphic to Int.")
+        case None => unexpected
       }
       factory += (v, (dom, None))
     }
     new IntCSP[T0] {
-      private val pb: ArrayIntFunc[T0, (IntDomain, Option[Comp])] = factory.toImmutableArray
-      override def dom: KI[T0] => IntDomain                       = pb(_)._1
+      private val pb: ArrayMap.Aux[T0, (IntDomain, Option[Comp])] = factory.toImmutableArray.castKey[T0]
+      override def dom: T0 => IntDomain                 = pb(_)._1
 
-      override def exprs: KI[T0] => Option[Comp] = pb(_)._2
+      override def exprs: T0 => Option[Comp] = pb(_)._2
 
-      override def vars: Array[KI[T0]] = pb.domain.toArray
+      override def vars: Array[T0] = pb.domain.toArray
 
       override def getSolver: CSP[T0] =
         new CSP(pb)

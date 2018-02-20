@@ -3,52 +3,50 @@ package dahu.constraints
 import java.util
 
 import algebra.Order
-import dahu.maps.recursion.Coalgebra
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
 import dahu.recursion._
-import dahu.expr._
 import dahu.model.types.TagIsoInt
-import dahu.interpreter.domains.Domain
-import dahu.problem.{IntCSP, IntProblem}
-import dahu.problem.IntProblem.{Comp, Func, Var}
-import dahu.recursion.Types._
-import dahu.solver.{DomainIso, Solver}
-import dahu.structures.{ArrayIntFunc, MutableArrayIntFunc}
 import dahu.utils.Errors.unexpected
 import spire.math.Trilean
 import dahu.utils.structures._
 import dahu.constraints.interval._
-import dahu.solver
+import dahu.maps.mutable.MArrayMap
+import dahu.maps.{ArrayMap, SInt, SubInt}
+import dahu.model.ir.AST
+import dahu.problem.IntCSP
+import dahu.problem.IntProblem.{Comp, Func}
+import dahu.solvers.{DomainIso, Solver}
 import spire.implicits._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-sealed abstract class Event[T]
-final case class SolutionFound[T](sol: ArrayIntFunc[T, Int])                       extends Event[T]
-class DomainUpdate[T](val id: KI[T], val domain: Interval, val previous: Interval) extends Event[T]
-case class Inference[T](override val id: KI[T],
-                        override val domain: Interval,
-                        override val previous: Interval)
+sealed abstract class Event[T <: SubInt]
+final case class SolutionFound[T <: SubInt](sol: ArrayMap.Aux[T, Int]) extends Event[T]
+class DomainUpdate[T <: SubInt](val id: T, val domain: Interval, val previous: Interval)
+    extends Event[T]
+case class Inference[T <: SubInt](override val id: T,
+                                  override val domain: Interval,
+                                  override val previous: Interval)
     extends DomainUpdate[T](id, domain, previous)
-case class LocalDecision[T](override val id: KI[T],
-                            override val domain: Interval,
-                            override val previous: Interval)
+case class LocalDecision[T <: SubInt](override val id: T,
+                                      override val domain: Interval,
+                                      override val previous: Interval)
     extends DomainUpdate[T](id, domain, previous)
-case class ExternalDecision[T](override val id: KI[T],
-                               override val domain: Interval,
-                               override val previous: Interval)
+case class ExternalDecision[T <: SubInt](override val id: T,
+                                         override val domain: Interval,
+                                         override val previous: Interval)
     extends DomainUpdate(id, domain, previous)
 
 object Constraint {
 
-  type Updater[T] = CSP[T] => Seq[Inference[T]]
+  type Updater[T <: SubInt] = CSP[T] => Seq[Inference[T]]
 
   private val emptyUpdateSingleton = Array[Inference[Nothing]]()
-  def emptyUpdate[T]               = emptyUpdateSingleton.asInstanceOf[Array[Inference[T]]]
+  def emptyUpdate[T <: SubInt]     = emptyUpdateSingleton.asInstanceOf[Array[Inference[T]]]
 
-  def fromForward[T](id: KI[T], args: Array[KI[T]], prop: ForwardPropagator): Updater[T] = {
+  def fromForward[T <: SubInt](id: T, args: Array[T], prop: ForwardPropagator): Updater[T] = {
     (csp: CSP[T]) =>
       {
         val d  = prop.propagate(args, csp.dom)
@@ -60,7 +58,7 @@ object Constraint {
         }
       }
   }
-  def fromBackward[T](id: KI[T], args: Array[KI[T]], prop: BackwardPropagator): Updater[T] = {
+  def fromBackward[T <: SubInt](id: T, args: Array[T], prop: BackwardPropagator): Updater[T] = {
     (csp: CSP[T]) =>
       {
         val doms = prop.propagate(args, id, csp.dom)
@@ -75,10 +73,11 @@ object Constraint {
   }
 }
 
-class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[T, Int, Interval] {
-  type Var        = KI[T]
+class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
+    extends Solver[K, Int, Interval] {
+  type Var        = K
   type Vars       = Array[Var]
-  type Assignment = ArrayIntFunc[T, Int]
+  type Assignment = ArrayMap.Aux[K, Int]
 
   val ids: debox.Buffer[Var]            = params.domain.toSortedBuffer
   def initialDomains(v: Var): IntDomain = params(v)._1
@@ -86,8 +85,8 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
 
   override def domainIso: DomainIso[Interval, Int] = DomainIso.intervalIso
 
-  val propagators: Array[Array[Updater[T]]] = {
-    val propagatorsBuilder = Array.fill(ids.max + 1)(mutable.ArrayBuffer[Updater[T]]())
+  val propagators: Array[Array[Updater[K]]] = {
+    val propagatorsBuilder = Array.fill(ids.max + 1)(mutable.ArrayBuffer[Updater[K]]())
     for(i <- ids) {
       dag(i) match {
         case Some(Comp(Func(_, fw, bw), untaggedArgs)) =>
@@ -103,17 +102,17 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
         // not a computation, do nothing
       }
     }
-    propagatorsBuilder.map(buff => if(buff.isEmpty) Array.empty[Updater[T]] else buff.toArray)
+    propagatorsBuilder.map(buff => if(buff.isEmpty) Array.empty[Updater[K]] else buff.toArray)
   }
 
   require(ids.forall(initialDomains(_) != null))
   require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
 
   // current domains
-  private val domains: MutableArrayIntFunc[T, Interval] =
+  private val domains: MArrayMap.Aux[K, Interval] =
     params.map { case (d, _) => Interval(d.lb, d.ub) }.toMutable
 
-  def dom(v: Var): Interval = domains(v)
+  def dom(v: K): Interval = domains(v)
 
   override def consistent: Trilean =
     if(solution) Trilean.True
@@ -123,24 +122,24 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
   private def arcConsistent: Boolean = ids.forall(i => !dom(i).isEmpty)
   private def solution: Boolean      = ids.forall(i => dom(i).isSingleton)
 
-  private val history = mutable.ArrayBuffer[Event[T]]()
-  private def pop(): Option[Event[T]] = {
+  private val history = mutable.ArrayBuffer[Event[K]]()
+  private def pop(): Option[Event[K]] = {
     if(history.nonEmpty)
       Some(history.remove(history.size - 1))
     else
       None
   }
-  private def push(e: Event[T]) = {
+  private def push(e: Event[K]) = {
     history += e
   }
 
   /** Returns true if the search space was exhausted */
-  @tailrec final private def backtrack(): Option[LocalDecision[T]] = {
+  @tailrec final private def backtrack(): Option[LocalDecision[K]] = {
     pop() match {
       case Some(Inference(i, _, previous)) =>
         domains(i) = previous
         backtrack()
-      case Some(backtrackPoint: LocalDecision[T]) =>
+      case Some(backtrackPoint: LocalDecision[K]) =>
         Some(backtrackPoint)
       case Some(SolutionFound(_)) =>
         backtrack()
@@ -149,7 +148,7 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
     }
   }
 
-  override def enforce(variable: Var, domain: Interval): Unit = {
+  override def enforce(variable: K, domain: Interval): Unit = {
     require(dom(variable).contains(domain))
     val up = ExternalDecision(variable, domain, dom(variable))
     enforce(up)
@@ -157,7 +156,7 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
 
   /** Enforces an updates and run inference.
     * Returns false if a variable was given the empty domain. */
-  final private def enforce(update: DomainUpdate[T]): Boolean = {
+  final private def enforce(update: DomainUpdate[K]): Boolean = {
     assert(update.domain != update.previous)
     domains(update.id) = update.domain
     push(update)
@@ -165,8 +164,8 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
       return false
 
     val head = update match {
-      case x: LocalDecision[T] => "decision: "
-      case x: Inference[T]     => "   infer: "
+      case x: LocalDecision[K] => "decision: "
+      case x: Inference[K]     => "   infer: "
     }
 //    println(
 //      s"$head ${asg.coalgebra(update.id.asInstanceOf[asg.EId])} <- ${update.domain}       (prev: ${update.previous})")
@@ -186,12 +185,12 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
     var exhausted = false
     while(!exhausted) {
 //      println(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
-      if(solution && !history.lastOption.forall(_.isInstanceOf[SolutionFound[T]])) {
+      if(solution && !history.lastOption.forall(_.isInstanceOf[SolutionFound[K]])) {
         // just reached new solution
 //        println("solution")
         assert(arcConsistent)
         val sol = domains.map(_.lb).toImmutable
-        push(SolutionFound[T](sol))
+        push(SolutionFound[K](sol))
         return Some(sol)
       } else if(!arcConsistent || solution) {
         // inconsistent or already explored solution
@@ -243,8 +242,8 @@ class CSP[T](params: ArrayIntFunc[T, (IntDomain, Option[Comp])]) extends Solver[
 
 object CSP {
 
-  def from(asg: ASDAG[_]): CSP[_] = {
-    val x = IntCSP.intSubProblem(asg)(_ => true)
+  def from(ast: AST[_]): CSP[ast.ID] = {
+    val x = IntCSP.intSubProblem(ast)(_ => true)
     x.getSolver
   }
 }

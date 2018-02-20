@@ -83,12 +83,12 @@ lazy val model = project
     "com.chuusai"   %% "shapeless"       % "2.3.3",
   ))
 
-//
-//lazy val solvers = project
-//  .in(file("dahu-solvers"))
-//  .dependsOn(utils, model)
-//  .settings(name := "dahu-solvers")
-//  .settings(commonSettings: _*)
+
+lazy val solvers = project
+  .in(file("dahu-solvers"))
+  .dependsOn(utils, model)
+  .settings(name := "dahu-solvers")
+  .settings(commonSettings: _*)
 
 //lazy val benchmarks = project
 //  .in(file("dahu-benchmarks"))

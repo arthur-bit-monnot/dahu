@@ -1,13 +1,12 @@
-package dahu.solver
+package dahu.solvers
 
 import dahu.constraints.CSP
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints.interval.Interval
-import dahu.model.types.{Tag, TagIsoInt}
-import dahu.problem.{IntCSP, IntProblem}
-import dahu.recursion.ASDAG
-import dahu.recursion.Types._
-import dahu.structures.ArrayIntFunc
+import dahu.maps.{ArrayMap, SubInt, SubSubInt}
+import dahu.model.ir.AST
+import dahu.model.types._
+import dahu.problem.IntCSP
 import dahu.utils.Errors._
 import spire.math.Trilean
 
@@ -36,33 +35,34 @@ object DomainIso {
   }
 }
 
-trait Solver[Tag, V, D] {
+trait Solver[K <: SubInt, V, D] {
 
   def domainIso: DomainIso[D, V]
 
-  def enforce(variable: KI[Tag], domain: D)
-  def nextSolution(): Option[ArrayIntFunc[Tag, V]]
+  def enforce(variable: K, domain: D)
+  def nextSolution(): Option[ArrayMap.Aux[K, V]]
 
   def consistent: Trilean
 }
 
-class MetaSolver1[Tag](asg: ASDAG[_]) extends Solver[Tag, Any, Domain[Any]] {
+class MetaSolver1[K <: SubInt](asg: AST.Aux[_,K]) extends Solver[K, Any, Domain[Any]] {
   override def domainIso: DomainIso[Domain[Any], Any] = DomainIso.identity
 
-  type T1 = Tag with Integer
-  def trans(id: KI[T1]): KI[Tag] =
-    id.asInstanceOf[KI[Tag]] // ideally KI[T1] should be a subtype of KI[Tag]
-  def unsafe(id: KI[Tag]): KI[T1]               = id.asInstanceOf[KI[T1]]
-  def typeOf(id: KI[_]): dahu.model.types.Tag[_] = asg.coalgebra(id.asInstanceOf[ExprId]).typ
-  val intSubProblem: IntCSP[T1]                 = IntCSP.intSubProblem(asg)(_ => true)
+  trait FirstTag
+  type T1 = SubSubInt[K, FirstTag]
+  implicitly[T1 <:< K] // simple compile time check
+
+  def unsafe(id: K): T1               = id.asInstanceOf[T1]
+  def typeOf(id: K): dahu.model.types.Tag[_] = asg.tree(id).typ
+  val intSubProblem: IntCSP[T1]                 = IntCSP.intSubProblem(asg)(_ => true).asInstanceOf[IntCSP[T1]] // TODO do safely
   val solver: CSP[T1]                           = intSubProblem.getSolver
 
-  override def enforce(variable: KI[Tag], domain: Domain[Any]): Unit = {
+  override def enforce(variable: K, domain: Domain[Any]): Unit = {
     val tmp = domain.asInstanceOf[IntDomain]
     solver.enforce(unsafe(variable), Interval(tmp.lb, tmp.ub))
   }
 
-  override def nextSolution(): Option[ArrayIntFunc[Tag, Any]] = solver.nextSolution match {
+  override def nextSolution(): Option[ArrayMap.Aux[K, Any]] = solver.nextSolution() match {
     case Some(f) =>
       val f2 = f.mapFromKey {
         case (k, v) =>
@@ -71,7 +71,7 @@ class MetaSolver1[Tag](asg: ASDAG[_]) extends Solver[Tag, Any, Domain[Any]] {
             case _               => unexpected("Int value whose type is not isomorphic to Int")
           }
       }
-      Some(f2.asInstanceOf[ArrayIntFunc[Tag, Any]])
+      Some(f2.asInstanceOf[ArrayMap.Aux[K, Any]])
 
     case None => None
   }

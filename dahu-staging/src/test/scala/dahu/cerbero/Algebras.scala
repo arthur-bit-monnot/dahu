@@ -37,7 +37,6 @@ object Algebras {
     case EQ(l, r)            => int.EQ(l, r)
     case Sum(l, r)           => int.Add(l, r)
     case Not(e)              => bool.Not(e)
-
   }
 
 }

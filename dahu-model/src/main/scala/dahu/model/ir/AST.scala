@@ -19,6 +19,9 @@ trait AST[T] {
 
   def fromInput: T => Option[ID]
 }
+object AST {
+  type Aux[T, ID0 <: SubInt] = AST[T] { type ID = ID0}
+}
 
 class ASTImpl[K <: SubInt, T](override val tree: ArrayMap.Aux[K, ExprF[K]],
                               override val root: K,
