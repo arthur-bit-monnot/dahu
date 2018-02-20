@@ -34,6 +34,9 @@ final class FCoalgebraOps[F[_], A](private val self: FCoalgebra[F, A]) extends A
   def toCVCoalgebra(implicit F: Functor[F]): CVCoalgebra[F, A] =
     a => F.map(self(a))(Free.pure)
 
+  def toAttributeCoalgebra(implicit F: Functor[F]): FCoalgebra[EnvT[A, F, ?], A] =
+    a => EnvT(a, self(a))
+
   def cozip[B](that: FCoalgebra[F, B])(implicit F: Functor[F]): FCoalgebra[F, Either[A, B]] = {
     case Left(a) => F.map(self(a))(Left(_))
     case Right(b) => F.map(that(b))(Right(_))

@@ -1,6 +1,7 @@
 package dahu
 
-import cats.free.{Free, Cofree}
+import cats.{Applicative, Eval, Functor, Traverse}
+import cats.free.{Cofree, Free}
 
 import scala.language.implicitConversions
 
@@ -35,4 +36,26 @@ package object recursion {
   @inline implicit def fCoalgebraOps[F[_], A](self: A => F[A]): FCoalgebraOps[F, A] =
     new FCoalgebraOps(self)
 
+  /** EnvT taken from http://codegists.com/snippet/scala/catryoshkascala_andyscott_scala
+    * Only modification is the addition of a Functor instance.
+    */
+  case class EnvT[B, W[_], A](ask: B, lower: W[A])
+  object EnvT {
+    implicit def envTFunctor[Z, F[_]](implicit F: Functor[F]): Functor[EnvT[Z, F, ?]] =
+      new Functor[EnvT[Z, F, ?]] {
+        override def map[A, B](fa: EnvT[Z, F, A])(f: A => B): EnvT[Z, F, B] =
+        EnvT(fa.ask, F.map(fa.lower)(f))
+      }
+    implicit def envTTraverse[Z, F[_]](implicit F: Traverse[F]): Traverse[EnvT[Z, F, ?]] =
+      new Traverse[EnvT[Z, F, ?]] {
+        def traverse[G[_], A, B](fa: EnvT[Z, F, A])(f: A => G[B])(implicit G: Applicative[G]): G[EnvT[Z, F, B]] =
+          G.map(F.traverse(fa.lower)(f))(EnvT(fa.ask, _))
+
+        def foldLeft[A, B](fa: EnvT[Z, F, A], b: B)(f: (B, A) => B): B =
+          F.foldLeft(fa.lower, b)(f)
+
+        def foldRight[A, B](fa: EnvT[Z, F, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+          F.foldRight(fa.lower, lb)(f)
+      }
+  }
 }

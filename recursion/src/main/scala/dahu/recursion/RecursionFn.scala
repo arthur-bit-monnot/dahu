@@ -1,7 +1,7 @@
 package dahu.recursion
 
-import cats.{Functor, Monad, Traverse, ~>, Comonad, Eval}
-import cats.free.{Free, Cofree}
+import cats.{Comonad, Eval, Functor, Monad, Traverse, ~>}
+import cats.free.{Cofree, Free}
 
 object RecursionFn {
 
@@ -180,14 +180,19 @@ object RecursionFn {
     a => W.extract(h(M.point(a)))
   }
 
-  // TODO: implement, cats' Cofree does not have the corresponding unfold method.
-  //       Cofree.unfold is equivalent to scalaz' Cofree.unfoldC
-  private def distHisto[F[_]](implicit F: Functor[F]): Coseq[F, Cofree[F, ?]] = ???
-//    new Coseq[F, Cofree[F, ?]] {
-//      override def apply[A](f: F[Cofree[F, A]]): Cofree[F, F[A]] =
-//        Cofree.unfold[F, F[A], F[Cofree[F, A]]](f)(as =>
-//          (F.map(as)(_.head), F.map(as)(_.tail)))
-//    }
+  /** Generalization of Cofree.unfold */
+  private def unfold2[F[_], A, B](b: B)(f: B => (A, F[B]))(implicit F: Functor[F]): Cofree[F, A] = {
+    val (a, fb) = f(b)
+    val tail = Eval.later { F.map(fb)(b => unfold2(b)(f)) }
+    Cofree[F, A](a, tail)
+  }
+
+  private def distHisto[F[_]](implicit F: Functor[F]): Coseq[F, Cofree[F, ?]] =
+    new Coseq[F, Cofree[F, ?]] {
+      override def apply[A](f: F[Cofree[F, A]]): Cofree[F, F[A]] =
+        unfold2[F, F[A], F[Cofree[F, A]]](f)(as =>
+          (F.map(as)(_.head), F.map(as)(_.tail.value)))
+    }
 
   private def distFutu[F[_]](implicit F: Functor[F]): Coseq[Free[F, ?], F] =
     new Coseq[Free[F, ?], F] {
