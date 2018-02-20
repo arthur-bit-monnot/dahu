@@ -1,4 +1,4 @@
-package japgolly.microlibs.recursion
+package dahu.recursion
 
 import cats.{Functor, Monad, Traverse, ~>}
 

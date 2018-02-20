@@ -1,7 +1,7 @@
-package japgolly.microlibs.recursion
+package dahu.recursion
 
+import dahu.recursion.MathExpr.Helpers._
 import utest._
-import MathExpr.Helpers._
 
 import scala.language.postfixOps
 

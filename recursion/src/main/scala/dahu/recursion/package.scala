@@ -1,4 +1,4 @@
-package japgolly.microlibs
+package dahu
 
 import cats.free.{Free, Cofree}
 

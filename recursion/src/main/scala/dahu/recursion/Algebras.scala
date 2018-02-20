@@ -1,4 +1,4 @@
-package japgolly.microlibs.recursion
+package dahu.recursion
 
 //import scalaz.{-\/, Free, Functor, Monad, \/, \/-}
 import cats.{Monad, Functor}

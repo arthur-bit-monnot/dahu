@@ -1,6 +1,6 @@
-package japgolly.microlibs.recursion
+package dahu.recursion
 
-import japgolly.microlibs.recursion
+import dahu.recursion
 
 sealed trait FixModule {
   type Fix[F[_]]
