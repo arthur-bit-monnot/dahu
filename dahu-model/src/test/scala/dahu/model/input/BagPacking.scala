@@ -8,8 +8,6 @@ import dahu.model.types._
 import dahu.utils.Errors.Error
 import org.scalatest.FreeSpec
 
-import scalaz.{Failure, Success, Validation}
-
 class BagPacking extends FreeSpec {
 
   import dsl._

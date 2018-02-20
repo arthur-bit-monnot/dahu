@@ -39,27 +39,27 @@ lazy val commonSettings = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
 //  addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
 
-//  libraryDependencies ++= Seq(
-//    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
-//    "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
-//  )
+  libraryDependencies ++= Seq(
+    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
+    "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
+  )
 )
 
 lazy val root = project.in(file("."))
-  .aggregate(recursion)
+  .aggregate(utils, recursion, model)
 //  .aggregate(utils, model, solvers)
   .settings(
     publish := {},
     publishLocal := {}
   )
-//lazy val utils = project
-//  .in(file("dahu-utils"))
-//  .settings(name := "dahu-utils")
-//  .settings(commonSettings: _*)
-//  .settings(libraryDependencies ++= Seq(
-//    "org.spire-math" %% "debox" % "0.8.0",
-//    "org.typelevel" %% "spire"           % "0.14.1",
-//  ))
+lazy val utils = project
+  .in(file("dahu-utils"))
+  .settings(name := "dahu-utils")
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "org.spire-math" %% "debox" % "0.8.0",
+    "org.typelevel" %% "spire"           % "0.14.1",
+  ))
 
 lazy val recursion = project
   .in(file("recursion"))
@@ -72,18 +72,18 @@ lazy val recursion = project
     "com.lihaoyi" %% "utest" % "0.5.4" % "test"
   ))
   .settings(testFrameworks += new TestFramework("utest.runner.Framework"))
-//
-//lazy val model = project
-//  .in(file("dahu-model"))
-//  .dependsOn(utils)
-//  .settings(name := "dahu-model")
-//  .settings(commonSettings: _*)
-//  .settings(libraryDependencies ++= Seq(
+
+lazy val model = project
+  .in(file("dahu-model"))
+  .dependsOn(utils, recursion)
+  .settings(name := "dahu-model")
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
 //    "com.slamdata"  %% "matryoshka-core" % "0.21.3",
-//    "org.typelevel" %% "cats-core"       % "0.9.0",
-//    "com.chuusai"   %% "shapeless"       % "2.3.3",
-//  ))
-//
+    "org.typelevel" %% "cats-core"       % "0.9.0",
+    "com.chuusai"   %% "shapeless"       % "2.3.3",
+  ))
+
 //
 //lazy val solvers = project
 //  .in(file("dahu-solvers"))

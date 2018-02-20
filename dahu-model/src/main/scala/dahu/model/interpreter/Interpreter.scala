@@ -3,10 +3,8 @@ package dahu.model.interpreter
 import cats.Functor
 import cats.implicits._
 import dahu.arrows.{ArrayIntFunc, IntFunc}
-import dahu.model.compiler.Algebras.TryEval
 import dahu.model.ir._
 import dahu.model.types.Value
-import matryoshka.Algebra
 import dahu.model.compiler.Algebras._
 
 import scala.reflect.ClassTag

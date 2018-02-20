@@ -4,7 +4,8 @@ import dahu.model.functions.{Fun, FunN}
 import dahu.model.ir.{ComputationF, CstF, ExprF}
 import dahu.model.math._
 import dahu.model.types._
-import matryoshka.data.Fix
+import dahu.recursion._
+import dahu.utils.Errors._
 
 object Optimizations {
 
@@ -15,29 +16,29 @@ object Optimizations {
   }
   val flatten: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
     case ComputationF(operator, args, typ) if isCollapsable(operator) =>
-      val flattenedArgs = args.flatMap {
-        case Fix(ComputationF(`operator`, subargs, _)) => subargs
-        case x                                         => List(x)
+      val flattenedArgs: Seq[Fix[ExprF]]= args.map(Fix.unfix).flatMap {
+        case ComputationF(operator2, subargs, _) if operator2 == operator =>
+          subargs
+        case x: ExprF[Fix[ExprF]] => List(Fix(x))
       }
       ComputationF(operator, flattenedArgs, typ)
     case x => x
   }
   val constantElimination: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
-    case ComputationF(bool.Not, Seq(Fix(CstF(v, t))), typ) =>
-      v match {
-        case true  => CstF(Value(false), t)
-        case false => CstF(Value(true), t)
-        case _     => ???
-      }
+    case ComputationF(bool.Not, Seq(CstF(true, t)), typ) =>
+       CstF(Value(false), t)
+    case ComputationF(bool.Not, Seq(CstF(false, t)), typ) =>
+      CstF(Value(true), t)
+
     case ComputationF(bool.And, Seq(), typ) =>
       CstF(Value(true), typ)
     case ComputationF(bool.Or, Seq(), typ) =>
       CstF(Value(false), typ)
 
-    case ComputationF(int.EQ, Seq(Fix(CstF(v1, _)), Fix(CstF(v2, _))), t) =>
+    case ComputationF(int.EQ, Seq(CstF(v1, _), CstF(v2, _)), t) =>
       CstF(Value(v1 == v2), t)
 
-    case ComputationF(int.LEQ, Seq(Fix(CstF(v1: Int, _)), Fix(CstF(v2: Int, _))), t) =>
+    case ComputationF(int.LEQ, Seq(CstF(v1: Int, _), CstF(v2: Int, _)), t) =>
       CstF(Value(v1 <= v2), t)
     case x => x
   }
@@ -58,11 +59,11 @@ object Optimizations {
 
   type Simplification[X] = ExprF[ExprF[X]] => ExprF[ExprF[X]]
   def isTrue(f: Fix[ExprF]): Boolean = f match {
-    case Fix(CstF(true, _)) => true
+    case CstF(true, _) => true
     case _                  => false
   }
   def isFalse(f: Fix[ExprF]): Boolean = f match {
-    case Fix(CstF(false, _)) => true
+    case CstF(false, _) => true
     case _                   => false
   }
 
