@@ -50,7 +50,7 @@ lazy val utestSettings = Seq(
 )
 
 lazy val root = project.in(file("."))
-  .aggregate(utils, recursion, model)
+  .aggregate(utils, recursion, model, benchmarks)
   .settings(
     publish := {},
     publishLocal := {}
@@ -88,12 +88,12 @@ lazy val solvers = project
   .in(file("dahu-solvers"))
   .dependsOn(utils, model)
   .settings(name := "dahu-solvers")
-  .settings(commonSettings: _*)
+  .settings(commonSettings ++ utestSettings: _*)
 
-//lazy val benchmarks = project
-//  .in(file("dahu-benchmarks"))
-//  .dependsOn(utils, solvers)
-//  .settings(commonSettings: _*)
+lazy val benchmarks = project
+  .in(file("dahu-benchmarks"))
+  .dependsOn(utils, solvers)
+  .settings(commonSettings ++ utestSettings: _*)
 
 
 

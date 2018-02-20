@@ -1,50 +1,47 @@
 package dahu.benchmarks
 
 import dahu.constraints.CSP
-import dahu.expr.{Cst, Expr, Input}
-import dahu.model.types.TagIsoInt
-import org.scalatest.FreeSpec
-import dahu.expr.dsl._
-import dahu.solver
-import dahu.recursion.Types._
-import dahu.recursion.Algebras._
+import dahu.model.input._
+import dahu.model.compiler.Algebras._
+import dahu.model.types._
+import utest._
 
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
-class NumSolutionsTest extends FreeSpec {
+object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
     GraphColoring
   )
 
   def numSolutions(expr: Expr[Boolean], maxSolutions: Option[Int] = None): Int = {
-    val asd = transpile(expr, coalgebra)
+    val asd = parse(expr)
     val csp = CSP.from(asd)
     csp.enumerateSolutions(maxSolutions = maxSolutions)
   }
   def printSolutions(sat: Expr[Boolean],
                      vars: Seq[Input[_]],
                      maxSolutions: Option[Int] = None): Unit = {
-    val asd  = transpile(sat, coalgebra)
-    val csp  = CSP.from(asd)
+    val ast  = parse(sat)
+    val csp  = CSP.from(ast)
     val sols = mutable.ArrayBuffer[String]()
     csp.enumerateSolutions(
       onSolutionFound = f => {
         val res = vars
-          .map(v => (v, asd.compiledForm(v).flatMap(id => f.get(ExprId.toInt(id)))))
+          .map(v => (v, ast.fromInput(v).flatMap(id => f.get(id))))
           .map { case (id, value) => s"${id.name}: ${value.getOrElse("ANY")}" }
           .mkString("\t")
         sols += res
       },
       maxSolutions = maxSolutions
     )
-    println(sols.sorted.mkString("\n"))
+    sols.sorted.foreach(println)
   }
-
-  for(fam <- corpus) {
-    fam.familyName - {
-      for((instanceName, instance) <- fam.instancesMap) {
-        instanceName in {
+  def tests = Tests {
+    "num-solutions-on-corpus" - {
+      val results = for(fam <- corpus; (instanceName, instance) <- fam.instancesMap) yield {
+        val res = Try {
           instance match {
             case SatProblem(pb, Exactly(n)) =>
               assert(numSolutions(pb) == n)
@@ -54,6 +51,26 @@ class NumSolutionsTest extends FreeSpec {
               dahu.utils.Errors.unexpected("No use for problems with unkown number of solution.")
           }
         }
+        (fam.familyName, instanceName, res)
+      }
+      val failures =
+        results.map(_._3).collect{ case Failure(e) => e }
+      if(failures.nonEmpty) {
+        for ((fam, ins, res) <- results) {
+          res match {
+            case Success(_) => println(s"Success: $fam/$ins")
+            case Failure(_) => println(s"FAILURE: $fam/$ins")
+          }
+        }
+        failures.foreach(throw _)
+      } else {
+        val stringResults: Seq[String] = for ((fam, ins, res) <- results) yield {
+          res match {
+            case Success(_) => s"Success: $fam/$ins"
+            case Failure(_) => ???
+          }
+        }
+        stringResults.mkString("\n")
       }
     }
   }
