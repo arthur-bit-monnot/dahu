@@ -180,6 +180,8 @@ object RecursionFn {
     a => W.extract(h(M.point(a)))
   }
 
+  // TODO: implement, cats' Cofree does not have the corresponding unfold method.
+  //       Cofree.unfold is equivalent to scalaz' Cofree.unfoldC
   private def distHisto[F[_]](implicit F: Functor[F]): Coseq[F, Cofree[F, ?]] = ???
 //    new Coseq[F, Cofree[F, ?]] {
 //      override def apply[A](f: F[Cofree[F, A]]): Cofree[F, F[A]] =
