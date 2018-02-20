@@ -65,8 +65,8 @@ object dsl {
     def <=(b: Expr[Double]): Expr[Boolean]  = Computation(double.LEQ, a, b)
     def >=(b: Expr[Double]): Expr[Boolean]  = b <= a
     def ===(b: Expr[Double]): Expr[Boolean] = a <= b && b <= a
-    def *(b: Expr[Double]): Expr[Double] = Computation(double.Mul, a, b)
-    def +(b: Expr[Double]): Expr[Double] = Computation(double.Add, a, b)
+    def *(b: Expr[Double]): Expr[Double]    = Computation(double.Mul, a, b)
+    def +(b: Expr[Double]): Expr[Double]    = Computation(double.Add, a, b)
   }
 
   implicit class BooleanOps(a: Expr[Boolean]) {

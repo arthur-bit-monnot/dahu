@@ -1,26 +1,30 @@
 package dahu.recursion
 
-import cats.{Functor, Monad, Traverse, ~>}
+import cats.{~>, Functor, Monad, Traverse}
 
 object Recursion {
 
   def cata[F[_], A](alg: FAlgebra[F, A])(f: Fix[F])(implicit F: Functor[F]): A =
     RecursionFn.cata(alg).apply(f)
 
-  def cataM[M[_], F[_], A](alg: FAlgebraM[M, F, A])(f: Fix[F])(implicit M: Monad[M], F: Traverse[F]): M[A] =
+  def cataM[M[_], F[_], A](alg: FAlgebraM[M, F, A])(f: Fix[F])(implicit M: Monad[M],
+                                                               F: Traverse[F]): M[A] =
     RecursionFn.cataM(alg).apply(f)
 
   def ana[F[_], A](coalg: FCoalgebra[F, A])(a: A)(implicit F: Functor[F]): Fix[F] =
     RecursionFn.ana(coalg).apply(a)
 
-  def anaM[M[_], F[_], A](coalg: FCoalgebraM[M, F, A])(a: A)(implicit M: Monad[M], F: Traverse[F]): M[Fix[F]] =
+  def anaM[M[_], F[_], A](coalg: FCoalgebraM[M, F, A])(a: A)(implicit M: Monad[M],
+                                                             F: Traverse[F]): M[Fix[F]] =
     RecursionFn.anaM(coalg).apply(a)
 
   /** ana with immediate cata */
-  def hylo[F[_], A, B](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(a: A)(implicit F: Functor[F]): B =
+  def hylo[F[_], A, B](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(a: A)(
+      implicit F: Functor[F]): B =
     RecursionFn.hylo(coalg, alg).apply(a)
 
-  def hyloM[M[_], F[_], A, B](coalg: FCoalgebraM[M, F, A], alg: FAlgebraM[M, F, B])(a: A)(implicit M: Monad[M], F: Traverse[F]): M[B] =
+  def hyloM[M[_], F[_], A, B](coalg: FCoalgebraM[M, F, A], alg: FAlgebraM[M, F, B])(
+      a: A)(implicit M: Monad[M], F: Traverse[F]): M[B] =
     RecursionFn.hyloM(coalg, alg).apply(a)
 
   /** cata that transforms children before folding.
@@ -38,11 +42,13 @@ object Recursion {
     RecursionFn.postpro(coalg, pro).apply(a)
 
   /** hylo that can short-circuit on construction */
-  def elgot[F[_], A, B](elcoalg: A => B Either F[A], alg: FAlgebra[F, B])(a: A)(implicit F: Functor[F]): B =
+  def elgot[F[_], A, B](elcoalg: A => B Either F[A], alg: FAlgebra[F, B])(a: A)(
+      implicit F: Functor[F]): B =
     RecursionFn.elgot(elcoalg, alg).apply(a)
 
   /** hylo that can short-circuit on reduction */
-  def coelgot[F[_], A, B](coalg: FCoalgebra[F, A], elalg: (A, () => F[B]) => B)(a: A)(implicit F: Functor[F]): B =
+  def coelgot[F[_], A, B](coalg: FCoalgebra[F, A], elalg: (A, () => F[B]) => B)(a: A)(
+      implicit F: Functor[F]): B =
     RecursionFn.coelgot(coalg, elalg).apply(a)
 
   /** cata that has access to current subtree (Fix[F]) as well as that subtree's folded result (A) */
@@ -62,7 +68,8 @@ object Recursion {
     RecursionFn.futu(coalg).apply(a)
 
   /** hylo of futu into histo */
-  def chrono[F[_], A, B](coalg: CVCoalgebra[F, A], alg: CVAlgebra[F, B])(a: A)(implicit F: Functor[F]): B =
+  def chrono[F[_], A, B](coalg: CVCoalgebra[F, A], alg: CVAlgebra[F, B])(a: A)(
+      implicit F: Functor[F]): B =
     RecursionFn.chrono(coalg, alg).apply(a)
 
 }

@@ -10,13 +10,13 @@ package object recursion {
   val Fix: FixModule = FixImpl
   type Fix[F[_]] = Fix.Fix[F]
 
-  type FAlgebra[F[_], A] = F[A] => A
+  type FAlgebra[F[_], A]   = F[A] => A
   type FCoalgebra[F[_], A] = A => F[A]
 
-  type FAlgebraM[M[_], F[_], A] = F[A] => M[A]
+  type FAlgebraM[M[_], F[_], A]   = F[A] => M[A]
   type FCoalgebraM[M[_], F[_], A] = A => M[F[A]]
 
-  type RAlgebra[F[_], A] = F[(Fix[F], A)] => A
+  type RAlgebra[F[_], A]   = F[(Fix[F], A)] => A
   type RCoalgebra[F[_], A] = A => F[Either[Fix[F], A]]
 
   /** Course-of-values algebra */
@@ -44,11 +44,12 @@ package object recursion {
     implicit def envTFunctor[Z, F[_]](implicit F: Functor[F]): Functor[EnvT[Z, F, ?]] =
       new Functor[EnvT[Z, F, ?]] {
         override def map[A, B](fa: EnvT[Z, F, A])(f: A => B): EnvT[Z, F, B] =
-        EnvT(fa.ask, F.map(fa.lower)(f))
+          EnvT(fa.ask, F.map(fa.lower)(f))
       }
     implicit def envTTraverse[Z, F[_]](implicit F: Traverse[F]): Traverse[EnvT[Z, F, ?]] =
       new Traverse[EnvT[Z, F, ?]] {
-        def traverse[G[_], A, B](fa: EnvT[Z, F, A])(f: A => G[B])(implicit G: Applicative[G]): G[EnvT[Z, F, B]] =
+        def traverse[G[_], A, B](fa: EnvT[Z, F, A])(f: A => G[B])(
+            implicit G: Applicative[G]): G[EnvT[Z, F, B]] =
           G.map(F.traverse(fa.lower)(f))(EnvT(fa.ask, _))
 
         def foldLeft[A, B](fa: EnvT[Z, F, A], b: B)(f: (B, A) => B): B =

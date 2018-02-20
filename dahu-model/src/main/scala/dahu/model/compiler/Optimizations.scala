@@ -16,7 +16,7 @@ object Optimizations {
   }
   val flatten: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
     case ComputationF(operator, args, typ) if isCollapsable(operator) =>
-      val flattenedArgs: Seq[Fix[ExprF]]= args.map(Fix.unfix).flatMap {
+      val flattenedArgs: Seq[Fix[ExprF]] = args.map(Fix.unfix).flatMap {
         case ComputationF(operator2, subargs, _) if operator2 == operator =>
           subargs
         case x: ExprF[Fix[ExprF]] => List(Fix(x))
@@ -26,7 +26,7 @@ object Optimizations {
   }
   val constantElimination: ExprF[Fix[ExprF]] => ExprF[Fix[ExprF]] = {
     case ComputationF(bool.Not, Seq(CstF(true, t)), typ) =>
-       CstF(Value(false), t)
+      CstF(Value(false), t)
     case ComputationF(bool.Not, Seq(CstF(false, t)), typ) =>
       CstF(Value(true), t)
 
@@ -60,11 +60,11 @@ object Optimizations {
 
   def isTrue(f: Fix[ExprF]): Boolean = f match {
     case CstF(true, _) => true
-    case _                  => false
+    case _             => false
   }
   def isFalse(f: Fix[ExprF]): Boolean = f match {
     case CstF(false, _) => true
-    case _                   => false
+    case _              => false
   }
 
 }

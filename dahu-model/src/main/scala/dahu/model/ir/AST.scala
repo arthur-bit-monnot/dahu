@@ -17,13 +17,12 @@ trait AST[T] {
       .collect { case x: InputF[ID] => x }
       .castKey[VID]
 
-
   def fromInput: T => Option[ID]
 }
 
 class ASTImpl[K <: SubInt, T](override val tree: ArrayIntFunc.Aux[K, ExprF[K]],
-                    override val root: K,
-                    override val fromInput: T => Option[K])
+                              override val root: K,
+                              override val fromInput: T => Option[K])
     extends AST[T] {
   override type ID = K
 }

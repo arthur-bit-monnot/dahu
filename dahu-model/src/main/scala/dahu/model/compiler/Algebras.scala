@@ -38,7 +38,7 @@ object Algebras {
     import scala.collection.mutable
 
     // algebra that deduplicates the entries, the tree into a directed acyclic graph
-    val store = mutable.LinkedHashMap[ExprF[Int], Int]()
+    val store    = mutable.LinkedHashMap[ExprF[Int], Int]()
     val astStore = mutable.LinkedHashMap[Int, mutable.ArrayBuffer[T]]()
     val alg: FAlgebra[EnvT[T, ExprF, ?], Int] = {
       case EnvT(x, e) =>
@@ -54,15 +54,15 @@ object Algebras {
     // this is mainly used to force traversal and populate the hash maps
     val rootExprID: Int = hylo(coalgebra.toAttributeCoalgebra, alg)(t)
 
-    val reverseAstStore = astStore.flatMap(kp => kp._2.map((_, kp._1))).toMap
-    val reverseStore = store.map(_.swap).toMap
+    val reverseAstStore           = astStore.flatMap(kp => kp._2.map((_, kp._1))).toMap
+    val reverseStore              = store.map(_.swap).toMap
     val forward: T => Option[Int] = x => reverseAstStore.get(x)
-    val expr: Int => ExprF[Int] = reverseStore(_)
+    val expr: Int => ExprF[Int]   = reverseStore(_)
 
-    val tree: ArrayIntFunc[ExprF[Int]] = ArrayIntFunc.build(store.values, expr)
+    val tree: ArrayIntFunc[ExprF[Int]]                  = ArrayIntFunc.build(store.values, expr)
     val casted: ArrayIntFunc.Aux[tree.K, ExprF[tree.K]] = tree.map(_.asInstanceOf[ExprF[tree.K]])
     assert(casted.isInDomain(rootExprID))
-    val root = rootExprID.asInstanceOf[tree.K]
+    val root      = rootExprID.asInstanceOf[tree.K]
     val fromInput = forward.asInstanceOf[T => Option[tree.K]]
     new ASTImpl(casted, root, fromInput)
   }

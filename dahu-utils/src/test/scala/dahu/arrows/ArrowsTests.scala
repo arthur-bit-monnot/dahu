@@ -4,14 +4,22 @@ import dahu.utils.debug._
 import utest._
 
 object ArrowsTests extends TestSuite {
+  /** Alias to the regular scala assert since the utest macro seems to create typing problems in some cases. */
   def sassert(x: Boolean) = scala.Predef.assert(x)
+
+  implicit class CompileErrorOps(val x: CompileError) extends AnyVal {
+    def isTypeError: Unit = x match {
+      case CompileError.Type(_, _) => ()
+      case _ => assert(false)
+    }
+  }
 
   def tests = Tests {
     "arrows" - {
 
       "dependent-types" - {
         val builder = new IntFuncBuilder[Boolean]
-        for (i <- 0 until 10) {
+        for(i <- 0 until 10) {
           builder += (i, i % 2 == 0)
         }
         val isOdd: ArrayIntFunc[Boolean] =
@@ -27,11 +35,11 @@ object ArrowsTests extends TestSuite {
         val isEven = isOdd.map(!_)
 
         implicitly[isOdd.K =:= isEven.K]
-        val typeTest2: debox.Set[isOdd.K] = isEven.domain
+        val typeTest2: debox.Set[isOdd.K]  = isEven.domain
         val typeTest3: debox.Set[isEven.K] = isEven.domain
 
-        for (i <- isOdd.domain) {
-          if (i % 2 == 0) {
+        for(i <- isOdd.domain) {
+          if(i % 2 == 0) {
             sassert(isOdd(i) && !isEven(i))
           } else {
             sassert(!isOdd(i) && isEven(i))
@@ -43,10 +51,9 @@ object ArrowsTests extends TestSuite {
         assert(isEven.get(10) == None)
       }
 
-
       "builder" - {
         val builder = new IntFuncBuilder[Boolean]
-        for (i <- 0 until 10) {
+        for(i <- 0 until 10) {
           builder += (i, i % 2 == 0)
         }
         val isOddFromBuilder = builder.toImmutableArray
@@ -64,7 +71,7 @@ object ArrowsTests extends TestSuite {
       "subtyping" - {
         val isOdd = ArrayIntFunc.build(0 until 10, _ % 2 == 0)
 
-        val odds = isOdd.filter(identity)
+        val odds  = isOdd.filter(identity)
         val evens = isOdd.filter(!_)
 
         sassert(odds.domain.forall(_ % 2 == 0))
@@ -79,13 +86,13 @@ object ArrowsTests extends TestSuite {
         compileError("implicitly[odds.Key <:< evens.Key]")
         compileError("implicitly[evens.Key <:< odds.Key]")
 
-        for (i <- odds.domain) {
+        for(i <- odds.domain) {
           sassert(odds(i))
           sassert(isOdd(i)) // compiler checks that odds.K <: isOdd.K
-          compileError("evens(i)")
+          compileError("evens(i)").isTypeError
         }
         val x: evens.K = evens.domain.toIterable().head
-        compileError("val y: odds.Key = evens.domain.toIterable().head")
+        compileError("val y: odds.Key = evens.domain.toIterable().head").isTypeError
         ()
       }
     }

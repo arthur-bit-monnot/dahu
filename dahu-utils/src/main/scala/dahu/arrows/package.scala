@@ -27,12 +27,12 @@ package object arrows {
 //
 //  implicit def order[T]: Order[KI[T]] = intAlgebra.asInstanceOf[Order[KI[T]]]
 
-  trait IntSubset { self: Int => }
+  trait IntSubset { self: Int =>
+  }
   type SubInt  = Int with IntSubset
   type SInt[T] = SubInt with T
 
   type SubSubInt[X <: SubInt, AdditionalTag] = X with AdditionalTag
-
 
   implicit def classTagIS[T <: SubInt]: ClassTag[T] = tagged(intClassTag)
   implicit def orderingIS[T <: SubInt]: Ordering[T] = tagged(implicitly[Ordering[Int]])

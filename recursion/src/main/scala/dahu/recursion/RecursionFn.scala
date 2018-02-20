@@ -1,6 +1,6 @@
 package dahu.recursion
 
-import cats.{Comonad, Eval, Functor, Monad, Traverse, ~>}
+import cats.{~>, Comonad, Eval, Functor, Monad, Traverse}
 import cats.free.{Cofree, Free}
 
 object RecursionFn {
@@ -11,7 +11,8 @@ object RecursionFn {
     self
   }
 
-  def cataM[M[_], F[_], A](alg: FAlgebraM[M, F, A])(implicit M: Monad[M], F: Traverse[F]): Fix[F] => M[A] = {
+  def cataM[M[_], F[_], A](alg: FAlgebraM[M, F, A])(implicit M: Monad[M],
+                                                    F: Traverse[F]): Fix[F] => M[A] = {
     var self: Fix[F] => M[A] = null
     self = f => M.flatMap(F.traverse(f.unfix)(self))(alg)
     self
@@ -23,20 +24,24 @@ object RecursionFn {
     self
   }
 
-  def anaM[M[_], F[_], A](coalg: FCoalgebraM[M, F, A])(implicit M: Monad[M], F: Traverse[F]): A => M[Fix[F]] = {
+  def anaM[M[_], F[_], A](coalg: FCoalgebraM[M, F, A])(implicit M: Monad[M],
+                                                       F: Traverse[F]): A => M[Fix[F]] = {
     var self: A => M[Fix[F]] = null
     self = a => M.flatMap(coalg(a))(fa => M.map(F.traverse(fa)(self))(Fix.apply[F]))
     self
   }
 
   /** ana with immediate cata */
-  def hylo[F[_], A, B](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(implicit F: Functor[F]): A => B = {
+  def hylo[F[_], A, B](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(
+      implicit F: Functor[F]): A => B = {
     var self: A => B = null
     self = a => alg(F.map(coalg(a))(self))
     self
   }
 
-  def hyloM[M[_], F[_], A, B](coalg: FCoalgebraM[M, F, A], alg: FAlgebraM[M, F, B])(implicit M: Monad[M], F: Traverse[F]): A => M[B] = {
+  def hyloM[M[_], F[_], A, B](coalg: FCoalgebraM[M, F, A], alg: FAlgebraM[M, F, B])(
+      implicit M: Monad[M],
+      F: Traverse[F]): A => M[B] = {
     var self: A => M[B] = null
     self = a => M.flatMap(coalg(a))(fa => M.flatMap(F.traverse(fa)(self))(alg))
     self
@@ -47,11 +52,11 @@ object RecursionFn {
     * Outside to inside.
     */
   def prepro[F[_], A](pre: F ~> F, alg: FAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
-    var self : Fix[F] => A        = null
-    val algF : FAlgebra[F, Fix[F]] = f => Fix[F](pre(f))
+    var self: Fix[F] => A         = null
+    val algF: FAlgebra[F, Fix[F]] = f => Fix[F](pre(f))
     val cataF: Fix[F] => Fix[F]   = cata(algF)
     val inner: Fix[F] => A        = f => self(cataF(f))
-    self                          = f => alg(F.map(f.unfix)(inner))
+    self = f => alg(F.map(f.unfix)(inner))
     /*
     // Inspection
     var space = ""
@@ -66,7 +71,7 @@ object RecursionFn {
       println(s"${space} A = $step3")
       step3
     }
-    */
+     */
     self
   }
 
@@ -74,10 +79,11 @@ object RecursionFn {
     * Top-most structure (i.e. the end result) is not transformed.
     * Inside to outside.
     */
-  def postpro[F[_], A](coalg: FCoalgebra[F, A], pro: F ~> F)(implicit F: Functor[F]): A => Fix[F] = {
-    var self : A => Fix[F]          = null
-    val algF : FCoalgebra[F, Fix[F]] = f => pro(f.unfix)
-    val anaF : Fix[F] => Fix[F]     = ana(algF)
+  def postpro[F[_], A](coalg: FCoalgebra[F, A], pro: F ~> F)(
+      implicit F: Functor[F]): A => Fix[F] = {
+    var self: A => Fix[F]           = null
+    val algF: FCoalgebra[F, Fix[F]] = f => pro(f.unfix)
+    val anaF: Fix[F] => Fix[F]      = ana(algF)
     val inner: A => Fix[F]          = a => anaF(self(a))
     self = a => Fix[F](F.map(coalg(a))(inner))
     /*
@@ -93,22 +99,25 @@ object RecursionFn {
       println(s"${space}F  = ${step2.toString.replace("ConsF(", "").replace(")", "")}")
       step2
     }
-    */
+     */
     self
   }
 
   /** hylo that can short-circuit on construction */
-  def elgot[F[_], A, B](elcoalg: A => B Either F[A], alg: FAlgebra[F, B])(implicit F: Functor[F]): A => B = {
+  def elgot[F[_], A, B](elcoalg: A => B Either F[A], alg: FAlgebra[F, B])(
+      implicit F: Functor[F]): A => B = {
     var self: A => B = null
-    self = a => elcoalg(a) match {
-      case Right(fa) => alg(F.map(fa)(self))
-      case Left(b)   => b
+    self = a =>
+      elcoalg(a) match {
+        case Right(fa) => alg(F.map(fa)(self))
+        case Left(b)   => b
     }
     self
   }
 
   /** hylo that can short-circuit on reduction */
-  def coelgot[F[_], A, B](coalg: FCoalgebra[F, A], elalg: (A, () => F[B]) => B)(implicit F: Functor[F]): A => B = {
+  def coelgot[F[_], A, B](coalg: FCoalgebra[F, A], elalg: (A, () => F[B]) => B)(
+      implicit F: Functor[F]): A => B = {
     var self: A => B = null
     self = a => elalg(a, () => F.map(coalg(a))(self))
     self
@@ -116,7 +125,7 @@ object RecursionFn {
 
   /** cata that has access to current subtree (Fix[F]) as well as that subtree's folded result (A) */
   def para[F[_], A](alg: RAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
-    var self: Fix[F] => A = null
+    var self: Fix[F] => A             = null
     val fanout: Fix[F] => (Fix[F], A) = x => (x, self(x))
     self = f => alg(F.map(f.unfix)(fanout))
     self
@@ -126,7 +135,7 @@ object RecursionFn {
   def apo[F[_], A](coalg: RCoalgebra[F, A])(implicit F: Functor[F]): A => Fix[F] = {
     var self: A => Fix[F] = null
     val fanin: Either[Fix[F], A] => Fix[F] = {
-      case Left(f) => f
+      case Left(f)  => f
       case Right(a) => self(a)
     }
     self = a => Fix[F](F.map(coalg(a))(fanin))
@@ -135,11 +144,11 @@ object RecursionFn {
 
   /** cata that retains values of all previous (i.e. child) steps */
   def histo[F[_], A](alg: CVAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
-    var self: Fix[F] => A               = null
-    var step: Fix[F] => Cofree[F, A]    = null
-    val x   : Fix[F] => F[Cofree[F, A]] = f => F.map(f.unfix)(step)
-    self                                = f => alg(x(f))
-    step                                = f => Cofree(self(f), Eval.now(x(f)))
+    var self: Fix[F] => A            = null
+    var step: Fix[F] => Cofree[F, A] = null
+    val x: Fix[F] => F[Cofree[F, A]] = f => F.map(f.unfix)(step)
+    self = f => alg(x(f))
+    step = f => Cofree(self(f), Eval.now(x(f)))
     // TODO Add variant?
     // val m = collection.mutable.HashMap.empty[Fix[F], Cofree[F, A]]
     // step = f => m.getOrElseUpdate(f, Cofree(self(f), x(f)))
@@ -148,7 +157,7 @@ object RecursionFn {
 
   /** ana that can build multiple levels in a single pass */
   def futu[F[_], A](coalg: CVCoalgebra[F, A])(implicit F: Functor[F]): A => Fix[F] = {
-    var self: A => Fix[F] = null
+    var self: A => Fix[F]          = null
     var step: Free[F, A] => Fix[F] = null
     self = a => Fix[F](F.map(coalg(a))(step))
     step = _.fold(self, f => Fix(F.map(f)(step)))
@@ -156,7 +165,8 @@ object RecursionFn {
   }
 
   /** hylo of futu into histo */
-  def chrono[F[_], A, B](coalg: CVCoalgebra[F, A], alg: CVAlgebra[F, B])(implicit F: Functor[F]): A => B =
+  def chrono[F[_], A, B](coalg: CVCoalgebra[F, A], alg: CVAlgebra[F, B])(
+      implicit F: Functor[F]): A => B =
     // histo(alg)(futu(coalg)(a)) // Naive
     ghylo[Cofree[F, ?], F, Free[F, ?], A, B](distHisto[F], distFutu[F], alg, coalg)
 
@@ -165,41 +175,38 @@ object RecursionFn {
   private def ghylo[W[_], F[_], M[_], A, B](w: Coseq[F, W],
                                             m: Coseq[M, F],
                                             f: F[W[B]] => B,
-                                            g: A => F[M[A]]
-                                           )(implicit
-                                             W: Comonad[W],
-                                             F: Functor[F],
-                                             M: Monad[M]): A => B = {
+                                            g: A => F[M[A]])(implicit
+                                                             W: Comonad[W],
+                                                             F: Functor[F],
+                                                             M: Monad[M]): A => B = {
     val liftG: M[A] => M[F[M[A]]] = M.lift(g)
-    var h: M[A] => W[B] = null
+    var h: M[A] => W[B]           = null
     h = ma => {
       val fmma: F[M[M[A]]] = m(liftG(ma))
       val fwwb: F[W[W[B]]] = F.map(fmma)(mma => W.coflatten(h(M.flatten(mma))))
       W.map(w(fwwb))(f)
     }
-    a => W.extract(h(M.point(a)))
+    a =>
+      W.extract(h(M.point(a)))
   }
 
   /** Generalization of Cofree.unfold */
   private def unfold2[F[_], A, B](b: B)(f: B => (A, F[B]))(implicit F: Functor[F]): Cofree[F, A] = {
     val (a, fb) = f(b)
-    val tail = Eval.later { F.map(fb)(b => unfold2(b)(f)) }
+    val tail    = Eval.later { F.map(fb)(b => unfold2(b)(f)) }
     Cofree[F, A](a, tail)
   }
 
   private def distHisto[F[_]](implicit F: Functor[F]): Coseq[F, Cofree[F, ?]] =
     new Coseq[F, Cofree[F, ?]] {
       override def apply[A](f: F[Cofree[F, A]]): Cofree[F, F[A]] =
-        unfold2[F, F[A], F[Cofree[F, A]]](f)(as =>
-          (F.map(as)(_.head), F.map(as)(_.tail.value)))
+        unfold2[F, F[A], F[Cofree[F, A]]](f)(as => (F.map(as)(_.head), F.map(as)(_.tail.value)))
     }
 
   private def distFutu[F[_]](implicit F: Functor[F]): Coseq[Free[F, ?], F] =
     new Coseq[Free[F, ?], F] {
       override def apply[A](f: Free[F, F[A]]): F[Free[F, A]] =
-        f.fold(
-          F.map(_)(Free.pure),
-          F.map(_)(as => Free.roll(apply(as))))
+        f.fold(F.map(_)(Free.pure), F.map(_)(as => Free.roll(apply(as))))
     }
 
 }

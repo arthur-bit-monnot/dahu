@@ -26,7 +26,8 @@ object Interpreter {
     val input: InputF[_] => Value = {
       val map: Map[InputF[_], Value] =
         ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
-      x => map(x)
+      x =>
+        map(x)
     }
     val alg: Algebra[ExprF, Value] = {
       case x: InputF[_]             => input(x)
