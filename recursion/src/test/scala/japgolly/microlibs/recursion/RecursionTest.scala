@@ -9,7 +9,7 @@ object RecursionTest extends TestSuite {
 
   val eg1: FM = add(2, add(3, 11))
 
-  override def tests = TestSuite {
+  override def tests = Tests {
 
     'cata {
       val r = Recursion.cata(MathExpr.eval)(eg1)
