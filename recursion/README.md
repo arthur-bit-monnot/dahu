@@ -1,3 +1,6 @@
+This is a port of [japgolly's recursion scheme library](https://github.com/japgolly/microlibs-scala/tree/master/recursion) to cats.
+It is currently limited to changing the scalaz constructs to their cats equivalent.
+
 # Recursion Scheme Cheatsheet
 
 ## Basic
