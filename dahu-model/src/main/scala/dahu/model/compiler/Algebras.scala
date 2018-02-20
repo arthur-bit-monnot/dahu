@@ -108,7 +108,9 @@ object Algebras {
     (head, code)
   }
 
-  def transpile[T](t: T, coalgebra: Coalgebra[ExprF, T]): AST[T] = {
+  def parse[T](e: Expr[T]): AST[Expr[_]] =
+    parse(e, coalgebra)
+  def parse[T](t: T, coalgebra: Coalgebra[ExprF, T]): AST[T] = {
 
     import scala.collection.mutable
     val store = mutable.LinkedHashMap[ExprF[Int], Int]()

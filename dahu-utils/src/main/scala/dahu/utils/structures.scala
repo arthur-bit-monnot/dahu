@@ -3,10 +3,12 @@ package dahu.utils
 import algebra.Order
 import spire.syntax.cfor._
 
+import scala.reflect.ClassTag
+
 object structures {
 
   /** todo: check if we need to specialized this, e.g. requiring `A <: Int` to avoid boxing. */
-  implicit class BufferOps[A](val buff: debox.Buffer[A]) extends AnyVal {
+  implicit final class BufferOps[A](val buff: debox.Buffer[A]) extends AnyVal {
 
     def indices: Range = 0 until buff.length
 
@@ -26,6 +28,14 @@ object structures {
       }
       buff.sort(orderA)
       buff
+    }
+  }
+
+  implicit final class SetOps[A](val set: debox.Set[A]) extends AnyVal {
+
+    def cast[B](implicit ctA: ClassTag[A], ctB: ClassTag[B]): debox.Set[B] = {
+      assert(ctA == ctB)
+      set.asInstanceOf[debox.Set[B]]
     }
   }
 
