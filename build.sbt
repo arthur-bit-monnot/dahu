@@ -45,9 +45,10 @@ lazy val commonSettings = Seq(
   )
 )
 
-lazy val root = project.in(file(".")).
-  aggregate(utils, model, solvers).
-  settings(
+lazy val root = project.in(file("."))
+  .aggregate(recursion)
+//  .aggregate(utils, model, solvers)
+  .settings(
     publish := {},
     publishLocal := {}
   )
@@ -59,6 +60,16 @@ lazy val utils = project
     "org.spire-math" %% "debox" % "0.8.0",
     "org.typelevel" %% "spire"           % "0.14.1",
   ))
+
+lazy val recursion = project
+  .in(file("recursion"))
+  .settings(name := "recursion")
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+     "org.scalaz" %% "scalaz-core" % "7.2.17",
+    "com.lihaoyi" %% "utest" % "0.5.4" % "test"
+  ))
+  .settings(testFrameworks += new TestFramework("utest.runner.Framework"))
 
 lazy val model = project
   .in(file("dahu-model"))
