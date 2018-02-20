@@ -1,9 +1,9 @@
 package dahu.ast
 
 import cats.Functor
-import dahu.arrows._
-import dahu.arrows.memoization.Cache
-import dahu.arrows.recursion.Algebra
+import dahu.maps._
+import dahu.maps.memoization.Cache
+import dahu.maps.recursion.Algebra
 import dahu.recursion._
 import spire.ClassTag
 

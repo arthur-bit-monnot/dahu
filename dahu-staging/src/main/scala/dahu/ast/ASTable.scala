@@ -1,7 +1,7 @@
 package dahu.ast
 
-import dahu.arrows.recursion.Algebra
-import dahu.arrows.{==>, recursion, OpaqueIntSubset}
+import dahu.maps.recursion.Algebra
+import dahu.maps.{==>, recursion, OpaqueIntSubset}
 import dahu.recursion.{ExprF, InputF}
 import dahu.recursion.Types._
 

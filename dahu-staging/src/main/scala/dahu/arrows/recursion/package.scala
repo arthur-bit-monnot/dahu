@@ -1,7 +1,7 @@
-package dahu.arrows
+package dahu.maps
 
 import cats.Functor
-import dahu.arrows.memoization.Cache
+import dahu.maps.memoization.Cache
 
 package object recursion {
 

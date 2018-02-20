@@ -1,4 +1,4 @@
-package dahu.arrows
+package dahu.maps
 
 trait Arrow[-Domain, +CoDomain] {
 

@@ -2,7 +2,7 @@ package dahu.model.interpreter
 
 import cats.Functor
 import cats.implicits._
-import dahu.arrows.{ArrayIntFunc, IntFunc}
+import dahu.maps.{ArrayMap, IMap}
 import dahu.model.ir._
 import dahu.model.types.Value
 import dahu.model.compiler.Algebras._

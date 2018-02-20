@@ -1,6 +1,6 @@
-package dahu.arrows
+package dahu.maps
 
-import dahu.arrows.memoization.{ArrayCache, Cache}
+import dahu.maps.memoization.{ArrayCache, Cache}
 
 import scala.reflect.ClassTag
 

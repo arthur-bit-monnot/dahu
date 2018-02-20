@@ -1,29 +1,29 @@
-package dahu.arrows
+package dahu.maps
 
-import dahu.utils.debug._
 import utest._
 
-object ArrowsTests extends TestSuite {
+object IMapTests extends TestSuite {
+
   /** Alias to the regular scala assert since the utest macro seems to create typing problems in some cases. */
   def sassert(x: Boolean) = scala.Predef.assert(x)
 
   implicit class CompileErrorOps(val x: CompileError) extends AnyVal {
     def isTypeError: Unit = x match {
       case CompileError.Type(_, _) => ()
-      case _ => assert(false)
+      case _                       => assert(false)
     }
   }
 
   def tests = Tests {
-    "arrows" - {
+    "imaps" - {
 
       "dependent-types" - {
-        val builder = new IntFuncBuilder[Boolean]
+        val builder = new IMapBuilder[Boolean]
         for(i <- 0 until 10) {
           builder += (i, i % 2 == 0)
         }
-        val isOdd: ArrayIntFunc[Boolean] =
-          ArrayIntFunc.build(0 until 10, _ % 2 == 0)
+        val isOdd: ArrayMap[Boolean] =
+          ArrayMap.build(0 until 10, _ % 2 == 0)
 
         assert(isOdd.domain.size == 10)
         assert((0 until 10).forall(isOdd.isInDomain))
@@ -52,14 +52,14 @@ object ArrowsTests extends TestSuite {
       }
 
       "builder" - {
-        val builder = new IntFuncBuilder[Boolean]
+        val builder = new IMapBuilder[Boolean]
         for(i <- 0 until 10) {
           builder += (i, i % 2 == 0)
         }
         val isOddFromBuilder = builder.toImmutableArray
 
-        val isOdd: ArrayIntFunc[Boolean] =
-          ArrayIntFunc.build(0 until 10, _ % 2 == 0)
+        val isOdd: ArrayMap[Boolean] =
+          ArrayMap.build(0 until 10, _ % 2 == 0)
 
         assert(isOdd.hashCode() == isOddFromBuilder.hashCode())
         assert(isOdd == isOddFromBuilder)
@@ -69,7 +69,7 @@ object ArrowsTests extends TestSuite {
       }
 
       "subtyping" - {
-        val isOdd = ArrayIntFunc.build(0 until 10, _ % 2 == 0)
+        val isOdd = ArrayMap.build(0 until 10, _ % 2 == 0)
 
         val odds  = isOdd.filter(identity)
         val evens = isOdd.filter(!_)
@@ -93,7 +93,6 @@ object ArrowsTests extends TestSuite {
         }
         val x: evens.K = evens.domain.toIterable().head
         compileError("val y: odds.Key = evens.domain.toIterable().head").isTypeError
-        ()
       }
     }
   }

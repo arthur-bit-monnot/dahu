@@ -1,6 +1,6 @@
 package dahu.model.compiler
 
-import dahu.arrows.ArrayIntFunc
+import dahu.maps.ArrayMap
 import dahu.model.input._
 import dahu.model.ir._
 
@@ -59,8 +59,8 @@ object Algebras {
     val forward: T => Option[Int] = x => reverseAstStore.get(x)
     val expr: Int => ExprF[Int]   = reverseStore(_)
 
-    val tree: ArrayIntFunc[ExprF[Int]]                  = ArrayIntFunc.build(store.values, expr)
-    val casted: ArrayIntFunc.Aux[tree.K, ExprF[tree.K]] = tree.map(_.asInstanceOf[ExprF[tree.K]])
+    val tree: ArrayMap[ExprF[Int]]                  = ArrayMap.build(store.values, expr)
+    val casted: ArrayMap.Aux[tree.K, ExprF[tree.K]] = tree.map(_.asInstanceOf[ExprF[tree.K]])
     assert(casted.isInDomain(rootExprID))
     val root      = rootExprID.asInstanceOf[tree.K]
     val fromInput = forward.asInstanceOf[T => Option[tree.K]]

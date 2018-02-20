@@ -1,6 +1,6 @@
 package dahu.model.input
 
-import dahu.arrows.ArrayIntFunc
+import dahu.maps.ArrayMap
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.ir.InputF

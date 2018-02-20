@@ -3,7 +3,7 @@ package dahu.constraints
 import java.util
 
 import algebra.Order
-import dahu.arrows.recursion.Coalgebra
+import dahu.maps.recursion.Coalgebra
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
 import dahu.recursion._

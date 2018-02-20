@@ -1,4 +1,4 @@
-package dahu.arrows
+package dahu.maps
 
 import scala.collection.mutable
 

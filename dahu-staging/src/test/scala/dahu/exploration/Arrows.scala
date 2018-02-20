@@ -1,7 +1,7 @@
 package dahu.exploration
 
-import dahu.arrows.recursion.Algebra
-import dahu.arrows.{==>, Arrow, MutableInputs}
+import dahu.maps.recursion.Algebra
+import dahu.maps.{==>, Arrow, MutableInputs}
 import dahu.ast.ASTable
 import dahu.expr.BagPacking
 import dahu.ast.Ops._

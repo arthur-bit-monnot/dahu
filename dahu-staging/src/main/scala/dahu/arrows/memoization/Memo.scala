@@ -1,6 +1,6 @@
-package dahu.arrows.memoization
+package dahu.maps.memoization
 
-import dahu.arrows.{==>, OpaqueIntSubset, TypeInstances}
+import dahu.maps.{==>, OpaqueIntSubset, TypeInstances}
 
 import scala.reflect.ClassTag
 

@@ -1,6 +1,6 @@
 package dahu.model.ir
 
-import dahu.arrows.{ArrayIntFunc, SubInt, SubSubInt}
+import dahu.maps.{ArrayMap, SubInt, SubSubInt}
 
 trait AST[T] {
 
@@ -10,9 +10,9 @@ trait AST[T] {
   type VID = SubSubInt[ID, VariableTag]
 
   def root: ID
-  def tree: ArrayIntFunc.Aux[ID, Expr]
+  def tree: ArrayMap.Aux[ID, Expr]
 
-  lazy val variables: ArrayIntFunc.Aux[VID, InputF[ID]] =
+  lazy val variables: ArrayMap.Aux[VID, InputF[ID]] =
     tree
       .collect { case x: InputF[ID] => x }
       .castKey[VID]
@@ -20,7 +20,7 @@ trait AST[T] {
   def fromInput: T => Option[ID]
 }
 
-class ASTImpl[K <: SubInt, T](override val tree: ArrayIntFunc.Aux[K, ExprF[K]],
+class ASTImpl[K <: SubInt, T](override val tree: ArrayMap.Aux[K, ExprF[K]],
                               override val root: K,
                               override val fromInput: T => Option[K])
     extends AST[T] {
