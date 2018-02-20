@@ -1,6 +1,7 @@
 package japgolly.microlibs.recursion
 
-import scalaz.{Cofree, Comonad, Free, Functor, Monad, Traverse, ~>}
+import cats.{Functor, Monad, Traverse, ~>, Comonad, Eval}
+import cats.free.{Free, Cofree}
 
 object RecursionFn {
 
@@ -12,7 +13,7 @@ object RecursionFn {
 
   def cataM[M[_], F[_], A](alg: FAlgebraM[M, F, A])(implicit M: Monad[M], F: Traverse[F]): Fix[F] => M[A] = {
     var self: Fix[F] => M[A] = null
-    self = f => M.bind(F.traverse(f.unfix)(self))(alg)
+    self = f => M.flatMap(F.traverse(f.unfix)(self))(alg)
     self
   }
 
@@ -24,7 +25,7 @@ object RecursionFn {
 
   def anaM[M[_], F[_], A](coalg: FCoalgebraM[M, F, A])(implicit M: Monad[M], F: Traverse[F]): A => M[Fix[F]] = {
     var self: A => M[Fix[F]] = null
-    self = a => M.bind(coalg(a))(fa => M.map(F.traverse(fa)(self))(Fix.apply[F]))
+    self = a => M.flatMap(coalg(a))(fa => M.map(F.traverse(fa)(self))(Fix.apply[F]))
     self
   }
 
@@ -37,7 +38,7 @@ object RecursionFn {
 
   def hyloM[M[_], F[_], A, B](coalg: FCoalgebraM[M, F, A], alg: FAlgebraM[M, F, B])(implicit M: Monad[M], F: Traverse[F]): A => M[B] = {
     var self: A => M[B] = null
-    self = a => M.bind(coalg(a))(fa => M.bind(F.traverse(fa)(self))(alg))
+    self = a => M.flatMap(coalg(a))(fa => M.flatMap(F.traverse(fa)(self))(alg))
     self
   }
 
@@ -138,7 +139,7 @@ object RecursionFn {
     var step: Fix[F] => Cofree[F, A]    = null
     val x   : Fix[F] => F[Cofree[F, A]] = f => F.map(f.unfix)(step)
     self                                = f => alg(x(f))
-    step                                = f => Cofree(self(f), x(f))
+    step                                = f => Cofree(self(f), Eval.now(x(f)))
     // TODO Add variant?
     // val m = collection.mutable.HashMap.empty[Fix[F], Cofree[F, A]]
     // step = f => m.getOrElseUpdate(f, Cofree(self(f), x(f)))
@@ -173,25 +174,25 @@ object RecursionFn {
     var h: M[A] => W[B] = null
     h = ma => {
       val fmma: F[M[M[A]]] = m(liftG(ma))
-      val fwwb: F[W[W[B]]] = F.map(fmma)(mma => W.cojoin(h(M.join(mma))))
+      val fwwb: F[W[W[B]]] = F.map(fmma)(mma => W.coflatten(h(M.flatten(mma))))
       W.map(w(fwwb))(f)
     }
-    a => W.copoint(h(M.point(a)))
+    a => W.extract(h(M.point(a)))
   }
 
-  private def distHisto[F[_]](implicit F: Functor[F]): Coseq[F, Cofree[F, ?]] =
-    new Coseq[F, Cofree[F, ?]] {
-      override def apply[A](f: F[Cofree[F, A]]): Cofree[F, F[A]] =
-        Cofree.unfold[F, F[A], F[Cofree[F, A]]](f)(as =>
-          (F.map(as)(_.head), F.map(as)(_.tail)))
-    }
+  private def distHisto[F[_]](implicit F: Functor[F]): Coseq[F, Cofree[F, ?]] = ???
+//    new Coseq[F, Cofree[F, ?]] {
+//      override def apply[A](f: F[Cofree[F, A]]): Cofree[F, F[A]] =
+//        Cofree.unfold[F, F[A], F[Cofree[F, A]]](f)(as =>
+//          (F.map(as)(_.head), F.map(as)(_.tail)))
+//    }
 
   private def distFutu[F[_]](implicit F: Functor[F]): Coseq[Free[F, ?], F] =
     new Coseq[Free[F, ?], F] {
       override def apply[A](f: Free[F, F[A]]): F[Free[F, A]] =
         f.fold(
           F.map(_)(Free.pure),
-          F.map(_)(as => Free(apply(as))))
+          F.map(_)(as => Free.roll(apply(as))))
     }
 
 }

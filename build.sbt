@@ -39,10 +39,10 @@ lazy val commonSettings = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
 //  addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
 
-  libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
-    "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
-  )
+//  libraryDependencies ++= Seq(
+//    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
+//    "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
+//  )
 )
 
 lazy val root = project.in(file("."))
@@ -52,42 +52,44 @@ lazy val root = project.in(file("."))
     publish := {},
     publishLocal := {}
   )
-lazy val utils = project
-  .in(file("dahu-utils"))
-  .settings(name := "dahu-utils")
-  .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    "org.spire-math" %% "debox" % "0.8.0",
-    "org.typelevel" %% "spire"           % "0.14.1",
-  ))
+//lazy val utils = project
+//  .in(file("dahu-utils"))
+//  .settings(name := "dahu-utils")
+//  .settings(commonSettings: _*)
+//  .settings(libraryDependencies ++= Seq(
+//    "org.spire-math" %% "debox" % "0.8.0",
+//    "org.typelevel" %% "spire"           % "0.14.1",
+//  ))
 
 lazy val recursion = project
   .in(file("recursion"))
   .settings(name := "recursion")
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= Seq(
-     "org.scalaz" %% "scalaz-core" % "7.2.17",
+    "org.typelevel" %% "cats-core" % "1.0.1",
+    "org.typelevel" %% "cats-free" % "1.0.1",
+//     "org.scalaz" %% "scalaz-core" % "7.2.17",
     "com.lihaoyi" %% "utest" % "0.5.4" % "test"
   ))
   .settings(testFrameworks += new TestFramework("utest.runner.Framework"))
-
-lazy val model = project
-  .in(file("dahu-model"))
-  .dependsOn(utils)
-  .settings(name := "dahu-model")
-  .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    "com.slamdata"  %% "matryoshka-core" % "0.21.3",
-    "org.typelevel" %% "cats-core"       % "0.9.0",
-    "com.chuusai"   %% "shapeless"       % "2.3.3",
-  ))
-
-
-lazy val solvers = project
-  .in(file("dahu-solvers"))
-  .dependsOn(utils, model)
-  .settings(name := "dahu-solvers")
-  .settings(commonSettings: _*)
+//
+//lazy val model = project
+//  .in(file("dahu-model"))
+//  .dependsOn(utils)
+//  .settings(name := "dahu-model")
+//  .settings(commonSettings: _*)
+//  .settings(libraryDependencies ++= Seq(
+//    "com.slamdata"  %% "matryoshka-core" % "0.21.3",
+//    "org.typelevel" %% "cats-core"       % "0.9.0",
+//    "com.chuusai"   %% "shapeless"       % "2.3.3",
+//  ))
+//
+//
+//lazy val solvers = project
+//  .in(file("dahu-solvers"))
+//  .dependsOn(utils, model)
+//  .settings(name := "dahu-solvers")
+//  .settings(commonSettings: _*)
 
 //lazy val benchmarks = project
 //  .in(file("dahu-benchmarks"))
