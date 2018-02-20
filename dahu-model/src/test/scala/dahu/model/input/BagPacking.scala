@@ -6,9 +6,9 @@ import dahu.model.interpreter.Interpreter
 import dahu.model.ir.InputF
 import dahu.model.types._
 import dahu.utils.Errors.Error
-import org.scalatest.FreeSpec
+import utest._
 
-class BagPacking extends FreeSpec {
+object BagPacking extends TestSuite {
 
   import dsl._
 
@@ -36,44 +36,44 @@ class BagPacking extends FreeSpec {
     List(true, false),
     List(true, true)
   )
+  def tests = Tests {
+    val ast = Algebras.parse(valid)
+    "all-true" - {
+      val satisfied = Interpreter.eval(ast)(_ => true)
+      assert(satisfied == false)
+    }
+    "all-false" - {
+      val satisfied = Interpreter.eval(ast)(_ => false)
+      assert(satisfied == true)
+    }
 
-  val ast = Algebras.parse(valid)
-  "all-true" in {
-    val satisfied = Interpreter.eval(ast)(_ => true)
-    assert(satisfied == false)
+    //  def evalBind(instantiations: Boolean*): Validation[Throwable, Double] = {
+    //    val binds = decisions.zip(instantiations).map {
+    //      case (variable, value) => variable.bind(value)
+    //    }
+    //    Algebras.evaluate(valid, binds).leftMap(_.head) match {
+    //      case Success(true) =>
+    //        Algebras.evaluate(utility, binds).leftMap(_.head)
+    //      case Success(false) => Failure(Error("Invalid instance"))
+    //      case Failure(x)     => Failure(x)
+    //    }
+    //  }
+
+    //  "expected utility" in {
+    //    assert(evalBind(false, false) == Success(0.0))
+    //    assert(evalBind(false, true) == Success(2.7))
+    //    assert(evalBind(true, false) == Success(2.0))
+    //    assert(evalBind(true, true) == Failure(Error("Invalid instance")))
+    //  }
+
+    "running program" - {
+      //    import dahu.interpreter._
+      //    val ast = Algebras.encode(valid)
+      //
+      //    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == Right(true))
+      //    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == Right(false))
+      //    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == Right(true))
+      //    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == Right(false))
+    }
   }
-  "all-false" in {
-    val satisfied = Interpreter.eval(ast)(_ => false)
-    assert(satisfied == true)
-  }
-
-//  def evalBind(instantiations: Boolean*): Validation[Throwable, Double] = {
-//    val binds = decisions.zip(instantiations).map {
-//      case (variable, value) => variable.bind(value)
-//    }
-//    Algebras.evaluate(valid, binds).leftMap(_.head) match {
-//      case Success(true) =>
-//        Algebras.evaluate(utility, binds).leftMap(_.head)
-//      case Success(false) => Failure(Error("Invalid instance"))
-//      case Failure(x)     => Failure(x)
-//    }
-//  }
-
-//  "expected utility" in {
-//    assert(evalBind(false, false) == Success(0.0))
-//    assert(evalBind(false, true) == Success(2.7))
-//    assert(evalBind(true, false) == Success(2.0))
-//    assert(evalBind(true, true) == Failure(Error("Invalid instance")))
-//  }
-
-  "running program" in {
-    //    import dahu.interpreter._
-    //    val ast = Algebras.encode(valid)
-    //
-    //    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> false)) == Right(true))
-    //    assert(evaluate(ast, Environment("x1"         -> true, "x2" -> true)) == Right(false))
-    //    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> false)) == Right(true))
-    //    assert(forward.evaluate(ast, Environment("x1" -> true, "x2" -> true)) == Right(false))
-  }
-
 }
