@@ -30,6 +30,7 @@ object Optimizations {
     case ComputationF(bool.Not, Seq(CstF(false, t)), typ) =>
       CstF(Value(true), t)
 
+    // todo: replace all following with eager evaluation when all arguments are constants
     case ComputationF(bool.And, Seq(), typ) =>
       CstF(Value(true), typ)
     case ComputationF(bool.Or, Seq(), typ) =>
@@ -57,7 +58,6 @@ object Optimizations {
 
   val passes = simplifyOr.andThen(constantElimination).andThen(flatten)
 
-  type Simplification[X] = ExprF[ExprF[X]] => ExprF[ExprF[X]]
   def isTrue(f: Fix[ExprF]): Boolean = f match {
     case CstF(true, _) => true
     case _                  => false
