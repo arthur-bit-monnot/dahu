@@ -2,6 +2,7 @@ package japgolly.microlibs
 
 import cats.free.{Free, Cofree}
 
+import scala.language.implicitConversions
 
 package object recursion {
 

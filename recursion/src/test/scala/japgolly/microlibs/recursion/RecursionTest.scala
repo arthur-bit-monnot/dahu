@@ -3,6 +3,8 @@ package japgolly.microlibs.recursion
 import utest._
 import MathExpr.Helpers._
 
+import scala.language.postfixOps
+
 object RecursionTest extends TestSuite {
 
   val eg1: FM = add(2, add(3, 11))

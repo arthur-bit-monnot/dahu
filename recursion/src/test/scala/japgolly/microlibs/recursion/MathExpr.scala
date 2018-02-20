@@ -34,6 +34,7 @@ object MathExpr {
   }
 
   object Helpers {
+    import scala.language.implicitConversions
     type FM = Fix[MathExpr]
     type MF = MathExpr[Fix[MathExpr]]
     implicit def autoFix[A](a: A)(implicit f: A => MF): FM = Fix(f(a))
