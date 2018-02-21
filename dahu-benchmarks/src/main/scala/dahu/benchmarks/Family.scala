@@ -29,14 +29,14 @@ abstract class Family(val familyName: String) {
       onSolutionFound = f => {
         val res = ast.variables.domain
           .toIterable()
-          .map(v => (ast.variables(v), f(v)))
+          .map(v => (ast.variables(v), csp.extractSolution(f).get(v)))
           .map { case (id, value) => s"${id.name}: $value" }
           .mkString("\t")
         sols += res
       },
       maxSolutions = maxSolutions
     )
-    println(s"Solutions found: ${sols.size}")
+    println(s"Solutions found: ${sols.size} ${maxSolutions.map("(max:" + _ + ")").getOrElse("")}")
     sols.sorted.foreach(println)
   }
 

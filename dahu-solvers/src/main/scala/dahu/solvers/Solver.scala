@@ -36,11 +36,15 @@ object DomainIso {
 }
 
 trait Solver[K <: SubInt, V, D] {
+  type Assignment = ArrayMap.Aux[K, V]
+  type Solution = ArrayMap.Aux[K, Value]
 
   def domainIso: DomainIso[D, V]
 
   def enforce(variable: K, domain: D)
-  def nextSolution(): Option[ArrayMap.Aux[K, V]]
+  def nextSolution(): Option[Assignment]
+
+  def extractSolution(assignment: Assignment): Solution
 
   def consistent: Trilean
 }
@@ -55,7 +59,7 @@ class MetaSolver1[K <: SubInt](asg: AST.Aux[_, K]) extends Solver[K, Any, Domain
   def unsafe(id: K): T1 = id.asInstanceOf[T1]
   def typeOf(id: K): dahu.model.types.Tag[_] = asg.tree(id).typ
   val intSubProblem
-    : IntCSP[T1] = IntCSP.intSubProblem(asg)(_ => true).asInstanceOf[IntCSP[T1]] // TODO do safely
+    : IntCSP[T1] = IntCSP.intSubProblem(asg).asInstanceOf[IntCSP[T1]] // TODO do safely
   val solver: CSP[T1] = intSubProblem.getSolver
 
   override def enforce(variable: K, domain: Domain[Any]): Unit = {
@@ -76,6 +80,8 @@ class MetaSolver1[K <: SubInt](asg: AST.Aux[_, K]) extends Solver[K, Any, Domain
 
     case None => None
   }
+
+  override def extractSolution(assignment: Assignment): Solution = ???
 
   override def consistent: Trilean = solver.consistent
 }

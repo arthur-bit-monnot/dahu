@@ -2,6 +2,7 @@ package dahu.model.input
 
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
+import dahu.model.types._
 import utest._
 
 object BagPacking extends TestSuite {
@@ -35,17 +36,17 @@ object BagPacking extends TestSuite {
   def tests = Tests {
     val ast = Algebras.parse(valid)
     "all-true" - {
-      val satisfied = Interpreter.eval(ast)(_ => true)
+      val satisfied = Interpreter.eval(ast)(_ => Value(true))
       assert(satisfied == false)
     }
     "all-false" - {
-      val satisfied = Interpreter.eval(ast)(_ => false)
+      val satisfied = Interpreter.eval(ast)(_ => Value(false))
       assert(satisfied == true)
     }
 
     "predefined-results" - {
       for((inputs, expected) <- possibleBinds) {
-        val valueOf: ast.VID => Boolean = id => inputs(ast.variables(id).name)
+        val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).name))
         val result = Interpreter.eval(ast)(valueOf)
         result ==> expected
       }

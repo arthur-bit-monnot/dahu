@@ -19,6 +19,7 @@ import scala.annotation.elidable._
 object debug {
 
   var DEBUG_LEVEL = 3
+  val WARNING = false
 
   @elidable(ASSERTION)
   @inline
@@ -47,6 +48,8 @@ object debug {
     if(DEBUG_LEVEL >= 4 && !assertion)
       throw new java.lang.AssertionError("assertion failed: " + message)
   }
+
+  final def warning(msg: => String): Unit = if(WARNING) println("warning: " + msg)
 
   /** Use to annotate blocks that should not be in hot paths, typically here to maintain genericity.
     *

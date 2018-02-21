@@ -1,14 +1,8 @@
 package dahu.model.interpreter
 
 import cats.Functor
-import cats.implicits._
-import dahu.maps.{ArrayMap, IMap}
 import dahu.model.ir._
 import dahu.model.types.Value
-import dahu.model.compiler.Algebras._
-
-import scala.reflect.ClassTag
-import scala.util.{Failure, Success}
 
 object Interpreter {
 
@@ -22,7 +16,7 @@ object Interpreter {
     go
   }
 
-  def eval[T](ast: AST[_])(inputs: ast.VID => T): Value = {
+  def eval(ast: AST[_])(inputs: ast.VID => Value): Value = {
     val input: InputF[_] => Value = {
       val map: Map[InputF[_], Value] =
         ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap

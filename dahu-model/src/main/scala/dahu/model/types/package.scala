@@ -1,6 +1,6 @@
 package dahu.model
 
-import algebra.Order
+import dahu.utils.structures.Default
 
 import scala.reflect.ClassTag
 
@@ -26,5 +26,6 @@ package object types {
   type Value = Value.T
 
   implicit val valueClassTag: ClassTag[Value] = ClassTag.Any.asInstanceOf[ClassTag[Value]]
+  implicit val valueDefault: Default[Value] = Default[Any].asInstanceOf[Default[Value]]
 
 }

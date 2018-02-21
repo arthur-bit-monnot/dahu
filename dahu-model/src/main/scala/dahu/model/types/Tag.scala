@@ -12,6 +12,7 @@ trait Tag[T] {
 trait TagIsoInt[T] extends Tag[T] {
 
   def fromInt(i: Int): T
+  def toValue(i: Int): Value = Value(fromInt(i))
   def toInt(t: T): Int
   def toIntUnsafe(t: Any): Int = toInt(t.asInstanceOf[T])
 

@@ -1,20 +1,16 @@
 package dahu.constraints
 
-import java.util
-
-import algebra.Order
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
-import dahu.recursion._
-import dahu.model.types.TagIsoInt
+import dahu.model.types._
 import dahu.utils.Errors.unexpected
 import spire.math.Trilean
 import dahu.utils.structures._
 import dahu.constraints.interval._
 import dahu.maps.mutable.MArrayMap
-import dahu.maps.{ArrayMap, SInt, SubInt}
+import dahu.maps.{ArrayMap, SubInt}
 import dahu.model.ir.AST
-import dahu.problem.IntCSP
+import dahu.problem.{IntCSP, IntProblem}
 import dahu.problem.IntProblem.{Comp, Func}
 import dahu.solvers.{DomainIso, Solver}
 import spire.implicits._
@@ -73,15 +69,13 @@ object Constraint {
   }
 }
 
-class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
-    extends Solver[K, Int, Interval] {
+class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[K, Int, Interval] {
   type Var = K
   type Vars = Array[Var]
-  type Assignment = ArrayMap.Aux[K, Int]
 
   val ids: debox.Buffer[Var] = params.domain.toSortedBuffer
-  def initialDomains(v: Var): IntDomain = params(v)._1
-  def dag(v: Var): Option[Comp] = params(v)._2
+  def initialDomains(v: Var): IntDomain = params(v).domain
+  def dag(v: Var): Option[Comp] = params(v).comp
 
   override def domainIso: DomainIso[Interval, Int] = DomainIso.intervalIso
 
@@ -110,7 +104,12 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
 
   // current domains
   private val domains: MArrayMap.Aux[K, Interval] =
-    params.map { case (d, _) => Interval(d.lb, d.ub) }.toMutable
+    params.map {
+      case IntProblem.Expr(d: IntervalDomain, _, _) => Interval(d.lb, d.ub)
+      case _ =>
+        unexpected(
+          "There might be holes in this domain, for which implementation is not complete currently.")
+    }.toMutable
 
   def dom(v: K): Interval = domains(v)
 
@@ -223,6 +222,10 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
     None
   }
 
+  override def extractSolution(assignment: Assignment): Solution = {
+    assignment.mapFromKey { case (k, v) => params(k).typ.toValue(v) }
+  }
+
   def enumerateSolutions(maxSolutions: Option[Int] = None,
                          onSolutionFound: Assignment => Unit = _ => ()): Int = {
     var count = 0
@@ -242,8 +245,8 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
 
 object CSP {
 
-  def from(ast: AST[_]): CSP[ast.ID] = {
-    val x = IntCSP.intSubProblem(ast)(_ => true)
+  def from(ast: AST[_]): CSP[IntCSP.Key[ast.ID]] = {
+    val x = IntCSP.intSubProblem(ast)
     x.getSolver
   }
 }

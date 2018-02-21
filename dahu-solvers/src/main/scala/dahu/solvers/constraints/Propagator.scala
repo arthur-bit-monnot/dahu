@@ -5,7 +5,8 @@ import dahu.model.math._
 import dahu.utils.Errors.unexpected
 import dahu.constraints.interval._
 import BooleanDomain._
-import dahu.model.functions.{Fun, Fun1, Fun2, FunN}
+import dahu.model.functions._
+import dahu.utils.debug._
 
 trait Propagator {}
 
@@ -19,7 +20,7 @@ object Propagator {
     case bool.And   => AndForwardPropagator
     case bool.Not   => NotForwardPropagator
     case f =>
-      println(s"warning: default forward propagator for $fun")
+      warning(s"default forward propagator for $fun")
       ForwardPropagator.default(f).getOrElse(unexpected("No propagator for $f"))
 
   }
@@ -32,7 +33,7 @@ object Propagator {
     case bool.And   => AndBackwardPropagator
     case bool.Not   => NotBackwardPropagator
     case _ =>
-      println(s"warning: no backward propagator for $fun")
+      warning(s"no backward propagator for $fun")
       BackwardPropagator.NoOp
   }
 }

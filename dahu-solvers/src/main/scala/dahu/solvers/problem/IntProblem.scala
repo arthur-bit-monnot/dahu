@@ -4,12 +4,10 @@ import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
 import dahu.model.types._
 import dahu.constraints.domains._
-import dahu.maps.{ArrayMap, IMapBuilder, SInt, SubInt}
+import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
 import dahu.model.functions.Fun
 import dahu.model.ir._
 import dahu.utils.Errors._
-
-import scala.collection.mutable
 
 object IntProblem {
 
@@ -20,12 +18,12 @@ object IntProblem {
   type Vals = Array[Val]
 
   //  type Func = Vals => Val
-  case class Func(eval: Vals => Val, fw: ForwardPropagator, bw: BackwardPropagator)
+  final case class Func(eval: Vals => Val, fw: ForwardPropagator, bw: BackwardPropagator)
 
   /** Computation is a function applied to some variables. */
-  case class Comp(f: Func, params: Vars)
+  final case class Comp(f: Func, params: Vars)
 
-  case class Expr(domain: IntDomain, comp: Option[Comp])
+  final case class Expr(domain: IntDomain, comp: Option[Comp], typ: TagIsoInt[_])
 }
 import IntProblem._
 
@@ -36,6 +34,8 @@ abstract class IntCSP[K <: SubInt] extends Problem[K, Int] {
   def getSolver: CSP[K]
 }
 object IntCSP {
+  type Key[T <: SubInt] = SubSubInt[T, this.type]
+
   def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
 
   def translate[T <: SubInt](id: T, coalgebra: T => ExprF[T]): Option[IntProblem.Expr] = {
@@ -52,72 +52,66 @@ object IntCSP {
 
     coalgebra(id) match {
       case InputF(_, typ: TagIsoInt[_]) =>
-        Some(Expr(domainOfType(typ), None))
+        Some(Expr(domainOfType(typ), None, typ))
       case CstF(value, typ: TagIsoInt[_]) =>
-        Some(Expr(SingletonDomain(typ.toIntUnsafe(value)), None))
+        Some(Expr(SingletonDomain(typ.toIntUnsafe(value)), None, typ))
       case ComputationF(f, args, typ: TagIsoInt[_]) =>
         val expr: Option[Comp] = asIntFunction(f).map(fi => Comp(fi, args.toArray))
-        Some(Expr(domainOfType(typ), expr))
+        Some(Expr(domainOfType(typ), expr, typ))
       case _ =>
         unexpected(s"${coalgebra(id)} is not supported.")
-        None
-
     }
   }
 
-  def intSubProblem(ast: AST[_])(candidates: Var => Boolean): IntCSP[ast.ID] = {
-    type T0 = ast.ID
-    val factory = new IMapBuilder[(IntDomain, Option[Comp])]
-//    val xxx = new MutableMapIntFunc[T0, (IntDomain, Option[Comp])]
+  def intSubProblem(ast: AST[_]): IntCSP[Key[ast.ID]] = {
+    type K = Key[ast.ID]
+    val factory = new IMapBuilder[Expr]
+
     ast.tree.domain
       .toIterable()
       .map(i => IntCSP.translate(i, ast.tree.asFunction).map((i, _)))
       .foreach {
-        case Some((i, expr)) if candidates(i) =>
-          val dom =
+        case Some((i, expr)) =>
+          val e =
             if(i == ast.root)
-              True // todo: should be set externally
+              expr.copy(domain = True) // todo: should be set externally
             else
-              expr.domain
+              expr
 
-          // only treat as computation if it is representable and is in the candidate set
-          val e = expr.comp
-            .flatMap(c => if(candidates(i)) Some(c) else None)
-          factory += (i, (dom, e))
+          factory += (i, e)
         case _ => // not representable or not in candidate set, ignore
       }
-    val externalInputs: Set[ast.ID] = {
-      factory.currentKeys
-        .toScalaSet()
-        .flatMap((v: Int) =>
-          ast.tree.get(v) match {
-            case Some(ComputationF(_, args, _)) => args.toSet
-            case Some(_)                        => Set[ast.ID]()
-            case _                              => unexpected
-        })
-        .filterNot(candidates)
-    }
-    for(v <- externalInputs) {
-      assert(!factory.contains(v))
-      val dom = ast.tree.get(v).map(_.typ) match {
-        case Some(t: TagIsoInt[_]) => IntCSP.domainOfType(t)
-        case Some(_) =>
-          unexpected(
-            "Some computation in IntCSP depends on an expression whose type is not isomorphic to Int.")
-        case None => unexpected
-      }
-      factory += (v, (dom, None))
-    }
-    new IntCSP[T0] {
-      private val pb: ArrayMap.Aux[T0, (IntDomain, Option[Comp])] =
-        factory.toImmutableArray.castKey[T0]
-      override def dom: T0 => IntDomain = pb(_)._1
+//    val externalInputs: Set[ast.ID] = {
+//      factory.currentKeys
+//        .toScalaSet()
+//        .flatMap((v: Int) =>
+//          ast.tree.get(v) match {
+//            case Some(ComputationF(_, args, _)) => args.toSet
+//            case Some(_)                        => Set[ast.ID]()
+//            case _                              => unexpected
+//        })
+//    }
+//    for(v <- externalInputs) {
+//      assert(!factory.contains(v))
+//      val expr = ast.tree.get(v).map(_.typ) match {
+//        case Some(t: TagIsoInt[_]) => Expr(IntCSP.domainOfType(t), None, t)
+//        case Some(_) =>
+//          unexpected(
+//            "Some computation in IntCSP depends on an expression whose type is not isomorphic to Int.")
+//        case None => unexpected
+//      }
+//      factory += (v, expr)
+//    }
+    new IntCSP[K] {
+      private val pb: ArrayMap.Aux[K, Expr] =
+        factory.toImmutableArray.castKey[K]
+      override def dom: K => IntDomain = pb(_).domain
 
-      override def exprs: T0 => Option[Comp] = pb(_)._2
+      override def exprs: K => Option[Comp] = pb(_).comp
 
-      override def vars: Array[T0] = pb.domain.toArray
+      override def vars: Array[K] = pb.domain.toArray
 
-      override def getSolver: CSP[T0] =
+      override def getSolver: CSP[K] =
         new CSP(pb)
     }
   }

@@ -3,10 +3,11 @@ package dahu.benchmarks
 import dahu.constraints.CSP
 import dahu.model.input._
 import dahu.model.compiler.Algebras._
+import dahu.model.interpreter.Interpreter
 import dahu.model.types._
+import dahu.utils.Errors._
 import utest._
 
-import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 object NumSolutionsTest extends TestSuite {
@@ -17,9 +18,34 @@ object NumSolutionsTest extends TestSuite {
   )
 
   def numSolutions(expr: Expr[Boolean], maxSolutions: Option[Int] = None): Int = {
-    val asd = parse(expr)
-    val csp = CSP.from(asd)
-    csp.enumerateSolutions(maxSolutions = maxSolutions)
+    val ast = parse(expr)
+    val csp = CSP.from(ast)
+    val solutionString = (f: csp.Assignment) => {
+      ast.variables.domain
+        .toIterable()
+        .map(v => (ast.variables(v), f.get(v)))
+        .map {
+          case (id, Some(value)) => s"${id.name}: $value"
+          case (_, None)         => unexpected("Solution is partial")
+        }
+        .mkString("\n")
+    }
+    val validateSolution: csp.Assignment => Unit = ass => {
+      val f: ast.ID => Value = id =>
+        csp
+          .extractSolution(ass)
+          .get(id)
+          .getOrElse(unexpected("Some inputs are not encoded in the solution"))
+      Interpreter.eval(ast)(f) match {
+        case true =>
+        case false =>
+          System.err.println("Error: the following solution evaluates to false.")
+          System.err.println(solutionString(ass))
+          dahu.utils.Errors.unexpected("Invalid solution.")
+        case _ => dahu.utils.Errors.unexpected
+      }
+    }
+    csp.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
   }
 
   def tests = Tests {
@@ -29,9 +55,11 @@ object NumSolutionsTest extends TestSuite {
           val res = Try {
             instance match {
               case SatProblem(pb, NumSolutions.Exactly(n)) =>
-                assert(numSolutions(pb) == n)
+                val res = numSolutions(pb)
+                assert(res == n)
               case SatProblem(pb, NumSolutions.AtLeast(n)) =>
-                assert(numSolutions(pb, maxSolutions = Some(n)) >= n)
+                val res = numSolutions(pb, maxSolutions = Some(n))
+                assert(res >= n)
               case _ =>
                 dahu.utils.Errors.unexpected("No use for problems with unkown number of solution.")
             }
