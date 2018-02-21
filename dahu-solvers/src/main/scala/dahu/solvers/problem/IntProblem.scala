@@ -7,7 +7,7 @@ import dahu.constraints.domains._
 import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
 import dahu.model.functions.Fun
 import dahu.model.ir._
-import dahu.utils.Errors._
+import dahu.utils.errors._
 
 object IntProblem {
 

@@ -5,7 +5,7 @@ import dahu.model.input._
 import dahu.model.compiler.Algebras._
 import dahu.model.interpreter.Interpreter
 import dahu.model.types._
-import dahu.utils.Errors._
+import dahu.utils.errors._
 import utest._
 
 import scala.util.{Failure, Success, Try}
@@ -41,8 +41,8 @@ object NumSolutionsTest extends TestSuite {
         case false =>
           System.err.println("Error: the following solution evaluates to false.")
           System.err.println(solutionString(ass))
-          dahu.utils.Errors.unexpected("Invalid solution.")
-        case _ => dahu.utils.Errors.unexpected
+          dahu.utils.errors.unexpected("Invalid solution.")
+        case _ => dahu.utils.errors.unexpected
       }
     }
     csp.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
@@ -61,7 +61,7 @@ object NumSolutionsTest extends TestSuite {
                 val res = numSolutions(pb, maxSolutions = Some(n))
                 assert(res >= n)
               case _ =>
-                dahu.utils.Errors.unexpected("No use for problems with unkown number of solution.")
+                dahu.utils.errors.unexpected("No use for problems with unkown number of solution.")
             }
           }
           (fam.familyName, instanceName, res)
@@ -83,7 +83,7 @@ object NumSolutionsTest extends TestSuite {
           val stringResults: Seq[String] = for((fam, ins, res) <- results) yield {
             res match {
               case Success(_) => s"+ $fam/$ins"
-              case Failure(_) => dahu.utils.Errors.unexpected
+              case Failure(_) => dahu.utils.errors.unexpected
             }
           }
           stringResults.mkString("\n")

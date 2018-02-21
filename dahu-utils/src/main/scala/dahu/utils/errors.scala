@@ -1,6 +1,6 @@
 package dahu.utils
 
-object Errors {
+object errors {
 
   final case class Error(msg: String) extends Throwable(msg)
 

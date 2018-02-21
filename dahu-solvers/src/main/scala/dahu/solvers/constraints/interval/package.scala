@@ -1,7 +1,7 @@
 package dahu.constraints
 
 import algebra.Order
-import dahu.utils.Errors._
+import dahu.utils.errors._
 import dahu.utils.debug._
 
 import scala.reflect.ClassTag

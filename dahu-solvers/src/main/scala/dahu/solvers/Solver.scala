@@ -7,7 +7,7 @@ import dahu.maps.{ArrayMap, SubInt, SubSubInt}
 import dahu.model.ir.AST
 import dahu.model.types._
 import dahu.problem.IntCSP
-import dahu.utils.Errors._
+import dahu.utils.errors._
 import spire.math.Trilean
 
 trait Domain[V] {

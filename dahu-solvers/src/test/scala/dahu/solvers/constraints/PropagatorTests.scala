@@ -165,13 +165,13 @@ object PropagatorTests extends TestSuite {
         }
       }
       failures.foreach(throw _)
-      dahu.utils.Errors.unexpected
+      dahu.utils.errors.unexpected
     } else {
       // everything went fine, return a string recap of the problems tackled
       val stringResults: Seq[String] = for((name, res) <- results) yield {
         res match {
           case Success(_) => s"+ $name"
-          case Failure(_) => dahu.utils.Errors.unexpected
+          case Failure(_) => dahu.utils.errors.unexpected
         }
       }
       stringResults.mkString("\n")

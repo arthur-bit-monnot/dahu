@@ -2,7 +2,7 @@ package dahu.constraints
 
 import dahu.model.types._
 import dahu.model.math._
-import dahu.utils.Errors.unexpected
+import dahu.utils.errors.unexpected
 import dahu.constraints.interval._
 import BooleanDomain._
 import dahu.model.functions._

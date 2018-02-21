@@ -5,7 +5,7 @@ import dahu.model.ir.{ComputationF, CstF, ExprF}
 import dahu.model.math._
 import dahu.model.types._
 import dahu.recursion._
-import dahu.utils.Errors._
+import dahu.utils.errors._
 
 object Optimizations {
 

@@ -3,7 +3,7 @@ package dahu.constraints
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
 import dahu.model.types._
-import dahu.utils.Errors.unexpected
+import dahu.utils.errors.unexpected
 import spire.math.Trilean
 import dahu.utils.structures._
 import dahu.constraints.interval._
