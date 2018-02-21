@@ -182,7 +182,7 @@ object PropagatorTests extends TestSuite {
     int.LEQ,
     int.EQ,
     int.Add,
-    int.NEQ,
+    int.Negate,
     bool.And,
     bool.Or,
     bool.Not

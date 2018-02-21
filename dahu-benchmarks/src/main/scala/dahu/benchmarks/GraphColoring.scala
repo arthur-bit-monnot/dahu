@@ -3,6 +3,7 @@ package dahu.benchmarks
 import dahu.model.types._
 import dahu.model.input._
 import dahu.model.input.dsl._
+import NumSolutions._
 
 import scala.language.implicitConversions
 

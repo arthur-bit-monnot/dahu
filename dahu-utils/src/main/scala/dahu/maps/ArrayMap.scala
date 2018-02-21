@@ -55,6 +55,9 @@ class ArrayMap[@sp V: ClassTag] private[maps] (
 
   def toIterable: Iterable[(K, V)] = keys.toIterable().map(i => (i, buff(i)))
 
+  override def toString: String =
+    keys.toScalaSet().toList.sorted.map(i => s"$i: ${buff(i)}").mkString("[", ", ", "]")
+
   override def hashCode(): Int = toIterable.hashCode()
 
   override def equals(o: Any): Boolean = o match {

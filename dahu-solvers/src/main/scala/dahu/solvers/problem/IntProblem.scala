@@ -59,6 +59,7 @@ object IntCSP {
         val expr: Option[Comp] = asIntFunction(f).map(fi => Comp(fi, args.toArray))
         Some(Expr(domainOfType(typ), expr))
       case _ =>
+        unexpected(s"${coalgebra(id)} is not supported.")
         None
 
     }

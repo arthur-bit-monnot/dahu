@@ -61,6 +61,7 @@ package object interval {
     def plus(rhs: Interval): Interval = Interval(lb + rhs.lb, ub + rhs.ub)
     def minus(rhs: Interval): Interval = Interval(lb - rhs.ub, ub - rhs.lb)
     def -(rhs: Interval): Interval = minus(rhs)
+    def negated: Interval = Interval(-ub, -lb)
 
     def contains(rhs: Interval): Boolean =
       if(rhs.isEmpty) true

@@ -11,26 +11,28 @@ trait Propagator {}
 
 object Propagator {
   def forward(fun: Fun[_]): ForwardPropagator = fun match {
-    case int.Add  => AddForwardPropagator
-    case int.LEQ  => LEQForwardPropagator
-    case int.EQ   => EqForwardPropagator
-    case bool.Or  => OrForwardPropagator
-    case bool.And => AndForwardPropagator
-    case bool.Not => NotForwardPropagator
-    case f        =>
-//      println(s"warning: default forward propagator for $fun")
+    case int.Add    => AddForwardPropagator
+    case int.LEQ    => LEQForwardPropagator
+    case int.EQ     => EqForwardPropagator
+    case int.Negate => NegForwardPropagator
+    case bool.Or    => OrForwardPropagator
+    case bool.And   => AndForwardPropagator
+    case bool.Not   => NotForwardPropagator
+    case f =>
+      println(s"warning: default forward propagator for $fun")
       ForwardPropagator.default(f).getOrElse(unexpected("No propagator for $f"))
 
   }
   def backward(fun: Fun[_]): BackwardPropagator = fun match {
-    case int.Add  => AddBackwardPropagator
-    case int.LEQ  => LEQBackwardPropagator
-    case int.EQ   => EqBackwardPropagator
-    case bool.Or  => OrBackwardPropagator
-    case bool.And => AndBackwardPropagator
-    case bool.Not => NotBackwardPropagator
-    case _        =>
-//      println(s"warning: no backward propagator for $fun")
+    case int.Add    => AddBackwardPropagator
+    case int.LEQ    => LEQBackwardPropagator
+    case int.EQ     => EqBackwardPropagator
+    case int.Negate => NegBackwardPropagator
+    case bool.Or    => OrBackwardPropagator
+    case bool.And   => AndBackwardPropagator
+    case bool.Not   => NotBackwardPropagator
+    case _ =>
+      println(s"warning: no backward propagator for $fun")
       BackwardPropagator.NoOp
   }
 }
@@ -252,6 +254,13 @@ case object NotBackwardPropagator extends BackwardPropagator1 {
     if(out == False) True
     else if(out == True) False
     else BooleanDomain.Unknown
+}
+
+case object NegForwardPropagator extends ForwardPropagator1 {
+  override def propagate(d: Interval): Interval = d.negated
+}
+case object NegBackwardPropagator extends BackwardPropagator1 {
+  override def propagate(in: Interval, out: Interval): Interval = out.negated.inter(in)
 }
 
 case object EqForwardPropagator extends ForwardPropagator2 {

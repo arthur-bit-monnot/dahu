@@ -41,9 +41,14 @@ object dsl {
 //  }
   implicit class OrderIntOps(a: Expr[Int]) {
     def <=(b: Expr[Int]): Expr[Boolean] = Computation(int.LEQ, a, b)
+    def <(b: Expr[Int]): Expr[Boolean] = a <= b - 1
     def >=(b: Expr[Int]): Expr[Boolean] = b <= a
+    def >(b: Expr[Int]): Expr[Boolean] = b < a
     def ===(b: Expr[Int]): Expr[Boolean] = Computation(int.EQ, a, b)
-    def =!=(b: Expr[Int]): Expr[Boolean] = Computation(int.NEQ, a, b)
+    def =!=(b: Expr[Int]): Expr[Boolean] = ~(a === b)
+    def +(b: Expr[Int]): Expr[Int] = Computation(int.Add, a, b)
+    def -(b: Expr[Int]): Expr[Int] = a + (-b)
+    def unary_-(): Expr[Int] = Computation(int.Negate, a)
   }
   implicit class OrderIsoIntOps[T](a: Expr[T])(implicit tag: TagIsoInt[T]) {
     def ===(b: Expr[T]): Expr[Boolean] = Computation(OrderIsoIntOps.wrap[T, Boolean](int.EQ), a, b)
@@ -74,6 +79,12 @@ object dsl {
     def toInt: Expr[Int] = IF(a, Cst(1), Cst(0))
     def &&(b: Expr[Boolean]): Expr[Boolean] = Computation(bool.And, Array(a, b))
     def ||(b: Expr[Boolean]): Expr[Boolean] = Computation(bool.Or, Array(a, b))
+    def implies(b: => Expr[Boolean]): Expr[Boolean] = a match {
+      case Cst(false) => Cst(true) // do not evaluate b if a is a constant false
+      case Cst(true)  => b
+      case _          => (~a) || b
+    }
+    def ==>(b: => Expr[Boolean]): Expr[Boolean] = a implies b
     def unary_~(): Expr[Boolean] = Computation(bool.Not, a)
   }
 

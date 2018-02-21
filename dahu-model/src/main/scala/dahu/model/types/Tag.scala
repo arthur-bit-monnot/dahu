@@ -49,7 +49,8 @@ object Tag {
     override def fromInt(i: Int): Int = i
     override def toInt(t: Int): Int = t
 
-    override val min: Int = 0 //Integer.MIN_VALUE /2 +1
+    // todo: put real bounds
+    override val min: Int = -100 //Integer.MIN_VALUE /2 +1
     override val max: Int = 100 //Integer.MAX_VALUE /2 -1
   }
 
@@ -65,8 +66,12 @@ object Tag {
     override val min: Int = 0
     override val max: Int = 1
   }
-
-  implicit def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
-    override def typ: Type = typeOf[T]
+  def tagInstance[T](implicit ttag: universe.WeakTypeTag[T]): Tag[T] = new Tag[T] {
+    override def typ: Type = ttag.tpe
   }
+  implicit val DoubleTag = tagInstance[Double]
+
+//  implicit def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
+//    override def typ: Type = typeOf[T]
+//  }
 }

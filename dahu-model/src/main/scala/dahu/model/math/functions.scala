@@ -43,6 +43,11 @@ object int {
     override def of(in1: Int, in2: Int): Int = in1 + in2
   }
 
+  object Negate extends Fun1[Int, Int] {
+    override def name: String = "neg"
+    override def of(in: Int): Int = -in
+  }
+
   object Min extends Fun2[Int, Int, Int] {
     override def name: String = "min"
     override def of(in1: Int, in2: Int): Int = math.min(in1, in2)

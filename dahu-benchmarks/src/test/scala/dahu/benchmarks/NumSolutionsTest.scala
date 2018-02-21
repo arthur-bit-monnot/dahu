@@ -12,7 +12,8 @@ import scala.util.{Failure, Success, Try}
 object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
-    GraphColoring
+    GraphColoring,
+    Jobshop
   )
 
   def numSolutions(expr: Expr[Boolean], maxSolutions: Option[Int] = None): Int = {
@@ -20,33 +21,16 @@ object NumSolutionsTest extends TestSuite {
     val csp = CSP.from(asd)
     csp.enumerateSolutions(maxSolutions = maxSolutions)
   }
-  def printSolutions(sat: Expr[Boolean],
-                     vars: Seq[Input[_]],
-                     maxSolutions: Option[Int] = None): Unit = {
-    val ast = parse(sat)
-    val csp = CSP.from(ast)
-    val sols = mutable.ArrayBuffer[String]()
-    csp.enumerateSolutions(
-      onSolutionFound = f => {
-        val res = vars
-          .map(v => (v, ast.fromInput(v).flatMap(id => f.get(id))))
-          .map { case (id, value) => s"${id.name}: ${value.getOrElse("ANY")}" }
-          .mkString("\t")
-        sols += res
-      },
-      maxSolutions = maxSolutions
-    )
-    sols.sorted.foreach(println)
-  }
+
   def tests = Tests {
     "corpus" - {
       "num-solutions" - {
         val results = for(fam <- corpus; (instanceName, instance) <- fam.instancesMap) yield {
           val res = Try {
             instance match {
-              case SatProblem(pb, Exactly(n)) =>
+              case SatProblem(pb, NumSolutions.Exactly(n)) =>
                 assert(numSolutions(pb) == n)
-              case SatProblem(pb, AtLeast(n)) =>
+              case SatProblem(pb, NumSolutions.AtLeast(n)) =>
                 assert(numSolutions(pb, maxSolutions = Some(n)) >= n)
               case _ =>
                 dahu.utils.Errors.unexpected("No use for problems with unkown number of solution.")
@@ -61,8 +45,8 @@ object NumSolutionsTest extends TestSuite {
           // print summary of successes/failures and throw the first error
           for((fam, ins, res) <- results) {
             res match {
-              case Success(_) => println(s"Success: $fam/$ins")
-              case Failure(_) => println(s"FAILURE: $fam/$ins")
+              case Success(_) => println(s"+ $fam/$ins")
+              case Failure(_) => println(s"- $fam/$ins")
             }
           }
           failures.foreach(throw _)
@@ -70,7 +54,7 @@ object NumSolutionsTest extends TestSuite {
           // everything went fine, return a string recap of the problems tackled
           val stringResults: Seq[String] = for((fam, ins, res) <- results) yield {
             res match {
-              case Success(_) => s"Success: $fam/$ins"
+              case Success(_) => s"+ $fam/$ins"
               case Failure(_) => dahu.utils.Errors.unexpected
             }
           }
