@@ -11,8 +11,8 @@ class UtilsTests extends FreeSpec {
       import Keys._
 
       type L = Z :: Y :: X :: HNil
-      val wx: ReverseIndexOf.Aux[X, L, _0]             = ReverseIndexOf[X, L]
-      val wy: ReverseIndexOf.Aux[Y, L, Succ[_0]]       = ReverseIndexOf[Y, L]
+      val wx: ReverseIndexOf.Aux[X, L, _0] = ReverseIndexOf[X, L]
+      val wy: ReverseIndexOf.Aux[Y, L, Succ[_0]] = ReverseIndexOf[Y, L]
       val wz: ReverseIndexOf.Aux[Z, L, Succ[Succ[_0]]] = ReverseIndexOf[Z, L]
 
       assertDoesNotCompile("ReverseIndexOf[Z, Y :: X :: HNil]")

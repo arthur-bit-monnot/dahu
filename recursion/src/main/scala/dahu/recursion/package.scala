@@ -10,13 +10,13 @@ package object recursion {
   val Fix: FixModule = FixImpl
   type Fix[F[_]] = Fix.Fix[F]
 
-  type FAlgebra[F[_], A]   = F[A] => A
+  type FAlgebra[F[_], A] = F[A] => A
   type FCoalgebra[F[_], A] = A => F[A]
 
-  type FAlgebraM[M[_], F[_], A]   = F[A] => M[A]
+  type FAlgebraM[M[_], F[_], A] = F[A] => M[A]
   type FCoalgebraM[M[_], F[_], A] = A => M[F[A]]
 
-  type RAlgebra[F[_], A]   = F[(Fix[F], A)] => A
+  type RAlgebra[F[_], A] = F[(Fix[F], A)] => A
   type RCoalgebra[F[_], A] = A => F[Either[Fix[F], A]]
 
   /** Course-of-values algebra */

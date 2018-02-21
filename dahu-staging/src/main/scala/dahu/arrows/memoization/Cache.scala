@@ -14,11 +14,11 @@ trait Cache[A, B] {
 
 class ArrayCache[A, B](ev: OpaqueIntSubset[A])(implicit tag: ClassTag[B]) extends Cache[A, B] {
   import ev._
-  private val offset: Int        = unwrap(ev.first)
-  private val size: Int          = 1 + unwrap(last) - unwrap(first)
+  private val offset: Int = unwrap(ev.first)
+  private val size: Int = 1 + unwrap(last) - unwrap(first)
   private def address(a: A): Int = unwrap(a) - offset
 
-  val memory: Array[B]     = new Array[B](size)
+  val memory: Array[B] = new Array[B](size)
   val mask: Array[Boolean] = Array.fill[Boolean](size)(false)
 
   override def get(a: A): Option[B] =

@@ -1,6 +1,5 @@
 package dahu.constraints
 
-
 import dahu.model.types._
 import dahu.model.math._
 import dahu.utils.Errors.unexpected
@@ -71,7 +70,7 @@ object IntCompatibleFunc {
         case (it: IsoInt @unchecked, ot: IsoInt @unchecked) =>
           Some(new IntCompatibilityLayer {
             override def argsFromInt(args: Seq[Int]): Seq[Value] = Seq(Value(it.fromInt(args.head)))
-            override def outToInt(out: Value): Int               = ot.toInt(out)
+            override def outToInt(out: Value): Int = ot.toInt(out)
           })
         case _ => None
       }
@@ -83,12 +82,12 @@ abstract class IntsToIntFunction {
   def apply(params: Array[Int]): Int
 }
 object Types {
-  type Var        = Int
-  type Val        = Int
-  type Evaluator  = Array[Val] => Val // FunN[Int,Int]
+  type Var = Int
+  type Val = Int
+  type Evaluator = Array[Val] => Val // FunN[Int,Int]
   type EvaluatorX = (Array[Val], Val => Var) => Val
-  type FwProp     = (Array[Var], Var => Interval) => Interval
-  type BwProp     = (Array[Var], Var, Var => Interval) => Array[Interval]
+  type FwProp = (Array[Var], Var => Interval) => Interval
+  type BwProp = (Array[Var], Var, Var => Interval) => Array[Interval]
 }
 
 trait ForwardPropagator {
@@ -104,7 +103,7 @@ object ForwardPropagator {
           override def propagate[T](args: Seq[T], dom: T => Interval): Interval =
             if(args.map(dom).forall(_.isSingleton)) {
               val argValues: Seq[Value] = translator.argsFromInt(args.map(a => dom(a).lb))
-              val eval                  = translator.outToInt(Value(f.compute(argValues)))
+              val eval = translator.outToInt(Value(f.compute(argValues)))
               Interval(eval)
             } else {
               Interval.full

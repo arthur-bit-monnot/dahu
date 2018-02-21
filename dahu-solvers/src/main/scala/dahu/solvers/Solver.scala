@@ -21,7 +21,7 @@ trait DomainIso[D, V] {
 }
 object DomainIso {
   private val identityIso = new DomainIso[Domain[Any], Any] {
-    override def to(d: Domain[Any]): Domain[Any]   = d
+    override def to(d: Domain[Any]): Domain[Any] = d
     override def from(d: Domain[Any]): Domain[Any] = d
   }
   def identity[V]: DomainIso[Domain[V], V] = identityIso.asInstanceOf[DomainIso[Domain[V], V]]
@@ -45,17 +45,18 @@ trait Solver[K <: SubInt, V, D] {
   def consistent: Trilean
 }
 
-class MetaSolver1[K <: SubInt](asg: AST.Aux[_,K]) extends Solver[K, Any, Domain[Any]] {
+class MetaSolver1[K <: SubInt](asg: AST.Aux[_, K]) extends Solver[K, Any, Domain[Any]] {
   override def domainIso: DomainIso[Domain[Any], Any] = DomainIso.identity
 
   trait FirstTag
   type T1 = SubSubInt[K, FirstTag]
   implicitly[T1 <:< K] // simple compile time check
 
-  def unsafe(id: K): T1               = id.asInstanceOf[T1]
+  def unsafe(id: K): T1 = id.asInstanceOf[T1]
   def typeOf(id: K): dahu.model.types.Tag[_] = asg.tree(id).typ
-  val intSubProblem: IntCSP[T1]                 = IntCSP.intSubProblem(asg)(_ => true).asInstanceOf[IntCSP[T1]] // TODO do safely
-  val solver: CSP[T1]                           = intSubProblem.getSolver
+  val intSubProblem
+    : IntCSP[T1] = IntCSP.intSubProblem(asg)(_ => true).asInstanceOf[IntCSP[T1]] // TODO do safely
+  val solver: CSP[T1] = intSubProblem.getSolver
 
   override def enforce(variable: K, domain: Domain[Any]): Unit = {
     val tmp = domain.asInstanceOf[IntDomain]

@@ -44,7 +44,7 @@ object Math extends App {
   }
 
   def and = new Fun2[Boolean, Boolean, Boolean] {
-    override def name: String                            = "and"
+    override def name: String = "and"
     override def of(in1: Boolean, in2: Boolean): Boolean = in1 && in2
   }
 }

@@ -7,6 +7,6 @@ case class SatProblem(formula: Expr[Boolean], numSolutions: NumSolutions) {
 }
 
 sealed trait NumSolutions
-case object Unknown          extends NumSolutions
+case object Unknown extends NumSolutions
 case class Exactly(num: Int) extends NumSolutions
 case class AtLeast(num: Int) extends NumSolutions

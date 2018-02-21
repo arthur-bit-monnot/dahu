@@ -44,12 +44,12 @@ object Constraint {
   type Updater[T <: SubInt] = CSP[T] => Seq[Inference[T]]
 
   private val emptyUpdateSingleton = Array[Inference[Nothing]]()
-  def emptyUpdate[T <: SubInt]     = emptyUpdateSingleton.asInstanceOf[Array[Inference[T]]]
+  def emptyUpdate[T <: SubInt] = emptyUpdateSingleton.asInstanceOf[Array[Inference[T]]]
 
   def fromForward[T <: SubInt](id: T, args: Array[T], prop: ForwardPropagator): Updater[T] = {
     (csp: CSP[T]) =>
       {
-        val d  = prop.propagate(args, csp.dom)
+        val d = prop.propagate(args, csp.dom)
         val d2 = d inter csp.dom(id)
         if(csp.dom(id) != d2) {
           Array(Inference(id, d2, csp.dom(id)))
@@ -75,13 +75,13 @@ object Constraint {
 
 class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
     extends Solver[K, Int, Interval] {
-  type Var        = K
-  type Vars       = Array[Var]
+  type Var = K
+  type Vars = Array[Var]
   type Assignment = ArrayMap.Aux[K, Int]
 
-  val ids: debox.Buffer[Var]            = params.domain.toSortedBuffer
+  val ids: debox.Buffer[Var] = params.domain.toSortedBuffer
   def initialDomains(v: Var): IntDomain = params(v)._1
-  def dag(v: Var): Option[Comp]         = params(v)._2
+  def dag(v: Var): Option[Comp] = params(v)._2
 
   override def domainIso: DomainIso[Interval, Int] = DomainIso.intervalIso
 
@@ -90,8 +90,8 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
     for(i <- ids) {
       dag(i) match {
         case Some(Comp(Func(_, fw, bw), untaggedArgs)) =>
-          val args            = untaggedArgs.asInstanceOf[Vars]
-          val forwardUpdater  = Constraint.fromForward(i, args, fw)
+          val args = untaggedArgs.asInstanceOf[Vars]
+          val forwardUpdater = Constraint.fromForward(i, args, fw)
           val backwardUpdater = Constraint.fromBackward(i, args, bw)
           for(a <- args) {
             propagatorsBuilder(a) += forwardUpdater
@@ -120,7 +120,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
     else Trilean.False
 
   private def arcConsistent: Boolean = ids.forall(i => !dom(i).isEmpty)
-  private def solution: Boolean      = ids.forall(i => dom(i).isSingleton)
+  private def solution: Boolean = ids.forall(i => dom(i).isSingleton)
 
   private val history = mutable.ArrayBuffer[Event[K]]()
   private def pop(): Option[Event[K]] = {
@@ -199,7 +199,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
           case Some(LocalDecision(v, dec, previous)) =>
             assert(!previous.strictlyContains(dec), "The without approximation is identity.")
             val restricted = previous withoutApproximation dec
-            val e          = Inference(v, restricted, previous)
+            val e = Inference(v, restricted, previous)
             enforce(e)
 
           case None =>
@@ -213,7 +213,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, (IntDomain, Option[Comp])])
           case i if dom(i).isEmpty      => unexpected("Empty domain in consistent CSP")
           case i if !dom(i).isSingleton => i
         }
-        val v        = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
+        val v = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
         val decision = LocalDecision(v, Interval(dom(v).lb), dom(v))
 //        println(s"Decision: $v <- ${decision.domain.show}")
         enforce(decision)

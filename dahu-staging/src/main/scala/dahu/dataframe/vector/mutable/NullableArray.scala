@@ -18,9 +18,9 @@ class NullableArray[@specialized(Int, Double) A](mask: ju.BitSet, values: Array[
   def unset(i: Int): Unit = mask.clear(i)
 
   def get(i: Int): Option[A] = if(mask.get(i)) Some(values(i)) else None
-  def getUnsafe(i: Int): A   = values(i)
+  def getUnsafe(i: Int): A = values(i)
 
-  def firstSet: Int   = mask.nextSetBit(0)
+  def firstSet: Int = mask.nextSetBit(0)
   def firstUnset: Int = mask.nextClearBit(0)
 
   def nullCount: Int = size - mask.cardinality()

@@ -21,15 +21,15 @@ object Types {
 
   val ExprId: IndexLabelImpl = new IndexLabelImpl {
     type T = Int
-    override def fromInt(s: Int): T               = s
-    override def toInt(lbl: T): Int               = lbl
+    override def fromInt(s: Int): T = s
+    override def toInt(lbl: T): Int = lbl
     override def fromIntF[F[_]](fs: F[Int]): F[T] = fs
-    override def toIntF[F[_]](fs: F[T]): F[Int]   = fs
+    override def toIntF[F[_]](fs: F[T]): F[Int] = fs
   }
   type ExprId = ExprId.T
 
   /** Implicit conversion to Int, mainly to facilitate usage as index. */
-  implicit def exprIdAsInt(i: ExprId): Int      = ExprId.toInt(i)
+  implicit def exprIdAsInt(i: ExprId): Int = ExprId.toInt(i)
   implicit val orderingExprId: Ordering[ExprId] = ExprId.fromIntF(Ordering[Int])
   implicit class ExprIdOps(val i: ExprId) extends AnyVal {
     def value: Int = ExprId.toInt(i)
@@ -38,7 +38,6 @@ object Types {
   private val intClassTag: ClassTag[Int] = implicitly[ClassTag[Int]]
 
   implicit val classTagExpr: ClassTag[ExprId] = ExprId.fromIntF(implicitly[ClassTag[Int]])
-
 
 }
 
@@ -59,7 +58,7 @@ trait ASDAG[T] {
   /** Opaque type representing the IDs of the expression in this table. */
   type VariableId = ExprId
 
-  type Expr     = ExprF[ExprId]
+  type Expr = ExprF[ExprId]
   type Variable = InputF[ExprId]
 
   def root: ExprId

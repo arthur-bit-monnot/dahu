@@ -20,7 +20,7 @@ class IntervalDomain(val lb: Int, val ub: Int) extends IntDomain {
   }
 
   private def strictlyContains(other: IntervalDomain) = lb < other.lb && other.ub < ub
-  private def contains(other: IntervalDomain)         = lb <= other.lb && other.ub <= ub
+  private def contains(other: IntervalDomain) = lb <= other.lb && other.ub <= ub
 
   override def without(other: IntDomain): IntDomain = other match {
     case x if x.isSingleton =>

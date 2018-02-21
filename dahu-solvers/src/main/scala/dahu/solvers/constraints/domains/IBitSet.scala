@@ -4,7 +4,7 @@ import java.util
 import dahu.utils.debug._
 
 object IBitSet {
-  private final val WORD_MASK     = 0xffffffffffffffffL
+  private final val WORD_MASK = 0xffffffffffffffffL
   private final val BITS_PER_WORD = 64
 
   private def updateArray(elems: Array[Long], idx: Int, w: Long): Array[Long] = {
@@ -59,7 +59,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
     }
 
   private def lastSetBit: Int = {
-    var u    = nwords - 1
+    var u = nwords - 1
     var word = words(u)
     while(true) {
       if(word != 0) {
@@ -98,9 +98,9 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   }
 
   def &(o: IBitSet): IBitSet = {
-    val newSize      = Math.min(nwords, o.nwords)
+    val newSize = Math.min(nwords, o.nwords)
     val intersection = new Array[Long](newSize)
-    var i            = 0
+    var i = 0
     while(i < newSize) {
       intersection(i) = words(i) & o.words(i)
       i += 1
@@ -110,8 +110,8 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
 
   def |(o: IBitSet): IBitSet = {
     val newSize = Math.max(nwords, o.nwords)
-    val union   = new Array[Long](newSize)
-    var i       = 0
+    val union = new Array[Long](newSize)
+    var i = 0
     while(i < newSize) {
       union(i) = words(i) | o.words(i)
       i += 1
@@ -121,7 +121,7 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
 
   def sharesOneElement(o: IBitSet): Boolean = {
     val newSize = Math.min(nwords, o.nwords)
-    var i       = 0
+    var i = 0
     while(i < newSize) {
       if(words(i) != 0 && o.words(i) != 0 && (words(i) & o.words(i)) != 0)
         return true
@@ -131,13 +131,13 @@ class IBitSet(private val elems: Array[Long]) extends Set[Int] {
   }
 
   override def iterator: Iterator[Int] = new Iterator[Int] {
-    private var current           = nextSetBit(0)
+    private var current = nextSetBit(0)
     override def hasNext: Boolean = current != -1
-    override def next(): Int      = { val ret = current; current = nextSetBit(current + 1); ret }
+    override def next(): Int = { val ret = current; current = nextSetBit(current + 1); ret }
   }
 
   override final lazy val isEmpty: Boolean = {
-    var i     = nwords
+    var i = nwords
     var empty = true
     while(empty && i > 0) {
       i -= 1

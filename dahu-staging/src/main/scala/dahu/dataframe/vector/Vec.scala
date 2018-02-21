@@ -16,10 +16,10 @@ object Vec {
   def apply[F[_], A](implicit instance: Vec[F]): Vec[F] = instance
 
   implicit val ofVector: Vec[Vector] = new Vec[Vector] {
-    override def empty[A]: Vector[A]         = Vector()
+    override def empty[A]: Vector[A] = Vector()
     override def size[A](fa: Vector[A]): Int = fa.size
 
-    override def at[A](fa: Vector[A], i: Int): A       = fa(i)
+    override def at[A](fa: Vector[A], i: Int): A = fa(i)
     override def values[A](fa: Vector[A]): Iterable[A] = fa
 
     override def updated[A](fa: Vector[A], i: Int, value: A): Vector[A] =

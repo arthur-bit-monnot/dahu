@@ -26,7 +26,7 @@ object IndexedVector {
         if(fa.index.contains(value)) throw KeyDuplication(value)
 
         val newVector = fa.vector.updated(i, value)
-        val newMap    = (fa.index - prev) + ((value, i))
+        val newMap = (fa.index - prev) + ((value, i))
         IndexedVector(newVector, newMap)
       } else {
         fa

@@ -71,8 +71,8 @@ object IndexedColumn {
   def from[K, V, MD <: HList](df: DF[MD], k: K)(
       implicit wi: WithIndex[K, V, MD]): IndexedColumn[V, MD] =
     new IndexedColumn[V, MD] {
-      override def id(v: V): Option[Int]   = wi.id(df, v)
+      override def id(v: V): Option[Int] = wi.id(df, v)
       override def contains(v: V): Boolean = wi.contains(df, v)
-      override def idUnsafe(v: V): Int     = wi.idUnsafe(df, v)
+      override def idUnsafe(v: V): Int = wi.idUnsafe(df, v)
     }
 }

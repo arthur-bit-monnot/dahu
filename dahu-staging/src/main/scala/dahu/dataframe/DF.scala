@@ -57,9 +57,9 @@ object DF {
         container: Container.Aux[PrevCM, Vector],
         swapped: Swapped.Aux[K, ColumMetadata[K, V0, IndexedVector], M, MOut],
         index: ReverseIndexOfKey[K, M]): DF[MOut] = {
-      val v: Vector[V0]     = raw(k)
+      val v: Vector[V0] = raw(k)
       val map: Map[V0, Int] = v.zipWithIndex.toMap
-      val col               = IndexedVector[V0](v, map)
+      val col = IndexedVector[V0](v, map)
       type CM = ColumMetadata[K, V0, IndexedVector]
       val meta: CM = new ColumMetadata[K, V0, IndexedVector] {}
       swapped(df, meta, col)

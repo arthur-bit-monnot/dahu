@@ -10,8 +10,8 @@ package object domains {
 
   def SingletonDomain(value: Int) = new IntervalDomain(value, value)
 
-  val True: IntDomain        = SingletonDomain(1)
-  val False: IntDomain       = SingletonDomain(0)
+  val True: IntDomain = SingletonDomain(1)
+  val False: IntDomain = SingletonDomain(0)
   val TrueOrFalse: IntDomain = new IntervalDomain(0, 1)
 
   val FullDomain = new IntervalDomain(MIN_INT, MAX_INT)

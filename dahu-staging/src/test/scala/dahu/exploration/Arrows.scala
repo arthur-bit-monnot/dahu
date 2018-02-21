@@ -47,8 +47,8 @@ class Arrows extends FreeSpec {
         }
 
       val inputs = new MutableInputs[ast.Variable, Value]()
-      val alg    = evalAlgebra(ast)(inputs)
-      val ev     = ast.hylo(alg)
+      val alg = evalAlgebra(ast)(inputs)
+      val ev = ast.hylo(alg)
 
       assert(ev(ast.root).isEmpty)
 

@@ -52,10 +52,10 @@ object RecursionFn {
     * Outside to inside.
     */
   def prepro[F[_], A](pre: F ~> F, alg: FAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
-    var self: Fix[F] => A         = null
+    var self: Fix[F] => A = null
     val algF: FAlgebra[F, Fix[F]] = f => Fix[F](pre(f))
-    val cataF: Fix[F] => Fix[F]   = cata(algF)
-    val inner: Fix[F] => A        = f => self(cataF(f))
+    val cataF: Fix[F] => Fix[F] = cata(algF)
+    val inner: Fix[F] => A = f => self(cataF(f))
     self = f => alg(F.map(f.unfix)(inner))
     /*
     // Inspection
@@ -81,10 +81,10 @@ object RecursionFn {
     */
   def postpro[F[_], A](coalg: FCoalgebra[F, A], pro: F ~> F)(
       implicit F: Functor[F]): A => Fix[F] = {
-    var self: A => Fix[F]           = null
+    var self: A => Fix[F] = null
     val algF: FCoalgebra[F, Fix[F]] = f => pro(f.unfix)
-    val anaF: Fix[F] => Fix[F]      = ana(algF)
-    val inner: A => Fix[F]          = a => anaF(self(a))
+    val anaF: Fix[F] => Fix[F] = ana(algF)
+    val inner: A => Fix[F] = a => anaF(self(a))
     self = a => Fix[F](F.map(coalg(a))(inner))
     /*
     // Inspection
@@ -125,7 +125,7 @@ object RecursionFn {
 
   /** cata that has access to current subtree (Fix[F]) as well as that subtree's folded result (A) */
   def para[F[_], A](alg: RAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
-    var self: Fix[F] => A             = null
+    var self: Fix[F] => A = null
     val fanout: Fix[F] => (Fix[F], A) = x => (x, self(x))
     self = f => alg(F.map(f.unfix)(fanout))
     self
@@ -144,7 +144,7 @@ object RecursionFn {
 
   /** cata that retains values of all previous (i.e. child) steps */
   def histo[F[_], A](alg: CVAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
-    var self: Fix[F] => A            = null
+    var self: Fix[F] => A = null
     var step: Fix[F] => Cofree[F, A] = null
     val x: Fix[F] => F[Cofree[F, A]] = f => F.map(f.unfix)(step)
     self = f => alg(x(f))
@@ -157,7 +157,7 @@ object RecursionFn {
 
   /** ana that can build multiple levels in a single pass */
   def futu[F[_], A](coalg: CVCoalgebra[F, A])(implicit F: Functor[F]): A => Fix[F] = {
-    var self: A => Fix[F]          = null
+    var self: A => Fix[F] = null
     var step: Free[F, A] => Fix[F] = null
     self = a => Fix[F](F.map(coalg(a))(step))
     step = _.fold(self, f => Fix(F.map(f)(step)))
@@ -180,7 +180,7 @@ object RecursionFn {
                                                              F: Functor[F],
                                                              M: Monad[M]): A => B = {
     val liftG: M[A] => M[F[M[A]]] = M.lift(g)
-    var h: M[A] => W[B]           = null
+    var h: M[A] => W[B] = null
     h = ma => {
       val fmma: F[M[M[A]]] = m(liftG(ma))
       val fwwb: F[W[W[B]]] = F.map(fmma)(mma => W.coflatten(h(M.flatten(mma))))
@@ -193,7 +193,7 @@ object RecursionFn {
   /** Generalization of Cofree.unfold */
   private def unfold2[F[_], A, B](b: B)(f: B => (A, F[B]))(implicit F: Functor[F]): Cofree[F, A] = {
     val (a, fb) = f(b)
-    val tail    = Eval.later { F.map(fb)(b => unfold2(b)(f)) }
+    val tail = Eval.later { F.map(fb)(b => unfold2(b)(f)) }
     Cofree[F, A](a, tail)
   }
 

@@ -24,7 +24,7 @@ class DataFrameTest extends FreeSpec {
 
   import utils.Keys._
 
-  val df  = DF.empty
+  val df = DF.empty
   val df1 = df.withColumn(X, Vector(1, 2, 3))
   val df2 = df1.withColumn(Y, Vector('a, 'b, 'c))
 
@@ -42,8 +42,8 @@ class DataFrameTest extends FreeSpec {
     }
 
     "updates" in {
-      val df3                    = df2.apply(X).updated(0, 10)
-      val typed1: Vector[Int]    = df3.column(X).content
+      val df3 = df2.apply(X).updated(0, 10)
+      val typed1: Vector[Int] = df3.column(X).content
       val typed2: Vector[Symbol] = df3.column(Y).content
       assert(df3(X).values == Vector(10, 2, 3))
       assert(df2(Y).values == df3(Y).values)
@@ -55,7 +55,7 @@ class DataFrameTest extends FreeSpec {
       assert(df3(X).valueAt(2) == 3)
 
       val times10Col = df2(X).values.map(_ * 10)
-      val df4        = df3.withColumn(Z, times10Col.toVector)
+      val df4 = df3.withColumn(Z, times10Col.toVector)
 
       val typed3: Vector[Int] = df4.column(Z).content
       assert(df4(Z).values == Vector(10, 20, 30))
@@ -66,10 +66,10 @@ class DataFrameTest extends FreeSpec {
     }
 
     "indexing" in {
-      val xIndexed                                = df2.indexed(X)
-      val yIndexed                                = df2.indexed(Y)
+      val xIndexed = df2.indexed(X)
+      val yIndexed = df2.indexed(Y)
       val colY: ColumnF[Symbol, IndexedVector, _] = yIndexed.column(Y)
-      val qsdsqd: IndexedVector[Symbol]           = colY.content
+      val qsdsqd: IndexedVector[Symbol] = colY.content
 
       assert(yIndexed(X).values == Vector(1, 2, 3))
       assert(yIndexed(Y).values == Vector('a, 'b, 'c))

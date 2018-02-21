@@ -13,7 +13,7 @@ object Graph {
     class Data(var index: Int, var lowLink: Int, var onStack: Boolean)
     var index = 0
     val stack = new mutable.ArrayBuffer[V]()
-    val data  = mutable.Map[V, Data]()
+    val data = mutable.Map[V, Data]()
 
     var components: Seq[Set[V]] = immutable.Seq()
 
@@ -38,7 +38,7 @@ object Graph {
 
       if(data(v).lowLink == data(v).index) {
         var scc: Set[V] = Set()
-        var w           = stack.last
+        var w = stack.last
         do {
           w = stack.last
           stack.remove(stack.size - 1)

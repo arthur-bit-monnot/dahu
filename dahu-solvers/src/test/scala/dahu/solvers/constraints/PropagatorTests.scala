@@ -1,15 +1,16 @@
-package dahu.constraints
+package dahu.solvers.constraints
 
+import dahu.constraints.{BackwardPropagator, ForwardPropagator, Propagator}
 import dahu.constraints.interval._
-import dahu.expr._
-import dahu.model.types.TagIsoInt
-import org.scalacheck.{Gen, Prop}
-import org.scalacheck.Prop._
-import org.scalactic.anyvals.PosZDouble
+import dahu.model.functions._
+import dahu.model.types._
+import dahu.model.math._
+import org.scalacheck.Gen
+import utest._
 
 import scala.collection.mutable
 import scala.language.implicitConversions
-import scala.util.Success
+import scala.util.{Failure, Success, Try}
 
 object PropagatorTests extends TestSuite {
   val numTrials = 10000
@@ -74,11 +75,6 @@ object PropagatorTests extends TestSuite {
     val accumulated = for(seq <- acc; value <- domains.head) yield seq :+ value
     combinations(domains.tail, accumulated)
   }
-  test("combination generation") {
-    assert(Set(Seq(1, 3), Seq(2, 3)) == combinations(Seq(Set(1, 2), Set(3))))
-    assert(Set(Seq(1, 3), Seq(1, 4)) == combinations(Seq(Set(1), Set(3, 4))))
-    assert(Set() == combinations(Seq(Set(1, 2), Set())))
-  }
 
   def forward(f: Fun[_], fw: ForwardPropagator): Unit = {
 
@@ -95,7 +91,7 @@ object PropagatorTests extends TestSuite {
       // generated domain.
       val inputSet = combinations(doms.map(_.values.toSet))
       for(input <- inputSet) {
-        val convertedInputs = types.zip(input).map { case (t, i) => Labels.Value(t.fromInt(i)) }
+        val convertedInputs = types.zip(input).map { case (t, i) => Value(t.fromInt(i)) }
         val out = f.compute(convertedInputs)
         val outInt = f.outType.toIntUnsafe(out)
         assert(resultDomain.contains(outInt))
@@ -134,7 +130,7 @@ object PropagatorTests extends TestSuite {
             if(i == focus) removedValues(i) else inputDomains(i).values.toSet)
         val testInputs = combinations(testInputDomains)
         for(input <- testInputs) {
-          val convertedInputs = types.zip(input).map { case (t, i) => Labels.Value(t.fromInt(i)) }
+          val convertedInputs = types.zip(input).map { case (t, i) => Value(t.fromInt(i)) }
           val out = f.compute(convertedInputs)
           val outInt = f.outType.asInstanceOf[TagIsoInt[_]].toIntUnsafe(out)
 
@@ -142,50 +138,39 @@ object PropagatorTests extends TestSuite {
           val inDomainsStr: String = inputDomains.map(_.show).mkString("[", ", ", "]")
           val outDomainStr: String = outputDomain.show
 
-          assert(!outputDomain.contains(outInt), s"${outputDomain.show} does contains $outInt")
+          Predef.assert(!outputDomain.contains(outInt),
+                        s"${outputDomain.show} does contains $outInt")
         }
 
       }
     }
   }
 
-  val functions = Seq(
-    int.LEQ,
-    int.EQ,
-    int.Add,
-    bool.And,
-    bool.Or,
-    bool.Not
-  )
-
-  for(f <- functions) {
-    check(f)
-  }
-
   def subtests[T](targets: Seq[T], runner: T => Unit, name: T => String): String = {
-    for(t <- targets) yield {
+    val results = for(t <- targets) yield {
       val res = Try {
-        runner(target)
+        runner(t)
       }
       (name(t), res)
     }
     val failures =
-      results.map(_._3).collect { case Failure(e) => e }
+      results.map(_._2).collect { case Failure(e) => e }
 
     if(failures.nonEmpty) {
       // print summary of successes/failures and throw the first error
-      for((fam, ins, res) <- results) {
+      for((name, res) <- results) {
         res match {
-          case Success(_) => System.err.println(s"Success: $fam/$ins")
-          case Failure(_) => System.err.println(s"FAILURE: $fam/$ins")
+          case Success(_) => System.err.println(s"+ $name")
+          case Failure(_) => System.err.println(s"- $name")
         }
       }
       failures.foreach(throw _)
+      dahu.utils.Errors.unexpected
     } else {
       // everything went fine, return a string recap of the problems tackled
-      val stringResults: Seq[String] = for((fam, ins, res) <- results) yield {
+      val stringResults: Seq[String] = for((name, res) <- results) yield {
         res match {
-          case Success(_) => s"Success: $fam/$ins"
+          case Success(_) => s"+ $name"
           case Failure(_) => dahu.utils.Errors.unexpected
         }
       }
@@ -193,12 +178,32 @@ object PropagatorTests extends TestSuite {
     }
   }
 
-  def check(f: Fun[_]): Unit = {
-    test(s"$f: => default forward propagator") {
-      forward(f, Propagator.forward(f))
+  val functions = Seq(
+    int.LEQ,
+    int.EQ,
+    int.Add,
+    int.NEQ,
+    bool.And,
+    bool.Or,
+    bool.Not
+  )
+
+  def tests = Tests {
+    "combination generation" - {
+      combinations(Seq(Set(1, 2), Set(3))) ==> Set(Seq(1, 3), Seq(2, 3))
+      combinations(Seq(Set(1), Set(3, 4))) ==> Set(Seq(1, 3), Seq(1, 4))
+      combinations(Seq(Set(1, 2), Set()))  ==> Set()
     }
-    test(s"$f: <= default backward propagator") {
-      backward(f, Propagator.backward(f))
+
+    "forward-propagation" - {
+      subtests[Fun[_]](functions,
+                       f => forward(f, Propagator.forward(f)),
+                       f => s"$f: => default forward propagator")
+    }
+    "backward-propagation" - {
+      subtests[Fun[_]](functions,
+                       f => backward(f, Propagator.backward(f)),
+                       f => s"$f: <= default backward propagator")
     }
   }
 }

@@ -21,18 +21,18 @@ object Ops {
       override val coalgebra: EId ==> Expr = Arrow.lift(x => vec(EId.toInt(x)))
 
       override val ids: OpaqueIntSubset[EId] = new OpaqueIntSubset[EId] {
-        override def wrap(i: Int): EId                 = EId.fromInt(i)
-        override def unwrap(a: EId): Int               = EId.toInt(a)
-        override def subst[F[_]](fi: F[Int]): F[EId]   = EId.fromIntF(fi)
+        override def wrap(i: Int): EId = EId.fromInt(i)
+        override def unwrap(a: EId): Int = EId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[EId] = EId.fromIntF(fi)
         override def unsubst[F[_]](fa: F[EId]): F[Int] = EId.toIntF(fa)
 
         override val enumerate: Array[EId] = subst(tableInt.indices.toArray)
       }
 
       override val variableIds: OpaqueIntSubset[VarId] = new OpaqueIntSubset[VarId] {
-        override def wrap(i: Int): VarId                 = VarId.fromInt(i)
-        override def unwrap(a: VarId): Int               = VarId.toInt(a)
-        override def subst[F[_]](fi: F[Int]): F[VarId]   = VarId.fromIntF(fi)
+        override def wrap(i: Int): VarId = VarId.fromInt(i)
+        override def unwrap(a: VarId): Int = VarId.toInt(a)
+        override def subst[F[_]](fi: F[Int]): F[VarId] = VarId.fromIntF(fi)
         override def unsubst[F[_]](fa: F[VarId]): F[Int] = VarId.toIntF(fa)
 
         override val enumerate: Array[VarId] =

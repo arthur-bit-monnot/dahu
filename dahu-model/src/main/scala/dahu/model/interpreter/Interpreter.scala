@@ -12,7 +12,7 @@ import scala.util.{Failure, Success}
 
 object Interpreter {
 
-  type Algebra[F[_], X]   = F[X] => X
+  type Algebra[F[_], X] = F[X] => X
   type Coalgebra[F[_], X] = X => F[X]
 
   def hylo[A, B, F[_]](coalgebra: Coalgebra[F, A], algebra: Algebra[F, B])(

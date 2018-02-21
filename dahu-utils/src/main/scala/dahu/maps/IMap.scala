@@ -5,7 +5,7 @@ import dahu.utils.structures._
 /** Trait that is shared between mutable and immutable instances. */
 trait SharedIMap {
   type K <: SubInt
-  protected def wrap(i: Int): K              = i.asInstanceOf[K]
+  protected def wrap(i: Int): K = i.asInstanceOf[K]
   protected def wrapF[F[_]](f: F[Int]): F[K] = f.asInstanceOf[F[K]]
 }
 

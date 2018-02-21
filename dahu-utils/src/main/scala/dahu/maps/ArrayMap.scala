@@ -11,7 +11,7 @@ class ArrayMap[@sp V: ClassTag] private[maps] (
   private def keys: debox.Set[K] = wrapF(keysAsInt)
 
   override def domain: debox.Set[K] = wrapF(keysAsInt.copy())
-  override def apply(value: K): V   = buff(value)
+  override def apply(value: K): V = buff(value)
 
   def asFunction: K => V = apply
 
@@ -41,8 +41,8 @@ class ArrayMap[@sp V: ClassTag] private[maps] (
       implicit ev: TT =:= pf.type): ArrayMap.Aux[SubSubInt[K, TT], B] = {
     type SubKey = SubSubInt[K, TT]
     val subKeys: debox.Set[SubKey] = keys.findAll(i => pf.isDefinedAt(apply(i))).cast[SubKey]
-    val default                    = Default.of[B]
-    val newBuff                    = debox.Buffer.fill(buff.length)(default)
+    val default = Default.of[B]
+    val newBuff = debox.Buffer.fill(buff.length)(default)
     subKeys.foreach(i => newBuff(i) = pf.apply(buff(i)))
     ArrayMap.noCopy(subKeys, newBuff)
   }
@@ -75,7 +75,7 @@ object ArrayMap {
     val size = domain.max + 1
     assert(domain.min >= 0)
     val default = Default.of[V]
-    val buff    = debox.Buffer.fill(size)(default)
+    val buff = debox.Buffer.fill(size)(default)
     keys.foreach(i => buff(i) = f(i))
     new ArrayMap[V](keys, buff)
   }

@@ -45,12 +45,12 @@ object structures {
   }
   object Default {
     def apply[A](implicit instance: Default[A]): Default[A] = instance
-    def of[A](implicit instance: Default[A]): A             = instance()
+    def of[A](implicit instance: Default[A]): A = instance()
 
-    implicit val defaultInt: Default[Int]            = () => 0
-    implicit val defaultBool: Default[Boolean]       = () => false
-    implicit val defaultAnyRef: Default[AnyRef]      = () => null
-    implicit val defaultAny: Default[Any]            = () => null
+    implicit val defaultInt: Default[Int] = () => 0
+    implicit val defaultBool: Default[Boolean] = () => false
+    implicit val defaultAnyRef: Default[AnyRef] = () => null
+    implicit val defaultAny: Default[Any] = () => null
     implicit def defaultRef[A <: AnyRef]: Default[A] = defaultAnyRef.asInstanceOf[Default[A]]
   }
 }

@@ -13,15 +13,15 @@ class MetadataTest extends FreeSpec {
 
   "frame-metadata" - {
     "column metadata implicit key extraction" in {
-      val k: Key.Aux[XIntCol, X]            = Key[XIntCol]
-      val v: Value.Aux[XIntCol, Int]        = Value[XIntCol]
+      val k: Key.Aux[XIntCol, X] = Key[XIntCol]
+      val v: Value.Aux[XIntCol, Int] = Value[XIntCol]
       val c: Container.Aux[XIntCol, Vector] = Container[XIntCol]
     }
     "column extraction by key" in {
-      val m11: ColumnMeta.Aux[X, XYList, XIntCol]   = ColumnMeta[X, XYList]
+      val m11: ColumnMeta.Aux[X, XYList, XIntCol] = ColumnMeta[X, XYList]
       val m21: ColumnMeta.Aux[Y, XYList, YFloatCol] = ColumnMeta[Y, XYList]
 
-      val m12: ColumnMeta.Aux[X, YXList, XIntCol]   = ColumnMeta[X, YXList]
+      val m12: ColumnMeta.Aux[X, YXList, XIntCol] = ColumnMeta[X, YXList]
       val m22: ColumnMeta.Aux[Y, YXList, YFloatCol] = ColumnMeta[Y, YXList]
 
       assertDoesNotCompile("ColumnMeta[Y, XXLIst]")

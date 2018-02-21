@@ -4,7 +4,7 @@ import cats.{~>, Functor}
 
 sealed trait ListF[+A, +F]
 case class ConsF[+A, +F](head: A, tail: F) extends ListF[A, F]
-case object NilF                           extends ListF[Nothing, Nothing]
+case object NilF extends ListF[Nothing, Nothing]
 object ListF {
   implicit def functor[A]: Functor[ListF[A, ?]] = new Functor[ListF[A, ?]] {
     override def map[B, C](fa: ListF[A, B])(f: B => C): ListF[A, C] =
@@ -36,7 +36,7 @@ object FixList {
 
   val zeroOutOdds = Lambda[ListF[Int, ?] ~> ListF[Int, ?]] {
     case ConsF(n, t) if n % 2 == 1 => ConsF(0, t)
-    case e => e
+    case e                         => e
   }
 
   val stopAboveFive = Lambda[ListF[Int, ?] ~> ListF[Int, ?]] {

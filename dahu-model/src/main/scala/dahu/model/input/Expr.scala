@@ -22,8 +22,8 @@ final case class Product[T[_[_]], V <: T[Expr]](value: V)(implicit tt: WTypeTag[
                                                           pe2: ProductExpr[T, Id])
     extends Expr[T[Id]] {
 
-  def members: Seq[Expr[Any]]                       = pe1.extractTerms(value)
-  def buildFromVals(terms: Seq[Any]): T[Id]         = pe2.buildFromTerms(terms)
+  def members: Seq[Expr[Any]] = pe1.extractTerms(value)
+  def buildFromVals(terms: Seq[Any]): T[Id] = pe2.buildFromTerms(terms)
   def buildFromExpr(terms: Seq[Expr[Any]]): T[Expr] = pe1.buildFromTerms(terms)
 
 }
@@ -88,7 +88,7 @@ object Computation {
 
   def apply[I, O: WTypeTag](fun: FunN[I, O], arguments: Seq[Expr[I]]): Computation[O] =
     new Computation {
-      override def f: Fun[O]            = fun
+      override def f: Fun[O] = fun
       override def args: Seq[Expr[Any]] = arguments
     }
 }

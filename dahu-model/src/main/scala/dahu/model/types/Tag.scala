@@ -26,7 +26,7 @@ object TagIsoInt {
 
   import scala.reflect.runtime.universe
   def fromEnum[T: universe.WeakTypeTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
-    override def toInt(t: T): Int   = values.indexOf(t)
+    override def toInt(t: T): Int = values.indexOf(t)
     override def fromInt(i: Int): T = values(i)
 
     override val min: Int = 0
@@ -45,16 +45,16 @@ object Tag {
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
   implicit case object IntTag extends TagIsoInt[Int] {
-    override val typ: Type            = typeOf[Int]
+    override val typ: Type = typeOf[Int]
     override def fromInt(i: Int): Int = i
-    override def toInt(t: Int): Int   = t
+    override def toInt(t: Int): Int = t
 
-    override val min: Int = 0   //Integer.MIN_VALUE /2 +1
+    override val min: Int = 0 //Integer.MIN_VALUE /2 +1
     override val max: Int = 100 //Integer.MAX_VALUE /2 -1
   }
 
   implicit case object BoolTag extends TagIsoInt[Boolean] {
-    override def typ: Type              = typeOf[Boolean]
+    override def typ: Type = typeOf[Boolean]
     override def toInt(t: Boolean): Int = if(t) 1 else 0
     def fromInt(i: Int): Boolean = (i: @switch) match {
       case 0 => false

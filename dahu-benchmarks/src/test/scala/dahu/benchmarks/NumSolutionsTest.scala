@@ -23,8 +23,8 @@ object NumSolutionsTest extends TestSuite {
   def printSolutions(sat: Expr[Boolean],
                      vars: Seq[Input[_]],
                      maxSolutions: Option[Int] = None): Unit = {
-    val ast  = parse(sat)
-    val csp  = CSP.from(ast)
+    val ast = parse(sat)
+    val csp = CSP.from(ast)
     val sols = mutable.ArrayBuffer[String]()
     csp.enumerateSolutions(
       onSolutionFound = f => {
@@ -39,38 +39,43 @@ object NumSolutionsTest extends TestSuite {
     sols.sorted.foreach(println)
   }
   def tests = Tests {
-    "num-solutions-on-corpus" - {
-      val results = for(fam <- corpus; (instanceName, instance) <- fam.instancesMap) yield {
-        val res = Try {
-          instance match {
-            case SatProblem(pb, Exactly(n)) =>
-              assert(numSolutions(pb) == n)
-            case SatProblem(pb, AtLeast(n)) =>
-              assert(numSolutions(pb, maxSolutions = Some(n)) >= n)
-            case _ =>
-              dahu.utils.Errors.unexpected("No use for problems with unkown number of solution.")
+    "corpus" - {
+      "num-solutions" - {
+        val results = for(fam <- corpus; (instanceName, instance) <- fam.instancesMap) yield {
+          val res = Try {
+            instance match {
+              case SatProblem(pb, Exactly(n)) =>
+                assert(numSolutions(pb) == n)
+              case SatProblem(pb, AtLeast(n)) =>
+                assert(numSolutions(pb, maxSolutions = Some(n)) >= n)
+              case _ =>
+                dahu.utils.Errors.unexpected("No use for problems with unkown number of solution.")
+            }
           }
+          (fam.familyName, instanceName, res)
         }
-        (fam.familyName, instanceName, res)
-      }
-      val failures =
-        results.map(_._3).collect{ case Failure(e) => e }
-      if(failures.nonEmpty) {
-        for ((fam, ins, res) <- results) {
-          res match {
-            case Success(_) => println(s"Success: $fam/$ins")
-            case Failure(_) => println(s"FAILURE: $fam/$ins")
+        val failures =
+          results.map(_._3).collect { case Failure(e) => e }
+
+        if(failures.nonEmpty) {
+          // print summary of successes/failures and throw the first error
+          for((fam, ins, res) <- results) {
+            res match {
+              case Success(_) => println(s"Success: $fam/$ins")
+              case Failure(_) => println(s"FAILURE: $fam/$ins")
+            }
           }
-        }
-        failures.foreach(throw _)
-      } else {
-        val stringResults: Seq[String] = for ((fam, ins, res) <- results) yield {
-          res match {
-            case Success(_) => s"Success: $fam/$ins"
-            case Failure(_) => ???
+          failures.foreach(throw _)
+        } else {
+          // everything went fine, return a string recap of the problems tackled
+          val stringResults: Seq[String] = for((fam, ins, res) <- results) yield {
+            res match {
+              case Success(_) => s"Success: $fam/$ins"
+              case Failure(_) => dahu.utils.Errors.unexpected
+            }
           }
+          stringResults.mkString("\n")
         }
-        stringResults.mkString("\n")
       }
     }
   }

@@ -9,10 +9,10 @@ object MiniCSP extends App {
 
   import dahu.expr.dsl._
 
-  val x    = Input[Int]("x")
-  val y    = Input[Int]("y")
-  val b    = Input[Boolean]("b")
-  val leq  = x <= y
+  val x = Input[Int]("x")
+  val y = Input[Int]("y")
+  val b = Input[Boolean]("b")
+  val leq = x <= y
   val root = leq || b
 
   import dahu.recursion.Algebras._

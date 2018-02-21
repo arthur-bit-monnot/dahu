@@ -35,7 +35,7 @@ object IMapTests extends TestSuite {
         val isEven = isOdd.map(!_)
 
         implicitly[isOdd.K =:= isEven.K]
-        val typeTest2: debox.Set[isOdd.K]  = isEven.domain
+        val typeTest2: debox.Set[isOdd.K] = isEven.domain
         val typeTest3: debox.Set[isEven.K] = isEven.domain
 
         for(i <- isOdd.domain) {
@@ -71,7 +71,7 @@ object IMapTests extends TestSuite {
       "subtyping" - {
         val isOdd = ArrayMap.build(0 until 10, _ % 2 == 0)
 
-        val odds  = isOdd.filter(identity)
+        val odds = isOdd.filter(identity)
         val evens = isOdd.filter(!_)
 
         sassert(odds.domain.forall(_ % 2 == 0))

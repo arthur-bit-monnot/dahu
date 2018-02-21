@@ -10,7 +10,7 @@ import org.scalacheck.Prop._
 object DomainProperties extends Properties("test") {
 
   implicit val arbDom: Arbitrary[IntDomain] = Arbitrary(for {
-    size  <- Gen.choose(-1, 5)
+    size <- Gen.choose(-1, 5)
     start <- Gen.choose(0, 1000)
   } yield IntervalDomain(start, start + size))
 

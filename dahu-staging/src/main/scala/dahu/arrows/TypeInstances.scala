@@ -13,7 +13,7 @@ trait TypeInstances[@specialized(Int) T] {
 
 trait OpaqueIntSubset[@specialized(Int) T] extends TypeInstances[T] {
   def first: T = wrap(unsubst(enumerate).min)
-  def last: T  = wrap(unsubst(enumerate).max)
+  def last: T = wrap(unsubst(enumerate).max)
 
   def unwrap(a: T): Int
   def wrap(i: Int): T

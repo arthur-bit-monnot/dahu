@@ -6,34 +6,34 @@ object Planning extends App {
 
   final case class Sequence[+V <: Ast](seq: Seq[V]) extends Ast
 
-  sealed trait Time                                   extends Ast
-  case class Timepoint(name: String)                  extends Time
+  sealed trait Time extends Ast
+  case class Timepoint(name: String) extends Time
   case class RelativeTime(base: Time, delay: IntExpr) extends Time
-  case class AbsoluteTime(t: Int)                     extends Time
+  case class AbsoluteTime(t: Int) extends Time
 
   case class Before(left: Time, right: Time) extends BooleanExpr
-  def equal(left: Time, right: Time): BooleanExpr   = and(Before(left, right), Before(right, left))
+  def equal(left: Time, right: Time): BooleanExpr = and(Before(left, right), Before(right, left))
   def strictlyBefore(l: Time, r: Time): BooleanExpr = Before(RelativeTime(l, CstInt(1)), r)
 
-  sealed trait BooleanExpr              extends Ast
+  sealed trait BooleanExpr extends Ast
   case class CstBoolean(value: Boolean) extends BooleanExpr
-  case class BooleanVar(name: String)   extends BooleanExpr
+  case class BooleanVar(name: String) extends BooleanExpr
 
   // constraint implementations
 
   case class And(conjuncts: Seq[BooleanExpr]) extends BooleanExpr
-  case class Or(disjuncts: Seq[BooleanExpr])  extends BooleanExpr
-  case class Not(e: BooleanExpr)              extends BooleanExpr
-  def or(disjuncts: BooleanExpr*)                                 = Or(disjuncts)
+  case class Or(disjuncts: Seq[BooleanExpr]) extends BooleanExpr
+  case class Not(e: BooleanExpr) extends BooleanExpr
+  def or(disjuncts: BooleanExpr*) = Or(disjuncts)
   def ifThen(cond: BooleanExpr, effect: BooleanExpr): BooleanExpr = or(Not(cond), effect)
-  def and(conjuncts: BooleanExpr*)                                = And(conjuncts)
+  def and(conjuncts: BooleanExpr*) = And(conjuncts)
 
-  sealed trait IntExpr            extends Ast
-  case class CstInt(value: Int)   extends IntExpr
+  sealed trait IntExpr extends Ast
+  case class CstInt(value: Int) extends IntExpr
   case class IntVar(name: String) extends IntExpr
 
   // constraint implementations
-  case class EQ(l: IntExpr, r: IntExpr)         extends BooleanExpr
+  case class EQ(l: IntExpr, r: IntExpr) extends BooleanExpr
   case class LEQ(left: IntExpr, right: IntExpr) extends BooleanExpr
   case class Sum(left: IntExpr, right: IntExpr) extends IntExpr
 
@@ -52,18 +52,18 @@ object Planning extends App {
     And(conjuncts)
   }
 
-  var i                 = 0
+  var i = 0
   def newName(): String = { i += 1; s"v$i" }
 
-  def intVar(): IntVar       = IntVar(newName())
-  def boolVar(): BooleanVar  = BooleanVar(newName())
+  def intVar(): IntVar = IntVar(newName())
+  def boolVar(): BooleanVar = BooleanVar(newName())
   def timepoint(): Timepoint = Timepoint(newName())
 
   case class Interval(start: Time, duration: IntExpr, end: Time) extends Ast {
     def constraints: BooleanExpr =
       And(Seq(LEQ(CstInt(0), duration), Before(RelativeTime(start, duration), end)))
   }
-  def interval(): Interval         = Interval(timepoint(), intVar(), timepoint())
+  def interval(): Interval = Interval(timepoint(), intVar(), timepoint())
   def interval(dur: Int): Interval = Interval(timepoint(), CstInt(dur), timepoint())
 
   case class Token(itv: Interval,
@@ -93,10 +93,10 @@ object Planning extends App {
   object Opt {
 
     def optional[V <: Ast](v: V): Opt[V] = Opt(v, boolVar())
-    def present[V <: Ast](v: V): Opt[V]  = Opt(v, CstBoolean(true))
+    def present[V <: Ast](v: V): Opt[V] = Opt(v, CstBoolean(true))
 
     implicit class OptAction(v: Opt[Action]) {
-      def interval: Opt[Interval]      = Opt[Interval](v.value.itv, v.present)
+      def interval: Opt[Interval] = Opt[Interval](v.value.itv, v.present)
       def tokens: Opt[Sequence[Token]] = Opt(Sequence(v.value.tokens), v.present)
 
     }
@@ -104,8 +104,8 @@ object Planning extends App {
       def interval: Opt[Interval] = Opt(v.value.itv, v.present)
     }
     implicit class OptInterval(v: Opt[Interval]) {
-      def start: Opt[Time]       = Opt(v.value.start, v.present)
-      def end: Opt[Time]         = Opt(v.value.end, v.present)
+      def start: Opt[Time] = Opt(v.value.start, v.present)
+      def end: Opt[Time] = Opt(v.value.end, v.present)
       def duration: Opt[IntExpr] = Opt(v.value.duration, v.present)
     }
     implicit class OptSeq[V <: Ast](v: Opt[Sequence[V]]) {
@@ -121,13 +121,13 @@ object Planning extends App {
         actions.flatMap(_.tokens.values)
     }
     lazy val conditionTokens: Seq[Opt[Token]] = tokens.filter(!_.value.isEffect)
-    lazy val effectTokens: Seq[Opt[Token]]    = tokens.filter(_.value.isEffect)
+    lazy val effectTokens: Seq[Opt[Token]] = tokens.filter(_.value.isEffect)
 
     val satProblem: BooleanExpr = {
       val timelines = tokens.map(_.value.timeline).toSet
       val supportsByTimeline = for(i <- timelines) yield {
-        val conds                 = conditionTokens.filter(_.value.timeline == i)
-        val effs                  = effectTokens.filter(_.value.timeline == i)
+        val conds = conditionTokens.filter(_.value.timeline == i)
+        val effs = effectTokens.filter(_.value.timeline == i)
         val nonOverlappingEffects = nonOverlapping(effs.map(_.interval))
 
         def support(cond: Token, optEff: Opt[Token]): BooleanExpr = {

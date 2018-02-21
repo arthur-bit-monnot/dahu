@@ -29,9 +29,9 @@ object RecursionTest extends TestSuite {
 
     'prepro {
       'stopAboveFive {
-        val l      = 1 to 10 toList
-        val t      = FixList(l: _*)
-        val a      = Recursion.prepro[ListF[Int, ?], Int](FixList.stopAboveFive, FixList.sum)(t)
+        val l = 1 to 10 toList
+        val t = FixList(l: _*)
+        val a = Recursion.prepro[ListF[Int, ?], Int](FixList.stopAboveFive, FixList.sum)(t)
         val expect = l.takeWhile(_ <= 5).sum
         assert(a == expect)
       }
@@ -48,16 +48,16 @@ object RecursionTest extends TestSuite {
 
     'postpro {
       'stopAboveFive {
-        val i      = -3
-        val a      = Recursion.postpro[ListF[Int, ?], Int](FixList.ascStream, FixList.stopAboveFive)(i)
+        val i = -3
+        val a = Recursion.postpro[ListF[Int, ?], Int](FixList.ascStream, FixList.stopAboveFive)(i)
         val expect = (-3 to 5).toList
         assert(a == FixList(expect: _*))
       }
 
       'zeroOutOdds {
-        val i      = 93
-        val a      = Recursion.postpro[ListF[Int, ?], Int](FixList.ascStream, FixList.zeroOutOdds)(i)
-        val aa     = FixList.toList(a)
+        val i = 93
+        val a = Recursion.postpro[ListF[Int, ?], Int](FixList.ascStream, FixList.zeroOutOdds)(i)
+        val aa = FixList.toList(a)
         val expect = List(93, 94, 0, 96, 0, 98, 0, 100)
         assert(aa == expect)
       }
@@ -66,7 +66,7 @@ object RecursionTest extends TestSuite {
     'coelgot {
       'shortCircuit {
         var coalgs = Vector.empty[Int]
-        var algs   = Vector.empty[Int]
+        var algs = Vector.empty[Int]
         val str = Recursion.coelgot[MathExpr, Int, String](i => {
           coalgs :+= i; MathExpr.plusOnes(i)
         }, (i, f) => {

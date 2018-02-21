@@ -18,8 +18,8 @@ object Exploration {
   }
 
   type Timepoint = Input[Int]
-  type Duration  = Input[Int]
-  type Presence  = Input[Boolean]
+  type Duration = Input[Int]
+  type Presence = Input[Boolean]
 
 //  sealed trait Interval {
 //    def start: Timepoint

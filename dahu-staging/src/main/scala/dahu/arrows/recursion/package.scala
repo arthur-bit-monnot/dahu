@@ -5,8 +5,8 @@ import dahu.maps.memoization.Cache
 
 package object recursion {
 
-  type Algebra[F[_], X]   = F[X] ==> X
-  type Coalgebra[F[_], X] = X ==> F[X]
+  type Algebra[F[_], X] = F[X] ==> X
+  type Coalgebra[F[_], X] = X  ==> F[X]
 
   def hylo[A, B, F[_]](coalgebra: Coalgebra[F, A], algebra: Algebra[F, B])(
       implicit F: Functor[F]): A ==> B = {

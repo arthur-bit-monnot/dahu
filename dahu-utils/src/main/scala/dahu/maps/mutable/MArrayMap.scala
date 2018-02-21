@@ -10,7 +10,7 @@ class MArrayMap[@sp V: ClassTag] private[maps] (
   def keys: debox.Set[K] = wrapF(intKeys)
 
   def domain: debox.Set[K] = keys.copy()
-  def apply(value: K): V   = buff(value)
+  def apply(value: K): V = buff(value)
 
   def update(key: K, value: V): Unit = buff(key) = value
 

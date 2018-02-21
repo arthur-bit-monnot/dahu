@@ -25,15 +25,15 @@ trait DomainAndOr[T] {
 sealed abstract class BoolDomain(canBeTrue: Boolean, canBeFalse: Boolean)
 
 object BoolDomain {
-  case object Top    extends BoolDomain(true, true)
+  case object Top extends BoolDomain(true, true)
   case object Bottom extends BoolDomain(false, false)
-  case object True   extends BoolDomain(canBeTrue = true, canBeFalse = false)
-  case object False  extends BoolDomain(canBeTrue = false, canBeFalse = true)
+  case object True extends BoolDomain(canBeTrue = true, canBeFalse = false)
+  case object False extends BoolDomain(canBeTrue = false, canBeFalse = true)
 
   implicit val typeclass = new Domain[BoolDomain] with DomainAndOr[BoolDomain] {
     override type ValueType = Boolean
 
-    override def top: BoolDomain    = Top
+    override def top: BoolDomain = Top
     override def bottom: BoolDomain = Bottom
 
     override def and(a: BoolDomain, b: BoolDomain): BoolDomain = (a, b) match {

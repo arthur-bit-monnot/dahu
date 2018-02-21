@@ -12,29 +12,29 @@ trait ASTable {
   /** Opaque type representing the IDs of the expression in this table. */
   val EId: IndexLabelImpl = new IndexLabelImpl {
     type T = Int
-    override def fromInt(s: Int): T               = s
-    override def toInt(lbl: T): Int               = lbl
+    override def fromInt(s: Int): T = s
+    override def toInt(lbl: T): Int = lbl
     override def fromIntF[F[_]](fs: F[Int]): F[T] = fs
-    override def toIntF[F[_]](fs: F[T]): F[Int]   = fs
+    override def toIntF[F[_]](fs: F[T]): F[Int] = fs
   }
   type EId = EId.T
 
   val VarId: SubIndexLabelImpl[EId] = new SubIndexLabelImpl[EId] {
     type T = EId
 
-    override def fromInt(s: Int): EId               = EId.fromInt(s)
-    override def toInt(lbl: T): Int                 = EId.toInt(lbl)
-    override def toIntF[F[_]](fs: F[EId]): F[Int]   = EId.toIntF(fs)
+    override def fromInt(s: Int): EId = EId.fromInt(s)
+    override def toInt(lbl: T): Int = EId.toInt(lbl)
+    override def toIntF[F[_]](fs: F[EId]): F[Int] = EId.toIntF(fs)
     override def fromIntF[F[_]](fs: F[Int]): F[EId] = EId.fromIntF(fs)
 
-    override def wrap(s: EId): T                 = s
-    override def unwrap(lbl: T): EId             = lbl
-    override def subst[F[_]](fs: F[EId]): F[T]   = fs
+    override def wrap(s: EId): T = s
+    override def unwrap(lbl: T): EId = lbl
+    override def subst[F[_]](fs: F[EId]): F[T] = fs
     override def unsubst[F[_]](fs: F[T]): F[EId] = fs
   }
   type VarId = VarId.T
 
-  type Expr     = ExprF[EId]
+  type Expr = ExprF[EId]
   type Variable = InputF[EId]
 
   def root: EId

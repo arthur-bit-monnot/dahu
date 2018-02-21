@@ -108,8 +108,9 @@ object IntCSP {
       factory += (v, (dom, None))
     }
     new IntCSP[T0] {
-      private val pb: ArrayMap.Aux[T0, (IntDomain, Option[Comp])] = factory.toImmutableArray.castKey[T0]
-      override def dom: T0 => IntDomain                 = pb(_)._1
+      private val pb: ArrayMap.Aux[T0, (IntDomain, Option[Comp])] =
+        factory.toImmutableArray.castKey[T0]
+      override def dom: T0 => IntDomain = pb(_)._1
 
       override def exprs: T0 => Option[Comp] = pb(_)._2
 

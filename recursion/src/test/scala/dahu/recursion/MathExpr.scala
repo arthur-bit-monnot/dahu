@@ -4,7 +4,7 @@ import cats.{~>, Functor}
 
 sealed abstract class MathExpr[+A]
 object MathExpr {
-  case class Num(value: Int)     extends MathExpr[Nothing]
+  case class Num(value: Int) extends MathExpr[Nothing]
   case class Add[+A](a: A, b: A) extends MathExpr[A]
 
   val eval: FAlgebra[MathExpr, Int] = {
@@ -38,7 +38,7 @@ object MathExpr {
     type FM = Fix[MathExpr]
     type MF = MathExpr[Fix[MathExpr]]
     implicit def autoFix[A](a: A)(implicit f: A => MF): FM = Fix(f(a))
-    implicit def num(i: Int): MF                           = Num(i)
-    def add(a: FM, b: FM): FM                              = Add(a, b)
+    implicit def num(i: Int): MF = Num(i)
+    def add(a: FM, b: FM): FM = Add(a, b)
   }
 }

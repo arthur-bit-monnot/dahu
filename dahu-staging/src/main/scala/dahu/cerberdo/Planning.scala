@@ -9,7 +9,7 @@ object Planning {
 
   // solution structure
   type Timepoint = Int
-  type Duration  = Int
+  type Duration = Int
 
   class CSP
 
@@ -32,8 +32,8 @@ object Planning {
     }
     sealed abstract class Loc
     object Loc {
-      case object la        extends Loc
-      case object lb        extends Loc
+      case object la extends Loc
+      case object lb extends Loc
       case object processed extends Loc
 
       val allInstances = List(la, lb, processed)
@@ -50,9 +50,9 @@ object Planning {
                          value: Expr[V],
                          isEffect: Boolean)
 
-    var tpId                            = 0
+    var tpId = 0
     def intVar(name: String): Expr[Int] = Input[Int](name)
-    def tp(name: String): Expr[Int]     = intVar(name)
+    def tp(name: String): Expr[Int] = intVar(name)
     def token[V](name: String,
                  present: Expr[Boolean],
                  sv: Timeline[V],
@@ -77,12 +77,12 @@ object Planning {
 
     // action process(Item i),
     val actions = for(i <- Item.allInstances) {
-      val baseName  = s"pick_$i"
-      val present   = Input[Boolean](s"pick_$i")
-      val from      = Input[Loc](s"pick_from_$i")
-      val sv        = atTimelines(i)
+      val baseName = s"pick_$i"
+      val present = Input[Boolean](s"pick_$i")
+      val from = Input[Loc](s"pick_from_$i")
+      val sv = atTimelines(i)
       val condition = condToken(baseName + "_from", present, sv, from)
-      val effect    = effectToken(baseName + "_to", present, sv, Cst(Loc.processed))
+      val effect = effectToken(baseName + "_to", present, sv, Cst(Loc.processed))
 
       import dahu.expr.dsl._
       val constraints = condition.e === effect.s
@@ -102,7 +102,7 @@ object Planning {
   object Structs extends App {
 
     case class IntervalF[F[_]](start: F[Int], duration: F[Int], end: F[Int], present: F[Boolean])
-    type Interval     = IntervalF[Id]
+    type Interval = IntervalF[Id]
     type IntervalExpr = Product[IntervalF, IntervalF[Expr]]
 
 //    type IntervalExpr = Product[IntervalF]

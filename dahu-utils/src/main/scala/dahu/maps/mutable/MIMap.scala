@@ -9,7 +9,7 @@ final class MIMap[@sp V: ClassTag] private[maps] (
 
   def content: debox.Map[K, V] = mapFromInt.asInstanceOf[debox.Map[K, V]]
 
-  def domain             = wrapF(mapFromInt.keysSet)
+  def domain = wrapF(mapFromInt.keysSet)
   def apply(value: K): V = mapFromInt(value)
 
   def update(key: K, value: V): Unit = {
