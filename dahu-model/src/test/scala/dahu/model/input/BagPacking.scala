@@ -1,11 +1,7 @@
 package dahu.model.input
 
-import dahu.maps.ArrayMap
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
-import dahu.model.ir.InputF
-import dahu.model.types._
-import dahu.utils.Errors.Error
 import utest._
 
 object BagPacking extends TestSuite {
@@ -30,11 +26,11 @@ object BagPacking extends TestSuite {
 
   val decisions = List(x1, x2)
 
-  val possibleBinds = List(
-    List(false, false),
-    List(false, true),
-    List(true, false),
-    List(true, true)
+  val possibleBinds = Map(
+    Map("x1" -> false, "x2" -> false) -> true,
+    Map("x1" -> false, "x2" -> true) -> true,
+    Map("x1" -> true, "x2" -> false) -> true,
+    Map("x1" -> true, "x2" -> true) -> false,
   )
   def tests = Tests {
     val ast = Algebras.parse(valid)
@@ -46,6 +42,14 @@ object BagPacking extends TestSuite {
       val satisfied = Interpreter.eval(ast)(_ => false)
       assert(satisfied == true)
     }
-    
+
+    "predefined-results" - {
+      for((inputs, expected) <- possibleBinds) {
+        val valueOf: ast.VID => Boolean = id => inputs(ast.variables(id).name)
+        val result = Interpreter.eval(ast)(valueOf)
+        result ==> expected
+      }
+    }
+
   }
 }

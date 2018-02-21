@@ -22,7 +22,7 @@ object Interpreter {
     go
   }
 
-  def eval[T](ast: AST[T])(inputs: ast.VID => Any): Value = {
+  def eval[T](ast: AST[_])(inputs: ast.VID => T): Value = {
     val input: InputF[_] => Value = {
       val map: Map[InputF[_], Value] =
         ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
