@@ -5,7 +5,7 @@ import dahu.model.types.WTypeTag
 
 object double {
 
-  object Mul extends Fun2[Double, Double, Double] {
+  object Times extends Fun2[Double, Double, Double] {
     override def name: String = "add"
 
     override def of(in1: Double, in2: Double): Double = in1 * in2
@@ -15,6 +15,11 @@ object double {
     override def name: String = "add"
 
     override def of(in1: Double, in2: Double): Double = in1 + in2
+  }
+
+  object Negate extends Fun1[Double, Double] {
+    override def name: String = "neg"
+    override def of(in: Double): Double = -in
   }
 
   object Min extends Fun2[Double, Double, Double] {
@@ -33,7 +38,7 @@ object double {
 
 object int {
 
-  object Mul extends Fun2[Int, Int, Int] {
+  object Times extends Fun2[Int, Int, Int] {
     override def name: String = "add"
     override def of(in1: Int, in2: Int): Int = in1 * in2
   }

@@ -4,14 +4,24 @@ import cats.Id
 import dahu.model.functions._
 import dahu.model.types._
 
-sealed abstract class Expr[+T: WTypeTag] {
+final case class ConstraintViolated(constraint: Expr[Boolean])
+
+sealed abstract class OptionExpr[+T: WTypeTag] {
   final val typ = typeOf[T]
 }
+
+final case class SubjectTo[T: WTypeTag](value: Expr[T], condition: Expr[Boolean]) extends OptionExpr[Either[ConstraintViolated, T]]
+
+sealed abstract class Expr[+T: WTypeTag] extends OptionExpr[T]
+
 final case class Input[T: WTypeTag](name: String) extends Expr[T] {
   def bind(value: T): Bind[T] = Bind(this, value)
 }
 
 final case class Cst[T: WTypeTag](value: T) extends Expr[T]
+
+
+
 sealed abstract class Computation[O: WTypeTag] extends Expr[O] {
   def f: Fun[O]
   def args: Seq[Expr[Any]]

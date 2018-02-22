@@ -6,7 +6,12 @@ import dahu.model.input.dsl._
 
 object Jobshop extends Family("jobshop") {
   private var varCounter = -1
+
+  val START = Cst(0)
+  val END = input().subjectTo(START <= _)
+
   def input(): Input[Int] = { varCounter += 1; Input(s"_v$varCounter") }
+  def tp(): SubjectTo[Int] = input().subjectTo(x => START <= x && x <= END)
 
   case class Job(jobNumber: Int,
                  numInJob: Int,

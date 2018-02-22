@@ -72,6 +72,13 @@ object Tag {
   }
   implicit val DoubleTag = tagInstance[Double]
 
+  implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] = new Tag[Option[T]] {
+    override def typ: Type = ev.tpe
+  }
+  implicit def eitherTag[L,R](implicit ev: universe.WeakTypeTag[Either[L,R]]): Tag[Either[L,R]] = new Tag[Either[L,R]] {
+    override def typ: Type = ev.tpe
+  }
+
 //  implicit def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
 //    override def typ: Type = typeOf[T]
 //  }
