@@ -43,6 +43,8 @@ object Tag {
   import scala.reflect.runtime.universe
   type Type = universe.Type
 
+  def apply[T](implicit ev: Tag[T]): Tag[T] = ev
+
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
   implicit case object IntTag extends TagIsoInt[Int] {
@@ -72,12 +74,14 @@ object Tag {
   }
   implicit val DoubleTag = tagInstance[Double]
 
-  implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] = new Tag[Option[T]] {
-    override def typ: Type = ev.tpe
-  }
-  implicit def eitherTag[L,R](implicit ev: universe.WeakTypeTag[Either[L,R]]): Tag[Either[L,R]] = new Tag[Either[L,R]] {
-    override def typ: Type = ev.tpe
-  }
+  implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] =
+    new Tag[Option[T]] {
+      override def typ: Type = ev.tpe
+    }
+  implicit def eitherTag[L, R](implicit ev: universe.WeakTypeTag[Either[L, R]]): Tag[Either[L, R]] =
+    new Tag[Either[L, R]] {
+      override def typ: Type = ev.tpe
+    }
 
 //  implicit def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
 //    override def typ: Type = typeOf[T]

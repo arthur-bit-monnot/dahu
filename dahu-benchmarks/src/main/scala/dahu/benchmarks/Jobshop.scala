@@ -11,7 +11,8 @@ object Jobshop extends Family("jobshop") {
   val END = input().subjectTo(START <= _)
 
   def input(): Input[Int] = { varCounter += 1; Input(s"_v$varCounter") }
-  def tp(): SubjectTo[Int] = input().subjectTo(x => START <= x && x <= END)
+  // TODO: use subjectTo for time points
+  //  def tp(): SubjectTo[Int] = input().subjectTo(x => START <= x && x <= END)
 
   case class Job(jobNumber: Int,
                  numInJob: Int,
@@ -45,8 +46,8 @@ object Jobshop extends Family("jobshop") {
     val constraint = jobs.indices
       .map { i =>
         val job = jobs(i)
-        job.interval.duration === job.duration - 1 &&
-        Cst(job.numInJob >= 1) ==> (jobs(i - 1).interval.end < job.interval.start) &&
+        job.interval.duration === Cst(job.duration - 1) &&
+          (if(job.numInJob >= 1) jobs(i - 1).interval.end < job.interval.start else Cst(true)) &&
         job.machine >= 1 && job.machine <= instance.numMachines
 
       }

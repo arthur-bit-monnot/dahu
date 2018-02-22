@@ -4,6 +4,7 @@ import dahu.model.types._
 import dahu.model.input._
 import dahu.model.input.dsl._
 import NumSolutions._
+import dahu.model.compiler.Algebras
 
 import scala.language.implicitConversions
 

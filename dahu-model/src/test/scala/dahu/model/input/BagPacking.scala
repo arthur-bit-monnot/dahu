@@ -11,7 +11,7 @@ object BagPacking extends TestSuite {
 
   val zero = Cst(0.0)
 
-  val w1: Expr[Double] = Cst(2.0)
+  val w1 = Cst(2.0)
   val p1 = Cst(2.0)
   val x1 = Input[Boolean]("x1")
 

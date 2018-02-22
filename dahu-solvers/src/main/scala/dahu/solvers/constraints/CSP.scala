@@ -14,6 +14,7 @@ import dahu.problem.{IntCSP, IntProblem}
 import dahu.problem.IntProblem.{Comp, Func}
 import dahu.solvers.{DomainIso, Solver}
 import spire.implicits._
+import dahu.utils.debug._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -183,17 +184,17 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[
   override def nextSolution(): Option[Assignment] = {
     var exhausted = false
     while(!exhausted) {
-//      println(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
+      info(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
       if(solution && !history.lastOption.forall(_.isInstanceOf[SolutionFound[K]])) {
         // just reached new solution
-//        println("solution")
+        info("solution")
         assert(arcConsistent)
         val sol = domains.map(_.lb).toImmutable
         push(SolutionFound[K](sol))
         return Some(sol)
       } else if(!arcConsistent || solution) {
         // inconsistent or already explored solution
-//        println("backtrack")
+        info("backtrack")
         backtrack() match {
           case Some(LocalDecision(v, dec, previous)) =>
             assert(!previous.strictlyContains(dec), "The without approximation is identity.")
@@ -214,7 +215,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[
         }
         val v = variable.getOrElse(unexpected("CSP is not a solution but all variables are set."))
         val decision = LocalDecision(v, Interval(dom(v).lb), dom(v))
-//        println(s"Decision: $v <- ${decision.domain.show}")
+        info(s"Decision: $v <- ${decision.domain.show}")
         enforce(decision)
       }
     }

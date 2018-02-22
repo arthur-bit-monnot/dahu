@@ -1,7 +1,7 @@
 package dahu.model.math
 
 import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
-import dahu.model.types.WTypeTag
+import dahu.model.types.TTag
 
 object double {
 
@@ -30,8 +30,15 @@ object double {
 
   object LEQ extends Fun2[Double, Double, Boolean] {
     override def name: String = "leq"
-
     override def of(in1: Double, in2: Double): Boolean = in1 <= in2
+  }
+  object EQ extends Fun2[Double, Double, Boolean] {
+    override def name: String = "leq"
+    override def of(in1: Double, in2: Double): Boolean = in1 == in2
+  }
+  object LT extends Fun2[Double, Double, Boolean] {
+    override def name: String = "lt"
+    override def of(in1: Double, in2: Double): Boolean = in1 < in2
   }
 
 }
@@ -84,7 +91,7 @@ object bool {
     override def of(args: Seq[Boolean]): Boolean = args.exists(identity)
   }
 
-  class If[O: WTypeTag] extends Fun3[Boolean, O, O, O] {
+  class If[O: TTag] extends Fun3[Boolean, O, O, O] {
     override def name = "if"
     override def of(in1: Boolean, in2: O, in3: O): O = if(in1) in2 else in3
   }
