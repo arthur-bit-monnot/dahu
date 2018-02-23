@@ -4,41 +4,76 @@ import cats._
 import cats.implicits._
 import dahu.model.ir._
 import dahu.model.types.Value
+import dahu.utils.errors._
+import dahu.recursion._
+import dahu.recursion.Recursion._
 
 object Interpreter {
 
-  type Algebra[F[_], X] = F[X] => X
-  type Coalgebra[F[_], X] = X => F[X]
-
-  def hylo[A, B, F[_]](coalgebra: Coalgebra[F, A], algebra: Algebra[F, B])(
-      implicit F: Functor[F]): A => B = {
-    def go(id: A): B =
-      algebra(F.map(coalgebra(id))(go))
-    go
-  }
-  case class ConstraintViolated(x: String)
-  type Evaluation[T] = Either[ConstraintViolated, T]
-  def eval(ast: AST[_])(inputs: ast.VID => Value): Evaluation[Value] = {
+  /** Evaluates the given AST with the provided inputs.
+    * Returns Some(v), v being the value of the root node if all encountered constraints were satisfied.
+    * Returns None, if a constraint (condition of a `SubjectTo(value, condition)` node) was encountered.
+    * To extract the cause of a failure, look at evalWithFailureCause.
+    */
+  def eval(ast: AST[_])(inputs: ast.VID => Value): Option[Value] = {
     val input: InputF[_] => Value = {
       val map: Map[InputF[_], Value] =
         ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
       x =>
         map(x)
     }
-    val alg: Algebra[ExprF, Evaluation[Value]] = {
-      case x: InputF[_] => Right(input(x))
-      case CstF(v, _)   => Right(v)
+    val alg: FAlgebra[ExprF, Option[Value]] = {
+      case x: InputF[_] => Some(input(x))
+      case CstF(v, _)   => Some(v)
       case ComputationF(f, args, _) =>
-        val x: Evaluation[List[Value]] = args.toList.sequence
+        val x: Option[List[Value]] = args.toList.sequence
+        x match {
+          case Some(actualArgs) => Some(Value(f.compute(actualArgs)))
+          case None             => None
+        }
+      case ProductF(members, _) => members.toList.sequence.map(Value(_))
+      case SubjectToF(value, cond, _) =>
+        cond match {
+          case Some(true)  => value
+          case Some(false) => None
+          case Some(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+          case None        => None
+        }
+    }
+    hylo(ast.tree.asFunction, alg)(ast.root)
+  }
+
+  case class ConstraintViolated[T](nodes: Seq[T])
+  type Evaluation[Node, T] = Either[ConstraintViolated[Node], T]
+
+  def evalWithFailureCause[T](ast: AST[T])(inputs: ast.VID => Value): Evaluation[T, Value] = {
+    val input: InputF[_] => Value = {
+      val map: Map[InputF[_], Value] =
+        ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
+      x =>
+        map(x)
+    }
+    val alg: AttributeAlgebra[ast.ID, ExprF, Evaluation[T, Value]] = {
+      case EnvT(_, x: InputF[_]) => Right(input(x))
+      case EnvT(_, CstF(v, _))   => Right(v)
+      case EnvT(_, ComputationF(f, args, _)) =>
+        val x: Evaluation[T, List[Value]] = args.toList.sequence
         x match {
           case Right(actualArgs) => Right(Value(f.compute(actualArgs)))
           case Left(x)           => Left(x)
         }
-      case ProductF(members, _)       => members.toList.sequence.map(Value(_))
-      case SubjectToF(value, cond, _) => cond.flatMap(_ => value)
+      case EnvT(_, ProductF(members, _)) => members.toList.sequence.map(Value(_))
+      case EnvT(id, SubjectToF(value, cond, _)) =>
+        cond match {
+          case Right(true)  => value
+          case Right(false) => Left(ConstraintViolated(ast.toInput(id)))
+          case Right(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+          case Left(x)      => Left(x)
+        }
     }
-    val hyl = hylo(ast.tree.asFunction, alg)
-    hyl(ast.root)
+
+    val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra
+    hylo(coalg, alg)(ast.root)
   }
 
 }

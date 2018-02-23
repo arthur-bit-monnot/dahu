@@ -27,30 +27,60 @@ object BagPacking extends TestSuite {
 
   val decisions = List(x1, x2)
 
-  val possibleBinds = Map(
-    Map("x1" -> false, "x2" -> false) -> Right(true),
-    Map("x1" -> false, "x2" -> true) -> Right(true),
-    Map("x1" -> true, "x2" -> false) -> Right(true),
-    Map("x1" -> true, "x2" -> true) -> Right(false),
-  )
   def tests = Tests {
-    val ast = Algebras.parse(valid)
-    "all-true" - {
-      val satisfied = Interpreter.eval(ast)(_ => Value(true))
-      assert(satisfied == Right(false))
-    }
-    "all-false" - {
-      val satisfied = Interpreter.eval(ast)(_ => Value(false))
-      assert(satisfied == Right(true))
-    }
+    "satisfaction" - {
+      val ast = Algebras.parse(valid)
+      "all-true" - {
+        val satisfied = Interpreter.eval(ast)(_ => Value(true))
+        assert(satisfied == Some(false))
+      }
+      "all-false" - {
+        val satisfied = Interpreter.eval(ast)(_ => Value(false))
+        assert(satisfied == Some(true))
+      }
 
-    "predefined-results" - {
-      for((inputs, expected) <- possibleBinds) {
-        val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).name))
-        val result = Interpreter.eval(ast)(valueOf)
-        result ==> expected
+      "predefined-results" - {
+
+        val possibleBinds = Map(
+          Map("x1" -> false, "x2" -> false) -> Some(true),
+          Map("x1" -> false, "x2" -> true) -> Some(true),
+          Map("x1" -> true, "x2" -> false) -> Some(true),
+          Map("x1" -> true, "x2" -> true) -> Some(false),
+        )
+        for((inputs, expected) <- possibleBinds) {
+          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).name))
+          val result = Interpreter.eval(ast)(valueOf)
+          result ==> expected
+        }
       }
     }
+    "evaluation-subject-to" - {
+      val opt = utility.subjectTo(_ => valid)
+      val ast = Algebras.parse(opt)
+      "all-true" - {
+        val satisfied = Interpreter.eval(ast)(_ => Value(true))
+        satisfied ==> None
 
+      }
+      "all-false" - {
+        val satisfied = Interpreter.eval(ast)(_ => Value(false))
+        satisfied ==> Some(0.0)
+      }
+
+      "predefined-results" - {
+
+        val possibleBinds = Map(
+          Map("x1" -> false, "x2" -> false) -> Right(0.0),
+          Map("x1" -> false, "x2" -> true) -> Right(2.7),
+          Map("x1" -> true, "x2" -> false) -> Right(2.0),
+          Map("x1" -> true, "x2" -> true) -> Left(Interpreter.ConstraintViolated(Seq(opt)))
+        )
+        for((inputs, expected) <- possibleBinds) {
+          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).name))
+          val result = Interpreter.evalWithFailureCause(ast)(valueOf)
+          result ==> expected
+        }
+      }
+    }
   }
 }

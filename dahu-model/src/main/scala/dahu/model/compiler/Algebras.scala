@@ -66,7 +66,8 @@ object Algebras {
     assert(casted.isInDomain(rootExprID))
     val root = rootExprID.asInstanceOf[tree.K]
     val fromInput = forward.asInstanceOf[T => Option[tree.K]]
-    new ASTImpl(casted, root, fromInput)
+    val toInput: tree.K => List[T] = k => astStore(k).toList
+    new ASTImpl(casted, root, fromInput, toInput)
   }
 
 }

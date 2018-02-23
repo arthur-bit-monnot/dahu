@@ -37,8 +37,8 @@ object NumSolutionsTest extends TestSuite {
           .get(id)
           .getOrElse(unexpected("Some inputs are not encoded in the solution"))
       Interpreter.eval(ast)(f) match {
-        case Right(true) =>
-        case Right(false) =>
+        case Some(true) =>
+        case Some(false) =>
           System.err.println("Error: the following solution evaluates to false.")
           System.err.println(solutionString(ass))
           dahu.utils.errors.unexpected("Invalid solution.")

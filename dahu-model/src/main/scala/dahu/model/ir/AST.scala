@@ -18,6 +18,7 @@ trait AST[T] {
       .castKey[VID]
 
   def fromInput: T => Option[ID]
+  def toInput: ID => Seq[T]
 }
 object AST {
   type Aux[T, ID0 <: SubInt] = AST[T] { type ID = ID0 }
@@ -25,7 +26,8 @@ object AST {
 
 class ASTImpl[K <: SubInt, T](override val tree: ArrayMap.Aux[K, ExprF[K]],
                               override val root: K,
-                              override val fromInput: T => Option[K])
+                              override val fromInput: T => Option[K],
+                              override val toInput: K => Seq[T])
     extends AST[T] {
   override type ID = K
 }
