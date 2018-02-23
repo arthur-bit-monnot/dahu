@@ -25,6 +25,9 @@ package object recursion {
   /** Course-of-values co-algebra */
   type CVCoalgebra[F[_], A] = A => F[Free[F, A]]
 
+  type AttributeCoalgebra[F[_], V] = V => EnvT[V, F, V] // <=> FAlgebra[EnvT[V, F, ?], V]
+  type AttributeAlgebra[K, F[_], V] = EnvT[K, F, V] => V
+
   @inline implicit class FixOps[F[_]](private val self: Fix[F]) extends AnyVal {
     @inline def unfix: F[Fix[F]] =
       Fix.unfix(self)
