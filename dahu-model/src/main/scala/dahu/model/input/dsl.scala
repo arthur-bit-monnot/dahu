@@ -11,11 +11,11 @@ import scala.language.implicitConversions
 object dsl {
 
   implicit class Fun2Ops[I1, I2, O: TTag](f: Fun2[I1, I2, O]) {
-    def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
+    def apply(i1: Tentative[I1], i2: Tentative[I2]): Computation2[I1, I2, O] =
       Computation(f, i1, i2)
   }
 
-  def IF[T: TTag](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
+  def IF[T: TTag](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
     Computation(new dahu.model.math.bool.If[T], cond, t, f)
 
   implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
@@ -25,31 +25,19 @@ object dsl {
     def d(args: Any*): Input[Double] = Input[Double](sc.s(args: _*))
   }
 
-  implicit class CommonOps[T: TTag](val expr: Expr[T]) {
-    def subjectTo(condition: Expr[T] => Expr[Boolean]): SubjectTo[T] =
-      SubjectTo(expr, condition(expr))
-
-    def asOptional: SubjectTo[T] = SubjectTo(expr, Cst(true))
-  }
-
   // todo: check is this is actually needed
-  implicit def input2Expr[T](input: Input[T]): Expr[T] = input
-  implicit def cst2Expr[T](cst: Cst[T]): Expr[T] = cst
-  implicit def value2Expr[T: NumericBase: Tag](value: T): Expr[T] = Cst(value)
+  implicit def input2Expr[T](input: Input[T]): Tentative[T] = input
+  implicit def cst2Expr[T](cst: Cst[T]): Tentative[T] = cst
+  implicit def value2Expr[T: NumericBase: Tag](value: T): Tentative[T] = Cst(value)
 
-  implicit def expr2numOps[T](
-      lhs: Expr[T])(implicit num: Numeric[T, Expr], bool: BooleanLike[Boolean, Expr], tag: Tag[T]) =
-    new NumericOps[T, Expr](lhs)
-  implicit def subject2numOps[T](lhs: SubjectTo[T])(implicit num: Numeric[T, SubjectTo],
-                                                    bool: BooleanLike[Boolean, SubjectTo],
-                                                    tag: Tag[T]) =
-    new NumericOps[T, SubjectTo](lhs)
+  implicit def tentative2numOps[T](lhs: Tentative[T])(implicit num: Numeric[T, Tentative],
+                                                      bool: BooleanLike[Boolean, Tentative],
+                                                      tag: Tag[T]) =
+    new NumericOps[T, Tentative](lhs)
 
-  implicit def expr2boolOps(lhs: Expr[Boolean])(implicit bool: BooleanLike[Boolean, Expr]) =
-    new BooleanOps[Boolean, Expr](lhs)(bool)
-  implicit def subject2boolOps(lhs: SubjectTo[Boolean])(
-      implicit bool: BooleanLike[Boolean, SubjectTo]) =
-    new BooleanOps[Boolean, SubjectTo](lhs)(bool)
+  implicit def tentative2boolOps(lhs: Tentative[Boolean])(
+      implicit bool: BooleanLike[Boolean, Tentative]) =
+    new BooleanOps[Boolean, Tentative](lhs)(bool)
 
   case class WrappedFun2[I1: TagIsoInt, I2: TagIsoInt, O: TagIsoInt](f: Fun2[Int, Int, O])
       extends Fun2[I1, I2, O] {
@@ -64,8 +52,8 @@ object dsl {
     }
   }
 
-  implicit class BooleanExprOps(a: Expr[Boolean]) {
-    def toDouble: Expr[Double] = IF(a, Cst(1.0), Cst(0.0))
-    def toInt: Expr[Int] = IF(a, Cst(1), Cst(0))
+  implicit class BooleanExprOps(a: Tentative[Boolean]) {
+    def toDouble: Tentative[Double] = IF(a, Cst(1.0), Cst(0.0))
+    def toInt: Tentative[Int] = IF(a, Cst(1), Cst(0))
   }
 }

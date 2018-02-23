@@ -2,7 +2,7 @@ package dahu.benchmarks
 
 import dahu.constraints.CSP
 import dahu.model.compiler.Algebras
-import dahu.model.input.Expr
+import dahu.model.input.Tentative
 
 import scala.collection.mutable
 
@@ -21,7 +21,7 @@ abstract class Family(val familyName: String) {
     }
   }
 
-  def printSolutions(sat: Expr[Boolean], maxSolutions: Option[Int] = None): Unit = {
+  def printSolutions(sat: Tentative[Boolean], maxSolutions: Option[Int] = None): Unit = {
     val ast = Algebras.parse(sat)
     val csp = CSP.from(ast)
     val sols = mutable.ArrayBuffer[String]()

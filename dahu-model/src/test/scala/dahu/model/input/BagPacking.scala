@@ -21,27 +21,27 @@ object BagPacking extends TestSuite {
 
   val W = Cst(3.0) // max allowed weight
 
-  val w: Expr[Double] = w1 * x1.toDouble + w2 * x2.toDouble
-  val valid: Expr[Boolean] = w <= W
-  val utility: Expr[Double] = p1 * x1.toDouble + p2 * x2.toDouble
+  val w: Tentative[Double] = w1 * x1.toDouble + w2 * x2.toDouble
+  val valid: Tentative[Boolean] = w <= W
+  val utility: Tentative[Double] = p1 * x1.toDouble + p2 * x2.toDouble
 
   val decisions = List(x1, x2)
 
   val possibleBinds = Map(
-    Map("x1" -> false, "x2" -> false) -> true,
-    Map("x1" -> false, "x2" -> true) -> true,
-    Map("x1" -> true, "x2" -> false) -> true,
-    Map("x1" -> true, "x2" -> true) -> false,
+    Map("x1" -> false, "x2" -> false) -> Right(true),
+    Map("x1" -> false, "x2" -> true) -> Right(true),
+    Map("x1" -> true, "x2" -> false) -> Right(true),
+    Map("x1" -> true, "x2" -> true) -> Right(false),
   )
   def tests = Tests {
     val ast = Algebras.parse(valid)
     "all-true" - {
       val satisfied = Interpreter.eval(ast)(_ => Value(true))
-      assert(satisfied == false)
+      assert(satisfied == Right(false))
     }
     "all-false" - {
       val satisfied = Interpreter.eval(ast)(_ => Value(false))
-      assert(satisfied == true)
+      assert(satisfied == Right(true))
     }
 
     "predefined-results" - {

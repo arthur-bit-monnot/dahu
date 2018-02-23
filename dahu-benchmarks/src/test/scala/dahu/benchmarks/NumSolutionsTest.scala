@@ -17,7 +17,7 @@ object NumSolutionsTest extends TestSuite {
     Jobshop
   )
 
-  def numSolutions(expr: Expr[Boolean], maxSolutions: Option[Int] = None): Int = {
+  def numSolutions(expr: Tentative[Boolean], maxSolutions: Option[Int] = None): Int = {
     val ast = parse(expr)
     val csp = CSP.from(ast)
     val solutionString = (f: csp.Assignment) => {
@@ -37,8 +37,8 @@ object NumSolutionsTest extends TestSuite {
           .get(id)
           .getOrElse(unexpected("Some inputs are not encoded in the solution"))
       Interpreter.eval(ast)(f) match {
-        case true =>
-        case false =>
+        case Right(true) =>
+        case Right(false) =>
           System.err.println("Error: the following solution evaluates to false.")
           System.err.println(solutionString(ass))
           dahu.utils.errors.unexpected("Invalid solution.")

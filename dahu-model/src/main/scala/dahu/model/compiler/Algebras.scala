@@ -10,27 +10,29 @@ import dahu.recursion.Recursion._
 
 object Algebras {
 
-  val coalgebra: FCoalgebra[ExprF, Expr[_]] = {
-    case x @ Input(name)    => InputF(name, x.typ)
-    case x @ Cst(value)     => CstF(Value(value), x.typ)
-    case x: Computation[_]  => ComputationF(x.f, x.args, x.typ)
-    case x @ Product(value) => ???
+  val coalgebra: FCoalgebra[ExprF, Tentative[_]] = {
+    case x @ Input(name)            => InputF(name, x.typ)
+    case x @ Cst(value)             => CstF(Value(value), x.typ)
+    case x: Computation[_]          => ComputationF(x.f, x.args, x.typ)
+    case x @ SubjectTo(value, cond) => SubjectToF(value, cond, x.typ)
+    case x @ Product(value)         => ???
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
-    case InputF(v, _)             => s"?$v"
-    case CstF(v, _)               => v.toString
-    case ComputationF(f, args, _) => f.name + args.mkString("(", ",", ")")
-    case ProductF(members, _)     => members.mkString("(", ", ", ")")
+    case InputF(v, _)               => "$" + v
+    case CstF(v, _)                 => v.toString
+    case ComputationF(f, args, _)   => f.name + args.mkString("(", ",", ")")
+    case SubjectToF(value, cond, _) => s"$value ?($cond)"
+    case ProductF(members, _)       => members.mkString("(", ", ", ")")
   }
 
-  def pprint(prg: Expr[_]): String =
+  def pprint(prg: Tentative[_]): String =
     hylo(coalgebra, printAlgebra)(prg)
 
   def pprint[T](coalgebra: FCoalgebra[ExprF, T], expr: T): String =
     hylo(coalgebra, printAlgebra)(expr)
 
-  def parse[T](e: Expr[T]): AST[Expr[_]] =
+  def parse[T](e: Tentative[T]): AST[Tentative[_]] =
     parse(e, coalgebra)
 
   // TODO: add an optional parameter to optimize the representation.

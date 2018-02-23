@@ -2,8 +2,8 @@ package dahu.benchmarks
 
 import dahu.model.input._
 
-case class SatProblem(formula: Expr[Boolean], numSolutions: NumSolutions) {
-  def this(formula: Expr[Boolean], numSolutions: Int) =
+case class SatProblem(formula: Tentative[Boolean], numSolutions: NumSolutions) {
+  def this(formula: Tentative[Boolean], numSolutions: Int) =
     this(formula, NumSolutions.Exactly(numSolutions))
 }
 

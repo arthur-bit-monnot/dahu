@@ -9,6 +9,9 @@ trait BooleanLike[T, F[_]] {
 }
 
 object BooleanLike {
+
+  def apply[T, F[_]](implicit ev: BooleanLike[T, F]): BooleanLike[T, F] = ev
+
   trait BooleanBase[T] {
     def and: FunN[T, T]
     def or: FunN[T, T]
