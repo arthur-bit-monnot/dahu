@@ -23,6 +23,7 @@ object ExprF {
     }
   }
 }
+
 /** Pure expressions that always yield value if they are fed with pure expressions.
   *
   * A Fix[Pure] can always be evaluated to its value.
@@ -35,6 +36,7 @@ case class InputF[F](name: String, typ: Type) extends Total[F] {
   override def toString: String = s"$name"
 }
 object InputF {
+
   /** The type parameter of InputF is does not play any role beside allowing recursion scheme.
     * This implicit conversion, allows usin it interchangeably without creating new objects. or casting manually*/
   implicit def typeParamConversion[F, G](fa: InputF[F]): InputF[G] = fa.asInstanceOf[InputF[G]]
@@ -44,6 +46,7 @@ case class CstF[F](value: Value, typ: Type) extends Total[F] {
   override def toString: String = value.toString
 }
 object CstF {
+
   /** Leaf node, with  artificial type parameters, allow implicit conversion as for InputF. */
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }

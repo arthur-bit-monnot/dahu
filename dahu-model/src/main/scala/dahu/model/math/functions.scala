@@ -6,14 +6,12 @@ import dahu.model.types.TTag
 object double {
 
   object Times extends Fun2[Double, Double, Double] {
-    override def name: String = "add"
-
+    override def name: String = "times"
     override def of(in1: Double, in2: Double): Double = in1 * in2
   }
 
   object Add extends Fun2[Double, Double, Double] {
     override def name: String = "add"
-
     override def of(in1: Double, in2: Double): Double = in1 + in2
   }
 
@@ -33,7 +31,7 @@ object double {
     override def of(in1: Double, in2: Double): Boolean = in1 <= in2
   }
   object EQ extends Fun2[Double, Double, Boolean] {
-    override def name: String = "leq"
+    override def name: String = "eq"
     override def of(in1: Double, in2: Double): Boolean = in1 == in2
   }
   object LT extends Fun2[Double, Double, Boolean] {
@@ -46,7 +44,7 @@ object double {
 object int {
 
   object Times extends Fun2[Int, Int, Int] {
-    override def name: String = "add"
+    override def name: String = "times"
     override def of(in1: Int, in2: Int): Int = in1 * in2
   }
 

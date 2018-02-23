@@ -19,11 +19,11 @@ object Algebras {
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
-    case InputF(v, _)               => "$" + v
-    case CstF(v, _)                 => v.toString
-    case ComputationF(f, args, _)   => f.name + args.mkString("(", ",", ")")
-    case Partial(value, cond, _) => s"$value ?($cond)"
-    case ProductF(members, _)       => members.mkString("(", ", ", ")")
+    case InputF(v, _)             => "$" + v
+    case CstF(v, _)               => v.toString
+    case ComputationF(f, args, _) => f.name + args.mkString("(", ",", ")")
+    case Partial(value, cond, _)  => s"$value ?($cond)"
+    case ProductF(members, _)     => members.mkString("(", ", ", ")")
   }
 
   def pprint(prg: Tentative[_]): String =
