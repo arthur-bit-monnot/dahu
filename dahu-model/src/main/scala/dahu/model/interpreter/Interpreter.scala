@@ -32,7 +32,7 @@ object Interpreter {
           case None             => None
         }
       case ProductF(members, _) => members.toList.sequence.map(Value(_))
-      case SubjectToF(value, cond, _) =>
+      case Partial(value, cond, _) =>
         cond match {
           case Some(true)  => value
           case Some(false) => None
@@ -63,7 +63,7 @@ object Interpreter {
           case Left(x)           => Left(x)
         }
       case EnvT(_, ProductF(members, _)) => members.toList.sequence.map(Value(_))
-      case EnvT(id, SubjectToF(value, cond, _)) =>
+      case EnvT(id, Partial(value, cond, _)) =>
         cond match {
           case Right(true)  => value
           case Right(false) => Left(ConstraintViolated(ast.toInput(id)))

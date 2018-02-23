@@ -8,6 +8,8 @@ class IMapBuilder[@sp A: ClassTag]() {
   def currentKeys: debox.Set[Int] = map.keysSet
   def contains(k: Int): Boolean = map.contains(k)
 
+  def get(k: Int): Option[A] = map.get(k)
+
   def +=(k: Int, v: A): Unit = {
     require(!map.contains(k))
     map.update(k, v)

@@ -14,7 +14,7 @@ object Algebras {
     case x @ Input(name)            => InputF(name, x.typ)
     case x @ Cst(value)             => CstF(Value(value), x.typ)
     case x: Computation[_]          => ComputationF(x.f, x.args, x.typ)
-    case x @ SubjectTo(value, cond) => SubjectToF(value, cond, x.typ)
+    case x @ SubjectTo(value, cond) => Partial(value, cond, x.typ)
     case x @ Product(value)         => ???
   }
 
@@ -22,7 +22,7 @@ object Algebras {
     case InputF(v, _)               => "$" + v
     case CstF(v, _)                 => v.toString
     case ComputationF(f, args, _)   => f.name + args.mkString("(", ",", ")")
-    case SubjectToF(value, cond, _) => s"$value ?($cond)"
+    case Partial(value, cond, _) => s"$value ?($cond)"
     case ProductF(members, _)       => members.mkString("(", ", ", ")")
   }
 
