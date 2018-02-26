@@ -11,15 +11,13 @@ object Jobshop extends Family("jobshop") {
   val END = input().subjectTo(START <= _)
 
   def input(): Input[Int] = { varCounter += 1; Input(s"_v$varCounter") }
-  // TODO: use subjectTo for time points
   def tp()= input().subjectTo(x => START <= x && x <= END)
-//  def tp(): SubjectTo[Int] = input().subjectTo(x => x.asSubjectTo <= END)
 
   case class Job(jobNumber: Int,
                  numInJob: Int,
                  duration: Int,
                  interval: Interval,
-                 machine: Input[Int])
+                 machine: Tentative[Int])
 
   final case class JobShopInstance(numMachines: Int,
                                    jobs: Seq[Seq[Int]],
@@ -28,18 +26,22 @@ object Jobshop extends Family("jobshop") {
     def numJobs = jobs.size
   }
 
-  case class Interval(start: Input[Int], end: Input[Int]) {
+  case class Interval(start: Tentative[Int], end: Tentative[Int]) {
     def duration: Tentative[Int] = end - start
     def <(o: Interval): Tentative[Boolean] = end < o.start
     def >(o: Interval): Tentative[Boolean] = o < this
   }
-  def interval(): Interval = Interval(input(), input())
+  def interval(duration: Int): Interval = {
+    val start = tp()
+    val end = tp().subjectTo(x => x === start + Cst(duration) -1)
+    Interval(start, end)
+  }
 
   def jobShopModel(instance: JobShopInstance): SatProblem = {
     val jobs =
       for(i <- instance.jobs.indices; j <- instance.jobs(i).indices) yield {
-        val int = interval()
-        val machine = Input[Int](s"machine($i,$j)") // todo: (1 to instance.numMachines).toSet)
+        val int = interval(instance.jobs(i)(j))
+        val machine = Input[Int](s"machine($i,$j)").subjectTo(x => x >= 1 && x <= instance.numMachines)
 
         Job(i, j, instance.jobs(i)(j), int, machine)
       }
@@ -47,10 +49,8 @@ object Jobshop extends Family("jobshop") {
     val constraint = jobs.indices
       .map { i =>
         val job = jobs(i)
-        job.interval.duration === Cst(job.duration - 1) &&
-          (if(job.numInJob >= 1) jobs(i - 1).interval.end < job.interval.start else Cst(true)) &&
-        job.machine >= 1 && job.machine <= instance.numMachines
-
+        job.interval.duration === Cst(job.duration - 1) && // TODO: we should be able to remove it
+          (if(job.numInJob >= 1) jobs(i - 1).interval.end < job.interval.start else Cst(true))
       }
       .fold(Cst(true))(_ && _)
 
@@ -64,11 +64,11 @@ object Jobshop extends Family("jobshop") {
 
   val problems = Seq(
     JobShopInstance(1, List(List(2)), None),
-    JobShopInstance(1, List(List(2, 4)), None),
-    JobShopInstance(1, List(List(2), List(4)), None),
-    JobShopInstance(2, List(List(2), List(4)), None),
-    JobShopInstance(1, List(List(2, 2), List(4)), None),
-    JobShopInstance(2, List(List(2, 2), List(4)), None)
+//    JobShopInstance(1, List(List(2, 4)), None),
+//    JobShopInstance(1, List(List(2), List(4)), None),
+//    JobShopInstance(2, List(List(2), List(4)), None),
+//    JobShopInstance(1, List(List(2, 2), List(4)), None),
+//    JobShopInstance(2, List(List(2, 2), List(4)), None)
     // JobShopInstance(2, List(List(2, 4), List(4, 3)), None), // very simple instance to avoid taking time in unit tests
     // JobShopInstance(2, List(List(2, 4), List(4, 3, 3)), None), // very simple instance to avoid taking time in unit tests
     // JobShopInstance(4, List(List(2, 4, 2, 1), List(5, 3, 2), List(3, 5, 7)), Some(14)),

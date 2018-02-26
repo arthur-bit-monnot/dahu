@@ -3,7 +3,6 @@ package dahu.model.input
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.problem.SatisfactionProblem
-import dahu.model.problem.SatisfactionProblem.Node
 import dahu.model.types._
 import utest._
 
@@ -84,20 +83,20 @@ object BagPacking extends TestSuite {
         }
       }
 
-      "tmp" - {
-        SatisfactionProblem.encode(ast) match {
-          case (root, coalg) =>
-            println(root.id)
-            coalg.toIterable.toSeq
-              .sortBy(_._1)
-              .map(_._2)
-              .map {
-                case Node(id, value, cond) => f"$id%2s -> $value%-15s ?: ${cond.mkString(" ")}"
-              }
-              .foreach(println)
-        }
-        println("Done")
-      }
+//      "tmp" - {
+//        SatisfactionProblem.encode(ast) match {
+//          case (root, coalg) =>
+//            println(root.id)
+//            coalg.toIterable.toSeq
+//              .sortBy(_._1)
+//              .map(_._2)
+//              .map {
+//                case Node(id, value, cond) => f"$id%2s -> $value%-15s ?: ${cond.mkString(" ")}"
+//              }
+//              .foreach(println)
+//        }
+//        println("Done")
+//      }
     }
   }
 }

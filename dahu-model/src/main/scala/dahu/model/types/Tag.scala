@@ -47,7 +47,7 @@ object Tag {
 
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
-  implicit case object IntTag extends TagIsoInt[Int] {
+  implicit case object ofInt extends TagIsoInt[Int] {
     override val typ: Type = typeOf[Int]
     override def fromInt(i: Int): Int = i
     override def toInt(t: Int): Int = t
@@ -57,7 +57,7 @@ object Tag {
     override val max: Int = 100 //Integer.MAX_VALUE /2 -1
   }
 
-  implicit case object BoolTag extends TagIsoInt[Boolean] {
+  implicit case object ofBoolean extends TagIsoInt[Boolean] {
     override def typ: Type = typeOf[Boolean]
     override def toInt(t: Boolean): Int = if(t) 1 else 0
     def fromInt(i: Int): Boolean = (i: @switch) match {
@@ -72,7 +72,8 @@ object Tag {
   def tagInstance[T](implicit ttag: universe.WeakTypeTag[T]): Tag[T] = new Tag[T] {
     override def typ: Type = ttag.tpe
   }
-  implicit val DoubleTag = tagInstance[Double]
+  implicit val ofDouble = tagInstance[Double]
+  implicit val ofString = tagInstance[String]
 
   implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] =
     new Tag[Option[T]] {

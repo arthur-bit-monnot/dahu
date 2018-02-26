@@ -1,7 +1,7 @@
 package dahu.model.math
 
 import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
-import dahu.model.types.TTag
+import dahu.model.types.{TTag, Tag}
 
 object double {
 
@@ -80,13 +80,17 @@ object int {
 
 object bool {
 
-  object And extends FunN[Boolean, Boolean] {
+  object And extends CommutativeMonoid[Boolean] {
+    override def tpe: Tag[Boolean] = Tag.ofBoolean
     override def name: String = "and"
-    override def of(args: Seq[Boolean]): Boolean = args.forall(identity)
+    override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs && rhs
+    override val identity: Boolean = true
   }
-  object Or extends FunN[Boolean, Boolean] {
+  object Or extends CommutativeMonoid[Boolean] {
+    override def tpe: Tag[Boolean] = Tag.ofBoolean
     override def name: String = "or"
-    override def of(args: Seq[Boolean]): Boolean = args.exists(identity)
+    override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs || rhs
+    override val identity: Boolean = false
   }
 
   class If[O: TTag] extends Fun3[Boolean, O, O, O] {

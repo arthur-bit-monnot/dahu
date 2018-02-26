@@ -13,11 +13,11 @@ import scala.util.{Failure, Success, Try}
 object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
-    GraphColoring,
+//    GraphColoring,
     Jobshop
   )
 
-  def numSolutions(expr: Tentative[Boolean], maxSolutions: Option[Int] = None): Int = {
+  def numSolutions[T](expr: Tentative[T], maxSolutions: Option[Int] = None): Int = {
     val ast = parse(expr)
     val csp = CSP.from(ast)
     val solutionString = (f: csp.Assignment) => {
@@ -36,13 +36,12 @@ object NumSolutionsTest extends TestSuite {
           .extractSolution(ass)
           .get(id)
           .getOrElse(unexpected("Some inputs are not encoded in the solution"))
-      Interpreter.eval(ast)(f) match {
-        case Some(true) =>
-        case Some(false) =>
-          System.err.println("Error: the following solution evaluates to false.")
+      Interpreter.evalWithFailureCause(ast)(f) match {
+        case Right(1) =>
+        case x =>
+          System.err.println("Error: the following solution evaluates as not valid.")
           System.err.println(solutionString(ass))
-          dahu.utils.errors.unexpected("Invalid solution.")
-        case _ => dahu.utils.errors.unexpected
+          dahu.utils.errors.unexpected(s"Invalid solution. Result: $x")
       }
     }
     csp.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
@@ -53,11 +52,12 @@ object NumSolutionsTest extends TestSuite {
       "num-solutions" - {
         val results = for(fam <- corpus; (instanceName, instance) <- fam.instancesMap) yield {
           val res = Try {
+            val pb = instance.pb
             instance match {
-              case SatProblem(pb, NumSolutions.Exactly(n)) =>
+              case SatProblem(_, NumSolutions.Exactly(n)) =>
                 val res = numSolutions(pb)
                 assert(res == n)
-              case SatProblem(pb, NumSolutions.AtLeast(n)) =>
+              case SatProblem(_, NumSolutions.AtLeast(n)) =>
                 val res = numSolutions(pb, maxSolutions = Some(n))
                 assert(res >= n)
               case _ =>

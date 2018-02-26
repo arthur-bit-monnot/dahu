@@ -18,7 +18,10 @@ package object maps {
   type SubInt = Int with IntSubset
   type SInt[T] = SubInt with T
 
-  type SubSubInt[X <: SubInt, AdditionalTag] = X with AdditionalTag
+  /** Simply wraps an existing class to make sure we do not mix classes with subint. */
+  trait Wrapped[T] { self: SubInt =>
+  }
+  type SubSubInt[X <: SubInt, AdditionalTag] = X with Wrapped[AdditionalTag]
 
   implicit def classTagIS[T <: SubInt]: ClassTag[T] = tagged(intClassTag)
   implicit def orderingIS[T <: SubInt]: Ordering[T] = tagged(implicitly[Ordering[Int]])

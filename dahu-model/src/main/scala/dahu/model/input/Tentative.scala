@@ -38,6 +38,8 @@ sealed abstract class Computation[O] extends Tentative[O] {
   override def typ: Tag[O] = f.outType
   def f: Fun[O]
   def args: Seq[Tentative[Any]]
+
+  override def toString: String = s"$f(${args.mkString(", ")})"
 }
 
 final case class Product[T[_[_]], V <: T[Tentative]](value: V)(implicit tt: Tag[T[Id]],

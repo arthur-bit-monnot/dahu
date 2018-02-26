@@ -70,7 +70,8 @@ object Constraint {
   }
 }
 
-class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[K, Int, Interval] {
+class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K])
+    extends Solver[K, Int, Interval] {
   type Var = K
   type Vars = Array[Var]
 
@@ -100,8 +101,10 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[
     propagatorsBuilder.map(buff => if(buff.isEmpty) Array.empty[Updater[K]] else buff.toArray)
   }
 
+  //TODO: DO INITIAL PROPAGATION, OTHERWISE WE MIGHT MISS SOME CONSTRAINTS !
+
   require(ids.forall(initialDomains(_) != null))
-  require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
+//  require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
 
   // current domains
   private val domains: MArrayMap.Aux[K, Interval] =
@@ -131,6 +134,12 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[
   }
   private def push(e: Event[K]) = {
     history += e
+  }
+
+  for(c <- conjunct) {
+    assert(domains.hasKey(c))
+    //domains.update(c, BooleanDomain.True)
+    enforce(ExternalDecision(c, BooleanDomain.True, dom(c)))
   }
 
   /** Returns true if the search space was exhausted */
@@ -164,11 +173,11 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr]) extends Solver[
       return false
 
     val head = update match {
-      case x: LocalDecision[K] => "decision: "
-      case x: Inference[K]     => "   infer: "
+      case x: LocalDecision[K]    => "decision: "
+      case x: Inference[K]        => "   infer: "
+      case x: ExternalDecision[K] => "     ext: "
     }
-//    println(
-//      s"$head ${asg.coalgebra(update.id.asInstanceOf[asg.EId])} <- ${update.domain}       (prev: ${update.previous})")
+    info(s"$head ${update.id} <- ${update.domain.show}       (prev: ${update.previous.show})")
 
     val props = propagators(update.id)
     for(p <- props) {

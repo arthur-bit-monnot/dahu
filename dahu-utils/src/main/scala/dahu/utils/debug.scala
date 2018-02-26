@@ -19,7 +19,7 @@ import scala.annotation.elidable._
 object debug {
 
   var DEBUG_LEVEL = 3
-  val LOG = 0
+  val LOG = 3
 
   @elidable(ASSERTION)
   @inline
@@ -50,7 +50,7 @@ object debug {
   }
 
   final def warning(msg: => String): Unit = if(LOG >= 1) println("warning: " + msg)
-  final def info(msg: => String): Unit = if(LOG >= 3) println("warning: " + msg)
+  final def info(msg: => String): Unit = if(LOG >= 3) println("info: " + msg)
 
   /** Use to annotate blocks that should not be in hot paths, typically here to maintain genericity.
     *

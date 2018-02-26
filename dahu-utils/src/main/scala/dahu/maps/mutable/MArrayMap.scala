@@ -7,6 +7,7 @@ class MArrayMap[@sp V: ClassTag] private[maps] (
     private val intKeys: debox.Set[Int], // todo: should be immutable
     private val buff: debox.Buffer[V]
 ) extends SharedIMap {
+  def hasKey(k: Int): Boolean = intKeys(k)
   def keys: debox.Set[K] = wrapF(intKeys)
 
   def domain: debox.Set[K] = keys.copy()

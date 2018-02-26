@@ -1,8 +1,14 @@
 package dahu.model.problem
 
 import cats.Functor
+import cats.implicits._
+import cats.syntax._
+import cats.free.Cofree
 import dahu.maps.{ArrayMap, IMapBuilder, SubInt}
+import dahu.model.input.SubjectTo
 import dahu.model.ir._
+import dahu.model.math.bool
+import dahu.model.types.{Tag, TagIsoInt}
 import dahu.recursion._
 
 import scala.reflect.ClassTag
@@ -11,37 +17,49 @@ object SatisfactionProblem {
 
   def extractCoalgebra[ID <: SubInt, F[_], O](base: AttributeAlgebra[ID, F, O],
                                               coalg: FCoalgebra[F, ID])(
-      root: ID)(implicit F: Functor[F], ct: ClassTag[O]): (O, ArrayMap[O]) = {
-    val memory = new IMapBuilder[O]()
+      root: ID)(implicit F: Functor[F], ct: ClassTag[F[O]]): (O, ArrayMap[F[O]]) = {
+    val memory = new IMapBuilder[F[O]]()
 
     val alg: EnvT[ID, F, O] => O = env => {
-      memory.getOrElseUpdate(env.ask, base(env))
+      val fo = memory.getOrElseUpdate(env.ask, env.lower)
+      base(env)
     }
     val co = coalg.toAttributeCoalgebra
     val tmp = Recursion.hylo(co, alg)(root)
     (tmp, memory.toImmutableArray)
   }
 
-  case class Node[ID](id: ID, value: Total[ID], constraint: Seq[ID])
+  case class IC[ID](id: ID, consts: Seq[ID])
 
-  def encode(ast: AST[_]): (Node[ast.ID], ArrayMap[Node[ast.ID]]) = {
-    type ID = ast.ID
-    type PB = Node[ID] // EnvT[ID, Node, ID]
+  type PB = Partial[Fix[Total]]
 
-    val ALG: AttributeAlgebra[ID, ExprF, PB] = {
-      case EnvT(id, Partial(value, condition, _)) =>
-        Node(id, value.value, value.constraint ++ condition.constraint :+ condition.id)
-      case EnvT(id, x: InputF[PB]) => Node(id, x, Seq())
-      case EnvT(id, x: CstF[PB])   => Node(id, x, Seq())
-      case EnvT(id, ComputationF(f, args, t)) =>
-        Node(id, ComputationF(f, args.map(_.id), t), args.flatMap(_.constraint))
-      case EnvT(id, ProductF(members, t)) =>
-        Node(id, ProductF(members.map(_.id), t), members.flatMap(_.constraint))
+  private object Utils {
+    import scala.language.implicitConversions
+    implicit def autoFix[F[_]](x: F[Fix[F]]): Fix[F] = Fix(x)
+
+    def and(conjuncts: Fix[Total]*): Fix[Total] = {
+      conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean)
+      ComputationF(bool.And, conjuncts.toSeq, Tag.ofBoolean)
     }
+  }
+  import Utils._
 
-    val (root, coalg) = extractCoalgebra(ALG, ast.tree.asFunction)(ast.root)
-    assert(root.id == ast.root)
-    (root, coalg)
+  val ALG: FAlgebra[ExprF, PB] = {
+    case Partial(value, condition, tpe) =>
+      Partial(value.value, and(value.condition, condition.condition, condition.value), tpe)
+    case x: InputF[PB] => Partial(Fix(x), and(), x.typ)
+    case x: CstF[PB]   => Partial(Fix(x), and(), x.typ)
+    case ComputationF(f, args, t) =>
+      Partial(ComputationF(f, args.map(a => a.value), t), and(args.map(_.condition): _*), t) //args.flatMap(_.condition.unfix), t)
+    case ProductF(members, t) =>
+      Partial(ProductF(members.map(a => a.value), t), and(members.map(_.condition): _*), t)
+  }
+
+  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X]): PB = {
+    val pb = Recursion.hylo(coalgebra, ALG)(root)
+    val simplified = dahu.recursion.Recursion.cata[Total, Fix[Total]](
+      dahu.model.compiler.Optimizations.simplificationAlgebra)(pb.condition)
+    pb.copy(condition = simplified)
   }
 
 }

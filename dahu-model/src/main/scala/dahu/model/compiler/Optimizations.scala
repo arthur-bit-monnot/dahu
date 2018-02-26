@@ -1,7 +1,7 @@
 package dahu.model.compiler
 
 import dahu.model.functions.{Fun, FunN}
-import dahu.model.ir.{ComputationF, CstF, ExprF}
+import dahu.model.ir.{ComputationF, CstF, ExprF, Total}
 import dahu.model.math._
 import dahu.model.types._
 import dahu.recursion._
@@ -67,4 +67,70 @@ object Optimizations {
     case _              => false
   }
 
+  type Tree = Total[Fix[Total]]
+  type PASS = Tree => Tree
+
+  val elimIdentity: PASS = {
+    case ComputationF(f: Monoid[_], args, t) =>
+      ComputationF(f, args.filterNot(_.unfix == f.liftedIdentity), t)
+    case x => x
+  }
+
+  val elimEmptyMonoids: PASS = {
+    case ComputationF(f: Monoid[_], Seq(), _) => f.liftedIdentity
+    case x                                    => x
+  }
+  private val FALSE: Fix[Total] = Fix(CstF(Value(false), Tag.ofBoolean))
+  private val TRUE: Fix[Total] = Fix(CstF(Value(true), Tag.ofBoolean))
+  val constantFolding: PASS = {
+    case ComputationF(bool.And, args, _) if args.contains(FALSE) => FALSE.unfix
+    case ComputationF(bool.Or, args, _) if args.contains(TRUE)   => TRUE.unfix
+
+    // commutative monoid, evaluate the combination of all constants args
+    case ComputationF(f: CommutativeMonoid[_], args, t) =>
+      // partition between unevaluated and constants
+      val (vars, csts) = args.foldLeft((Seq[Fix[Total]](), Seq[Value]())) {
+        case ((vs, cs), CstF(v, _)) => (vs, cs :+ v)
+        case ((vs, cs), x)          => (vs :+ x, cs)
+      }
+      val evalOfConstants = CstF[Fix[Total]](Value(f.compute(csts)), f.tpe)
+      if(vars.isEmpty) {
+        // no unevaluated terms, return results
+        evalOfConstants
+      } else {
+        // some unevaluated terms, return partially evaluated computation
+        ComputationF(f, vars :+ Fix(evalOfConstants), t)
+      }
+
+    // any function, evaluate if all args are constant
+    case ComputationF(f, args, t) if args.forall(_.isInstanceOf[CstF[_]]) =>
+      val params = args.map {
+        case CstF(value, _) => value
+        case _              => unexpected
+      }
+      CstF(Value(f.compute(params)), t)
+    case x => x
+  }
+
+  val flattenMonoid: PASS = {
+    case ComputationF(f: Monoid[_], args, t) =>
+      val flatArgs: Seq[Fix[Total]] = args.map(_.unfix).flatMap {
+        case ComputationF(g, subargs, t2) if f == g && t == t2 =>
+          subargs
+        case x => Seq(Fix(x))
+      }
+      ComputationF(f, flatArgs, t)
+    case x => x
+  }
+
+  val simplifications: Seq[PASS] = Seq(
+    elimIdentity,
+    elimEmptyMonoids,
+    flattenMonoid,
+    constantFolding
+  )
+  val simplificationAlgebra: Total[Fix[Total]] => Fix[Total] =
+    simplifications
+      .fold((x: Tree) => x)(_ andThen _)
+      .andThen(x => Fix(x))
 }

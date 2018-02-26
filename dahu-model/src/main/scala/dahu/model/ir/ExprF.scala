@@ -13,13 +13,9 @@ sealed abstract class ExprF[F] {
 object ExprF {
   implicit val functor: Functor[ExprF] = new Functor[ExprF] {
     override def map[A, B](fa: ExprF[A])(f: A => B): ExprF[B] = fa match {
-      case x @ InputF(_, _) => x
-      case x @ CstF(_, _)   => x
-      case x @ ComputationF(fun, args, typ) =>
-        ComputationF(fun, args.map(f), typ)
+      case fa: Total[A] => Total.functor.map(fa)(f)
       case x @ Partial(value, condition, typ) =>
         Partial(f(value), f(condition), typ)
-      case x @ ProductF(members, typ) => ProductF(members.map(f), typ)
     }
   }
 }
@@ -29,6 +25,18 @@ object ExprF {
   * A Fix[Pure] can always be evaluated to its value.
   * */
 sealed trait Total[F] extends ExprF[F]
+object Total {
+  implicit val functor: Functor[Total] = new Functor[Total] {
+    override def map[A, B](fa: Total[A])(f: A => B): Total[B] = fa match {
+      case x @ InputF(_, _)   => x
+      case x @ CstF(_, _)     => x
+      case x @ RefF(ref, typ) => RefF(f(ref), typ)
+      case x @ ComputationF(fun, args, typ) =>
+        ComputationF(fun, args.map(f), typ)
+      case x @ ProductF(members, typ) => ProductF(members.map(f), typ)
+    }
+  }
+}
 
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
@@ -51,6 +59,10 @@ object CstF {
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }
 
+case class RefF[F](ref: F, typ: Type) extends Total[F] {
+  override def toString: String = s"ref($ref)"
+}
+
 final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends Total[F] {
   override def toString: String = s"λ: $fun(${args.mkString(", ")})"
 }
@@ -61,5 +73,5 @@ final case class ProductF[F](members: Seq[F], typ: Type) extends Total[F] {
 
 /** A partial expression that only produces a value if its condition evaluates to True. */
 final case class Partial[F](value: F, condition: F, typ: Type) extends ExprF[F] {
-  override def toString: String = s"$value?"
+  override def toString: String = s"$value? (constraint: $condition)"
 }

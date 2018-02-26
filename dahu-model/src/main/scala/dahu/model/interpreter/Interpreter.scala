@@ -53,27 +53,36 @@ object Interpreter {
       x =>
         map(x)
     }
-    val alg: AttributeAlgebra[ast.ID, ExprF, Evaluation[T, Value]] = {
-      case EnvT(_, x: InputF[_]) => Right(input(x))
-      case EnvT(_, CstF(v, _))   => Right(v)
-      case EnvT(_, ComputationF(f, args, _)) =>
-        val x: Evaluation[T, List[Value]] = args.toList.sequence
-        x match {
-          case Right(actualArgs) => Right(Value(f.compute(actualArgs)))
-          case Left(x)           => Left(x)
-        }
-      case EnvT(_, ProductF(members, _)) => members.toList.sequence.map(Value(_))
-      case EnvT(id, Partial(value, cond, _)) =>
-        cond match {
-          case Right(true)  => value
-          case Right(false) => Left(ConstraintViolated(ast.toInput(id)))
-          case Right(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-          case Left(x)      => Left(x)
-        }
+    val alg: AttributeAlgebra[ast.ID, ExprF, Evaluation[T, Value]] = x => {
+      val res = x match {
+        case EnvT(_, x: InputF[_]) => Right(input(x))
+        case EnvT(_, CstF(v, _))   => Right(v)
+        case EnvT(id, ComputationF(f, args, _)) =>
+          val x: Evaluation[T, List[Value]] = args.toList.sequence
+          x match {
+            case Right(actualArgs) =>
+              Right(Value(f.compute(actualArgs)))
+            case Left(x) =>
+              Left(x)
+          }
+        case EnvT(_, ProductF(members, _)) => members.toList.sequence.map(Value(_))
+        case EnvT(id, Partial(value, cond, _)) =>
+          cond match {
+            case Right(true) =>
+              value
+            case Right(false) =>
+              Left(ConstraintViolated(ast.toInput(id)))
+            case Right(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+            case Left(x) =>
+              Left(x)
+          }
+      }
+      println(s"${x.lower} <- $res")
+      res
     }
-
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra
     hylo(coalg, alg)(ast.root)
+
   }
 
 }
