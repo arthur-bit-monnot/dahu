@@ -1,11 +1,10 @@
 package dahu.benchmarks
 
-import dahu.constraints.CSP
 import dahu.model.compiler.Algebras
 import dahu.model.input.Tentative
 import dahu.model.interpreter.Interpreter
 import dahu.model.types.Value
-import dahu.utils.errors._
+import dahu.solvers.MetaSolver
 
 import scala.collection.mutable
 
@@ -25,29 +24,23 @@ abstract class Family(val familyName: String) {
   }
 
   def printSolutions[T](sat: Tentative[T], maxSolutions: Option[Int] = None): Unit = {
-    val ast = Algebras.parse(sat)
-    val csp = CSP.from(ast)
+    val solver = MetaSolver.of(Algebras.parse(sat))
     val sols = mutable.ArrayBuffer[String]()
-    val solutionString = (f: csp.Assignment) => {
-      ast.variables.domain
+    val solutionString = (f: solver.ast.Assignment) => {
+      solver.ast.variables.domain
         .toIterable()
-        .map(v => (ast.variables(v), f.get(v)))
+        .map(v => (solver.ast.variables(v), f(v)))
         .map {
-          case (id, Some(value)) => s"${id.name}: $value"
-          case (_, None)         => unexpected("Solution is partial")
+          case (id, value) => s"${id.name}: $value"
         }
         .mkString("\t")
     }
-    val evaluatedSolution: csp.Assignment => Either[Any, Value] = ass => {
-      val f: ast.ID => Value = id =>
-        csp
-          .extractSolution(ass)
-          .get(id)
-          .getOrElse(unexpected("Some inputs are not encoded in the solution"))
-      Interpreter.evalWithFailureCause(ast)(f)
-    }
-    csp.enumerateSolutions(
-      onSolutionFound = f => {
+    val evaluatedSolution: solver.ast.Assignment => Either[Any, Value] =
+      (ass: solver.ast.Assignment) => {
+        Interpreter.evalWithFailureCause(solver.ast)(ass)
+      }
+    solver.enumerateSolutions(
+      onSolutionFound = (f: solver.ast.Assignment) => {
         sols += solutionString(f) + "\n" + evaluatedSolution(f) + "\n"
       },
       maxSolutions = maxSolutions

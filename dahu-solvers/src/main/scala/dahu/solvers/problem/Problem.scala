@@ -1,4 +1,4 @@
-package dahu.problem
+package dahu.solvers.problem
 
 import dahu.maps.SubInt
 import dahu.solvers.Domain

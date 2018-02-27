@@ -1,11 +1,10 @@
 package dahu.benchmarks
 
-import dahu.constraints.CSP
 import dahu.model.input._
 import dahu.model.compiler.Algebras._
 import dahu.model.interpreter.Interpreter
 import dahu.model.types._
-import dahu.utils.errors._
+import dahu.solvers.MetaSolver
 import utest._
 
 import scala.util.{Failure, Success, Try}
@@ -13,30 +12,24 @@ import scala.util.{Failure, Success, Try}
 object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
-//    GraphColoring,
+    GraphColoring,
     Jobshop
   )
 
   def numSolutions[T](expr: Tentative[T], maxSolutions: Option[Int] = None): Int = {
-    val ast = parse(expr)
-    val csp = CSP.from(ast)
-    val solutionString = (f: csp.Assignment) => {
-      ast.variables.domain
+    val solver = MetaSolver.of(parse(expr))
+    val solutionString = (f: solver.ast.Assignment) => {
+      solver.ast.variables.domain
         .toIterable()
-        .map(v => (ast.variables(v), f.get(v)))
+        .map(v => (solver.ast.variables(v), f(v)))
         .map {
-          case (id, Some(value)) => s"${id.name}: $value"
-          case (_, None)         => unexpected("Solution is partial")
+          case (id, value) => s"${id.name}: $value"
         }
         .mkString("\n")
     }
-    val validateSolution: csp.Assignment => Unit = ass => {
-      val f: ast.ID => Value = id =>
-        csp
-          .extractSolution(ass)
-          .get(id)
-          .getOrElse(unexpected("Some inputs are not encoded in the solution"))
-      Interpreter.evalWithFailureCause(ast)(f) match {
+    val validateSolution: solver.ast.Assignment => Unit = ass => {
+      val f: solver.ast.VID => Value = ass
+      Interpreter.evalWithFailureCause(solver.ast)(f) match {
         case Right(1) =>
         case x =>
           System.err.println("Error: the following solution evaluates as not valid.")
@@ -44,7 +37,7 @@ object NumSolutionsTest extends TestSuite {
           dahu.utils.errors.unexpected(s"Invalid solution. Result: $x")
       }
     }
-    csp.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
+    solver.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
   }
 
   def tests = Tests {

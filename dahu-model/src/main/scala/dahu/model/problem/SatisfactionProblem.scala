@@ -1,35 +1,49 @@
 package dahu.model.problem
 
-import cats.Functor
-import cats.implicits._
-import cats.syntax._
-import cats.free.Cofree
-import dahu.maps.{ArrayMap, IMapBuilder, SubInt}
-import dahu.model.input.SubjectTo
+import dahu.maps.ArrayMap
 import dahu.model.ir._
 import dahu.model.math.bool
-import dahu.model.types.{Tag, TagIsoInt}
+import dahu.model.types.Tag
 import dahu.recursion._
 
-import scala.reflect.ClassTag
+import scala.collection.mutable
 
 object SatisfactionProblem {
 
-  def extractCoalgebra[ID <: SubInt, F[_], O](base: AttributeAlgebra[ID, F, O],
-                                              coalg: FCoalgebra[F, ID])(
-      root: ID)(implicit F: Functor[F], ct: ClassTag[F[O]]): (O, ArrayMap[F[O]]) = {
-    val memory = new IMapBuilder[F[O]]()
+  def satisfactionSubAST(ast: AST[_]): TotalSubAST[ast.ID] = {
+    val Partial(_, condition, _) = encode(ast.root, ast.tree.asFunction)
 
-    val alg: EnvT[ID, F, O] => O = env => {
-      val fo = memory.getOrElseUpdate(env.ask, env.lower)
-      base(env)
+    val memory = mutable.LinkedHashMap[Total[Int], Int]()
+
+    val alg: Total[Int] => Int = env => {
+      memory.getOrElseUpdate(env, memory.size)
     }
-    val co = coalg.toAttributeCoalgebra
-    val tmp = Recursion.hylo(co, alg)(root)
-    (tmp, memory.toImmutableArray)
-  }
+    val treeRoot = Recursion.cata[Total, Int](alg)(condition)
+    val reversedMemory = memory.map(_.swap).toMap
+    val genTree = ArrayMap.build(reversedMemory.keys, k => reversedMemory(k))
 
-  case class IC[ID](id: ID, consts: Seq[ID])
+    new TotalSubAST[ast.ID] {
+      override def tree: ArrayMap.Aux[ID, Total[ID]] =
+        genTree.asInstanceOf[ArrayMap.Aux[ID, Total[ID]]]
+
+      override def root: ID = treeRoot.asInstanceOf[ID]
+
+      override val subset: TotalSubAST.SubSet[ast.ID, ID] = new TotalSubAST.SubSet[ast.ID, ID] {
+        override def from: ID => Option[ast.ID] = x => {
+          val e = tree(x)
+          ast.reverseTree.get(e.asInstanceOf[ast.Expr])
+        }
+        override def to: ast.ID => Option[ID] = x => {
+          val e: ExprF[ast.ID] = ast.tree(x)
+          e match {
+            case t: Total[_] => reverseTree.get(t.asInstanceOf[Total[ID]])
+            case _           => None
+          }
+        }
+
+      }
+    }
+  }
 
   type PB = Partial[Fix[Total]]
 

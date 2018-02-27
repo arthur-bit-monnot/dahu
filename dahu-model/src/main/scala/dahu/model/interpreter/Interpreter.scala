@@ -10,6 +10,22 @@ import dahu.recursion.Recursion._
 
 object Interpreter {
 
+  def eval(ast: TotalSubAST[_])(root: ast.ID, inputs: ast.VID => Value): Value = {
+    val input: InputF[_] => Value = {
+      val map: Map[InputF[_], Value] =
+        ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
+      x =>
+        map(x)
+    }
+    val alg: FAlgebra[Total, Value] = {
+      case x: InputF[_]             => input(x)
+      case CstF(v, _)               => v
+      case ComputationF(f, args, _) => Value(f.compute(args))
+      case ProductF(members, _)     => Value(members)
+    }
+    hylo(ast.tree.asFunction, alg)(root)
+  }
+
   /** Evaluates the given AST with the provided inputs.
     * Returns Some(v), v being the value of the root node if all encountered constraints were satisfied.
     * Returns None, if a constraint (condition of a `SubjectTo(value, condition)` node) was encountered.
@@ -77,7 +93,6 @@ object Interpreter {
               Left(x)
           }
       }
-      println(s"${x.lower} <- $res")
       res
     }
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra

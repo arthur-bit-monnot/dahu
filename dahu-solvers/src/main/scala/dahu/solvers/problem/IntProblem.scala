@@ -1,4 +1,4 @@
-package dahu.problem
+package dahu.solvers.problem
 
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
@@ -7,7 +7,6 @@ import dahu.constraints.domains._
 import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
 import dahu.model.functions.Fun
 import dahu.model.ir._
-import dahu.model.problem.SatisfactionProblem
 import dahu.utils.errors._
 
 object IntProblem {
@@ -18,7 +17,6 @@ object IntProblem {
   type Vars = Array[Var]
   type Vals = Array[Val]
 
-  //  type Func = Vals => Val
   final case class Func(eval: Vals => Val, fw: ForwardPropagator, bw: BackwardPropagator)
 
   /** Computation is a function applied to some variables. */
@@ -66,67 +64,35 @@ object IntCSP {
     }
   }
 
-  def intSubProblem(ast: AST[_]): IntCSP[Key[ast.ID]] = ???
-//  {
-//    val (pb, nodes) = SatisfactionProblem.encode(ast)
-//    type K = Key[ast.ID] // subtype of ast.ID
-//    val tree = nodes.map(_.value.asInstanceOf[Total[K]]).castKey[K]
-//
-//    nodes.toIterable.toSeq
-//      .sortBy(_._1)
-//      .map(_._2)
-//      .map {
-//        case Node(id, value, cond) => f"$id%2s -> $value%-15s ?: ${cond.mkString(" ")}"
-//      }
-//      .foreach(println)
-//
-//    val factory = new IMapBuilder[Expr]
-//
-//    tree.domain
-//      .toIterable()
-//      .map(i => IntCSP.translate(i, tree.asFunction).map((i, _)))
-//      .foreach {
-//        case Some((i, expr)) =>
-//          factory += (i, expr)
-//        case _ => // not representable or not in candidate set, ignore
-//      }
-//
-////    val externalInputs: Set[ast.ID] = {
-////      factory.currentKeys
-////        .toScalaSet()
-////        .flatMap((v: Int) =>
-////          ast.tree.get(v) match {
-////            case Some(ComputationF(_, args, _)) => args.toSet
-////            case Some(_)                        => Set[ast.ID]()
-////            case _                              => unexpected
-////        })
-////    }
-////    for(v <- externalInputs) {
-////      assert(!factory.contains(v))
-////      val expr = ast.tree.get(v).map(_.typ) match {
-////        case Some(t: TagIsoInt[_]) => Expr(IntCSP.domainOfType(t), None, t)
-////        case Some(_) =>
-////          unexpected(
-////            "Some computation in IntCSP depends on an expression whose type is not isomorphic to Int.")
-////        case None => unexpected
-////      }
-////      factory += (v, expr)
-////    }
-//    val conjunction = pb.constraint.map(_.asInstanceOf[K]).toSet
-//    new IntCSP[K] {
-//      private val pb: ArrayMap.Aux[K, Expr] =
-//        factory.toImmutableArray.castKey[K]
-//
-//      override def toSatisfy: Set[K] = conjunction
-//
-//      override def dom: K => IntDomain = pb(_).domain
-//
-//      override def exprs: K => Option[Comp] = pb(_).comp
-//
-//      override def vars: Array[K] = pb.domain.toArray
-//
-//      override def getSolver: CSP[K] =
-//        new CSP(pb, toSatisfy)
-//    }
-//  }
+  def intProblem(ast: TotalSubAST[_]): IntCSP[IntCSP.Key[ast.ID]] = {
+    type K = IntCSP.Key[ast.ID]
+
+    val factory = new IMapBuilder[Expr]
+
+    ast.tree.domain
+      .toIterable()
+      .map(i => IntCSP.translate(i, ast.tree.asFunction).map((i, _)))
+      .foreach {
+        case Some((i, expr)) =>
+          factory += (i, expr)
+        case _ => // not representable or not in candidate set, ignore
+      }
+
+    val conjunction = Set(ast.root.asInstanceOf[K])
+    new IntCSP[K] {
+      private val pb: ArrayMap.Aux[K, Expr] =
+        factory.toImmutableArray.castKey[K]
+
+      override def toSatisfy: Set[K] = conjunction
+
+      override def dom: K => IntDomain = pb(_).domain
+
+      override def exprs: K => Option[Comp] = pb(_).comp
+
+      override def vars: Array[K] = pb.domain.toArray
+
+      override def getSolver: CSP[K] =
+        new CSP(pb, toSatisfy)
+    }
+  }
 }

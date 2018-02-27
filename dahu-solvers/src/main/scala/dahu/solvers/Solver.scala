@@ -1,12 +1,12 @@
 package dahu.solvers
 
-import dahu.constraints.CSP
-import dahu.constraints.domains.{IntDomain, IntervalDomain}
+import dahu.constraints.domains.IntervalDomain
 import dahu.constraints.interval.Interval
-import dahu.maps.{ArrayMap, SubInt, SubSubInt}
-import dahu.model.ir.AST
+import dahu.maps.{ArrayMap, SubInt}
+import dahu.model.ir.{AST, InputF}
+import dahu.model.problem.SatisfactionProblem
 import dahu.model.types._
-import dahu.problem.IntCSP
+import dahu.solvers.problem.IntCSP
 import dahu.utils.errors._
 import spire.math.Trilean
 
@@ -49,39 +49,52 @@ trait Solver[K <: SubInt, V, D] {
   def consistent: Trilean
 }
 
-class MetaSolver1[K <: SubInt](asg: AST.Aux[_, K]) extends Solver[K, Any, Domain[Any]] {
-  override def domainIso: DomainIso[Domain[Any], Any] = DomainIso.identity
+class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K]) {
 
-  trait FirstTag
-  type T1 = SubSubInt[K, FirstTag]
-  implicitly[T1 <:< K] // simple compile time check
+  val sat = SatisfactionProblem.satisfactionSubAST(ast)
+  val csp = IntCSP.intProblem(sat).getSolver
 
-  def unsafe(id: K): T1 = id.asInstanceOf[T1]
-  def typeOf(id: K): dahu.model.types.Tag[_] = asg.tree(id).typ
-  val intSubProblem
-    : IntCSP[T1] = IntCSP.intSubProblem(asg).asInstanceOf[IntCSP[T1]] // TODO do safely
-  val solver: CSP[T1] = intSubProblem.getSolver
+  def typeOf(id: K): dahu.model.types.Tag[_] = ast.tree(id).typ
 
-  override def enforce(variable: K, domain: Domain[Any]): Unit = {
-    val tmp = domain.asInstanceOf[IntDomain]
-    solver.enforce(unsafe(variable), Interval(tmp.lb, tmp.ub))
+  def defaultDomain(k: ast.VID): Stream[Value] = ast.variables(k) match {
+    case InputF(_, t: TagIsoInt[_]) =>
+      assert(t.min <= t.max, "empty default domain")
+      (t.min to t.max).toStream.map(i => t.toValue(i))
+    case _ => ???
   }
 
-  override def nextSolution(): Option[ArrayMap.Aux[K, Any]] = solver.nextSolution() match {
-    case Some(f) =>
-      val f2 = f.mapFromKey {
-        case (k, v) =>
-          typeOf(k) match {
-            case t: TagIsoInt[_] => t.fromInt(v)
-            case _               => unexpected("Int value whose type is not isomorphic to Int")
-          }
+  def nextSolution(): Option[ast.Assignment] = csp.nextSolution() match {
+    case Some(assignment) =>
+      val f = csp.extractSolution(assignment)
+      val partial: ast.PartialAssignment = (k: ast.VID) => {
+        val k2: Option[sat.ID] = sat.subset.to(k)
+        k2.flatMap(i => f.get(i))
       }
-      Some(f2.asInstanceOf[ArrayMap.Aux[K, Any]])
-
+      val total: ast.Assignment = (x: ast.VID) =>
+        partial(x) match {
+          case Some(v) => v
+          case None =>
+            defaultDomain(x).head // TODO: use head option or fail early if an input has an empty domain
+      }
+      Some(total)
     case None => None
   }
 
-  override def extractSolution(assignment: Assignment): Solution = ???
-
-  override def consistent: Trilean = solver.consistent
+  def enumerateSolutions(maxSolutions: Option[Int] = None,
+                         onSolutionFound: ast.Assignment => Unit = _ => ()): Int = {
+    var count = 0
+    while(maxSolutions.forall(count < _)) {
+      nextSolution() match {
+        case Some(sol) =>
+          onSolutionFound(sol)
+          count += 1
+        case None =>
+          return count
+      }
+    }
+    count
+  }
+}
+object MetaSolver {
+  def of[X](ast: AST[X]): MetaSolver[ast.ID] = new MetaSolver(ast)
 }

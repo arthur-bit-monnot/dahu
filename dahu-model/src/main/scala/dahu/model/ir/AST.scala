@@ -1,16 +1,43 @@
 package dahu.model.ir
 
-import dahu.maps.{ArrayMap, SubInt, SubSubInt}
+import dahu.maps.{ArrayMap, SInt, SubInt, SubSubInt}
+import dahu.model.types.Value
 
-trait AST[T] {
-
+trait GenAST[F[_]] {
+  trait SubTag
   type ID <: SubInt
-  type Expr = ExprF[ID]
-  sealed trait VariableTag
-  type VID = SubSubInt[ID, VariableTag]
+  type VID = SubSubInt[ID, GenAST.VariableTag]
 
+  def tree: ArrayMap.Aux[ID, F[ID]]
   def root: ID
-  def tree: ArrayMap.Aux[ID, Expr]
+
+  lazy val reverseTree: Map[F[ID], ID] =
+    tree.toIterable.map(_.swap).toMap
+
+}
+object GenAST {
+  trait VariableTag
+}
+
+trait TotalSubAST[PID <: SubInt] extends GenAST[Total] {
+
+  val subset: TotalSubAST.SubSet[PID, ID]
+
+  lazy val variables: ArrayMap.Aux[VID, InputF[ID]] =
+    tree
+      .collect { case x: InputF[ID] => x }
+      .castKey[VID]
+}
+object TotalSubAST {
+  trait SubSet[A, B] {
+    def to: A => Option[B]
+    def from: B => Option[A]
+  }
+}
+
+trait AST[T] extends GenAST[ExprF] {
+
+  type Expr = ExprF[ID]
 
   lazy val variables: ArrayMap.Aux[VID, InputF[ID]] =
     tree
@@ -19,6 +46,11 @@ trait AST[T] {
 
   def fromInput: T => Option[ID]
   def toInput: ID => Seq[T]
+
+  type Assignment = VID => Value
+  type PartialAssignment = VID => Option[Value]
+  type DefaultDomain = VID => Stream[Value]
+  type Assignments = Stream[Assignment]
 }
 object AST {
   type Aux[T, ID0 <: SubInt] = AST[T] { type ID = ID0 }

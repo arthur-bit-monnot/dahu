@@ -28,9 +28,8 @@ sealed trait Total[F] extends ExprF[F]
 object Total {
   implicit val functor: Functor[Total] = new Functor[Total] {
     override def map[A, B](fa: Total[A])(f: A => B): Total[B] = fa match {
-      case x @ InputF(_, _)   => x
-      case x @ CstF(_, _)     => x
-      case x @ RefF(ref, typ) => RefF(f(ref), typ)
+      case x @ InputF(_, _) => x
+      case x @ CstF(_, _)   => x
       case x @ ComputationF(fun, args, typ) =>
         ComputationF(fun, args.map(f), typ)
       case x @ ProductF(members, typ) => ProductF(members.map(f), typ)
@@ -57,10 +56,6 @@ object CstF {
 
   /** Leaf node, with  artificial type parameters, allow implicit conversion as for InputF. */
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
-}
-
-case class RefF[F](ref: F, typ: Type) extends Total[F] {
-  override def toString: String = s"ref($ref)"
 }
 
 final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends Total[F] {

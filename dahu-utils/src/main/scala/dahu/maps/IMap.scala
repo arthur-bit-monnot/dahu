@@ -14,7 +14,12 @@ trait IMap[@sp V] extends SharedIMap {
   def apply(key: K): V
   def isInDomain(i: Int): Boolean = domain(wrap(i))
 
-  def get(key: Int): Option[V] = if(domain(wrap(key))) Some(apply(wrap(key))) else None
+  /** Get by a key which has a supertype of K. This is safe bu the key might not be present. */
+  def get[UK >: K <: SubInt](key: UK): Option[V] =
+    if(domain(wrap(key))) Some(apply(wrap(key))) else None
+
+  /** This is highly unsafe since keys might have been used interchangeably with other IMaps */
+  def getUnsafe(key: Int): Option[V] = if(domain(wrap(key))) Some(apply(wrap(key))) else None
 
   def map[@sp B: ClassTag: Default](f: V => B): IMap.Aux[K, B]
 }

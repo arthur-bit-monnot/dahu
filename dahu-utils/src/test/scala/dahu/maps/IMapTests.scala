@@ -46,9 +46,9 @@ object IMapTests extends TestSuite {
           }
         }
 
-        assert(isEven.get(0) == Some(false))
-        assert(isEven.get(1) == Some(true))
-        assert(isEven.get(10) == None)
+        assert(isEven.getUnsafe(0) == Some(false))
+        assert(isEven.getUnsafe(1) == Some(true))
+        assert(isEven.getUnsafe(10) == None)
       }
 
       "builder" - {

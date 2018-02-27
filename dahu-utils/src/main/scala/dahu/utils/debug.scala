@@ -19,7 +19,7 @@ import scala.annotation.elidable._
 object debug {
 
   var DEBUG_LEVEL = 3
-  val LOG = 3
+  val LOG = 0
 
   @elidable(ASSERTION)
   @inline

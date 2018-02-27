@@ -10,8 +10,9 @@ import dahu.constraints.interval._
 import dahu.maps.mutable.MArrayMap
 import dahu.maps.{ArrayMap, SubInt}
 import dahu.model.ir.AST
-import dahu.problem.{IntCSP, IntProblem}
-import dahu.problem.IntProblem.{Comp, Func}
+import dahu.model.problem.SatisfactionProblem
+import dahu.solvers.problem.{IntCSP, IntProblem}
+import dahu.solvers.problem.IntProblem.{Comp, Func}
 import dahu.solvers.{DomainIso, Solver}
 import spire.implicits._
 import dahu.utils.debug._
@@ -255,8 +256,9 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
 
 object CSP {
 
-  def from(ast: AST[_]): CSP[IntCSP.Key[ast.ID]] = {
-    val x = IntCSP.intSubProblem(ast)
+  def from(ast: AST[_]) = {
+    val sat = SatisfactionProblem.satisfactionSubAST(ast)
+    val x = IntCSP.intProblem(sat)
     x.getSolver
   }
 }
