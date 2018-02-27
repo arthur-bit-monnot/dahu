@@ -12,6 +12,7 @@ import scala.util.{Failure, Success, Try}
 object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
+    Simple,
     GraphColoring,
     Jobshop
   )

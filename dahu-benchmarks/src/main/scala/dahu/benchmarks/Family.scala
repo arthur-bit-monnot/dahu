@@ -52,7 +52,8 @@ abstract class Family(val familyName: String) {
   def solveAndPrintAll(): Unit = {
     println(familyName)
     for((name, pb) <- instancesMap) {
-      printSolutions(pb.pb, Some(1))
+      println(s"instance: $name")
+      printSolutions(pb.pb, Some(3))
     }
   }
 

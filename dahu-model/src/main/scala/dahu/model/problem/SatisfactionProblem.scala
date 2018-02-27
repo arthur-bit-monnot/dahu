@@ -64,7 +64,7 @@ object SatisfactionProblem {
     case x: InputF[PB] => Partial(Fix(x), and(), x.typ)
     case x: CstF[PB]   => Partial(Fix(x), and(), x.typ)
     case ComputationF(f, args, t) =>
-      Partial(ComputationF(f, args.map(a => a.value), t), and(args.map(_.condition): _*), t) //args.flatMap(_.condition.unfix), t)
+      Partial(ComputationF(f, args.map(a => a.value), t), and(args.map(_.condition): _*), t)
     case ProductF(members, t) =>
       Partial(ProductF(members.map(a => a.value), t), and(members.map(_.condition): _*), t)
   }
