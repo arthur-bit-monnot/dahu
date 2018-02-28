@@ -47,7 +47,11 @@ object Interpreter {
           case Some(actualArgs) => Some(Value(f.compute(actualArgs)))
           case None             => None
         }
-      case ProductF(members, _) => members.toList.sequence.map(Value(_))
+      case ProductF(members, typ) =>
+        val optMembers: Option[List[Value]] = members.toList.sequence
+        optMembers
+          .map(xs => typ.idProd.buildFromValues(xs))
+          .map(Value(_))
       case Partial(value, cond, _) =>
         cond match {
           case Some(true)  => value

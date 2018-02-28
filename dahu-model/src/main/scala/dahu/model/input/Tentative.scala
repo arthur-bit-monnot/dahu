@@ -10,9 +10,6 @@ final case class ConstraintViolated(constraint: Tentative[Boolean])
 sealed trait Tentative[T] {
 
   def typ: Tag[T]
-
-  def subjectTo(cond: Tentative[T] => Tentative[Boolean]): Tentative[T] =
-    SubjectTo(this, cond(this))
 }
 
 /** Evaluation: eval(condition).flatMap(eval(value)) */
@@ -26,7 +23,6 @@ sealed abstract class Term[T] extends Tentative[T]
 /** Evaluation yields a Right[T] */
 final case class Input[T: Tag](name: String) extends Term[T] {
   override def typ: Tag[T] = Tag[T]
-  def bind(value: T): Bind[T] = Bind(this, value)
 }
 
 /** Evaluation returns a Right[T](value) */
@@ -42,23 +38,21 @@ sealed abstract class Computation[O] extends Tentative[O] {
   override def toString: String = s"$f(${args.mkString(", ")})"
 }
 
-final case class Product[T[_[_]], V <: T[Tentative]](value: V)(implicit tt: Tag[T[Id]],
-                                                               pe1: ProductExpr[T, Tentative],
-                                                               pe2: ProductExpr[T, Id])
+final case class Product[T[_[_]]](value: T[Tentative])(implicit tt: ProductTag[T])
     extends Tentative[T[Id]] {
-  override def typ: Tag[T[Id]] = ??? // TODO
-  def members: Seq[Tentative[Any]] = pe1.extractTerms(value)
-  def buildFromVals(terms: Seq[Any]): T[Id] = pe2.buildFromTerms(terms)
-  def buildFromExpr(terms: Seq[Tentative[Any]]): T[Tentative] = pe1.buildFromTerms(terms)
+  override def typ: ProductTag[T] = tt
+  def members: Seq[Tentative[Any]] = tt.exprProd.extractTerms(value)
+  def buildFromVals(terms: Seq[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
+  def buildFromExpr(terms: Seq[Tentative[Any]]): T[Tentative] = tt.exprProd.buildFromTerms(terms)
 
 }
 
 trait ProductExpr[P[_[_]], F[_]] {
-
   def extractTerms(prod: P[F]): Seq[F[Any]]
   def buildFromTerms(terms: Seq[F[Any]]): P[F]
-
+  def buildFromValues(terms: Seq[F[Value]]): P[F] = buildFromTerms(terms.asInstanceOf[Seq[F[Any]]])
 }
+
 object ProductExpr {
 
   def apply[P[_[_]], F[_]](implicit instance: ProductExpr[P, F]): ProductExpr[P, F] = instance
@@ -93,8 +87,6 @@ object ProductExpr {
         l.head.asInstanceOf[F[H]] :: t.fromTerms(l.tail)
     }
 }
-
-final case class Bind[T](variable: Input[T], value: T)
 
 object Computation {
   def apply[I, O](f: Fun1[I, O], in: Tentative[I]): Computation1[I, O] =

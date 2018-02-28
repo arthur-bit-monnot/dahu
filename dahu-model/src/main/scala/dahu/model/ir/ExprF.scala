@@ -2,7 +2,7 @@ package dahu.model.ir
 
 import cats.Functor
 import dahu.model.functions.Fun
-import dahu.model.types.{Type, Value}
+import dahu.model.types.{ProductTag, Type, Value}
 
 import scala.language.implicitConversions
 
@@ -62,7 +62,7 @@ final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends T
   override def toString: String = s"λ: $fun(${args.mkString(", ")})"
 }
 
-final case class ProductF[F](members: Seq[F], typ: Type) extends Total[F] {
+final case class ProductF[F](members: Seq[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
 }
 

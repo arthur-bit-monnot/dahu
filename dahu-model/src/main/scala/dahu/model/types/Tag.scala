@@ -1,5 +1,8 @@
 package dahu.model.types
 
+import cats.Id
+import dahu.model.input.{ProductExpr, Tentative}
+
 import scala.annotation.switch
 
 trait Tag[T] {
@@ -37,6 +40,26 @@ object TagIsoInt {
 
     assert(numInstances == max - min + 1)
   }
+}
+
+trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
+  def exprProd: ProductExpr[P, Tentative]
+  def idProd: ProductExpr[P, cats.Id]
+}
+object ProductTag {
+
+  import scala.reflect.runtime.universe
+
+  implicit def ofProd[P[_[_]]](implicit pe1: ProductExpr[P, Tentative],
+                               pe2: ProductExpr[P, cats.Id],
+                               tt: universe.WeakTypeTag[P[cats.Id]]): ProductTag[P] =
+    new ProductTag[P] {
+
+      override def exprProd: ProductExpr[P, Tentative] = pe1
+      override def idProd: ProductExpr[P, Id] = pe2
+
+      override def typ: Tag.Type = tt.tpe
+    }
 }
 
 object Tag {

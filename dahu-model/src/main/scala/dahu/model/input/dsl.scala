@@ -52,6 +52,17 @@ object dsl {
     }
   }
 
+  implicit class SubjectToOps[F[_], T](private val lhs: F[T])(implicit ev: F[T] <:< Tentative[T]) {
+
+    def subjectTo(cond: F[T] => Tentative[Boolean]): Tentative[T] =
+      SubjectTo(lhs, cond(lhs))
+  }
+  implicit class SubjectToOps2[T[_[_]]](val lhs: Product[T]) {
+
+    def subjectTo(cond: Product[T] => Tentative[Boolean]): Tentative[T[cats.Id]] =
+      SubjectTo(lhs, cond(lhs))
+  }
+
   implicit class BooleanExprOps(a: Tentative[Boolean]) {
     def toDouble: Tentative[Double] = IF(a, Cst(1.0), Cst(0.0))
     def toInt: Tentative[Int] = IF(a, Cst(1), Cst(0))

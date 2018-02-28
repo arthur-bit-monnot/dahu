@@ -15,7 +15,7 @@ object Algebras {
     case x @ Cst(value)             => CstF(Value(value), x.typ)
     case x: Computation[_]          => ComputationF(x.f, x.args, x.typ)
     case x @ SubjectTo(value, cond) => Partial(value, cond, x.typ)
-    case x @ Product(value)         => ???
+    case x @ Product(value)         => ProductF(x.members, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
