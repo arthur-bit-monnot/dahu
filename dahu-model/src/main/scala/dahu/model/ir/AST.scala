@@ -14,6 +14,10 @@ trait GenAST[F[_]] {
   lazy val reverseTree: Map[F[ID], ID] =
     tree.toIterable.map(_.swap).toMap
 
+  type Assignment = VID => Value
+  type PartialAssignment = VID => Option[Value]
+  type DefaultDomain = VID => Stream[Value]
+  type Assignments = Stream[Assignment]
 }
 object GenAST {
   trait VariableTag
@@ -27,6 +31,9 @@ trait TotalSubAST[PID <: SubInt] extends GenAST[Total] {
     tree
       .collect { case x: InputF[ID] => x }
       .castKey[VID]
+
+  def asVariableID(id: ID): Option[VID] =
+    if(variables.isInDomain(id)) Some(id.asInstanceOf[VID]) else None
 }
 object TotalSubAST {
   trait SubSet[A, B] {
@@ -47,10 +54,6 @@ trait AST[T] extends GenAST[ExprF] {
   def fromInput: T => Option[ID]
   def toInput: ID => Seq[T]
 
-  type Assignment = VID => Value
-  type PartialAssignment = VID => Option[Value]
-  type DefaultDomain = VID => Stream[Value]
-  type Assignments = Stream[Assignment]
 }
 object AST {
   type Aux[T, ID0 <: SubInt] = AST[T] { type ID = ID0 }
