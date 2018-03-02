@@ -5,6 +5,7 @@ import dahu.model.compiler.Algebras._
 import dahu.model.interpreter.Interpreter
 import dahu.model.types._
 import dahu.solvers.MetaSolver
+import dahu.solvers.constraints.CSPPartialSolver
 import utest._
 
 import scala.util.{Failure, Success, Try}
@@ -18,7 +19,7 @@ object NumSolutionsTest extends TestSuite {
   )
 
   def numSolutions[T](expr: Tentative[T], maxSolutions: Option[Int] = None): Int = {
-    val solver = MetaSolver.of(parse(expr))
+    val solver = MetaSolver.of(parse(expr), CSPPartialSolver.builder)
     val solutionString = (f: solver.ast.Assignment) => {
       solver.ast.variables.domain
         .toIterable()

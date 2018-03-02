@@ -5,14 +5,18 @@ import dahu.model.types.{TTag, Tag}
 
 object double {
 
-  object Times extends Fun2[Double, Double, Double] {
+  object Times extends CommutativeMonoid[Double] {
+    override def tpe: TTag[Double] = Tag.ofDouble
     override def name: String = "times"
-    override def of(in1: Double, in2: Double): Double = in1 * in2
+    override def combine(lhs: Double, rhs: Double): Double = lhs * rhs
+    override val identity: Double = 1
   }
 
-  object Add extends Fun2[Double, Double, Double] {
+  object Add extends CommutativeMonoid[Double] {
+    override def tpe: TTag[Double] = Tag.ofDouble
     override def name: String = "add"
-    override def of(in1: Double, in2: Double): Double = in1 + in2
+    override def combine(lhs: Double, rhs: Double): Double = lhs + rhs
+    override val identity: Double = 0
   }
 
   object Negate extends Fun1[Double, Double] {
@@ -43,14 +47,18 @@ object double {
 
 object int {
 
-  object Times extends Fun2[Int, Int, Int] {
+  object Times extends CommutativeMonoid[Int] {
+    override def tpe: TTag[Int] = Tag.ofInt
     override def name: String = "times"
-    override def of(in1: Int, in2: Int): Int = in1 * in2
+    override def combine(lhs: Int, rhs: Int): Int = lhs * rhs
+    override val identity: Int = 1
   }
 
-  object Add extends Fun2[Int, Int, Int] {
+  object Add extends CommutativeMonoid[Int] {
+    override def tpe: TTag[Int] = Tag.ofInt
     override def name: String = "add"
-    override def of(in1: Int, in2: Int): Int = in1 + in2
+    override def combine(lhs: Int, rhs: Int): Int = lhs + rhs
+    override val identity: Int = 0
   }
 
   object Negate extends Fun1[Int, Int] {
@@ -71,11 +79,6 @@ object int {
     override def name: String = "eq"
     override def of(in1: Int, in2: Int): Boolean = in1 == in2
   }
-  object NEQ extends Fun2[Int, Int, Boolean] {
-    override def name: String = "neq"
-    override def of(in1: Int, in2: Int): Boolean = in1 != in2
-  }
-
 }
 
 object bool {

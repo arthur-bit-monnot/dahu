@@ -54,5 +54,6 @@ class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver
 }
 
 object MetaSolver {
-  def of[X](ast: AST[X]): MetaSolver[ast.ID] = new MetaSolver(ast, CSPPartialSolver.builder)
+  def of[X](ast: AST[X], builder: PartialSolver.Builder): MetaSolver[ast.ID] =
+    new MetaSolver(ast, builder)
 }

@@ -11,6 +11,7 @@ import dahu.utils.debug._
 trait Propagator {}
 
 object Propagator {
+  // TODO: make type safe and fix propagators of add/times monoids
   def forward(fun: Fun[_]): ForwardPropagator = fun match {
     case int.Add    => AddForwardPropagator
     case int.LEQ    => LEQForwardPropagator

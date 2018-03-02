@@ -5,6 +5,7 @@ import dahu.model.input.Tentative
 import dahu.model.interpreter.Interpreter
 import dahu.model.types.Value
 import dahu.solvers.MetaSolver
+import dahu.solvers.constraints.CSPPartialSolver
 
 import scala.collection.mutable
 
@@ -24,7 +25,7 @@ abstract class Family(val familyName: String) {
   }
 
   def printSolutions[T](sat: Tentative[T], maxSolutions: Option[Int] = None): Unit = {
-    val solver = MetaSolver.of(Algebras.parse(sat))
+    val solver = MetaSolver.of(Algebras.parse(sat), CSPPartialSolver.builder)
     val sols = mutable.ArrayBuffer[String]()
     val solutionString = (f: solver.ast.Assignment) => {
       solver.ast.variables.domain

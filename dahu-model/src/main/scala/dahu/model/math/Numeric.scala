@@ -27,26 +27,26 @@ object Numeric {
     def leq: Fun2[T, T, Boolean]
     def eqv: Fun2[T, T, Boolean]
     def neg: Fun1[T, T]
-    def add: Fun2[T, T, T]
-    def times: Fun2[T, T, T]
+    def add: Monoid[T]
+    def times: Monoid[T]
     def epsilonOrLesserThan: Either[T, Fun2[T, T, Boolean]]
   }
 
   implicit object IntNumeric extends NumericBase[Int] {
     override def leq: Fun2[Int, Int, Boolean] = int.LEQ
     override def eqv: Fun2[Int, Int, Boolean] = int.EQ
-    override def add: Fun2[Int, Int, Int] = int.Add
+    override def add: Monoid[Int] = int.Add
     override def neg: Fun1[Int, Int] = int.Negate
-    override def times: Fun2[Int, Int, Int] = int.Times
+    override def times: Monoid[Int] = int.Times
 
     override def epsilonOrLesserThan: Either[Int, Fun2[Int, Int, Boolean]] = Left(1)
   }
   implicit object DoubleNumeric extends NumericBase[Double] {
     override def leq: Fun2[Double, Double, Boolean] = double.LEQ
     override def eqv: Fun2[Double, Double, Boolean] = double.EQ
-    override def add: Fun2[Double, Double, Double] = double.Add
+    override def add: Monoid[Double] = double.Add
     override def neg: Fun1[Double, Double] = double.Negate
-    override def times: Fun2[Double, Double, Double] = double.Times
+    override def times: Monoid[Double] = double.Times
     override def epsilonOrLesserThan: Either[Double, Fun2[Double, Double, Boolean]] =
       Right(double.LT)
   }
@@ -54,8 +54,8 @@ object Numeric {
     override def leq: Fun2[T, T, Boolean] = OrderIsoIntOps.wrap(int.LEQ)
     override def eqv: Fun2[T, T, Boolean] = OrderIsoIntOps.wrap(int.EQ)
     override def neg: Fun1[T, T] = ???
-    override def add: Fun2[T, T, T] = ???
-    override def times: Fun2[T, T, T] = ???
+    override def add: Monoid[T] = ???
+    override def times: Monoid[T] = ???
     override def epsilonOrLesserThan: Either[T, Fun2[T, T, Boolean]] = ???
 
   }
@@ -76,13 +76,13 @@ object Numeric {
         }
 
       override def add(lhs: F[T], rhs: F[T]): F[T] =
-        F.map2(lhs, rhs)(ev.add)
+        F.mapN(lhs, rhs)(ev.add)
 
       override def negate(term: F[T]): F[T] =
         F.map(term)(ev.neg)
 
       override def times(lhs: F[T], rhs: F[T]): F[T] =
-        F.map2(lhs, rhs)(ev.times)
+        F.mapN(lhs, rhs)(ev.times)
     }
 
   implicit class NumericOps[T, F[_]](val lhs: F[T])(implicit num: Numeric[T, F],

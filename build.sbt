@@ -17,7 +17,6 @@ lazy val commonSettings = Seq(
                           url("https://github.com/arthur-bit-monnot")),
   licenses += ("BSD-2-Clause", url("https://opensource.org/licenses/BSD-2-Clause")),
   pomIncludeRepository := (_ => false),
-  excludeDependencies += "org.typelevel" % "scala-library", // pulled by matryoshka and causing problems in IntelliJ and sbt-assembly
   scalacOptions ++= Seq(
     "-target:jvm-1.8",
     "-encoding",
@@ -37,11 +36,6 @@ lazy val commonSettings = Seq(
   ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
 //  addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
-
-//  libraryDependencies ++= Seq(
-//    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
-//    "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
-//  )
 )
 lazy val utestSettings = Seq(
   libraryDependencies += "com.lihaoyi" %% "utest" % "0.5.4" % "test",
@@ -93,13 +87,18 @@ lazy val solvers = project
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-//    "org.scalatest" %% "scalatest"       % "3.0.5" % "test",
       "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
     ))
 
+lazy val z3 = project
+  .in(file("dahu-z3"))
+  .dependsOn(utils, model, solvers)
+  .settings(name := "dahu-z3")
+  .settings(commonSettings ++ utestSettings: _*)
+
 lazy val benchmarks = project
   .in(file("dahu-benchmarks"))
-  .dependsOn(utils, solvers)
+  .dependsOn(utils, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
 
 resolvers += Resolver.sonatypeRepo("releases")
