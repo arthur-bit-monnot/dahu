@@ -6,7 +6,7 @@ import dahu.model.math._
 import dahu.recursion.FAlgebra
 import cats.implicits._
 import dahu.model.functions._
-import dahu.model.types.Tag
+import dahu.model.types.{Tag, TagIsoInt}
 
 import scala.util.Try
 

@@ -8,4 +8,5 @@ object errors {
 
   def unexpected: Nothing = throw new AssertionError("Unexpected")
   def unexpected(msg: String): Nothing = throw new AssertionError(msg)
+  def unexpected(msg: String, cause: Throwable): Nothing = throw new AssertionError(msg, cause)
 }

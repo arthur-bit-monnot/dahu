@@ -54,7 +54,7 @@ abstract class Family(val familyName: String) {
     println(familyName)
     for((name, pb) <- instancesMap) {
       println(s"instance: $name")
-      printSolutions(pb.pb, Some(3))
+      printSolutions(pb.pb, Some(1))
     }
   }
 

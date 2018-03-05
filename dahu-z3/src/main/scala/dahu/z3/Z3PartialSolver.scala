@@ -8,7 +8,8 @@ import dahu.solvers.PartialSolver
 import dahu.utils.errors._
 import dahu.recursion.Recursion.hylo
 
-import scala.util.Success
+import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
 
 class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AST](_ast) {
   trait Tag
@@ -19,6 +20,7 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
   private val algebra = Compiler.algebra(ctx)
   private val satProblem = hylo(ast.tree.asFunction, algebra)(ast.root) match {
     case Success(x: BoolExpr) => x
+    case Failure(NonFatal(e)) => unexpected("Failure while parsing Z3. Cause: ", e)
     case x                    => unexpected(s"Was expecting a boolean expression but got: $x")
   }
 
