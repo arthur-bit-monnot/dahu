@@ -7,11 +7,11 @@ import dahu.constraints.interval._
 import BooleanDomain._
 import dahu.model.functions._
 import dahu.utils.debug._
+import spire.syntax.cfor
 
 trait Propagator {}
 
 object Propagator {
-  // TODO: make type safe and fix propagators of add/times monoids
   def forward(fun: Fun[_]): ForwardPropagator = fun match {
     case int.Add    => AddForwardPropagator
     case int.LEQ    => LEQForwardPropagator
@@ -165,16 +165,24 @@ abstract class BackwardPropagatorN extends BackwardPropagator {
   }
 }
 
-case object AddForwardPropagator extends ForwardPropagator2 {
-  override def propagate(l: Interval, r: Interval): Interval = l plus r
+case object AddForwardPropagator extends ForwardPropagatorN {
+  override def propagate(domains: Seq[Interval]): Interval =
+    domains.fold(Interval(0, 0))(_ plus _)
 }
 
-case object AddBackwardPropagator extends BackwardPropagator2 {
-  override def propagate(l: Interval, r: Interval, out: Interval): (Interval, Interval) = {
-    (
-      l inter (out minus r),
-      r inter (out minus l)
-    )
+case object AddBackwardPropagator extends BackwardPropagatorN {
+  override def propagate(in: Array[Interval], out: Interval): Array[Interval] = {
+    val res = new Array[Interval](in.length)
+    cfor.cforRange(0 until in.length) { i =>
+      var othersSum = Interval(0, 0)
+      cfor.cforRange(0 until in.length) { j =>
+        if(i != j)
+          othersSum = othersSum plus in(j)
+      }
+      res(i) = in(i) inter (out minus othersSum)
+    }
+
+    res
   }
 }
 
@@ -197,7 +205,7 @@ case object LEQBackwardPropagator extends BackwardPropagator2 {
 
 case object OrForwardPropagator extends ForwardPropagatorN {
   override def propagate(domains: Seq[Interval]): Interval =
-    BooleanDomain.asBooleanDomains(domains.toArray).foldLeft(False)(_.or(_))
+    BooleanDomain.asBooleanDomains(domains.toArray).fold(False)(_ or _)
 }
 
 case object OrBackwardPropagator extends BackwardPropagatorN {
