@@ -89,9 +89,9 @@ object Optimizations {
     // commutative monoid, evaluate the combination of all constants args
     case ComputationF(f: CommutativeMonoid[_], args, t) =>
       // partition between unevaluated and constants
-      val (vars, csts) = args.foldLeft((Seq[Fix[Total]](), Seq[Value]())) {
-        case ((vs, cs), CstF(v, _)) => (vs, cs :+ v)
-        case ((vs, cs), x)          => (vs :+ x, cs)
+      val (vars, csts) = args.foldLeft((List[Fix[Total]](), List[Value]())) {
+        case ((vs, cs), CstF(v, _)) => (vs, v :: cs)
+        case ((vs, cs), x)          => (x :: vs, cs)
       }
       val evalOfConstants = CstF[Fix[Total]](Value(f.compute(csts)), f.tpe)
       if(vars.isEmpty) {
@@ -99,7 +99,7 @@ object Optimizations {
         evalOfConstants
       } else {
         // some unevaluated terms, return partially evaluated computation
-        ComputationF(f, vars :+ Fix(evalOfConstants), t)
+        ComputationF(f, Fix(evalOfConstants) :: vars, t)
       }
 
     // any function, evaluate if all args are constant
@@ -114,11 +114,12 @@ object Optimizations {
 
   val flattenMonoid: PASS = {
     case ComputationF(f: Monoid[_], args, t) =>
-      val flatArgs: Seq[Fix[Total]] = args.map(_.unfix).flatMap {
-        case ComputationF(g, subargs, t2) if f == g && t == t2 =>
-          subargs
-        case x => Seq(Fix(x))
-      }
+      val flatArgs: Seq[Fix[Total]] = args.flatMap(x =>
+        x.unfix match {
+          case ComputationF(g, subargs, t2) if f == g && t == t2 =>
+            subargs
+          case x => Fix(x) :: Nil
+      })
       ComputationF(f, flatArgs, t)
     case x => x
   }
