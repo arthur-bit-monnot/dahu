@@ -37,12 +37,11 @@ class ArrayMap[@sp V: ClassTag] private[maps] (
     ArrayMap.noCopy(subKeys, buff)
   }
 
-  def collect[TT, @sp B: ClassTag: Default](pf: PartialFunction[V, B])(
+  def collect[TT, @sp B: ClassTag](pf: PartialFunction[V, B])(
       implicit ev: TT =:= pf.type): ArrayMap.Aux[SubSubInt[K, TT], B] = {
     type SubKey = SubSubInt[K, TT]
     val subKeys: debox.Set[SubKey] = keys.findAll(i => pf.isDefinedAt(apply(i))).cast[SubKey]
-    val default = Default.of[B]
-    val newBuff = debox.Buffer.fill(buff.length)(default)
+    val newBuff = debox.Buffer.fromArray(new Array[B](buff.length))
     subKeys.foreach(i => newBuff(i) = pf.apply(buff(i)))
     ArrayMap.noCopy(subKeys, newBuff)
   }
@@ -73,12 +72,22 @@ object ArrayMap {
     new ArrayMap[V](untagged(keys), buffer)
       .castKey[K]
 
-  def build[@sp V: Default: ClassTag](domain: Iterable[Int], f: Int => V): ArrayMap[V] = {
+  def buildWithKey[K <: SubInt, @sp V: ClassTag](domain: debox.Set[K])(
+      f: K => V): ArrayMap.Aux[K, V] = {
+    val keys = domain.copy().asInstanceOf[debox.Set[Int]]
+    val size = keys.toArray().max + 1
+    assert(keys.toArray().min >= 0)
+    val buff = debox.Buffer.fromArray(new Array[V](size))
+    domain.foreach(i => buff(i) = f(i))
+    new ArrayMap[V](keys, buff)
+      .castKey[K]
+  }
+
+  def build[@sp V: ClassTag](domain: Iterable[Int], f: Int => V): ArrayMap[V] = {
     val keys = debox.Set.fromIterable(domain)
     val size = domain.max + 1
     assert(domain.min >= 0)
-    val default = Default.of[V]
-    val buff = debox.Buffer.fill(size)(default)
+    val buff = debox.Buffer.fromArray(new Array[V](size))
     keys.foreach(i => buff(i) = f(i))
     new ArrayMap[V](keys, buff)
   }

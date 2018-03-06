@@ -3,7 +3,7 @@ package dahu.model.problem
 import dahu.maps.ArrayMap
 import dahu.model.ir._
 import dahu.model.math.bool
-import dahu.model.types.Tag
+import dahu.model.types._
 import dahu.recursion._
 
 import scala.collection.mutable
@@ -52,7 +52,7 @@ object SatisfactionProblem {
     implicit def autoFix[F[_]](x: F[Fix[F]]): Fix[F] = Fix(x)
 
     def and(conjuncts: Fix[Total]*): Fix[Total] = {
-      conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean)
+      assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
       ComputationF(bool.And, conjuncts.toSeq, Tag.ofBoolean)
     }
   }
