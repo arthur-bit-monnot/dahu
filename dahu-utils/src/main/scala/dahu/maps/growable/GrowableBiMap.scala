@@ -47,10 +47,10 @@ object GrowableBiMap {
     new GrowableBiMap[V](debox.Map[Int, V](), debox.Map[V, Int](), debox.Set())
 
   def fromArray[K <: SubInt, A, V: ClassTag](orig: ArrayMap.Aux[K, A])(
-      f: A => V): GrowableBiMap[V] = {
+      f: K => V): GrowableBiMap[V] = {
     val base = debox.Map[Int, V]()
     for(id <- orig.domain) {
-      base.update(id, f(orig(id)))
+      base.update(id, f(id))
     }
     val reverse = debox.Map[V, Int]()
     for(k <- base.keys) {
@@ -59,10 +59,3 @@ object GrowableBiMap {
     new GrowableBiMap[V](base, reverse, orig.domain.asInstanceOf[debox.Set[Int]])
   }
 }
-//object MIMap {
-//  type Aux[K0, B] = MIMap[B] { type K = K0 }
-//
-//  def noCopy[K <: SubInt, V: ClassTag](content: debox.Map[K, V]): MIMap.Aux[K, V] =
-//    new MIMap(content.asInstanceOf[debox.Map[Int, V]])
-//      .castKey[K]
-//}
