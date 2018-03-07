@@ -29,9 +29,9 @@ object GraphColoring extends Family("graph-coloring") {
 
     val sat = A =!= B && B =!= C && C =!= A
     Seq(
-      SatProblem(sat, Exactly(6)),
-      SatProblem(sat && A === Green, Exactly(2)),
-      SatProblem(sat && A =!= Green, Exactly(4))
+      SatProblem.fromSat(sat, 6),
+      SatProblem.fromSat(sat && A === Green, 2),
+      SatProblem.fromSat(sat && A =!= Green, 4)
     )
   }
 
@@ -49,9 +49,9 @@ object GraphColoring extends Family("graph-coloring") {
       WA =!= NT && WA =!= SA && NT =!= SA && NT =!= Q && Q =!= SA && Q =!= NSW && NSW =!= V && NSW =!= SA && V =!= SA
 
     Seq(
-      SatProblem(sat, Exactly(6)),
-      SatProblem(sat && SA === Red, Exactly(2)),
-      SatProblem(sat && SA =!= Red, Exactly(4))
+      SatProblem.fromSat(sat, 6),
+      SatProblem.fromSat(sat && SA === Red, 2),
+      SatProblem.fromSat(sat && SA =!= Red, 4)
     )
   }
 }

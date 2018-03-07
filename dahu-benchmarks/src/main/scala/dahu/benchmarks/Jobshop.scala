@@ -59,7 +59,7 @@ object Jobshop extends Family("jobshop") {
     }
     val nonOverlapping = nonOverlappingSeq.fold(Cst(true))(_ && _)
 
-    SatProblem(constraint && nonOverlapping, NumSolutions.AtLeast(1))
+    SatProblem.fromSat(constraint && nonOverlapping, NumSolutions.AtLeast(1))
   }
 
   val problems = Seq(
