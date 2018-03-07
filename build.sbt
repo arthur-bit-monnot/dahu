@@ -66,7 +66,6 @@ lazy val recursion = project
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-core" % "1.0.1",
       "org.typelevel" %% "cats-free" % "1.0.1",
-      "com.lihaoyi" %% "utest" % "0.5.4" % "test"
     ))
   .settings(testFrameworks += new TestFramework("utest.runner.Framework"))
 

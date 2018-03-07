@@ -60,6 +60,28 @@ object ProductTag {
 
       override def typ: Tag.Type = tt.tpe
     }
+
+  type Sequence[F[_], A] = Seq[F[A]]
+
+  implicit def ofSeq[A](
+      implicit tt: universe.WeakTypeTag[Seq[cats.Id[A]]]): ProductTag[Sequence[?[_], A]] =
+    new ProductTag[Sequence[?[_], A]] {
+      override def exprProd: ProductExpr[Sequence[?[_], A], Tentative] =
+        new ProductExpr[Sequence[?[_], A], Tentative] {
+          override def extractTerms(prod: Sequence[Tentative, A]): Seq[Tentative[Any]] =
+            prod.map(_.asInstanceOf[Tentative[Any]])
+          override def buildFromTerms(terms: Seq[Tentative[Any]]): Sequence[Tentative, A] =
+            terms.map(_.asInstanceOf[Tentative[A]])
+        }
+      override def idProd: ProductExpr[Sequence[?[_], A], Id] =
+        new ProductExpr[Sequence[?[_], A], Id] {
+          override def extractTerms(prod: Sequence[Id, A]): Seq[Id[Any]] = prod
+          override def buildFromTerms(terms: Seq[Id[Any]]): Sequence[Id, A] =
+            terms.map(_.asInstanceOf[Id[A]])
+        }
+
+      override def typ: Tag.Type = tt.tpe
+    }
 }
 
 object Tag {

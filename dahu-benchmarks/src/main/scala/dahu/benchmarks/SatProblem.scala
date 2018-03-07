@@ -1,9 +1,14 @@
 package dahu.benchmarks
 
+import dahu.graphs.DAG
 import dahu.model.input._
 
 case class SatProblem(private val formula: Tentative[Boolean], numSolutions: NumSolutions) {
-  def pb = SubjectTo(Cst(1), formula)
+  lazy val pb = {
+    val dag = DAG[cats.Id, Tentative[Any]]
+    val inputs = dag.descendantsAndSelf(formula).collect { case x: Input[_] => x }
+    SubjectTo(Product.fromSeq(inputs.toList), formula)
+  }
   def this(formula: Tentative[Boolean], numSolutions: Int) =
     this(formula, NumSolutions.Exactly(numSolutions))
 }

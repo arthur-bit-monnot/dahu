@@ -1,6 +1,7 @@
 package dahu.model.input
 
 import cats.Id
+import dahu.graphs.DAG
 import dahu.model.functions._
 import dahu.model.types._
 
@@ -10,6 +11,21 @@ final case class ConstraintViolated(constraint: Tentative[Boolean])
 sealed trait Tentative[T] {
 
   def typ: Tag[T]
+}
+object Tentative {
+  import scala.language.implicitConversions
+  implicit def toAny[T](x: Tentative[T]): Tentative[Any] = x.asInstanceOf[Tentative[Any]]
+
+  implicit def dagInstance: DAG[Id, Tentative[Any]] = new DAG[Id, Tentative[Any]] {
+    override def algebra: Tentative[Any] => Id[Tentative[Any]] = x => x
+    override def children(graph: Id[Tentative[Any]]): Set[Tentative[Any]] = graph match {
+      case SubjectTo(value, condition) => Set(value, condition)
+      case x: Product[_]               => x.members.toSet
+      case x: Input[_]                 => Set()
+      case x: Cst[_]                   => Set()
+      case x: Computation[_]           => x.args.toSet
+    }
+  }
 }
 
 /** Evaluation: eval(condition).flatMap(eval(value)) */
@@ -44,7 +60,11 @@ final case class Product[T[_[_]]](value: T[Tentative])(implicit tt: ProductTag[T
   def members: Seq[Tentative[Any]] = tt.exprProd.extractTerms(value)
   def buildFromVals(terms: Seq[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
   def buildFromExpr(terms: Seq[Tentative[Any]]): T[Tentative] = tt.exprProd.buildFromTerms(terms)
-
+}
+object Product {
+  def fromSeq[T](seq: Seq[Tentative[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
+    : Product[ProductTag.Sequence[?[_], T]] =
+    new Product[ProductTag.Sequence[?[_], T]](seq)(ev)
 }
 
 trait ProductExpr[P[_[_]], F[_]] {
