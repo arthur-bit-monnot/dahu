@@ -21,7 +21,7 @@ object Interpreter {
       case x: InputF[_]             => input(x)
       case CstF(v, _)               => v
       case ComputationF(f, args, _) => Value(f.compute(args))
-      case ProductF(members, _)     => Value(members)
+      case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
     }
     hylo(ast.tree.asFunction, alg)(root)
   }
@@ -85,7 +85,8 @@ object Interpreter {
             case Left(x) =>
               Left(x)
           }
-        case EnvT(_, ProductF(members, _)) => members.toList.sequence.map(Value(_))
+        case EnvT(_, ProductF(members, t)) =>
+          members.toList.sequence.map(ms => Value(t.idProd.buildFromValues(ms)))
         case EnvT(id, Partial(value, cond, _)) =>
           cond match {
             case Right(true) =>

@@ -65,6 +65,46 @@ object Product {
   def fromSeq[T](seq: Seq[Tentative[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
     : Product[ProductTag.Sequence[?[_], T]] =
     new Product[ProductTag.Sequence[?[_], T]](seq)(ev)
+
+  import scala.reflect.runtime.universe
+  def fromMap[K, V](map: Map[K, Tentative[V]])(
+      implicit tt: universe.WeakTypeTag[Map[K, Id[V]]]): Product[PMap[K, ?[_], V]] = {
+    type M[F[_]] = PMap[K, F, V]
+    val keys: List[K] = map.keys.toList
+    val values: List[Tentative[Any]] = keys.map(map(_).asInstanceOf[Tentative[Any]])
+
+    // build a specific type tag that remembers the keys of the original map.
+    val tag = new ProductTag[M] {
+      override def exprProd: ProductExpr[M, Tentative] = new ProductExpr[M, Tentative] {
+        override def extractTerms(prod: M[Tentative]): Seq[Tentative[Any]] = {
+          assert(prod == map)
+          values
+        }
+
+        override def buildFromTerms(terms: Seq[Tentative[Any]]): M[Tentative] = {
+          assert(terms == values)
+          map
+        }
+      }
+
+      override def idProd: ProductExpr[M, Id] = new ProductExpr[M, Id] {
+        override def extractTerms(prod: M[Id]): Seq[Id[Any]] = {
+          assert(prod.keys == map.keys)
+          keys.map(k => prod(k))
+        }
+        override def buildFromTerms(terms: Seq[Id[Any]]): M[Id] = {
+          assert(terms.size == values.size)
+          keys.zip(terms.map(_.asInstanceOf[Id[V]])).toMap
+        }
+      }
+
+      override def typ: Tag.Type = tt.tpe
+    }
+
+    Product[M](map)(tag)
+  }
+
+  type PMap[K, F[_], V] = Map[K, F[V]]
 }
 
 trait ProductExpr[P[_[_]], F[_]] {

@@ -7,7 +7,8 @@ case class SatProblem(private val formula: Tentative[Boolean], numSolutions: Num
   lazy val pb = {
     val dag = DAG[cats.Id, Tentative[Any]]
     val inputs = dag.descendantsAndSelf(formula).collect { case x: Input[_] => x }
-    SubjectTo(Product.fromSeq(inputs.toList), formula)
+    val inputMap = inputs.toList.map(in => in.name -> in).toMap
+    SubjectTo(Product.fromMap(inputMap), formula)
   }
   def this(formula: Tentative[Boolean], numSolutions: Int) =
     this(formula, NumSolutions.Exactly(numSolutions))
