@@ -38,6 +38,7 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
             b.getBoolValue match {
               case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))
               case enumerations.Z3_lbool.Z3_L_TRUE  => Some(Value(true))
+              case enumerations.Z3_lbool.Z3_L_UNDEF => None
               case _                                => unexpected
             }
 

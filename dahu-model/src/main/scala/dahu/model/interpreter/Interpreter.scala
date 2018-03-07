@@ -1,6 +1,5 @@
 package dahu.model.interpreter
 
-import cats._
 import cats.implicits._
 import dahu.model.ir._
 import dahu.model.types.Value
@@ -62,7 +61,7 @@ object Interpreter {
       case OptionalF(value, cond, _) =>
         cond match {
           case Some(true)  => value.map(x => Value(Some(x)))
-          case Some(false) => value.map(_ => Value(None))
+          case Some(false) => Some(Value(None))
           case Some(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
           case None        => None
         }
@@ -107,7 +106,7 @@ object Interpreter {
         case EnvT(_, OptionalF(value, present, _)) =>
           present match {
             case Right(true)  => value.map(x => Value(Some(x)))
-            case Right(false) => value.map(x => Value(None))
+            case Right(false) => Right(Value(None))
             case Left(x)      => Left(x)
           }
       }
