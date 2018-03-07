@@ -89,7 +89,7 @@ object ModelOptimizationsTests extends TestSuite {
 
     "same-results-between optimized and unoptimized" - {
       for(optimizer <- optimizers) {
-        println(s"Optimizer: $optimizer")
+        // println(s"Optimizer: $optimizer")
         for(pb <- pbs) {
           val ast = totalFormula(pb)
           val optimizedAst = optimize(ast, optimizer)

@@ -73,3 +73,20 @@ abstract class FunN[-I: TTag, O: TTag] extends Fun[O] {
 
   def of(args: Seq[I]): O
 }
+
+trait WrappedFunction {
+  def f: Fun[_]
+}
+
+object WrappedFunction {
+  def wrap[T, O](f: Fun2[Int, Int, O])(implicit tag: TagIsoInt[T],
+                                       outTag: TagIsoInt[O]): Fun2[T, T, O] =
+    new WrappedFun2[T, T, O](f)
+}
+
+final case class WrappedFun2[I1: TagIsoInt, I2: TagIsoInt, O: TagIsoInt](f: Fun2[Int, Int, O])
+    extends Fun2[I1, I2, O]
+    with WrappedFunction {
+  override def of(in1: I1, in2: I2): O = f.of(TagIsoInt[I1].toInt(in1), TagIsoInt[I2].toInt(in2))
+  override def name: String = s"wrapped-${f.name}"
+}

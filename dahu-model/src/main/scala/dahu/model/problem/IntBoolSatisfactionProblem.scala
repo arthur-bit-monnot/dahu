@@ -4,7 +4,6 @@ import dahu.graphs.DAG
 import dahu.maps.ArrayMap
 import dahu.maps.growable.GrowableBiMap
 import dahu.model.functions._
-import dahu.model.input.dsl.WrappedFunction
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._

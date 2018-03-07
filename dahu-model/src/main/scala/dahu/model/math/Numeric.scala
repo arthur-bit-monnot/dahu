@@ -1,7 +1,6 @@
 package dahu.model.math
 
-import dahu.model.functions.{Fun1, Fun2, FunN}
-import dahu.model.input.dsl.OrderIsoIntOps
+import dahu.model.functions._
 import dahu.model.types.{Tag, TagIsoInt}
 
 trait Numeric[T, F[_]] {
@@ -51,8 +50,8 @@ object Numeric {
       Right(double.LT)
   }
   implicit def isoIntNumeric[T](implicit tag: TagIsoInt[T]): NumericBase[T] = new NumericBase[T] {
-    override def leq: Fun2[T, T, Boolean] = OrderIsoIntOps.wrap(int.LEQ)
-    override def eqv: Fun2[T, T, Boolean] = OrderIsoIntOps.wrap(int.EQ)
+    override def leq: Fun2[T, T, Boolean] = WrappedFunction.wrap(int.LEQ)
+    override def eqv: Fun2[T, T, Boolean] = WrappedFunction.wrap(int.EQ)
     override def neg: Fun1[T, T] = ???
     override def add: Monoid[T] = ???
     override def times: Monoid[T] = ???
