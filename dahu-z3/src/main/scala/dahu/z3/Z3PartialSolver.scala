@@ -34,6 +34,12 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
               case t: TagIsoInt[_] => Some(t.toValue(i.getInt))
               case _               => unexpected
             }
+          case b: BoolExpr =>
+            b.getBoolValue match {
+              case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))
+              case enumerations.Z3_lbool.Z3_L_TRUE  => Some(Value(true))
+              case _                                => unexpected
+            }
 
         }
 
