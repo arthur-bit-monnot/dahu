@@ -34,6 +34,11 @@ final case class SubjectTo[T](value: Tentative[T], condition: Tentative[Boolean]
   override def typ: Tag[T] = value.typ
 }
 
+final case class Optional[T](value: Tentative[T], present: Tentative[Boolean])
+    extends Tentative[Option[T]] {
+  override def typ: Tag[Option[T]] = null // TODO
+}
+
 sealed abstract class Term[T] extends Tentative[T]
 
 /** Evaluation yields a Right[T] */

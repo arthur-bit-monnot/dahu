@@ -59,6 +59,13 @@ object Interpreter {
           case Some(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
           case None        => None
         }
+      case OptionalF(value, cond, _) =>
+        cond match {
+          case Some(true)  => value.map(x => Value(Some(x)))
+          case Some(false) => value.map(_ => Value(None))
+          case Some(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+          case None        => None
+        }
     }
     hylo(ast.tree.asFunction, alg)(ast.root)
   }
@@ -96,6 +103,12 @@ object Interpreter {
             case Right(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
             case Left(x) =>
               Left(x)
+          }
+        case EnvT(_, OptionalF(value, present, _)) =>
+          present match {
+            case Right(true)  => value.map(x => Value(Some(x)))
+            case Right(false) => value.map(x => Value(None))
+            case Left(x)      => Left(x)
           }
       }
       res

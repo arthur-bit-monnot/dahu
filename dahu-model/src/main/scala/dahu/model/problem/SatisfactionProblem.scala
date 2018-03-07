@@ -55,6 +55,11 @@ object SatisfactionProblem {
       assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
       ComputationF(bool.And, conjuncts.toSeq, Tag.ofBoolean)
     }
+    def implies(cond: Fix[Total], eff: Fix[Total]): Fix[Total] = {
+      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
+      val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
+      ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
+    }
   }
   import Utils._
 
@@ -67,13 +72,24 @@ object SatisfactionProblem {
       Partial(ComputationF(f, args.map(a => a.value), t), and(args.map(_.condition): _*), t)
     case ProductF(members, t) =>
       Partial(ProductF(members.map(a => a.value), t), and(members.map(_.condition): _*), t)
+    case OptionalF(value, present, t) =>
+      Partial(
+        OptionalF(value.value, present.value, t),
+        and(present.condition, implies(present.value, value.condition)),
+        t
+      )
   }
 
-  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X]): PB = {
+  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): PB = {
     val pb = Recursion.hylo(coalgebra, ALG)(root)
-    val simplified = dahu.recursion.Recursion.cata[Total, Fix[Total]](
-      dahu.model.compiler.Optimizations.simplificationAlgebra)(pb.condition)
-    pb.copy(condition = simplified)
+    val condition =
+      if(optimize)
+        dahu.recursion.Recursion.cata[Total, Fix[Total]](
+          dahu.model.compiler.Optimizations.simplificationAlgebra)(pb.condition)
+      else
+        pb.condition
+
+    pb.copy(condition = condition)
   }
 
 }

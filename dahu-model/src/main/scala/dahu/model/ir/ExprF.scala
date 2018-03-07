@@ -14,7 +14,7 @@ object ExprF {
   implicit val functor: Functor[ExprF] = new Functor[ExprF] {
     override def map[A, B](fa: ExprF[A])(f: A => B): ExprF[B] = fa match {
       case fa: Total[A] => Total.functor.map(fa)(f)
-      case x @ Partial(value, condition, typ) =>
+      case Partial(value, condition, typ) =>
         Partial(f(value), f(condition), typ)
     }
   }
@@ -32,7 +32,10 @@ object Total {
       case x @ CstF(_, _)   => x
       case x @ ComputationF(fun, args, typ) =>
         ComputationF(fun, args.map(f), typ)
-      case x @ ProductF(members, typ) => ProductF(members.map(f), typ)
+      case x @ ProductF(members, typ) =>
+        ProductF(members.map(f), typ)
+      case OptionalF(value, present, typ) =>
+        OptionalF(f(value), f(present), typ)
     }
   }
 }
@@ -64,6 +67,11 @@ final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends T
 
 final case class ProductF[F](members: Seq[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
+}
+
+/** An Optional expression, that evaluates to Some(value) if present == true and to None otherwise. */
+final case class OptionalF[F](value: F, present: F, typ: Type) extends Total[F] {
+  override def toString: String = s"$value? (presence: $present)"
 }
 
 /** A partial expression that only produces a value if its condition evaluates to True. */

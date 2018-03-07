@@ -11,11 +11,12 @@ import dahu.recursion.Recursion._
 object Algebras {
 
   val coalgebra: FCoalgebra[ExprF, Tentative[_]] = {
-    case x @ Input(name)            => InputF(name, x.typ)
-    case x @ Cst(value)             => CstF(Value(value), x.typ)
-    case x: Computation[_]          => ComputationF(x.f, x.args, x.typ)
-    case x @ SubjectTo(value, cond) => Partial(value, cond, x.typ)
-    case x @ Product(value)         => ProductF(x.members, x.typ)
+    case x @ Input(name)              => InputF(name, x.typ)
+    case x @ Cst(value)               => CstF(Value(value), x.typ)
+    case x: Computation[_]            => ComputationF(x.f, x.args, x.typ)
+    case x @ SubjectTo(value, cond)   => Partial(value, cond, x.typ)
+    case x @ Product(value)           => ProductF(x.members, x.typ)
+    case x @ Optional(value, present) => OptionalF(value, present, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
@@ -24,6 +25,12 @@ object Algebras {
     case ComputationF(f, args, _) => f.name + args.mkString("(", ",", ")")
     case Partial(value, cond, _)  => s"$value ?($cond)"
     case ProductF(members, _)     => members.mkString("(", ", ", ")")
+    case OptionalF(value, present, _) =>
+      present match {
+        case "true"  => s"Some($value)"
+        case "false" => s"None"
+        case x       => dahu.utils.errors.unexpected(s"Expected a boolean string, got: $x")
+      }
   }
 
   def pprint(prg: Tentative[_]): String =

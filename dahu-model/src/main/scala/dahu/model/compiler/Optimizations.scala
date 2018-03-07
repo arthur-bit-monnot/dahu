@@ -12,8 +12,8 @@ object Optimizations {
   type Tree = Total[Fix[Total]]
   type PASS = Tree => Tree
 
-
   object Passes {
+
     /** Assigns a name to a pass by wrapping it into new Object with overloaded toString. */
     private def namedPass(name: String)(pass: PASS): PASS = new Function[Tree, Tree] {
       override def apply(v1: Tree): Tree = pass(v1)

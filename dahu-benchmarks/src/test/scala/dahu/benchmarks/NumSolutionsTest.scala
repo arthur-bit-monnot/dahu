@@ -13,6 +13,7 @@ object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
     Simple,
+    Optionals,
     GraphColoring,
     Jobshop
   )
@@ -38,7 +39,7 @@ object NumSolutionsTest extends TestSuite {
     val validateSolution: solver.ast.Assignment => Unit = ass => {
       val f: solver.ast.VID => Value = ass
       Interpreter.evalWithFailureCause(solver.ast)(f) match {
-        case Right(_: Map[_, _]) =>
+        case Right(_) =>
         case x =>
           System.err.println("Error: the following solution evaluates as not valid.")
           System.err.println(solutionString(ass))
