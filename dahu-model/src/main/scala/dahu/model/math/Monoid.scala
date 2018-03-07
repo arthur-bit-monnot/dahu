@@ -9,7 +9,7 @@ trait Monoid[T] extends FunN[T, T] {
 
   def combine(lhs: T, rhs: T): T
   val identity: T
-  val liftedIdentity: CstF[T] = CstF(Value(identity), tpe)
+  final lazy val liftedIdentity: CstF[T] = CstF(Value(identity), tpe)
 
   override def of(args: Seq[T]): T = args.fold(identity)(combine)
 
