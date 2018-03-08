@@ -11,7 +11,7 @@ import scala.collection.mutable
 object SatisfactionProblem {
 
   def satisfactionSubAST(ast: AST[_]): TotalSubAST[ast.ID] = {
-    val Partial(_, condition, _) = encode(ast.root, ast.tree.asFunction)
+    val Pb(_, condition) = encode(ast.root, ast.tree.asFunction)
 
     val memory = mutable.LinkedHashMap[Total[Int], Int]()
 
@@ -60,36 +60,70 @@ object SatisfactionProblem {
       val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
       ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
     }
+    def andOpt(conjuncts: Fix[TotalOrOptionalF]*): Fix[TotalOrOptionalF] = {
+      assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
+      ComputationF(bool.And, conjuncts.toSeq, Tag.ofBoolean)
+    }
+    def impliesOpt(cond: Fix[TotalOrOptionalF],
+                   eff: Fix[TotalOrOptionalF]): Fix[TotalOrOptionalF] = {
+      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
+      val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
+      ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
+    }
   }
   import Utils._
 
-  val ALG: FAlgebra[ExprF, PB] = {
+  type PB1 = Partial[Fix[TotalOrOptionalF]]
+
+  val ALGOpt: FAlgebra[ExprF, PB1] = {
     case Partial(value, condition, tpe) =>
-      Partial(value.value, and(value.condition, condition.condition, condition.value), tpe)
-    case x: InputF[PB] => Partial(Fix(x), and(), x.typ)
-    case x: CstF[PB]   => Partial(Fix(x), and(), x.typ)
+      Partial(value.value, andOpt(value.condition, condition.condition, condition.value), tpe)
+    case x: InputF[PB1] => Partial(Fix(x), andOpt(), x.typ)
+    case x: CstF[PB1]   => Partial(Fix(x), andOpt(), x.typ)
     case ComputationF(f, args, t) =>
-      Partial(ComputationF(f, args.map(a => a.value), t), and(args.map(_.condition): _*), t)
+      Partial(ComputationF(f, args.map(a => a.value), t), andOpt(args.map(_.condition): _*), t)
     case ProductF(members, t) =>
-      Partial(ProductF(members.map(a => a.value), t), and(members.map(_.condition): _*), t)
+      Partial(ProductF(members.map(a => a.value), t), andOpt(members.map(_.condition): _*), t)
     case OptionalF(value, present, t) =>
       Partial(
         OptionalF(value.value, present.value, t),
-        and(present.condition, implies(present.value, value.condition)),
+        andOpt(present.condition, impliesOpt(present.value, value.condition)),
+        t
+      )
+  }
+  val ALG2: FAlgebra[TotalOrOptionalF, OptionalF[Fix[Total]]] = {
+    case x: InputF[_] => OptionalF(Fix(x), and(), x.typ)
+    case x: CstF[_]   => OptionalF(Fix(x), and(), x.typ)
+    case ComputationF(f, args, t) =>
+      OptionalF(ComputationF(f, args.map(a => a.value), t), and(args.map(_.present): _*), t)
+    case ProductF(members, t) =>
+      OptionalF(ProductF(members.map(a => a.value), t), and(members.map(_.present): _*), t)
+    case OptionalF(value, present, t) =>
+      OptionalF(
+        value.value,
+        and(implies(present.present, present.value), value.present),
         t
       )
   }
 
-  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): PB = {
-    val pb = Recursion.hylo(coalgebra, ALG)(root)
-    val condition =
+  case class Pb(value: Fix[TotalOrOptionalF], condition: Fix[Total])
+  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): Pb = {
+    val pb = Recursion.hylo(coalgebra, ALGOpt)(root)
+    val TMP = pb.condition.unfix
+    assert(TMP.typ == Tag.ofBoolean)
+    val optionalCondition = Recursion.cata(ALG2)(TMP)
+    val cond = optionalCondition match {
+      case OptionalF(value, present, _) => implies(present, value)
+    }
+    val condition: Fix[Total] =
       if(optimize)
-        dahu.recursion.Recursion.cata[Total, Fix[Total]](
-          dahu.model.compiler.Optimizations.simplificationAlgebra)(pb.condition)
+        dahu.recursion.Recursion
+          .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(cond)
       else
-        pb.condition
+        cond
 
-    pb.copy(condition = condition)
+//    pb.copy(condition = condition)
+    Pb(pb.value, condition)
   }
 
 }

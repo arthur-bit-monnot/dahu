@@ -5,7 +5,7 @@ import dahu.model.input.{ProductExpr, Tentative}
 
 import scala.annotation.switch
 
-trait Tag[T] {
+trait Tag[+T] {
 
   def typ: Tag.Type
 

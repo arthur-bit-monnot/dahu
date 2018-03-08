@@ -11,12 +11,27 @@ sealed abstract class ExprF[F] {
   def typ: Type
 }
 
+sealed trait TotalOrOptionalF[F] { self: ExprF[F] =>
+  def typ: Type
+}
+object TotalOrOptionalF {
+  implicit val functor: Functor[TotalOrOptionalF] = new Functor[TotalOrOptionalF] {
+    override def map[A, B](fa: TotalOrOptionalF[A])(f: A => B): TotalOrOptionalF[B] = fa match {
+      case fa: Total[A] => Total.functor.map(fa)(f)
+      case OptionalF(value, present, typ) =>
+        OptionalF(f(value), f(present), typ)
+    }
+  }
+}
+
 object ExprF {
   implicit val functor: Functor[ExprF] = new Functor[ExprF] {
     override def map[A, B](fa: ExprF[A])(f: A => B): ExprF[B] = fa match {
       case fa: Total[A] => Total.functor.map(fa)(f)
       case Partial(value, condition, typ) =>
         Partial(f(value), f(condition), typ)
+      case OptionalF(value, present, typ) =>
+        OptionalF(f(value), f(present), typ)
     }
   }
 }
@@ -25,7 +40,7 @@ object ExprF {
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[F] extends ExprF[F]
+sealed trait Total[F] extends ExprF[F] with TotalOrOptionalF[F]
 object Total {
   implicit val functor: Functor[Total] = new Functor[Total] {
     override def map[A, B](fa: Total[A])(f: A => B): Total[B] = fa match {
@@ -35,8 +50,6 @@ object Total {
         ComputationF(fun, args.map(f), typ)
       case x @ ProductF(members, typ) =>
         ProductF(members.map(f), typ)
-      case OptionalF(value, present, typ) =>
-        OptionalF(f(value), f(present), typ)
     }
   }
 }
@@ -71,7 +84,9 @@ final case class ProductF[F](members: Seq[F], typ: ProductTag[Any]) extends Tota
 }
 
 /** An Optional expression, that evaluates to Some(value) if present == true and to None otherwise. */
-final case class OptionalF[F](value: F, present: F, typ: Type) extends Total[F] {
+final case class OptionalF[F](value: F, present: F, typ: Type)
+    extends ExprF[F]
+    with TotalOrOptionalF[F] {
   override def toString: String = s"$value? (presence: $present)"
 }
 

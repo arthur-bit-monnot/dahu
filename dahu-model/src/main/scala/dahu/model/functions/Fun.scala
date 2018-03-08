@@ -23,6 +23,12 @@ abstract class Fun1[-I: TTag, O: TTag] extends Fun[O] {
 
   def of(in: I): O
 }
+object Fun1 {
+  def embed[A: Tag, B: Tag](f: A => B): Fun1[A, B] = new Fun1[A, B] {
+    override def of(in: A): B = f(in)
+    override def name: String = f.toString()
+  }
+}
 
 abstract class Fun2[-I1: TTag, -I2: TTag, O: TTag] extends Fun[O] {
   final val inType1 = typeOf[I1]

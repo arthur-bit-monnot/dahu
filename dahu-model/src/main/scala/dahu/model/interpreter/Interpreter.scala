@@ -30,6 +30,7 @@ object Interpreter {
     * Returns None, if a constraint (condition of a `SubjectTo(value, condition)` node) was encountered.
     * To extract the cause of a failure, look at evalWithFailureCause.
     */
+  @deprecated
   def eval(ast: AST[_])(inputs: ast.VID => Value): Option[Value] = {
     val input: InputF[_] => Value = {
       val map: Map[InputF[_], Value] =
@@ -69,48 +70,75 @@ object Interpreter {
     hylo(ast.tree.asFunction, alg)(ast.root)
   }
 
-  case class ConstraintViolated[T](nodes: Seq[T])
-  type Evaluation[Node, T] = Either[ConstraintViolated[Node], T]
+  sealed trait Result[+A] {
+    def map[B](f: A => B): Result[B] = this match {
+      case Res(v)                => Res(f(v))
+      case ConstraintViolated(x) => ConstraintViolated(x)
+      case Empty                 => Empty
+    }
+    def flatMap[B](f: A => Result[B]): Result[B] = this match {
+      case Res(v)                => f(v)
+      case ConstraintViolated(x) => ConstraintViolated(x)
+      case Empty                 => Empty
+    }
+  }
+  object Result {
+    def pure[A](a: A): Result[A] = Res(a)
+    def sequence[T](rs: Seq[Result[T]]): Result[Seq[T]] = {
+      val l = rs.toList
+      def go(current: Result[List[T]], pending: List[Result[T]]): Result[List[T]] = {
+        pending match {
+          case head :: tail =>
+            val newCur = for {
+              h <- head
+              c <- current
+            } yield h :: c
+            go(newCur, tail)
+          case Nil =>
+            current.map(_.reverse) // todo: we should build the list in the correct order directly
+        }
+      }
+      val res = go(pure(Nil), l)
+      res
+    }
+  }
+  case class ConstraintViolated(nodes: Seq[Any]) extends Result[Nothing]
+  case class Res[T](v: T) extends Result[T]
+  case object Empty extends Result[Nothing]
+//  type Evaluation[Node, T] = Either[ConstraintViolated[Node], T]
 
-  def evalWithFailureCause[T](ast: AST[T])(inputs: ast.VID => Value): Evaluation[T, Value] = {
+  def evalWithFailureCause[T](ast: AST[T])(inputs: ast.VID => Value): Result[Value] = {
     val input: InputF[_] => Value = {
       val map: Map[InputF[_], Value] =
         ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
       x =>
         map(x)
     }
-    val alg: AttributeAlgebra[ast.ID, ExprF, Evaluation[T, Value]] = x => {
-      val res = x match {
-        case EnvT(_, x: InputF[_]) => Right(input(x))
-        case EnvT(_, CstF(v, _))   => Right(v)
-        case EnvT(id, ComputationF(f, args, _)) =>
-          val x: Evaluation[T, List[Value]] = args.toList.sequence
-          x match {
-            case Right(actualArgs) =>
-              Right(Value(f.compute(actualArgs)))
-            case Left(x) =>
-              Left(x)
-          }
-        case EnvT(_, ProductF(members, t)) =>
-          members.toList.sequence.map(ms => Value(t.idProd.buildFromValues(ms)))
-        case EnvT(id, Partial(value, cond, _)) =>
-          cond match {
-            case Right(true) =>
-              value
-            case Right(false) =>
-              Left(ConstraintViolated(ast.toInput(id)))
-            case Right(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-            case Left(x) =>
-              Left(x)
-          }
-        case EnvT(_, OptionalF(value, present, _)) =>
-          present match {
-            case Right(true)  => value.map(x => Value(Some(x)))
-            case Right(false) => Right(Value(None))
-            case Left(x)      => Left(x)
-          }
-      }
-      res
+    val alg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
+      case EnvT(_, x: InputF[_]) => Res(input(x))
+      case EnvT(_, CstF(v, _))   => Res(v)
+      case EnvT(id, ComputationF(f, args, _)) =>
+        Result
+          .sequence(args)
+          .map(actualArgs => Value(f.compute(actualArgs)))
+      case EnvT(_, ProductF(members, t)) =>
+        Result.sequence(members).map(ms => Value(t.idProd.buildFromValues(ms)))
+      case EnvT(id, Partial(value, cond, _)) =>
+        cond match {
+          case Res(true) =>
+            value
+          case Res(false) =>
+            ConstraintViolated(ast.toInput(id))
+          case Res(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+          case x      => x
+        }
+      case EnvT(_, OptionalF(value, present, _)) =>
+        present match {
+          case Res(true)  => value.map(x => Value(x))
+          case Res(false) => Empty
+          case Res(x)     => unexpected(s"Present does not evaluates to a boolean but to: $x")
+          case x          => x
+        }
     }
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra
     hylo(coalg, alg)(ast.root)

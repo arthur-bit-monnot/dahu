@@ -3,6 +3,7 @@ package dahu.benchmarks
 import dahu.model.input._
 import dahu.model.compiler.Algebras._
 import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.Interpreter.Res
 import dahu.model.types._
 import dahu.solvers.{MetaSolver, PartialSolver}
 import dahu.solvers.constraints.CSPPartialSolver
@@ -39,7 +40,7 @@ object NumSolutionsTest extends TestSuite {
     val validateSolution: solver.ast.Assignment => Unit = ass => {
       val f: solver.ast.VID => Value = ass
       Interpreter.evalWithFailureCause(solver.ast)(f) match {
-        case Right(_) =>
+        case Res(_) =>
         case x =>
           System.err.println("Error: the following solution evaluates as not valid.")
           System.err.println(solutionString(ass))

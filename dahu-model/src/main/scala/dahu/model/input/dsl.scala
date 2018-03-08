@@ -1,6 +1,7 @@
 package dahu.model.input
 
-import dahu.model.functions.{Fun, Fun2}
+import dahu.model.functions.{Fun, Fun1, Fun2}
+import dahu.model.ir.Total
 import dahu.model.math.BooleanLike.BooleanOps
 import dahu.model.math.Numeric.{NumericBase, NumericOps}
 import dahu.model.math._
@@ -15,7 +16,7 @@ object dsl {
       Computation(f, i1, i2)
   }
 
-  def IF[T: TTag](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
+  def ITE[T: TTag](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
     Computation(new dahu.model.math.bool.If[T], cond, t, f)
 
   implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
@@ -39,26 +40,60 @@ object dsl {
       implicit bool: BooleanLike[Boolean, Tentative]) =
     new BooleanOps[Boolean, Tentative](lhs)(bool)
 
-  implicit class SubjectToOps[F[_], T](private val lhs: F[T])(implicit ev: F[T] <:< Tentative[T]) {
+  implicit final class ToSubjectToOps[F[_], T](private val lhs: F[T])(
+      implicit ev: F[T] <:< Tentative[T]) {
 
     def subjectTo(cond: F[T] => Tentative[Boolean]): Tentative[T] =
       SubjectTo(lhs, cond(lhs))
+
   }
 
-  implicit class ProductOps[T[_[_]]](val lhs: Product[T]) {
+  implicit class ProductOps[T[_[_]]](private val lhs: Product[T]) extends AnyVal {
 
     def subjectTo(cond: Product[T] => Tentative[Boolean]): SubjectTo[T[cats.Id]] =
       SubjectTo(lhs, cond(lhs))
   }
 
-  implicit class OptionalOps[T](val lhs: Optional[T]) {
-    def subjectTo(f: Tentative[T] => Tentative[Boolean]): SubjectTo[Option[T]] = {
+  implicit final class SubjectToOps[T](private val lhs: SubjectTo[T]) extends AnyVal {
+    implicit private[this] def tag: Tag[T] = lhs.typ
+
+    /** Swallows a violated constraint and uses the provided value instead. */
+    def recover(onFailure: Tentative[T]): Computation[T] =
+      ITE(
+        lhs.condition,
+        lhs.value,
+        onFailure
+      )
+
+  }
+
+  implicit class OptionalOps[T](private val lhs: Optional[T]) { // apparently adding extends AnyVal triggers a bug in the compiler
+    implicit private[this] def tag: Tag[T] = lhs.typ
+    def subjectTo(f: Tentative[T] => Tentative[Boolean]): SubjectTo[T] = {
       SubjectTo(lhs, lhs.present ==> f(lhs.value))
     }
+
+    def embed: Computation[Option[T]] = ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(None))
+
+    def orElse(v: Tentative[T]): Computation[T] =
+      ITE(
+        lhs.present,
+        lhs.value,
+        v
+      )
+  }
+
+  implicit final class TentativeOps[T](private val lhs: Tentative[T]) extends AnyVal {
+    implicit private[this] def tag: Tag[T] = lhs.typ
+    def map[B](f: Fun1[T, B]): Tentative[B] = Computation1(f, lhs)
+    def map[B: Tag](f: T => B): Tentative[B] = Computation1(Fun1.embed(f), lhs)
+
+    def subjectTo(cond: Tentative[T] => Tentative[Boolean]): Tentative[T] =
+      SubjectTo(lhs, cond(lhs))
   }
 
   implicit class BooleanExprOps(a: Tentative[Boolean]) {
-    def toDouble: Tentative[Double] = IF(a, Cst(1.0), Cst(0.0))
-    def toInt: Tentative[Int] = IF(a, Cst(1), Cst(0))
+    def toDouble: Tentative[Double] = ITE(a, Cst(1.0), Cst(0.0))
+    def toInt: Tentative[Int] = ITE(a, Cst(1), Cst(0))
   }
 }

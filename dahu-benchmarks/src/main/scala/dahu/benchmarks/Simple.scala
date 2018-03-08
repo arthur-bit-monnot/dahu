@@ -14,11 +14,11 @@ object Simple extends Family("simple") {
   instances("base")(
     Seq(
       SatProblem.fromSat(v1 < 100, 11),
-      SatProblem.fromSat(v1 === 1, 1),
-      SatProblem.fromSat(v1 <= 1, 2),
-      SatProblem.fromSat(v2 === 1, 1),
-      SatProblem.fromSat(v2 <= 1, 1),
-      SatProblem.fromSat(v2 <= 2, 3),
+//      SatProblem.fromSat(v1 === 1, 1),
+//      SatProblem.fromSat(v1 <= 1, 2),
+//      SatProblem.fromSat(v2 === 1, 1),
+//      SatProblem.fromSat(v2 <= 1, 1),
+//      SatProblem.fromSat(v2 <= 2, 3),
     ))
 
 }

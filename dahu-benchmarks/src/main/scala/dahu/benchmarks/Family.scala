@@ -41,7 +41,7 @@ abstract class Family(val familyName: String) {
         }
         .mkString("  -  ")
     }
-    val evaluatedSolution: solver.ast.Assignment => Either[Any, Value] =
+    val evaluatedSolution: solver.ast.Assignment => Interpreter.Result[Value] =
       (ass: solver.ast.Assignment) => {
         Interpreter.evalWithFailureCause(solver.ast)(ass)
       }

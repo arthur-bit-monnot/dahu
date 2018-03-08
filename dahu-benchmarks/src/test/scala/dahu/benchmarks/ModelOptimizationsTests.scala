@@ -34,11 +34,10 @@ object ModelOptimizationsTests extends TestSuite {
     /** All direct children of a node. */
     override def children(graph: Id[Fix[Total]]): Set[Fix[Total]] = {
       Fix.unfix(graph) match {
-        case x: InputF[_]                 => Set[Fix[Total]]()
-        case x: CstF[_]                   => Set[Fix[Total]]()
-        case ProductF(members, _)         => members.toSet
-        case ComputationF(_, args, _)     => args.toSet
-        case OptionalF(value, present, _) => Set(value, present)
+        case x: InputF[_]             => Set[Fix[Total]]()
+        case x: CstF[_]               => Set[Fix[Total]]()
+        case ProductF(members, _)     => members.toSet
+        case ComputationF(_, args, _) => args.toSet
       }
     }
   }
@@ -61,11 +60,11 @@ object ModelOptimizationsTests extends TestSuite {
       case CstF(v, _)               => v
       case ComputationF(f, args, _) => Value(f.compute(args))
       case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
-      case OptionalF(value, present, _) =>
-        present match {
-          case true  => Value(Some(value))
-          case false => Value(None)
-        }
+//      case OptionalF(value, present, _) =>
+//        present match {
+//          case true  => Value(Some(value))
+//          case false => Value(None)
+//        }
     }
     dahu.recursion.Recursion.cata(alg)(ast)
   }
