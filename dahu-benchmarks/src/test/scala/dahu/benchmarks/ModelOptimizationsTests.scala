@@ -8,7 +8,7 @@ import dahu.model.types.{TagIsoInt, Value}
 import dahu.recursion.{FAlgebra, Fix}
 import dahu.utils.errors._
 import dahu.model.compiler.Optimizations.{simplifications, PASS, Tree}
-
+import dahu.model.input.Ident
 import utest._
 
 object ModelOptimizationsTests extends TestSuite {
@@ -43,7 +43,7 @@ object ModelOptimizationsTests extends TestSuite {
     }
   }
 
-  def randomInputs(tree: Fix[Total]): Map[String, Value] = {
+  def randomInputs(tree: Fix[Total]): Map[Ident, Value] = {
     dag
       .descendantsAndSelf(tree)
       .map(Fix.unfix(_))
@@ -55,9 +55,9 @@ object ModelOptimizationsTests extends TestSuite {
       .toMap
   }
 
-  def eval(ast: Fix[Total], inputs: Map[String, Value]): Value = {
+  def eval(ast: Fix[Total], inputs: Map[Ident, Value]): Value = {
     val alg: FAlgebra[Total, Value] = {
-      case x: InputF[_]             => inputs(x.name)
+      case x: InputF[_]             => inputs(x.id)
       case CstF(v, _)               => v
       case ComputationF(f, args, _) => Value(f.compute(args))
       case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))

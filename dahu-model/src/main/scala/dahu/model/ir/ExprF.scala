@@ -2,6 +2,7 @@ package dahu.model.ir
 
 import cats.Functor
 import dahu.model.functions.Fun
+import dahu.model.input.Ident
 import dahu.model.types.{ProductTag, Type, Value}
 
 import scala.language.implicitConversions
@@ -42,8 +43,8 @@ object Total {
 
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
-case class InputF[F](name: String, typ: Type) extends Total[F] {
-  override def toString: String = s"$name"
+case class InputF[F](id: Ident, typ: Type) extends Total[F] {
+  override def toString: String = s"$id"
 }
 object InputF {
 

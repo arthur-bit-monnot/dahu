@@ -44,9 +44,12 @@ final case class Optional[T](value: Tentative[T], present: Tentative[Boolean])
 sealed abstract class Term[T] extends Tentative[T]
 
 /** Evaluation yields a Right[T] */
-final case class Input[T: Tag](name: String) extends Term[T] {
+final case class Input[T: Tag](id: Ident) extends Term[T] {
   override type RT = T
   override def typ: Tag[T] = Tag[T]
+}
+object Input {
+  def apply[T: Tag](name: String): Input[T] = new Input[T](Named(name))
 }
 
 /** Evaluation returns a Right[T](value) */

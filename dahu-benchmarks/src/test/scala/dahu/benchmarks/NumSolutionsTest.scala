@@ -32,7 +32,7 @@ object NumSolutionsTest extends TestSuite {
         .toIterable()
         .map(v => (solver.ast.variables(v), f(v)))
         .map {
-          case (id, value) => s"${id.name}: $value"
+          case (id, value) => s"${id.id}: $value"
         }
         .mkString("\n")
     }

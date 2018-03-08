@@ -48,8 +48,8 @@ object Compiler {
   def partialAlgebra(ctx: Context): PartialAlgebra = {
     case InputF(name, t) =>
       t match {
-        case Tag.ofInt     => ctx.mkIntConst(name)
-        case Tag.ofBoolean => ctx.mkBoolConst(name)
+        case Tag.ofInt     => ctx.mkIntConst(name.toString)
+        case Tag.ofBoolean => ctx.mkBoolConst(name.toString)
       }
     case CstF(value, t) =>
       t match {

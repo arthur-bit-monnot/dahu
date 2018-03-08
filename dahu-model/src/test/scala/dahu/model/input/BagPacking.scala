@@ -49,7 +49,7 @@ object BagPacking extends TestSuite {
           Map("x1" -> true, "x2" -> true) -> Some(false),
         )
         for((inputs, expected) <- possibleBinds) {
-          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).name))
+          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.toString))
           val result = Interpreter.eval(ast)(valueOf)
           result ==> expected
         }
@@ -77,7 +77,7 @@ object BagPacking extends TestSuite {
           Map("x1" -> true, "x2" -> true) -> Left(Interpreter.ConstraintViolated(Seq(opt)))
         )
         for((inputs, expected) <- possibleBinds) {
-          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).name))
+          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.toString))
           val result = Interpreter.evalWithFailureCause(ast)(valueOf)
           result ==> expected
         }

@@ -2,8 +2,9 @@ package dahu.model.input
 
 import dahu.model.interpreter.Interpreter
 import dahu.utils.debug._
+import dahu.utils.errors._
 import dahu.model.types._
-import dsl._
+import dahu.model.input.dsl._
 import utest._
 
 object Products extends TestSuite {
@@ -28,9 +29,10 @@ object Products extends TestSuite {
         Interpreter.eval(ast)(_ => Value(1)) ==> None
 
         val inputs: ast.VID => Value = x =>
-          ast.variables(x).name match {
-            case "s" => Value(0)
-            case "e" => Value(1)
+          ast.variables(x).id match {
+            case Named("s") => Value(0)
+            case Named("e") => Value(1)
+            case _ => unexpected
         }
         Interpreter.eval(ast)(inputs) ==> Some(Interval[cats.Id](0, 1))
       }
@@ -41,9 +43,10 @@ object Products extends TestSuite {
         Interpreter.eval(ast)(_ => Value(1)) ==> Some(Interval[cats.Id](1, 1))
 
         val inputs: ast.VID => Value = x =>
-          ast.variables(x).name match {
-            case "s" => Value(0)
-            case "e" => Value(1)
+          ast.variables(x).id match {
+            case Named("s") => Value(0)
+            case Named("e") => Value(1)
+            case _ => unexpected
         }
         Interpreter.eval(ast)(inputs) ==> Some(Interval[cats.Id](0, 1))
       }

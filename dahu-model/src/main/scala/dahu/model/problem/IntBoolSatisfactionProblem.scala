@@ -4,6 +4,7 @@ import dahu.graphs.DAG
 import dahu.maps.ArrayMap
 import dahu.maps.growable.GrowableBiMap
 import dahu.model.functions._
+import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._
@@ -92,9 +93,9 @@ class IntBoolSatisfactionProblem[AST <: TotalSubAST[_]](val ast: AST) {
       case x =>
         x.typ match {
           case Tag.ofBoolean =>
-            SupportedInput(InputF(x.toString, Tag.ofBoolean))
+            SupportedInput(InputF(Anonymous(), Tag.ofBoolean))
           case t: TagIsoInt[_] =>
-            CompatibleInput(InputF(x.toString, Tag.ofInt), t)
+            CompatibleInput(InputF(Anonymous(), Tag.ofInt), t)
           case _ => Unsupported
         }
     }

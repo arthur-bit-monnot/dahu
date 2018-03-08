@@ -35,7 +35,7 @@ abstract class Family(val familyName: String) {
         .toIterable()
         .map(v => (solver.ast.variables(v), f(v)))
         .map {
-          case (id, value) => s"${id.name}: $value"
+          case (id, value) => s"${id.id}: $value"
         }
         .mkString("\t")
     }
