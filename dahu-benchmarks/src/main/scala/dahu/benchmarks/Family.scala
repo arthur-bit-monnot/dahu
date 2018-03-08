@@ -34,10 +34,12 @@ abstract class Family(val familyName: String) {
       solver.ast.variables.domain
         .toIterable()
         .map(v => (solver.ast.variables(v), f(v)))
+        .toList
+        .sortBy(_._1.id)
         .map {
           case (id, value) => s"${id.id}: $value"
         }
-        .mkString("\t")
+        .mkString("  -  ")
     }
     val evaluatedSolution: solver.ast.Assignment => Either[Any, Value] =
       (ass: solver.ast.Assignment) => {

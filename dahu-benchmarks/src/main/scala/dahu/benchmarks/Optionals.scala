@@ -4,18 +4,13 @@ import dahu.model.input._
 import dahu.model.input.dsl._
 
 object Optionals extends Family("optionals") {
-  var counter = 0
 
   instances("variables") {
     def variable() =
-      Input[Int]({
-        counter += 1; "v" + counter.toString
-      }).subjectTo(x => x >= 0 && x <= 0)
+      Input[Int]().subjectTo(x => x >= 0 && x <= 0)
 
     def boolVar() =
-      Input[Boolean]({
-        counter += 1; "v" + counter.toString
-      })
+      Input[Boolean]()
 
     val itv1 = Optional(variable(), boolVar())
     val itv2 = Optional(variable(), boolVar())
@@ -31,14 +26,10 @@ object Optionals extends Family("optionals") {
 
   instances("interval") {
     def variable() =
-      Input[Int]({
-        counter += 1; "v" + counter.toString
-      }).subjectTo(x => x >= 0 && x <= 10)
+      Input[Int]().subjectTo(x => x >= 0 && x <= 10)
 
     def boolVar() =
-      Input[Boolean]({
-        counter += 1; "v" + counter.toString
-      })
+      Input[Boolean]()
 
     case class Interval[F[_]](start: F[Int], end: F[Int])
 

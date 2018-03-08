@@ -11,7 +11,7 @@ object SatProblem {
 
   def fromSat(formula: Tentative[Boolean], numSolutions: NumSolutions): SatProblem = {
     val dag = DAG[cats.Id, Tentative[Any]]
-    val inputs = dag.descendantsAndSelf(formula).collect { case x: Input[Any] => x }
+    val inputs = dag.descendantsAndSelf(formula).collect { case x @ Input(Named(_)) => x }
     val inputMap = inputs.toList.map(in => in.id -> in).toMap
     val pb = SubjectTo(Product.fromMap(inputMap), formula)
     new SatProblem(pb, numSolutions)

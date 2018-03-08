@@ -50,6 +50,7 @@ final case class Input[T: Tag](id: Ident) extends Term[T] {
 }
 object Input {
   def apply[T: Tag](name: String): Input[T] = new Input[T](Named(name))
+  def apply[T: Tag](): Input[T] = new Input[T](Anonymous())
 }
 
 /** Evaluation returns a Right[T](value) */

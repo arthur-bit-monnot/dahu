@@ -32,7 +32,7 @@ object Products extends TestSuite {
           ast.variables(x).id match {
             case Named("s") => Value(0)
             case Named("e") => Value(1)
-            case _ => unexpected
+            case _          => unexpected
         }
         Interpreter.eval(ast)(inputs) ==> Some(Interval[cats.Id](0, 1))
       }
@@ -46,7 +46,7 @@ object Products extends TestSuite {
           ast.variables(x).id match {
             case Named("s") => Value(0)
             case Named("e") => Value(1)
-            case _ => unexpected
+            case _          => unexpected
         }
         Interpreter.eval(ast)(inputs) ==> Some(Interval[cats.Id](0, 1))
       }

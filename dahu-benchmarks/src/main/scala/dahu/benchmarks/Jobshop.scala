@@ -1,16 +1,14 @@
 package dahu.benchmarks
 
-import dahu.model.compiler.Algebras
 import dahu.model.input._
 import dahu.model.input.dsl._
 
 object Jobshop extends Family("jobshop") {
-  private var varCounter = -1
 
-  val START = Cst(0)
-  val END = input().subjectTo(START <= _)
+  val START = Cst(1)
+  val END = Input[Int]("makespan").subjectTo(START <= _)
 
-  def input(): Input[Int] = { varCounter += 1; Input(s"_v$varCounter") }
+  def input(): Input[Int] = Input()
   def tp()= input().subjectTo(x => START <= x && x <= END)
 
   case class Job(jobNumber: Int,
@@ -67,10 +65,10 @@ object Jobshop extends Family("jobshop") {
     JobShopInstance(1, List(List(2, 4)), None),
     JobShopInstance(1, List(List(2), List(4)), None),
     JobShopInstance(2, List(List(2), List(4)), None),
-//    JobShopInstance(1, List(List(2, 2), List(4)), None),
-//    JobShopInstance(2, List(List(2, 2), List(4)), None)
-//     JobShopInstance(2, List(List(2, 4), List(4, 3)), None), // very simple instance to avoid taking time in unit tests
-//     JobShopInstance(2, List(List(2, 4), List(4, 3, 3)), None), // very simple instance to avoid taking time in unit tests
+    JobShopInstance(1, List(List(2, 2), List(4)), None),
+    JobShopInstance(2, List(List(2, 2), List(4)), None),
+//     JobShopInstance(2, List(List(2, 4), List(4, 3)), None),
+//     JobShopInstance(2, List(List(2, 4), List(4, 3, 3)), None),
 //     JobShopInstance(4, List(List(2, 4, 2, 1), List(5, 3, 2), List(3, 5, 7)), Some(14)),
   )
 

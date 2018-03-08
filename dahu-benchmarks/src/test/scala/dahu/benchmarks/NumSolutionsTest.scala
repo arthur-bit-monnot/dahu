@@ -62,7 +62,7 @@ object NumSolutionsTest extends TestSuite {
         def test(pb: SatProblem): Unit = {
           pb match {
             case SatProblem(_, NumSolutions.Exactly(n)) =>
-              val res = numSolutions(pb.pb, cspSolver)
+              val res = numSolutions(pb.pb, cspSolver, maxSolutions = Some(n + 1))
               assert(res == n)
             case SatProblem(_, NumSolutions.AtLeast(n)) =>
               val res = numSolutions(pb.pb, cspSolver, maxSolutions = Some(n))
