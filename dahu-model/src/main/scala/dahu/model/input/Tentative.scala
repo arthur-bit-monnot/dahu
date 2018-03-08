@@ -8,9 +8,9 @@ import dahu.model.types._
 final case class ConstraintViolated(constraint: Tentative[Boolean])
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
-sealed trait Tentative[T] {
-
-  def typ: Tag[T]
+sealed trait Tentative[+T] {
+  type RT <: T
+  def typ: Tag[RT]
 }
 object Tentative {
   import scala.language.implicitConversions
@@ -31,27 +31,32 @@ object Tentative {
 /** Evaluation: eval(condition).flatMap(eval(value)) */
 final case class SubjectTo[T](value: Tentative[T], condition: Tentative[Boolean])
     extends Tentative[T] {
-  override def typ: Tag[T] = value.typ
+  override type RT = value.RT
+  override def typ: Tag[RT] = value.typ
 }
 
 final case class Optional[T](value: Tentative[T], present: Tentative[Boolean])
     extends Tentative[Option[T]] {
-  override def typ: Tag[Option[T]] = null // TODO
+  override type RT = Option[value.RT]
+  override def typ: Tag[RT] = null // TODO
 }
 
 sealed abstract class Term[T] extends Tentative[T]
 
 /** Evaluation yields a Right[T] */
 final case class Input[T: Tag](name: String) extends Term[T] {
+  override type RT = T
   override def typ: Tag[T] = Tag[T]
 }
 
 /** Evaluation returns a Right[T](value) */
 final case class Cst[T: Tag](value: T) extends Term[T] {
+  override type RT = T
   override def typ: Tag[T] = Tag[T]
 }
 
 sealed abstract class Computation[O] extends Tentative[O] {
+  override type RT = O
   override def typ: Tag[O] = f.outType
   def f: Fun[O]
   def args: Seq[Tentative[Any]]
@@ -61,6 +66,7 @@ sealed abstract class Computation[O] extends Tentative[O] {
 
 final case class Product[T[_[_]]](value: T[Tentative])(implicit tt: ProductTag[T])
     extends Tentative[T[Id]] {
+  override type RT = T[Id]
   override def typ: ProductTag[T] = tt
   def members: Seq[Tentative[Any]] = tt.exprProd.extractTerms(value)
   def buildFromVals(terms: Seq[Any]): T[Id] = tt.idProd.buildFromTerms(terms)

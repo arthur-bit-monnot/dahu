@@ -18,7 +18,7 @@ object Products extends TestSuite {
         implicitly[ProductTag[Interval]].ignoreResult
       }
 
-      val i = Interval[Tentative](Input("s"), Input("e"))
+      val i = Interval[Tentative](Input[Int]("s"), Input[Int]("e"))
       val prod = Product(i)
 
       "eval (<)" - {
