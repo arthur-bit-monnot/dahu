@@ -42,7 +42,6 @@ object Algebras {
   def parse[T](e: Tentative[T]): AST[Tentative[_]] =
     parse(e, coalgebra)
 
-  // TODO: add an optional parameter to optimize the representation.
   def parse[T](t: T, coalgebra: FCoalgebra[ExprF, T]): AST[T] = {
     import scala.collection.mutable
 

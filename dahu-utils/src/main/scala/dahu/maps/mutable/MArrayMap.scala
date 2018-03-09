@@ -4,7 +4,7 @@ import dahu.maps._
 import dahu.utils.structures._
 
 class MArrayMap[@sp V: ClassTag] private[maps] (
-    private val intKeys: debox.Set[Int], // todo: should be immutable
+    private val intKeys: debox.Set[Int],
     private val buff: debox.Buffer[V]
 ) extends SharedIMap {
   def hasKey(k: Int): Boolean = intKeys(k)

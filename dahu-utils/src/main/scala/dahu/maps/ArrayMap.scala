@@ -4,8 +4,8 @@ import dahu.maps.mutable.MArrayMap
 import dahu.utils.structures._
 
 class ArrayMap[@sp V: ClassTag] private[maps] (
-    private val keysAsInt: debox.Set[Int], // todo: should be immutable
-    private val buff: debox.Buffer[V] // todo: should be immutable
+    private val keysAsInt: debox.Set[Int],
+    private val buff: debox.Buffer[V]
 ) extends IMap[V] {
 
   private def keys: debox.Set[K] = wrapF(keysAsInt)

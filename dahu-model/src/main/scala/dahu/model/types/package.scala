@@ -7,8 +7,7 @@ import scala.reflect.ClassTag
 package object types {
 
   type Type = types.Tag[_]
-  type TTag[x] = types.Tag[x] // TODO: remove
-  def typeOf[T](implicit ttag: TTag[T]): Type = ttag
+  def typeOf[T](implicit ttag: Tag[T]): Type = ttag
 
   protected sealed abstract class ValueLabelImpl {
     type T

@@ -41,7 +41,6 @@ object IntCSP {
 
   def translate[T <: SubInt](id: T, coalgebra: T => Total[T]): Option[IntProblem.Expr] = {
     def asIntFunction(f: Fun[_]): Option[Func] = {
-      // todo: cache generated function
       IntCompatibleFunc
         .compat(f)
         .map(icl =>

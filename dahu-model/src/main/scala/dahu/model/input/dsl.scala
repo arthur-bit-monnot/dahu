@@ -5,18 +5,18 @@ import dahu.model.ir.Total
 import dahu.model.math.BooleanLike.BooleanOps
 import dahu.model.math.Numeric.{NumericBase, NumericOps}
 import dahu.model.math._
-import dahu.model.types.{TTag, Tag, TagIsoInt}
+import dahu.model.types.Tag
 
 import scala.language.implicitConversions
 
 object dsl {
 
-  implicit class Fun2Ops[I1, I2, O: TTag](f: Fun2[I1, I2, O]) {
+  implicit class Fun2Ops[I1, I2, O: Tag](f: Fun2[I1, I2, O]) {
     def apply(i1: Tentative[I1], i2: Tentative[I2]): Computation2[I1, I2, O] =
       Computation(f, i1, i2)
   }
 
-  def ITE[T: TTag](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
+  def ITE[T: Tag](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
     Computation(new dahu.model.math.bool.If[T], cond, t, f)
 
   implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
@@ -67,7 +67,7 @@ object dsl {
 
   }
 
-  implicit class OptionalOps[T](private val lhs: Optional[T]) { // apparently adding extends AnyVal triggers a bug in the compiler
+  implicit final class OptionalOps[T](private val lhs: Optional[T]) {
     implicit private[this] def tag: Tag[T] = lhs.typ
     def subjectTo(f: Tentative[T] => Tentative[Boolean]): SubjectTo[T] = {
       SubjectTo(lhs, lhs.present ==> f(lhs.value))

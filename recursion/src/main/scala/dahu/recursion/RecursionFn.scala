@@ -149,9 +149,6 @@ object RecursionFn {
     val x: Fix[F] => F[Cofree[F, A]] = f => F.map(f.unfix)(step)
     self = f => alg(x(f))
     step = f => Cofree(self(f), Eval.now(x(f)))
-    // TODO Add variant?
-    // val m = collection.mutable.HashMap.empty[Fix[F], Cofree[F, A]]
-    // step = f => m.getOrElseUpdate(f, Cofree(self(f), x(f)))
     self
   }
 

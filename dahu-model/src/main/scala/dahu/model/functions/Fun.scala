@@ -4,7 +4,7 @@ import dahu.model.types.Value
 
 import dahu.model.types._
 
-abstract class Fun[O: TTag] {
+abstract class Fun[O: Tag] {
   final val outType: Tag[O] = Tag[O]
   def compute(args: Seq[Value]): O
 
@@ -13,7 +13,7 @@ abstract class Fun[O: TTag] {
   override def toString: String = name
 }
 
-abstract class Fun1[-I: TTag, O: TTag] extends Fun[O] {
+abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] {
   final val inType = typeOf[I]
 
   override final def compute(args: Seq[Value]): O = {
@@ -30,7 +30,7 @@ object Fun1 {
   }
 }
 
-abstract class Fun2[-I1: TTag, -I2: TTag, O: TTag] extends Fun[O] {
+abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
 
@@ -42,7 +42,7 @@ abstract class Fun2[-I1: TTag, -I2: TTag, O: TTag] extends Fun[O] {
   def of(in1: I1, in2: I2): O
 }
 
-abstract class Fun3[-I1: TTag, -I2: TTag, -I3: TTag, O: TTag] extends Fun[O] {
+abstract class Fun3[-I1: Tag, -I2: Tag, -I3: Tag, O: Tag] extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
@@ -55,7 +55,7 @@ abstract class Fun3[-I1: TTag, -I2: TTag, -I3: TTag, O: TTag] extends Fun[O] {
   def of(in1: I1, in2: I2, in3: I3): O
 }
 
-abstract class Fun4[-I1: TTag, -I2: TTag, -I3: TTag, -I4: TTag, O: TTag] extends Fun[O] {
+abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
@@ -72,7 +72,7 @@ abstract class Fun4[-I1: TTag, -I2: TTag, -I3: TTag, -I4: TTag, O: TTag] extends
   def of(in1: I1, in2: I2, in3: I3, in4: I4): O
 }
 
-abstract class FunN[-I: TTag, O: TTag] extends Fun[O] {
+abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
   final val inTypes = typeOf[I]
 
   override final def compute(args: Seq[Value]): O = of(args.asInstanceOf[Seq[I]])

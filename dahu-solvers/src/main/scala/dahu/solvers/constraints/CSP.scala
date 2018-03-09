@@ -102,8 +102,6 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
     propagatorsBuilder.map(buff => if(buff.isEmpty) Array.empty[Updater[K]] else buff.toArray)
   }
 
-  //TODO: DO INITIAL PROPAGATION, OTHERWISE WE MIGHT MISS SOME CONSTRAINTS !
-
   require(ids.forall(initialDomains(_) != null))
 //  require(ids.forall(i => propagators(i) != null && propagators(i).nonEmpty))
 

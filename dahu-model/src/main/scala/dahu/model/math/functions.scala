@@ -1,19 +1,19 @@
 package dahu.model.math
 
 import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
-import dahu.model.types.{TTag, Tag}
+import dahu.model.types.Tag
 
 object double {
 
   object Times extends CommutativeMonoid[Double] {
-    override def tpe: TTag[Double] = Tag.ofDouble
+    override def tpe: Tag[Double] = Tag.ofDouble
     override def name: String = "times"
     override def combine(lhs: Double, rhs: Double): Double = lhs * rhs
     override val identity: Double = 1
   }
 
   object Add extends CommutativeMonoid[Double] {
-    override def tpe: TTag[Double] = Tag.ofDouble
+    override def tpe: Tag[Double] = Tag.ofDouble
     override def name: String = "add"
     override def combine(lhs: Double, rhs: Double): Double = lhs + rhs
     override val identity: Double = 0
@@ -48,14 +48,14 @@ object double {
 object int {
 
   object Times extends CommutativeMonoid[Int] {
-    override def tpe: TTag[Int] = Tag.ofInt
+    override def tpe: Tag[Int] = Tag.ofInt
     override def name: String = "times"
     override def combine(lhs: Int, rhs: Int): Int = lhs * rhs
     override val identity: Int = 1
   }
 
   object Add extends CommutativeMonoid[Int] {
-    override def tpe: TTag[Int] = Tag.ofInt
+    override def tpe: Tag[Int] = Tag.ofInt
     override def name: String = "add"
     override def combine(lhs: Int, rhs: Int): Int = lhs + rhs
     override val identity: Int = 0
@@ -96,7 +96,7 @@ object bool {
     override val identity: Boolean = false
   }
 
-  class If[O: TTag] extends Fun3[Boolean, O, O, O] {
+  class If[O: Tag] extends Fun3[Boolean, O, O, O] {
     override def name = "if"
     override def of(in1: Boolean, in2: O, in3: O): O = if(in1) in2 else in3
   }
