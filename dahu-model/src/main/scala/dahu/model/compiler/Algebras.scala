@@ -35,6 +35,8 @@ object Algebras {
     case ValidF(partial)                => s"valid($partial)"
   }
 
+  def format(e: Fix[Total]): String = cata(printAlgebraMultiLine)(e)
+
   val printAlgebraMultiLine: FAlgebra[Total, String] = x => {
     def repeatChar(c: Char, n: Int): String = {
       @tailrec
@@ -57,10 +59,10 @@ object Algebras {
           else
             f.name + args.mkString("(", ",\n", ")")
         addIndent(tmp, argsIndent)
-//      case ProductF(members, _) => members.mkString("(", ", ", ")")
-//      case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
-//      case PresentF(partial) => s"present($partial)"
-//      case ValidF(partial) => s"valid($partial)"
+      case ProductF(members, _)           => members.mkString("(", ", ", ")")
+      case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
+      case PresentF(partial)              => s"present($partial)"
+      case ValidF(partial)                => s"valid($partial)"
     }
   }
 

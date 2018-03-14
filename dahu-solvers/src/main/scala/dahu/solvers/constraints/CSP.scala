@@ -13,7 +13,7 @@ import dahu.model.ir.AST
 import dahu.model.problem.SatisfactionProblem
 import dahu.solvers.problem.{IntCSP, IntProblem}
 import dahu.solvers.problem.IntProblem.{Comp, Func}
-import dahu.solvers.{DomainIso, Solver}
+import dahu.solvers.DomainIso
 import spire.implicits._
 import dahu.utils.debug._
 
@@ -71,8 +71,9 @@ object Constraint {
   }
 }
 
-class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K])
-    extends Solver[K, Int, Interval] {
+class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K]) {
+  type Assignment = ArrayMap.Aux[K, Int]
+
   type Var = K
   type Vars = Array[Var]
 
@@ -80,7 +81,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
   def initialDomains(v: Var): IntDomain = params(v).domain
   def dag(v: Var): Option[Comp] = params(v).comp
 
-  override def domainIso: DomainIso[Interval, Int] = DomainIso.intervalIso
+  def domainIso: DomainIso[Interval, Int] = DomainIso.intervalIso
 
   val propagators: Array[Array[Updater[K]]] = {
     val propagatorsBuilder = Array.fill(ids.max + 1)(mutable.ArrayBuffer[Updater[K]]())
@@ -116,7 +117,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
 
   def dom(v: K): Interval = domains(v)
 
-  override def consistent: Trilean =
+  def consistent: Trilean =
     if(solution) Trilean.True
     else if(arcConsistent) Trilean.Unknown
     else Trilean.False
@@ -156,7 +157,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
     }
   }
 
-  override def enforce(variable: K, domain: Interval): Unit = {
+  def enforce(variable: K, domain: Interval): Unit = {
     require(dom(variable).contains(domain))
     val up = ExternalDecision(variable, domain, dom(variable))
     enforce(up)
@@ -189,7 +190,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
     true
   }
 
-  override def nextSolution(): Option[Assignment] = {
+  def nextSolution(): Option[Assignment] = {
     var exhausted = false
     while(!exhausted) {
       info(ids.map(i => s"$i: ${dom(i).show}").toIterable().mkString("domains: [", ",   ", "]"))
@@ -229,10 +230,6 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
     }
 
     None
-  }
-
-  override def extractSolution(assignment: Assignment): Solution = {
-    assignment.mapFromKey { case (k, v) => params(k).typ.toValue(v) }
   }
 
   def enumerateSolutions(maxSolutions: Option[Int] = None,

@@ -5,6 +5,8 @@ import dahu.model.input._
 import dahu.model.input.dsl._
 import NumSolutions._
 import dahu.model.compiler.Algebras
+import dahu.solvers.PartialSolver
+import dahu.solvers.constraints.CSPPartialSolver
 
 import scala.language.implicitConversions
 

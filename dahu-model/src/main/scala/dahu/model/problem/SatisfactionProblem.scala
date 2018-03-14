@@ -70,130 +70,20 @@ object SatisfactionProblem {
       val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
       ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
     }
-    def andOpt(conjuncts: Fix[TotalOrOptionalF]*): Fix[TotalOrOptionalF] = {
-      assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
-      val nonEmptyConjuncts = conjuncts.filter {
-        case ComputationF(bool.And, Seq(), _) => false
-        case CstF(true, _)                    => false
-        case _                                => true
-      }
-      ComputationF(bool.And, nonEmptyConjuncts, Tag.ofBoolean)
-    }
-    def notOpt(e: Fix[TotalOrOptionalF]): Fix[TotalOrOptionalF] = {
-      assert(e.unfix.typ == Tag.ofBoolean)
-      ComputationF(bool.Not, Seq(e), Tag.ofBoolean)
-    }
-    def impliesOpt(cond: Fix[TotalOrOptionalF],
-                   eff: Fix[TotalOrOptionalF]): Fix[TotalOrOptionalF] = {
-      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
-      val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
-      ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
-    }
-//    def andPart(conjuncts: XXX*): XXX = {
-//      assert(conjuncts.forall(c => c.typ == Tag.ofBoolean))
-//      ComputationF(bool.And, conjuncts, Tag.ofBoolean)
-//    }
-//    def notPart(e: Fix[TotalOrPartialF]): Fix[TotalOrPartialF] = {
-//      assert(e.unfix.typ == Tag.ofBoolean)
-//      ComputationF(bool.Not, Seq(e), Tag.ofBoolean)
-//    }
-//    def impliesPart(cond: Fix[TotalOrPartialF],
-//                   eff: Fix[TotalOrPartialF]): Fix[TotalOrPartialF] = {
-//      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
-//      val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
-//      ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
-//    }
   }
   import Utils._
-//  type XXX = OptionalF[Fix[Total]]
-  type PB1 = Partial[Fix[TotalOrOptionalF]]
 
-  val ALGOpt: FAlgebra[ExprF, PB1] = {
-    case Partial(value, condition, tpe) =>
-      Partial(value.value, andOpt(value.condition, condition.condition, condition.value), tpe)
-    case x: InputF[PB1] => Partial(Fix(x), andOpt(), x.typ)
-    case x: CstF[PB1]   => Partial(Fix(x), andOpt(), x.typ)
-    case ComputationF(f, args, t) =>
-      Partial(ComputationF(f, args.map(a => a.value), t), andOpt(args.map(_.condition): _*), t)
-    case ProductF(members, t) =>
-      Partial(ProductF(members.map(a => a.value), t), andOpt(members.map(_.condition): _*), t)
-    case OptionalF(value, present, t) =>
-      Partial(
-        OptionalF(value.value, present.value, t),
-        andOpt(present.condition, impliesOpt(present.value, value.condition)),
-        t
-      )
-    case ITEF(cond, onTrue, onFalse, t) =>
-      Partial(
-        ITEF(cond.value, onTrue.value, onFalse.value, t),
-        andOpt(cond.condition,
-               impliesOpt(cond.value, onTrue.condition),
-               impliesOpt(notOpt(cond.condition), onFalse.condition)),
-        t
-      )
-    case PresentF(part) =>
-      Partial(
-        PresentF(part.value),
-        andOpt(), // always present
-        part.typ
-      )
-
-    case ValidF(part) =>
-      Partial(
-        ValidF(andOpt(part.condition, ValidF(part.condition), ValidF(part.value))),
-        andOpt(), // always present
-        part.typ
-      )
-  }
-  val ALG2: FAlgebra[TotalOrOptionalF, OptionalF[Fix[Total]]] = {
-    case x: InputF[_] => OptionalF(Fix(x), and(), x.typ)
-    case x: CstF[_]   => OptionalF(Fix(x), and(), x.typ)
-    case ComputationF(f, args, t) =>
-      OptionalF(ComputationF(f, args.map(a => a.value), t), and(args.map(_.present): _*), t)
-    case ProductF(members, t) =>
-      OptionalF(ProductF(members.map(a => a.value), t), and(members.map(_.present): _*), t)
-    case ITEF(cond, onTrue, onFalse, t) =>
-      OptionalF(
-        ITEF(cond.value, onTrue.value, onFalse.value, t),
-        and(cond.present,
-            implies(cond.value, onTrue.present),
-            implies(cond.value, onFalse.present)),
-        t
-      )
-    case OptionalF(value, present, t) =>
-      OptionalF(
-        value.value,
-        and(implies(present.present, present.value), value.present),
-        t
-      )
-    case PresentF(opt) =>
-      OptionalF(
-        and(), //PresentF(and(opt.present, PresentF(opt.value))),
-        and(), // always true
-        opt.typ
-      )
-
-    case ValidF(opt) =>
-      OptionalF(
-        ValidF(and(ValidF(opt.present), ValidF(opt.value))), // this should always be true given that opt.{present, valid} are total
-        and(),
-        opt.typ
-      )
-  }
-
-  case class IR(value: Fix[Total], present: Fix[Total] = and(), valid: Fix[Total] = and())
-  val ALGPART: FAlgebra[ExprF, IR] = x => {
+  case class IR(value: Fix[Total], present: Fix[Total], valid: Fix[Total])
+  def compiler(optimize: Boolean): FAlgebra[ExprF, IR] = x => {
     val IR(value1, present1, valid1) = x match {
-      case x: InputF[_] => IR(Fix(x))
-      case x: CstF[_]   => IR(Fix(x))
+      case x: InputF[_] => IR(Fix(x), and(), and())
+      case x: CstF[_]   => IR(Fix(x), and(), and())
       case ComputationF(f, args, t) =>
-        val ret = IR(
+        IR(
           value = ComputationF(f, args.map(a => a.value), t),
           present = and(args.map(_.present): _*),
           valid = and(args.map(_.valid): _*)
         )
-        println(ret)
-        ret
       case ProductF(members, t) =>
         IR(
           value = ProductF(members.map(a => a.value), t),
@@ -222,56 +112,35 @@ object SatisfactionProblem {
           present = and(),
           valid = opt.valid
         )
-
       case ValidF(part) =>
         IR(
           value = part.valid,
           present = part.present,
           valid = and()
         )
-
       case Partial(value, condition, tpe) =>
-        val x = IR(
+        IR(
           value = value.value,
           present = value.present,
           valid =
             and(value.valid, implies(condition.present, and(condition.value, condition.valid)))
         )
-        x
     }
-    val opt = IR(optimize(value1), optimize(present1), optimize(valid1))
-    val noopt = IR(value1, present1, valid1)
-//    println(noopt)
-    println(opt)
-    opt
+    if(optimize)
+      IR(optimizer(value1), optimizer(present1), optimizer(valid1))
+    else
+      IR(value1, present1, valid1)
   }
 
-  def optimize(tot: Fix[Total]): Fix[Total] =
+  def optimizer(tot: Fix[Total]): Fix[Total] =
     dahu.recursion.Recursion
       .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(tot)
 
-  case class Pb(value: Fix[TotalOrOptionalF], condition: Fix[Total])
   def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): Fix[Total] = {
 
-    val IR(value, present, valid) = Recursion.hylo(coalgebra, ALGPART)(root)
+    val ir = Recursion.hylo(coalgebra, compiler(optimize = optimize))(root)
 
-    println("present: " + optim(present))
-    println("valid  : " + optim(valid))
-
-    def optim(tot: Fix[Total]): Fix[Total] =
-      dahu.recursion.Recursion
-        .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(tot)
-
-    val condition: Fix[Total] =
-      if(optimize)
-        optim(valid)
-      else
-        valid
-    println(condition)
-    println(dahu.recursion.Recursion.cata(Algebras.printAlgebraMultiLine)(condition))
-//    println(dahu.recursion.Recursion.cata(Algebras.printAlgebraMultiLine)(cond))
-//    pb.copy(condition = condition)
-    condition
+    ir.valid
   }
 
 }

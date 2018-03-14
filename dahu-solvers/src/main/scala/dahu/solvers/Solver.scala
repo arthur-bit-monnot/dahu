@@ -31,17 +31,3 @@ object DomainIso {
     override def from(d: Interval): IntervalDomain = IntervalDomain(d.lb, d.ub)
   }
 }
-
-trait Solver[K <: SubInt, V, D] {
-  type Assignment = ArrayMap.Aux[K, V]
-  type Solution = ArrayMap.Aux[K, Value]
-
-  def domainIso: DomainIso[D, V]
-
-  def enforce(variable: K, domain: D)
-  def nextSolution(): Option[Assignment]
-
-  def extractSolution(assignment: Assignment): Solution
-
-  def consistent: Trilean
-}

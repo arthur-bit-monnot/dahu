@@ -2,6 +2,7 @@ package dahu.model.input
 
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.Interpreter.Res
 import dahu.model.problem.SatisfactionProblem
 import dahu.model.types._
 import utest._
@@ -71,10 +72,10 @@ object BagPacking extends TestSuite {
       "predefined-results" - {
 
         val possibleBinds = Map(
-          Map("x1" -> false, "x2" -> false) -> Right(0.0),
-          Map("x1" -> false, "x2" -> true) -> Right(2.7),
-          Map("x1" -> true, "x2" -> false) -> Right(2.0),
-          Map("x1" -> true, "x2" -> true) -> Left(Interpreter.ConstraintViolated(Seq(opt)))
+          Map("x1" -> false, "x2" -> false) -> Res(0.0),
+          Map("x1" -> false, "x2" -> true) -> Res(2.7),
+          Map("x1" -> true, "x2" -> false) -> Res(2.0),
+          Map("x1" -> true, "x2" -> true) -> Interpreter.ConstraintViolated(Seq(opt))
         )
         for((inputs, expected) <- possibleBinds) {
           val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.toString))
@@ -83,20 +84,6 @@ object BagPacking extends TestSuite {
         }
       }
 
-//      "tmp" - {
-//        SatisfactionProblem.encode(ast) match {
-//          case (root, coalg) =>
-//            println(root.id)
-//            coalg.toIterable.toSeq
-//              .sortBy(_._1)
-//              .map(_._2)
-//              .map {
-//                case Node(id, value, cond) => f"$id%2s -> $value%-15s ?: ${cond.mkString(" ")}"
-//              }
-//              .foreach(println)
-//        }
-//        println("Done")
-//      }
     }
   }
 }

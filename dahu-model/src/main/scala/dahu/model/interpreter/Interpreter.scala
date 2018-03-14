@@ -102,7 +102,6 @@ object Interpreter {
   }
   case class Res[T](v: T) extends Result[T]
   case object Empty extends Result[Nothing]
-//  type Evaluation[Node, T] = Either[ConstraintViolated[Node], T]
 
   def evalWithFailureCause[T](ast: AST[T])(inputs: ast.VID => Value): Result[Value] = {
     val input: InputF[_] => Value = {
@@ -124,7 +123,7 @@ object Interpreter {
           case ConstraintViolated(_) => Res(Value(false))
           case _                     => Res(Value(true))
         }
-      case EnvT(id, ComputationF(f, args, _)) =>
+      case EnvT(_, ComputationF(f, args, _)) =>
         Result
           .sequence(args)
           .map(actualArgs => Value(f.compute(actualArgs)))
@@ -155,16 +154,17 @@ object Interpreter {
           case false => onFalse
         }
     }
-    val logAlg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
-      case x =>
-        val node = ast.tree(x.ask)
-        val res = alg(x)
-        println(f"${x.ask}%2s $res%-20s   -> ${x.lower}%-50s  :$node")
-        res
-    }
+    // identical algebra that also prints intermediate values.
+//    val logAlg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
+//      case x =>
+//        val node = ast.tree(x.ask)
+//        val res = alg(x)
+//        println(f"${x.ask}%2s $res%-20s   -> ${x.lower}%-50s  :$node")
+//        res
+//    }
 
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra
-    hylo(coalg, logAlg)(ast.root)
+    hylo(coalg, alg)(ast.root)
 
   }
 
