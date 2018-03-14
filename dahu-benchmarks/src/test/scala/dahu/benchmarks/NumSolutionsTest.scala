@@ -13,10 +13,10 @@ import utest._
 object NumSolutionsTest extends TestSuite {
 
   val corpus: Seq[Family] = Seq(
-    Simple,
+//    Simple,
     Optionals,
-    GraphColoring,
-    Jobshop
+//    GraphColoring,
+//    Jobshop
   )
 
   val solvers = Seq(
@@ -59,7 +59,7 @@ object NumSolutionsTest extends TestSuite {
         } yield (s"${fam.familyName}/$instanceName", instance)
 
       "num-solutions-csp" - {
-        val cspSolver = CSPPartialSolver.builder
+        val cspSolver = Z3PartialSolver.builder
         def test(pb: SatProblem): Unit = {
           pb match {
             case SatProblem(_, NumSolutions.Exactly(n)) =>

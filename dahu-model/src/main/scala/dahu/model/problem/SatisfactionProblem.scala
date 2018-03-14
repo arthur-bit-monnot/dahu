@@ -1,6 +1,7 @@
 package dahu.model.problem
 
 import dahu.maps.ArrayMap
+import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.math.bool
 import dahu.model.types._
@@ -11,7 +12,7 @@ import scala.collection.mutable
 object SatisfactionProblem {
 
   def satisfactionSubAST(ast: AST[_]): TotalSubAST[ast.ID] = {
-    val Pb(_, condition) = encode(ast.root, ast.tree.asFunction)
+    val condition = encode(ast.root, ast.tree.asFunction)
 
     val memory = mutable.LinkedHashMap[Total[Int], Int]()
 
@@ -53,7 +54,16 @@ object SatisfactionProblem {
 
     def and(conjuncts: Fix[Total]*): Fix[Total] = {
       assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
-      ComputationF(bool.And, conjuncts.toSeq, Tag.ofBoolean)
+      val nonEmptyConjuncts = conjuncts.filter {
+        case ComputationF(bool.And, Seq(), _) => false
+        case CstF(true, _)                    => false
+        case _                                => true
+      }
+      ComputationF(bool.And, nonEmptyConjuncts, Tag.ofBoolean)
+    }
+    def not(e: Fix[Total]): Fix[Total] = {
+      assert(e.unfix.typ == Tag.ofBoolean)
+      ComputationF(bool.Not, Seq(e), Tag.ofBoolean)
     }
     def implies(cond: Fix[Total], eff: Fix[Total]): Fix[Total] = {
       assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
@@ -62,7 +72,16 @@ object SatisfactionProblem {
     }
     def andOpt(conjuncts: Fix[TotalOrOptionalF]*): Fix[TotalOrOptionalF] = {
       assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
-      ComputationF(bool.And, conjuncts.toSeq, Tag.ofBoolean)
+      val nonEmptyConjuncts = conjuncts.filter {
+        case ComputationF(bool.And, Seq(), _) => false
+        case CstF(true, _)                    => false
+        case _                                => true
+      }
+      ComputationF(bool.And, nonEmptyConjuncts, Tag.ofBoolean)
+    }
+    def notOpt(e: Fix[TotalOrOptionalF]): Fix[TotalOrOptionalF] = {
+      assert(e.unfix.typ == Tag.ofBoolean)
+      ComputationF(bool.Not, Seq(e), Tag.ofBoolean)
     }
     def impliesOpt(cond: Fix[TotalOrOptionalF],
                    eff: Fix[TotalOrOptionalF]): Fix[TotalOrOptionalF] = {
@@ -70,9 +89,23 @@ object SatisfactionProblem {
       val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
       ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
     }
+//    def andPart(conjuncts: XXX*): XXX = {
+//      assert(conjuncts.forall(c => c.typ == Tag.ofBoolean))
+//      ComputationF(bool.And, conjuncts, Tag.ofBoolean)
+//    }
+//    def notPart(e: Fix[TotalOrPartialF]): Fix[TotalOrPartialF] = {
+//      assert(e.unfix.typ == Tag.ofBoolean)
+//      ComputationF(bool.Not, Seq(e), Tag.ofBoolean)
+//    }
+//    def impliesPart(cond: Fix[TotalOrPartialF],
+//                   eff: Fix[TotalOrPartialF]): Fix[TotalOrPartialF] = {
+//      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
+//      val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
+//      ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
+//    }
   }
   import Utils._
-
+//  type XXX = OptionalF[Fix[Total]]
   type PB1 = Partial[Fix[TotalOrOptionalF]]
 
   val ALGOpt: FAlgebra[ExprF, PB1] = {
@@ -90,6 +123,27 @@ object SatisfactionProblem {
         andOpt(present.condition, impliesOpt(present.value, value.condition)),
         t
       )
+    case ITEF(cond, onTrue, onFalse, t) =>
+      Partial(
+        ITEF(cond.value, onTrue.value, onFalse.value, t),
+        andOpt(cond.condition,
+               impliesOpt(cond.value, onTrue.condition),
+               impliesOpt(notOpt(cond.condition), onFalse.condition)),
+        t
+      )
+    case PresentF(part) =>
+      Partial(
+        PresentF(part.value),
+        andOpt(), // always present
+        part.typ
+      )
+
+    case ValidF(part) =>
+      Partial(
+        ValidF(andOpt(part.condition, ValidF(part.condition), ValidF(part.value))),
+        andOpt(), // always present
+        part.typ
+      )
   }
   val ALG2: FAlgebra[TotalOrOptionalF, OptionalF[Fix[Total]]] = {
     case x: InputF[_] => OptionalF(Fix(x), and(), x.typ)
@@ -98,32 +152,126 @@ object SatisfactionProblem {
       OptionalF(ComputationF(f, args.map(a => a.value), t), and(args.map(_.present): _*), t)
     case ProductF(members, t) =>
       OptionalF(ProductF(members.map(a => a.value), t), and(members.map(_.present): _*), t)
+    case ITEF(cond, onTrue, onFalse, t) =>
+      OptionalF(
+        ITEF(cond.value, onTrue.value, onFalse.value, t),
+        and(cond.present,
+            implies(cond.value, onTrue.present),
+            implies(cond.value, onFalse.present)),
+        t
+      )
     case OptionalF(value, present, t) =>
       OptionalF(
         value.value,
         and(implies(present.present, present.value), value.present),
         t
       )
+    case PresentF(opt) =>
+      OptionalF(
+        and(), //PresentF(and(opt.present, PresentF(opt.value))),
+        and(), // always true
+        opt.typ
+      )
+
+    case ValidF(opt) =>
+      OptionalF(
+        ValidF(and(ValidF(opt.present), ValidF(opt.value))), // this should always be true given that opt.{present, valid} are total
+        and(),
+        opt.typ
+      )
   }
 
-  case class Pb(value: Fix[TotalOrOptionalF], condition: Fix[Total])
-  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): Pb = {
-    val pb = Recursion.hylo(coalgebra, ALGOpt)(root)
-    val TMP = pb.condition.unfix
-    assert(TMP.typ == Tag.ofBoolean)
-    val optionalCondition = Recursion.cata(ALG2)(TMP)
-    val cond = optionalCondition match {
-      case OptionalF(value, present, _) => implies(present, value)
+  case class IR(value: Fix[Total], present: Fix[Total] = and(), valid: Fix[Total] = and())
+  val ALGPART: FAlgebra[ExprF, IR] = x => {
+    val IR(value1, present1, valid1) = x match {
+      case x: InputF[_] => IR(Fix(x))
+      case x: CstF[_]   => IR(Fix(x))
+      case ComputationF(f, args, t) =>
+        val ret = IR(
+          value = ComputationF(f, args.map(a => a.value), t),
+          present = and(args.map(_.present): _*),
+          valid = and(args.map(_.valid): _*)
+        )
+        println(ret)
+        ret
+      case ProductF(members, t) =>
+        IR(
+          value = ProductF(members.map(a => a.value), t),
+          present = and(members.map(_.present): _*),
+          valid = and(members.map(_.valid): _*)
+        )
+      case ITEF(cond, onTrue, onFalse, t) =>
+        IR(
+          value = ITEF(cond.value, onTrue.value, onFalse.value, t),
+          present = and(cond.present,
+                        implies(cond.value, onTrue.present),
+                        implies(not(cond.value), onFalse.present)),
+          valid = and(cond.valid,
+                      implies(cond.value, onTrue.valid),
+                      implies(not(cond.value), onFalse.valid))
+        )
+      case OptionalF(value, present, _) =>
+        IR(
+          value = value.value,
+          present = and(value.present, present.present, present.value),
+          valid = and(present.valid, value.valid)
+        )
+      case PresentF(opt) =>
+        IR(
+          value = opt.present,
+          present = and(),
+          valid = opt.valid
+        )
+
+      case ValidF(part) =>
+        IR(
+          value = part.valid,
+          present = part.present,
+          valid = and()
+        )
+
+      case Partial(value, condition, tpe) =>
+        val x = IR(
+          value = value.value,
+          present = value.present,
+          valid =
+            and(value.valid, implies(condition.present, and(condition.value, condition.valid)))
+        )
+        x
     }
+    val opt = IR(optimize(value1), optimize(present1), optimize(valid1))
+    val noopt = IR(value1, present1, valid1)
+//    println(noopt)
+    println(opt)
+    opt
+  }
+
+  def optimize(tot: Fix[Total]): Fix[Total] =
+    dahu.recursion.Recursion
+      .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(tot)
+
+  case class Pb(value: Fix[TotalOrOptionalF], condition: Fix[Total])
+  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): Fix[Total] = {
+
+    val IR(value, present, valid) = Recursion.hylo(coalgebra, ALGPART)(root)
+
+    println("present: " + optim(present))
+    println("valid  : " + optim(valid))
+
+    def optim(tot: Fix[Total]): Fix[Total] =
+      dahu.recursion.Recursion
+        .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(tot)
+
     val condition: Fix[Total] =
       if(optimize)
-        dahu.recursion.Recursion
-          .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(cond)
+        optim(valid)
       else
-        cond
-
+        valid
+    println(condition)
+    println(dahu.recursion.Recursion.cata(Algebras.printAlgebraMultiLine)(condition))
+//    println(dahu.recursion.Recursion.cata(Algebras.printAlgebraMultiLine)(cond))
 //    pb.copy(condition = condition)
-    Pb(pb.value, condition)
+    condition
   }
 
 }

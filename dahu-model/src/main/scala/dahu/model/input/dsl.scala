@@ -16,8 +16,8 @@ object dsl {
       Computation(f, i1, i2)
   }
 
-  def ITE[T: Tag](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
-    Computation(new dahu.model.math.bool.If[T], cond, t, f)
+  def ITE[T](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
+    new ITE[T](cond, t, f)
 
   implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
   implicit def int2Cst(value: Int): Cst[Int] = Cst(value)
@@ -58,7 +58,7 @@ object dsl {
     implicit private[this] def tag: Tag[T] = lhs.typ
 
     /** Swallows a violated constraint and uses the provided value instead. */
-    def recover(onFailure: Tentative[T]): Computation[T] =
+    def recover(onFailure: Tentative[T]): ITE[T] =
       ITE(
         lhs.condition,
         lhs.value,
@@ -73,9 +73,10 @@ object dsl {
       SubjectTo(lhs, lhs.present ==> f(lhs.value))
     }
 
-    def embed: Computation[Option[T]] = ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(None))
+    def embed: ITE[Option[T]] =
+      ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(None))
 
-    def orElse(v: Tentative[T]): Computation[T] =
+    def orElse(v: Tentative[T]): ITE[T] =
       ITE(
         lhs.present,
         lhs.value,

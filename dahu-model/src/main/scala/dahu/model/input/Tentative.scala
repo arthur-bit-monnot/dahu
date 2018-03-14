@@ -3,7 +3,6 @@ package dahu.model.input
 import cats.Id
 import dahu.graphs.DAG
 import dahu.model.functions._
-import dahu.model.ir.Total
 import dahu.model.types._
 
 final case class ConstraintViolated(constraint: Tentative[Boolean])
@@ -24,6 +23,8 @@ object Tentative {
       case x: Input[_]                 => Set()
       case x: Cst[_]                   => Set()
       case x: Computation[_]           => x.args.toSet
+      case Optional(value, present)    => Set(value, present)
+      case ITE(cond, onTrue, onFalse)  => Set(cond, onTrue, onFalse)
     }
   }
 }
@@ -53,6 +54,18 @@ object Input {
 /** Evaluation returns a Right[T](value) */
 final case class Cst[T: Tag](value: T) extends Term[T] {
   override def typ: Tag[T] = Tag[T]
+}
+
+final case class ITE[T](cond: Tentative[Boolean], onTrue: Tentative[T], onFalse: Tentative[T])
+    extends Tentative[T] {
+  override def typ: Tag[T] = onTrue.typ
+}
+
+final case class Present(value: Tentative[_]) extends Term[Boolean] {
+  override def typ: Tag[Boolean] = Tag.ofBoolean
+}
+final case class Valid(value: Tentative[_]) extends Term[Boolean] {
+  override def typ: Tag[Boolean] = Tag.ofBoolean
 }
 
 sealed abstract class Computation[O] extends Tentative[O] {

@@ -35,7 +35,7 @@ lazy val commonSettings = Seq(
     "-language:existentials"
   ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
-//  addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
+  addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
 )
 lazy val utestSettings = Seq(
   libraryDependencies += "com.lihaoyi" %% "utest" % "0.5.4" % "test",

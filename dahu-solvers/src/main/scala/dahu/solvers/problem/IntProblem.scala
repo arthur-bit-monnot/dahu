@@ -7,6 +7,7 @@ import dahu.constraints.domains._
 import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
 import dahu.model.functions.Fun
 import dahu.model.ir._
+import dahu.model.problem.IntBoolSatisfactionProblem
 import dahu.utils.errors._
 
 object IntProblem {
@@ -63,14 +64,14 @@ object IntCSP {
     }
   }
 
-  def intProblem(ast: TotalSubAST[_]): IntCSP[IntCSP.Key[ast.ID]] = {
-    type K = IntCSP.Key[ast.ID]
+  def intProblem(ast: IntBoolSatisfactionProblem[_]): IntCSP[IntCSP.Key[ast.K]] = {
+    type K = IntCSP.Key[ast.K]
 
     val factory = new IMapBuilder[Expr]
 
-    ast.tree.domain
+    ast.algebra.domain
       .toIterable()
-      .map(i => IntCSP.translate(i, ast.tree.asFunction).map((i, _)))
+      .map(i => IntCSP.translate(i, ast.algebra.asFunction).map((i, _)))
       .foreach {
         case Some((i, expr)) =>
           factory += (i, expr)

@@ -3,7 +3,7 @@ package dahu.model.ir
 import cats.Functor
 import dahu.model.functions.Fun
 import dahu.model.input.Ident
-import dahu.model.types.{ProductTag, Type, Value}
+import dahu.model.types.{ProductTag, Tag, Type, Value}
 
 import scala.language.implicitConversions
 
@@ -12,6 +12,9 @@ sealed abstract class ExprF[F] {
 }
 
 sealed trait TotalOrOptionalF[F] { self: ExprF[F] =>
+  def typ: Type
+}
+sealed trait TotalOrPartialF[F] { self: ExprF[F] =>
   def typ: Type
 }
 object TotalOrOptionalF {
@@ -40,16 +43,17 @@ object ExprF {
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[F] extends ExprF[F] with TotalOrOptionalF[F]
+sealed trait Total[F] extends ExprF[F] with TotalOrOptionalF[F] with TotalOrPartialF[F]
 object Total {
   implicit val functor: Functor[Total] = new Functor[Total] {
     override def map[A, B](fa: Total[A])(f: A => B): Total[B] = fa match {
-      case x @ InputF(_, _) => x
-      case x @ CstF(_, _)   => x
-      case x @ ComputationF(fun, args, typ) =>
-        ComputationF(fun, args.map(f), typ)
-      case x @ ProductF(members, typ) =>
-        ProductF(members.map(f), typ)
+      case x @ InputF(_, _)                 => x
+      case x @ CstF(_, _)                   => x
+      case ComputationF(fun, args, typ)     => ComputationF(fun, args.map(f), typ)
+      case ProductF(members, typ)           => ProductF(members.map(f), typ)
+      case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
+      case PresentF(v)                      => PresentF(f(v))
+      case ValidF(v)                        => ValidF(f(v))
     }
   }
 }
@@ -76,11 +80,27 @@ object CstF {
 }
 
 final case class ComputationF[F](fun: Fun[_], args: Seq[F], typ: Type) extends Total[F] {
-  override def toString: String = s"λ: $fun(${args.mkString(", ")})"
+  override def toString: String = s"$fun(${args.mkString(", ")})"
 }
 
 final case class ProductF[F](members: Seq[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
+}
+
+final case class ITEF[F](cond: F, onTrue: F, onFalse: F, typ: Type) extends Total[F] {
+  override def toString: String = s"ite($cond, $onTrue, $onFalse)"
+}
+
+final case class PresentF[F](optional: F) extends Total[F] {
+  override def typ: Type = Tag.ofBoolean
+
+  override def toString: String = s"present($optional)"
+}
+
+final case class ValidF[F](partial: F) extends Total[F] {
+  override def typ: Type = Tag.ofBoolean
+
+  override def toString: String = s"valid($partial)"
 }
 
 /** An Optional expression, that evaluates to Some(value) if present == true and to None otherwise. */
@@ -91,6 +111,8 @@ final case class OptionalF[F](value: F, present: F, typ: Type)
 }
 
 /** A partial expression that only produces a value if its condition evaluates to True. */
-final case class Partial[F](value: F, condition: F, typ: Type) extends ExprF[F] {
+final case class Partial[F](value: F, condition: F, typ: Type)
+    extends ExprF[F]
+    with TotalOrPartialF[F] {
   override def toString: String = s"$value? (constraint: $condition)"
 }

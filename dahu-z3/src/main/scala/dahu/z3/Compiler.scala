@@ -8,7 +8,7 @@ import cats.implicits._
 import dahu.model.functions._
 import dahu.model.types.{Tag, TagIsoInt}
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 object Compiler {
 
@@ -19,6 +19,15 @@ object Compiler {
   private def makeSafe(alg: PartialAlgebra): Algebra = {
     case x: InputF[_] => Try(alg(x))
     case x: CstF[_]   => Try(alg(x))
+    case PresentF(v)  => v.flatMap(x => Try(alg(PresentF(x))))
+    case ValidF(v)    => v.flatMap(x => Try(alg(ValidF(x))))
+    case ITEF(cond, onTrue, onFalse, tpe) =>
+      for {
+        c <- cond
+        t <- onTrue
+        f <- onFalse
+        res <- Try(alg(ITEF(c, t, f, tpe)))
+      } yield res
     case ComputationF(f, args, t) =>
       args.toList.sequence
         .flatMap(as => Try(alg(ComputationF(f, as, t))))
@@ -56,6 +65,13 @@ object Compiler {
         case Tag.ofInt     => ctx.mkInt(value.asInstanceOf[Int])
         case Tag.ofBoolean => ctx.mkBool(value.asInstanceOf[Boolean])
       }
+    case ITEF(cond, onTrue, onFalse, t) =>
+      cond match {
+        case b: BoolExpr => ctx.mkITE(b, onTrue, onFalse)
+      }
+    case PresentF(_) => ctx.mkBool(true)
+    case ValidF(_)   => ctx.mkBool(true)
+
     case ComputationF(f: Fun1[_, _], Ints(lhs :: Nil), _) =>
       f match {
         case int.Negate => ctx.mkUnaryMinus(lhs)
@@ -69,6 +85,10 @@ object Compiler {
       f match {
         case int.LEQ => ctx.mkLe(lhs, rhs)
         case int.EQ  => ctx.mkEq(lhs, rhs)
+      }
+    case ComputationF(f: Fun2[_, _, _], Bools(lhs :: rhs :: Nil), _) =>
+      f match {
+        case int.EQ => ctx.mkEq(lhs, rhs)
       }
 
     case ComputationF(f: FunN[_, _], Bools(args), t) =>

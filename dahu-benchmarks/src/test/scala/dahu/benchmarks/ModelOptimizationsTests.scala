@@ -17,7 +17,7 @@ object ModelOptimizationsTests extends TestSuite {
 
   def totalFormula(pb: SatProblem): Fix[Total] = {
     val parsed = dahu.model.compiler.Algebras.parse(pb.pb)
-    SatisfactionProblem.encode(parsed.root, parsed.tree.asFunction, optimize = false).condition
+    SatisfactionProblem.encode(parsed.root, parsed.tree.asFunction, optimize = false)
   }
 
   def randomValue(t: TagIsoInt[_]): Value = {
@@ -34,10 +34,13 @@ object ModelOptimizationsTests extends TestSuite {
     /** All direct children of a node. */
     override def children(graph: Id[Fix[Total]]): Set[Fix[Total]] = {
       Fix.unfix(graph) match {
-        case x: InputF[_]             => Set[Fix[Total]]()
-        case x: CstF[_]               => Set[Fix[Total]]()
-        case ProductF(members, _)     => members.toSet
-        case ComputationF(_, args, _) => args.toSet
+        case x: InputF[_]                   => Set[Fix[Total]]()
+        case x: CstF[_]                     => Set[Fix[Total]]()
+        case ProductF(members, _)           => members.toSet
+        case ComputationF(_, args, _)       => args.toSet
+        case ITEF(cond, onTrue, onFalse, _) => Set(cond, onTrue, onFalse)
+        case PresentF(v)                    => Set(v)
+        case ValidF(v)                      => Set(v)
       }
     }
   }
@@ -56,15 +59,15 @@ object ModelOptimizationsTests extends TestSuite {
 
   def eval(ast: Fix[Total], inputs: Map[Ident, Value]): Value = {
     val alg: FAlgebra[Total, Value] = {
-      case x: InputF[_]             => inputs(x.id)
-      case CstF(v, _)               => v
-      case ComputationF(f, args, _) => Value(f.compute(args))
-      case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
-//      case OptionalF(value, present, _) =>
-//        present match {
-//          case true  => Value(Some(value))
-//          case false => Value(None)
-//        }
+      case x: InputF[_]               => inputs(x.id)
+      case CstF(v, _)                 => v
+      case ComputationF(f, args, _)   => Value(f.compute(args))
+      case ProductF(members, t)       => Value(t.idProd.buildFromValues(members))
+      case ITEF(true, onTrue, _, _)   => onTrue
+      case ITEF(false, _, onFalse, _) => onFalse
+      case ITEF(_, _, _, _)           => unexpected
+      case PresentF(_)                => Value(true)
+      case ValidF(_)                  => Value(true)
     }
     dahu.recursion.Recursion.cata(alg)(ast)
   }

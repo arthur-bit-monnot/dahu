@@ -1,11 +1,18 @@
 package dahu.model.interpreter
 
+import cats.Foldable
 import cats.implicits._
+import cats.kernel.Monoid
+import dahu.model.input.Present
 import dahu.model.ir._
 import dahu.model.types.Value
 import dahu.utils.errors._
 import dahu.recursion._
 import dahu.recursion.Recursion._
+
+import scala.annotation.tailrec
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 object Interpreter {
 
@@ -21,6 +28,13 @@ object Interpreter {
       case CstF(v, _)               => v
       case ComputationF(f, args, _) => Value(f.compute(args))
       case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
+      case ITEF(cond, onTrue, onFalse, _) =>
+        cond match {
+          case true  => onTrue
+          case false => onFalse
+          case _     => unexpected
+        }
+      case PresentF(_) => Value(true) // todo: should NonEmpty really be in total?
     }
     hylo(ast.tree.asFunction, alg)(root)
   }
@@ -30,44 +44,11 @@ object Interpreter {
     * Returns None, if a constraint (condition of a `SubjectTo(value, condition)` node) was encountered.
     * To extract the cause of a failure, look at evalWithFailureCause.
     */
-  @deprecated
   def eval(ast: AST[_])(inputs: ast.VID => Value): Option[Value] = {
-    val input: InputF[_] => Value = {
-      val map: Map[InputF[_], Value] =
-        ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
-      x =>
-        map(x)
+    evalWithFailureCause(ast)(inputs) match {
+      case Res(x) => Some(x)
+      case _      => None
     }
-    val alg: FAlgebra[ExprF, Option[Value]] = {
-      case x: InputF[_] => Some(input(x))
-      case CstF(v, _)   => Some(v)
-      case ComputationF(f, args, _) =>
-        val x: Option[List[Value]] = args.toList.sequence
-        x match {
-          case Some(actualArgs) => Some(Value(f.compute(actualArgs)))
-          case None             => None
-        }
-      case ProductF(members, typ) =>
-        val optMembers: Option[List[Value]] = members.toList.sequence
-        optMembers
-          .map(xs => typ.idProd.buildFromValues(xs))
-          .map(Value(_))
-      case Partial(value, cond, _) =>
-        cond match {
-          case Some(true)  => value
-          case Some(false) => None
-          case Some(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-          case None        => None
-        }
-      case OptionalF(value, cond, _) =>
-        cond match {
-          case Some(true)  => value.map(x => Value(Some(x)))
-          case Some(false) => Some(Value(None))
-          case Some(x)     => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-          case None        => None
-        }
-    }
-    hylo(ast.tree.asFunction, alg)(ast.root)
   }
 
   sealed trait Result[+A] {
@@ -86,14 +67,17 @@ object Interpreter {
     def pure[A](a: A): Result[A] = Res(a)
     def sequence[T](rs: Seq[Result[T]]): Result[Seq[T]] = {
       val l = rs.toList
-      def go(current: Result[List[T]], pending: List[Result[T]]): Result[List[T]] = {
+      @tailrec def go(current: Result[List[T]], pending: List[Result[T]]): Result[List[T]] = {
         pending match {
           case head :: tail =>
-            val newCur = for {
-              h <- head
-              c <- current
-            } yield h :: c
-            go(newCur, tail)
+            val next = (current, head) match {
+              case (Empty, _)                     => Empty
+              case (_, Empty)                     => Empty
+              case (x @ ConstraintViolated(_), _) => x
+              case (_, x @ ConstraintViolated(_)) => x
+              case (Res(list), Res(h))            => Res(h :: list)
+            }
+            go(next, tail)
           case Nil =>
             current.map(_.reverse) // todo: we should build the list in the correct order directly
         }
@@ -101,8 +85,21 @@ object Interpreter {
       val res = go(pure(Nil), l)
       res
     }
+    implicit def monoidInstance[T: Monoid](): Monoid[Result[T]] = new Monoid[Result[T]] {
+      override def empty: Result[T] = Res(Monoid[T].empty)
+
+      override def combine(x: Result[T], y: Result[T]): Result[T] = (x, y) match {
+        case (Empty, _)                     => Empty
+        case (_, Empty)                     => Empty
+        case (x @ ConstraintViolated(_), _) => x
+        case (_, x @ ConstraintViolated(_)) => x
+        case (Res(xr), Res(yr))             => Res(xr |+| yr)
+      }
+    }
   }
-  case class ConstraintViolated(nodes: Seq[Any]) extends Result[Nothing]
+  case class ConstraintViolated(nodes: Seq[Any]) extends Result[Nothing] {
+    override def toString: String = "ConstraintViolated"
+  }
   case class Res[T](v: T) extends Result[T]
   case object Empty extends Result[Nothing]
 //  type Evaluation[Node, T] = Either[ConstraintViolated[Node], T]
@@ -117,6 +114,16 @@ object Interpreter {
     val alg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
       case EnvT(_, x: InputF[_]) => Res(input(x))
       case EnvT(_, CstF(v, _))   => Res(v)
+      case EnvT(_, PresentF(v)) =>
+        v match {
+          case Empty => Res(Value(false))
+          case _     => Res(Value(true))
+        }
+      case EnvT(_, ValidF(v)) =>
+        v match {
+          case ConstraintViolated(_) => Res(Value(false))
+          case _                     => Res(Value(true))
+        }
       case EnvT(id, ComputationF(f, args, _)) =>
         Result
           .sequence(args)
@@ -125,10 +132,13 @@ object Interpreter {
         Result.sequence(members).map(ms => Value(t.idProd.buildFromValues(ms)))
       case EnvT(id, Partial(value, cond, _)) =>
         cond match {
+          case Empty =>
+            value
           case Res(true) =>
             value
           case Res(false) =>
             ConstraintViolated(ast.toInput(id))
+
           case Res(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
           case x      => x
         }
@@ -139,9 +149,22 @@ object Interpreter {
           case Res(x)     => unexpected(s"Present does not evaluates to a boolean but to: $x")
           case x          => x
         }
+      case EnvT(_, ITEF(cond, onTrue, onFalse, _)) =>
+        cond.flatMap {
+          case true  => onTrue
+          case false => onFalse
+        }
     }
+    val logAlg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
+      case x =>
+        val node = ast.tree(x.ask)
+        val res = alg(x)
+        println(f"${x.ask}%2s $res%-20s   -> ${x.lower}%-50s  :$node")
+        res
+    }
+
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra
-    hylo(coalg, alg)(ast.root)
+    hylo(coalg, logAlg)(ast.root)
 
   }
 

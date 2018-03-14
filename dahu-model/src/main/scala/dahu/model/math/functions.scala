@@ -96,11 +96,6 @@ object bool {
     override val identity: Boolean = false
   }
 
-  class If[O: Tag] extends Fun3[Boolean, O, O, O] {
-    override def name = "if"
-    override def of(in1: Boolean, in2: O, in3: O): O = if(in1) in2 else in3
-  }
-
   object Not extends Fun1[Boolean, Boolean] {
     override def name: String = "not"
     override def of(in: Boolean): Boolean = !in

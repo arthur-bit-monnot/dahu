@@ -251,12 +251,3 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
   }
 
 }
-
-object CSP {
-
-  def from(ast: AST[_]) = {
-    val sat = SatisfactionProblem.satisfactionSubAST(ast)
-    val x = IntCSP.intProblem(sat)
-    x.getSolver
-  }
-}

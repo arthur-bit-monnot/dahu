@@ -2,14 +2,17 @@ package dahu.solvers.constraints
 
 import dahu.constraints.interval.Interval
 import dahu.model.ir.TotalSubAST
+import dahu.model.problem.IntBoolSatisfactionProblem
 import dahu.solvers.{PartialSolver, Solver}
 import dahu.solvers.problem.IntCSP
 
 class CSPPartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AST](_ast) {
-  override type K = IntCSP.Key[ast.ID]
 
-  private val intPB = IntCSP.intProblem(ast)
-  private val csp: Solver[K, Int, Interval] = intPB.getSolver
+  val intBoolPb = new IntBoolSatisfactionProblem[ast.type](ast)
+//  override type K = IntCSP.Key[intBoolPb.K] //IntCSP.Key[intBoolPb.K]
+
+  private val intPB = IntCSP.intProblem(intBoolPb)
+  private val csp = intPB.getSolver
 
   override def nextSatisfyingAssignment(): Option[ast.PartialAssignment] = {
     csp.nextSolution() match {
