@@ -39,8 +39,6 @@ object ModelOptimizationsTests extends TestSuite {
         case ProductF(members, _)           => members.toSet
         case ComputationF(_, args, _)       => args.toSet
         case ITEF(cond, onTrue, onFalse, _) => Set(cond, onTrue, onFalse)
-        case PresentF(v)                    => Set(v)
-        case ValidF(v)                      => Set(v)
       }
     }
   }
@@ -66,8 +64,6 @@ object ModelOptimizationsTests extends TestSuite {
       case ITEF(true, onTrue, _, _)   => onTrue
       case ITEF(false, _, onFalse, _) => onFalse
       case ITEF(_, _, _, _)           => unexpected
-      case PresentF(_)                => Value(true)
-      case ValidF(_)                  => Value(true)
     }
     dahu.recursion.Recursion.cata(alg)(ast)
   }

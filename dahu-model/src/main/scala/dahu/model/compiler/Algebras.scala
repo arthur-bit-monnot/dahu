@@ -61,8 +61,6 @@ object Algebras {
         addIndent(tmp, argsIndent)
       case ProductF(members, _)           => members.mkString("(", ", ", ")")
       case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
-      case PresentF(partial)              => s"present($partial)"
-      case ValidF(partial)                => s"valid($partial)"
     }
   }
 

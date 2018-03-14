@@ -35,6 +35,8 @@ object ExprF {
         Partial(f(value), f(condition), typ)
       case OptionalF(value, present, typ) =>
         OptionalF(f(value), f(present), typ)
+      case PresentF(v) => PresentF(f(v))
+      case ValidF(v)   => ValidF(f(v))
     }
   }
 }
@@ -52,8 +54,6 @@ object Total {
       case ComputationF(fun, args, typ)     => ComputationF(fun, args.map(f), typ)
       case ProductF(members, typ)           => ProductF(members.map(f), typ)
       case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
-      case PresentF(v)                      => PresentF(f(v))
-      case ValidF(v)                        => ValidF(f(v))
     }
   }
 }
@@ -91,13 +91,13 @@ final case class ITEF[F](cond: F, onTrue: F, onFalse: F, typ: Type) extends Tota
   override def toString: String = s"ite($cond, $onTrue, $onFalse)"
 }
 
-final case class PresentF[F](optional: F) extends Total[F] {
+final case class PresentF[F](optional: F) extends ExprF[F] {
   override def typ: Type = Tag.ofBoolean
 
   override def toString: String = s"present($optional)"
 }
 
-final case class ValidF[F](partial: F) extends Total[F] {
+final case class ValidF[F](partial: F) extends ExprF[F] {
   override def typ: Type = Tag.ofBoolean
 
   override def toString: String = s"valid($partial)"

@@ -34,7 +34,6 @@ object Interpreter {
           case false => onFalse
           case _     => unexpected
         }
-      case PresentF(_) => Value(true) // todo: should NonEmpty really be in total?
     }
     hylo(ast.tree.asFunction, alg)(root)
   }

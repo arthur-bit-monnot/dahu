@@ -19,8 +19,6 @@ object Compiler {
   private def makeSafe(alg: PartialAlgebra): Algebra = {
     case x: InputF[_] => Try(alg(x))
     case x: CstF[_]   => Try(alg(x))
-    case PresentF(v)  => v.flatMap(x => Try(alg(PresentF(x))))
-    case ValidF(v)    => v.flatMap(x => Try(alg(ValidF(x))))
     case ITEF(cond, onTrue, onFalse, tpe) =>
       for {
         c <- cond
@@ -69,8 +67,6 @@ object Compiler {
       cond match {
         case b: BoolExpr => ctx.mkITE(b, onTrue, onFalse)
       }
-    case PresentF(_) => ctx.mkBool(true)
-    case ValidF(_)   => ctx.mkBool(true)
 
     case ComputationF(f: Fun1[_, _], Ints(lhs :: Nil), _) =>
       f match {
