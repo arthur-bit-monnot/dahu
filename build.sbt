@@ -112,6 +112,11 @@ lazy val benchmarks = project
   .dependsOn(utils, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
 
+lazy val planner = project
+  .in(file("dahu-planner"))
+  .dependsOn(anml, solvers, z3)
+  .settings(commonSettings ++ utestSettings: _*)
+
 resolvers += Resolver.sonatypeRepo("releases")
 
 exportJars := true
