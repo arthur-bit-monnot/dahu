@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 
 class FullToCoreTest extends FunSuite {
 
-  def asCore(anml: String): Either[String,CoreModel] = {
+  def asCore(anml: String): Either[String, CoreModel] = {
     Parser.parse(anml) match {
       case ParseSuccess(mod) =>
         Right(FullToCore.trans(mod))
@@ -15,7 +15,7 @@ class FullToCoreTest extends FunSuite {
     }
   }
 
-  for (anml <- InputAnmlModels.valid) {
+  for(anml <- InputAnmlModels.valid) {
     test("translation to core: " + anml) {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>
@@ -26,7 +26,7 @@ class FullToCoreTest extends FunSuite {
     }
   }
 
-  for (anml <- InputAnmlModels.valid) {
+  for(anml <- InputAnmlModels.valid) {
     test("Invariant on core: " + anml) {
       Parser.parse(anml) match {
         case ParseSuccess(fullMod) =>
@@ -41,6 +41,6 @@ class FullToCoreTest extends FunSuite {
   def checkInvariantsInCore(m: CoreModel): Unit = {
     val declarations = m.collect { case x: Declaration[_] => x }
     assert(declarations.distinct.size == declarations.size,
-      "\nDuplicate declarations in: \n"+declarations.mkString("\n"))
+           "\nDuplicate declarations in: \n" + declarations.mkString("\n"))
   }
 }

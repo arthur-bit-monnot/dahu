@@ -10,7 +10,7 @@ trait Formatter[-T] {
 trait LowPriorityFormatter {
 
   private val anyFormatter: Formatter[Any] =
-    (t: Any, indent: Int) => " "*indent + t.toString
+    (t: Any, indent: Int) => " " * indent + t.toString
 
   /** Default instance simply invoke the toString method. */
   implicit def fmtDefault[T](implicit ev: T <:!< HList): Formatter[T] = anyFormatter
@@ -24,8 +24,8 @@ object Formatter extends LowPriorityFormatter {
   implicit def fAction(implicit ev: Formatter[Statement]) = new Formatter[ActionTemplate] {
     override def format(t: ActionTemplate, indent: Int): String = {
       val sb = new StringBuilder()
-      sb ++= "\n" + " "*indent + t.toString + ":"
-      for (s <- t.content)
+      sb ++= "\n" + " " * indent + t.toString + ":"
+      for(s <- t.content)
         sb ++= "\n" + ev.format(s, indent + 2)
       sb.toString
     }
@@ -40,9 +40,11 @@ object Formatter extends LowPriorityFormatter {
         case Inr(x) => tFmt.format(x, indent)
     }
 
-  implicit def genFormatter[T, Expr](implicit gen: Generic.Aux[T, Expr], fmt: Formatter[Expr]): Formatter[T] =
+  implicit def genFormatter[T, Expr](implicit gen: Generic.Aux[T, Expr],
+                                     fmt: Formatter[Expr]): Formatter[T] =
     (t: T, indent: Int) => fmt.format(gen.to(t), indent)
 
-  implicit def collFormatter[T, Coll[_]](implicit fmt: Formatter[T], ev: Coll[T] <:< Traversable[T]): Formatter[Coll[T]] =
+  implicit def collFormatter[T, Coll[_]](implicit fmt: Formatter[T],
+                                         ev: Coll[T] <:< Traversable[T]): Formatter[Coll[T]] =
     (t: Coll[T], indent: Int) => t.map(fmt.format(_, indent)).mkString("\n")
 }

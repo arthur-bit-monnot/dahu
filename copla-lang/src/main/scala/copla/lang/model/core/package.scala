@@ -6,9 +6,9 @@ package object core {
 
   type CoreModel = Seq[InModuleBlock]
 
-  sealed trait Block         extends full.Block with InCore
+  sealed trait Block extends full.Block with InCore
   sealed trait InModuleBlock extends full.InModuleBlock with InCore
-  sealed trait Statement     extends InModuleBlock with full.Statement
+  sealed trait Statement extends InModuleBlock with full.Statement
 
   sealed trait InCore
 
@@ -20,7 +20,7 @@ package object core {
   sealed trait SymExpr {
     def typ: Type
   }
-  trait TimedSymExpr  extends SymExpr
+  trait TimedSymExpr extends SymExpr
   trait StaticSymExpr extends SymExpr
 
   case class Id(scope: Scope, name: String) {
@@ -37,7 +37,7 @@ package object core {
     def toScopedString(name: String): String
   }
   object RootScope extends Scope {
-    override def toString: String            = "root"
+    override def toString: String = "root"
     def toScopedString(name: String): String = name
   }
   case class InnerScope(parent: Scope, name: String) extends Scope {
@@ -66,7 +66,7 @@ package object core {
   case class TypeDeclaration(typ: Type) extends Declaration[Type] with InModuleBlock with InCore {
     override def id: Id = typ.id
     override def toString: String = s"type $id" + {
-      if (typ.parent.isDefined) " < " + typ.parent.get else ""
+      if(typ.parent.isDefined) " < " + typ.parent.get else ""
     }
   }
 
@@ -87,7 +87,9 @@ package object core {
   case class LocalVar(id: Id, typ: Type) extends Var {
     override def toString: String = id.toString
   }
-  case class LocalVarDeclaration(variable: LocalVar) extends VarDeclaration[LocalVar] with Statement {
+  case class LocalVarDeclaration(variable: LocalVar)
+      extends VarDeclaration[LocalVar]
+      with Statement {
     override def toString: String = s"constant ${variable.typ} ${variable.id}"
   }
 
@@ -95,9 +97,11 @@ package object core {
   case class Instance(id: Id, typ: Type) extends Var {
     override def toString: String = id.toString
   }
-  case class InstanceDeclaration(instance: Instance) extends VarDeclaration[Instance] with InModuleBlock {
+  case class InstanceDeclaration(instance: Instance)
+      extends VarDeclaration[Instance]
+      with InModuleBlock {
     override def variable: Instance = instance
-    override def toString: String   = s"instance ${instance.typ} ${instance.id}"
+    override def toString: String = s"instance ${instance.typ} ${instance.id}"
   }
 
   /** Denote the argument of the template of state variables and actions. */
@@ -105,7 +109,7 @@ package object core {
     override def toString: String = id.toString
   }
   case class ArgDeclaration(arg: Arg) extends VarDeclaration[Arg] with Statement {
-    override def variable: Arg    = arg
+    override def variable: Arg = arg
     override def toString: String = s"${arg.typ.id} ${arg.id}"
   }
 
@@ -170,7 +174,8 @@ package object core {
       with StaticAssertion {
     override def toString: String = super.toString
   }
-  case class StaticAssignmentAssertion(override val left: BoundConstant, override val right: Instance)
+  case class StaticAssignmentAssertion(override val left: BoundConstant,
+                                       override val right: Instance)
       extends full.StaticAssignmentAssertion(left, right)
       with StaticAssertion {
     override def toString: String = super.toString
@@ -203,24 +208,24 @@ package object core {
       extends TimedAssertion
       with ProvidesChange {
     override def valueAfterChange: Var = value
-    override def toString: String      = s"[$start,$end] $fluent := $value"
+    override def toString: String = s"[$start,$end] $fluent := $value"
   }
   case class TimedTransitionAssertion(start: TPRef, end: TPRef, fluent: Fluent, from: Var, to: Var)
       extends TimedAssertion
       with RequiresSupport
       with ProvidesChange {
     override def valueAfterChange: Var = to
-    override def toString: String      = s"[$start, $end] $fluent == $from :-> $to"
+    override def toString: String = s"[$start, $end] $fluent == $from :-> $to"
   }
 
   /*** Time ***/
   case class Delay(from: TPRef, to: TPRef) {
-    def <=(dur: Int): TBefore       = to <= from + dur
-    def <(dur: Int): TBefore        = to < from + dur
-    def >=(dur: Int): TBefore       = to >= from + dur
-    def >(dur: Int): TBefore        = to > from + dur
-    def +(time: Int): Delay         = Delay(from, to + time)
-    def -(time: Int): Delay         = Delay(from, to - time)
+    def <=(dur: Int): TBefore = to <= from + dur
+    def <(dur: Int): TBefore = to < from + dur
+    def >=(dur: Int): TBefore = to >= from + dur
+    def >(dur: Int): TBefore = to > from + dur
+    def +(time: Int): Delay = Delay(from, to + time)
+    def -(time: Int): Delay = Delay(from, to - time)
     def ===(dur: Int): Seq[TBefore] = Seq(this <= dur, this >= dur)
   }
 
@@ -244,10 +249,10 @@ package object core {
     def +(delay: Int) = TPRef(id, this.delay + delay)
     def -(delay: Int) = TPRef(id, this.delay - delay)
 
-    def <=(other: TPRef): TBefore       = TBefore(this, other)
-    def <(other: TPRef): TBefore        = TBefore(this, other - 1)
-    def >=(other: TPRef): TBefore       = other <= this
-    def >(other: TPRef): TBefore        = other < this
+    def <=(other: TPRef): TBefore = TBefore(this, other)
+    def <(other: TPRef): TBefore = TBefore(this, other - 1)
+    def >=(other: TPRef): TBefore = other <= this
+    def >(other: TPRef): TBefore = other < this
     def ===(other: TPRef): Seq[TBefore] = Seq(this <= other, this >= other)
 
     def -(other: TPRef) = Delay(other, this)
@@ -263,7 +268,7 @@ package object core {
 
   case class TimepointDeclaration(tp: TPRef) extends Declaration[TPRef] with Statement {
     require(tp.delay == 0, "Cannot declare a relative timepoint.")
-    override def id: Id           = tp.id
+    override def id: Id = tp.id
     override def toString: String = s"timepoint $id"
   }
 
@@ -276,7 +281,7 @@ package object core {
   }
 
   case class ActionTemplate(scope: InnerScope, content: Seq[Statement]) extends InModuleBlock {
-    def name: String        = scope.name
+    def name: String = scope.name
     lazy val args: Seq[Arg] = content.collect { case ArgDeclaration(a) => a }
 
     override def toString: String =
@@ -287,7 +292,7 @@ package object core {
       val instanceScope: InnerScope = scope.parent + instanceName
 
       val trans: InnerScope => InnerScope = (x: InnerScope) => {
-        if (x == scope)
+        if(x == scope)
           instanceScope
         else
           x
@@ -300,16 +305,20 @@ package object core {
 
   /** Instance of an action template */
   case class Action(scope: InnerScope, content: Seq[Statement], template: ActionTemplate) {
-    def name: String   = scope.name
+    def name: String = scope.name
     val args: Seq[Arg] = content.collect { case ArgDeclaration(a) => a }
 
-    lazy val start: TPRef = content.collectFirst {
-      case TimepointDeclaration(tp) if tp.id.id == Id(scope, "start") => tp
-    }.getOrElse(sys.error("No start timepoint in this action"))
+    lazy val start: TPRef = content
+      .collectFirst {
+        case TimepointDeclaration(tp) if tp.id.id == Id(scope, "start") => tp
+      }
+      .getOrElse(sys.error("No start timepoint in this action"))
 
-    lazy val end: TPRef = content.collectFirst {
-      case TimepointDeclaration(tp) if tp.id.id == Id(scope, "end") => tp
-    }.getOrElse(sys.error("No end timepoint in this action"))
+    lazy val end: TPRef = content
+      .collectFirst {
+        case TimepointDeclaration(tp) if tp.id.id == Id(scope, "end") => tp
+      }
+      .getOrElse(sys.error("No end timepoint in this action"))
   }
 
 }

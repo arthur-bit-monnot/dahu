@@ -23,7 +23,6 @@ package object lang {
     override def map[B](f: (T) => B): Success[B] = Success(f(result))
   }
 
-
   def parse(anml: String): Result[core.CoreModel] =
     parseToFull(anml).map(_.asCore())
 

@@ -16,10 +16,10 @@ object FullToCore {
       case x: core.Var => (x, Seq())
       case x: full.Constant =>
         val (params, statements) = staticExprsToVars(x.params)
-        val cst                  = core.Constant(x.template, params)
-        val variable             = core.LocalVar(ctx.scope.makeNewId(), cst.typ)
-        val declaration          = core.LocalVarDeclaration(variable)
-        val eq                   = core.BindAssertion(cst, variable)
+        val cst = core.Constant(x.template, params)
+        val variable = core.LocalVar(ctx.scope.makeNewId(), cst.typ)
+        val declaration = core.LocalVarDeclaration(variable)
+        val eq = core.BindAssertion(cst, variable)
         (variable, statements :+ declaration :+ eq)
     }
   }
@@ -55,9 +55,11 @@ object FullToCore {
 
     case x: full.StaticAssignmentAssertion =>
       (x.left, x.right) match {
-        case (cst: full.Constant, inst: core.Instance) if cst.params.forall(_.isInstanceOf[core.Instance]) =>
+        case (cst: full.Constant, inst: core.Instance)
+            if cst.params.forall(_.isInstanceOf[core.Instance]) =>
           val boundCst =
-            new model.core.BoundConstant(cst.template, cst.params.map(_.asInstanceOf[core.Instance]))
+            new model.core.BoundConstant(cst.template,
+                                         cst.params.map(_.asInstanceOf[core.Instance]))
           Seq(core.StaticAssignmentAssertion(boundCst, inst))
         case _ =>
           throw new UnsupportedOperationException(
@@ -78,7 +80,7 @@ object FullToCore {
       val (start, end, baseStatements: Seq[core.Statement]) =
         qualifier match {
           case full.Equals(interval) =>
-            if (ctx.config.mergeTimepoints && assertion.name.startsWith(reservedPrefix)) {
+            if(ctx.config.mergeTimepoints && assertion.name.startsWith(reservedPrefix)) {
               // we are asked to merge timepoints and assertion was not given a name
               // use the timepoints from the interval instead of the one of the assertion
               (interval.start, interval.end, Seq())
@@ -105,20 +107,20 @@ object FullToCore {
       assertion match {
         case full.TimedEqualAssertion(fluent, value, parent, name) =>
           val (coreFluent, fluentStatement) = timedSymExpr2CoreFluent(fluent)
-          val (coreValue, valueStatements)  = staticExprToVar(value)
+          val (coreValue, valueStatements) = staticExprToVar(value)
           baseStatements ++ fluentStatement ++ valueStatements :+ core
             .TimedEqualAssertion(start, end, coreFluent, coreValue) :+
             (start <= end)
         case full.TimedAssignmentAssertion(fluent, value, parent, name) =>
           val (coreFluent, fluentStatement) = timedSymExpr2CoreFluent(fluent)
-          val (coreValue, valueStatements)  = staticExprToVar(value)
+          val (coreValue, valueStatements) = staticExprToVar(value)
           baseStatements ++ fluentStatement ++ valueStatements :+ core
             .TimedAssignmentAssertion(start, end, coreFluent, coreValue) :+
             (start <= end)
         case full.TimedTransitionAssertion(fluent, fromValue, toValue, parent, name) =>
-          val (coreFluent, fluentStatement)        = timedSymExpr2CoreFluent(fluent)
+          val (coreFluent, fluentStatement) = timedSymExpr2CoreFluent(fluent)
           val (coreFromValue, fromValueStatements) = staticExprToVar(fromValue)
-          val (coreToValue, toValueStatements)     = staticExprToVar(toValue)
+          val (coreToValue, toValueStatements) = staticExprToVar(toValue)
           baseStatements ++ fluentStatement ++ fromValueStatements ++ toValueStatements :+ core
             .TimedTransitionAssertion(start, end, coreFluent, coreFromValue, coreToValue) :+
             (start < end)

@@ -1,6 +1,5 @@
 package copla.lang.parsing.anml
 
-
 object InputAnmlModels {
 
   val valid = Seq(

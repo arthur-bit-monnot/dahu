@@ -43,7 +43,7 @@ object CoreTransforms {
         case FunctionDeclaration(cst: ConstantTemplate) if cst.params.isEmpty =>
           LocalVarDeclaration(constantAsLocalVar(cst))
         case _ => x
-      }
+    }
     val m3 = m2.map(declSwapper)
 
     m3.asInstanceOf[T with ConstantAsLocalVar]

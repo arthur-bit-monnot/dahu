@@ -9,34 +9,34 @@ package object full {
   trait Block
   trait InModuleBlock extends Block
   trait InActionBlock extends Block
-  trait Statement     extends InModuleBlock with InActionBlock
+  trait Statement extends InModuleBlock with InActionBlock
 
-  type Declaration[T]           = core.Declaration[T]
-  type Var                      = core.Var
+  type Declaration[T] = core.Declaration[T]
+  type Var = core.Var
   type VarDeclaration[T <: Var] = core.VarDeclaration[T]
-  type Instance                 = core.Instance
-  type InstanceDeclaration      = core.InstanceDeclaration
-  type LocalVar                 = core.LocalVar
-  type LocalVarDeclaration      = core.LocalVarDeclaration
-  type Arg                      = core.Arg
-  type ArgDeclaration           = core.ArgDeclaration
-  type TPRef                    = core.TPRef
-  type SimpleTPRef              = core.SimpleTPRef
-  type TimepointDeclaration     = core.TimepointDeclaration
-  type Interval                 = core.Interval
-  type Delay                    = core.Delay
-  type TBefore                  = core.TBefore
-  type FunctionTemplate         = core.FunctionTemplate
-  type FunctionDeclaration      = core.FunctionDeclaration
-  type ConstantTemplate         = core.ConstantTemplate
-  type FluentTemplate           = core.FluentTemplate
-  type Type                     = core.Type
-  type TypeDeclaration          = core.TypeDeclaration
-  type Id                       = core.Id
-  type Scope                    = core.Scope
+  type Instance = core.Instance
+  type InstanceDeclaration = core.InstanceDeclaration
+  type LocalVar = core.LocalVar
+  type LocalVarDeclaration = core.LocalVarDeclaration
+  type Arg = core.Arg
+  type ArgDeclaration = core.ArgDeclaration
+  type TPRef = core.TPRef
+  type SimpleTPRef = core.SimpleTPRef
+  type TimepointDeclaration = core.TimepointDeclaration
+  type Interval = core.Interval
+  type Delay = core.Delay
+  type TBefore = core.TBefore
+  type FunctionTemplate = core.FunctionTemplate
+  type FunctionDeclaration = core.FunctionDeclaration
+  type ConstantTemplate = core.ConstantTemplate
+  type FluentTemplate = core.FluentTemplate
+  type Type = core.Type
+  type TypeDeclaration = core.TypeDeclaration
+  type Id = core.Id
+  type Scope = core.Scope
 
-  type SymExpr       = core.SymExpr
-  type TimedSymExpr  = core.TimedSymExpr
+  type SymExpr = core.SymExpr
+  type TimedSymExpr = core.TimedSymExpr
   type StaticSymExpr = core.StaticSymExpr
 
   /** A block wrapping other blocks pertaining to the same scope. */
@@ -48,18 +48,21 @@ package object full {
     override val scope: InnerScope = parent.map(_.scope).getOrElse(RootScope) + name
 
     val start: SimpleTPRef = SimpleTPRef(this.id("start").toTPId)
-    val end: SimpleTPRef   = SimpleTPRef(this.id("end").toTPId)
+    val end: SimpleTPRef = SimpleTPRef(this.id("end").toTPId)
 
     override val store: BlockStore[Statement] = new BlockStore[Statement]() +
       new TimepointDeclaration(start) +
       new TimepointDeclaration(end)
   }
-  case class TimedEqualAssertion(left: TimedSymExpr, right: StaticSymExpr, parent: Option[Ctx], name: String)
+  case class TimedEqualAssertion(left: TimedSymExpr,
+                                 right: StaticSymExpr,
+                                 parent: Option[Ctx],
+                                 name: String)
       extends TimedAssertion(parent, name) {
-    if (name == "__296")
+    if(name == "__296")
       println(name)
     override def toString: String =
-      if (name.startsWith(reservedPrefix)) s"$left == $right"
+      if(name.startsWith(reservedPrefix)) s"$left == $right"
       else s"$name: $left == $right"
   }
 
@@ -70,7 +73,7 @@ package object full {
                                       name: String)
       extends TimedAssertion(parent, name) {
     override def toString: String =
-      if (name.startsWith(reservedPrefix)) s"$fluent == $from :-> $to"
+      if(name.startsWith(reservedPrefix)) s"$fluent == $from :-> $to"
       else s"$name: $fluent == $from :-> $to"
   }
 
@@ -80,7 +83,7 @@ package object full {
                                       name: String)
       extends TimedAssertion(parent, name) {
     override def toString: String =
-      if (name.startsWith(reservedPrefix)) s"$fluent := $to"
+      if(name.startsWith(reservedPrefix)) s"$fluent := $to"
       else s"$name: $fluent := $to"
   }
 
@@ -96,18 +99,21 @@ package object full {
       extends Statement
       with Wrapper {
 
-    override def wrapped  = Seq(assertion)
+    override def wrapped = Seq(assertion)
     override def toString = s"$qualifier $assertion"
   }
 
   trait StaticAssertion extends Statement
-  class StaticEqualAssertion(val left: StaticSymExpr, val right: StaticSymExpr) extends StaticAssertion {
+  class StaticEqualAssertion(val left: StaticSymExpr, val right: StaticSymExpr)
+      extends StaticAssertion {
     override def toString: String = s"$left == $right"
   }
-  class StaticDifferentAssertion(val left: StaticSymExpr, val right: StaticSymExpr) extends StaticAssertion {
+  class StaticDifferentAssertion(val left: StaticSymExpr, val right: StaticSymExpr)
+      extends StaticAssertion {
     override def toString: String = s"$left != $right"
   }
-  class StaticAssignmentAssertion(val left: StaticSymExpr, val right: StaticSymExpr) extends StaticAssertion {
+  class StaticAssignmentAssertion(val left: StaticSymExpr, val right: StaticSymExpr)
+      extends StaticAssertion {
     override def toString: String = s"$left := $right"
   }
 
@@ -123,7 +129,8 @@ package object full {
     override def toString = s"$template(${params.mkString(", ")})"
   }
 
-  class Constant(val template: ConstantTemplate, val params: Seq[StaticSymExpr]) extends StaticSymExpr {
+  class Constant(val template: ConstantTemplate, val params: Seq[StaticSymExpr])
+      extends StaticSymExpr {
     require(template.params.size == params.size)
     template.params.zip(params).foreach {
       case (tpl, v) =>
@@ -159,8 +166,8 @@ package object full {
   }
 
   case class Model(store: BlockStore[InModuleBlock] = new BlockStore()) extends Ctx {
-    override def parent       = None
-    override def name         = "_module_"
+    override def parent = None
+    override def name = "_module_"
     override val scope: Scope = RootScope
 
     def +(block: InModuleBlock): Option[Model] = {
@@ -182,7 +189,8 @@ package object full {
           .mkString("\n")
   }
 
-  class BlockStore[+T <: Block] private (val blocks: Vector[T], val declarations: Map[Id, Declaration[_]]) {
+  class BlockStore[+T <: Block] private (val blocks: Vector[T],
+                                         val declarations: Map[Id, Declaration[_]]) {
 
     def this() = this(Vector(), Map())
 

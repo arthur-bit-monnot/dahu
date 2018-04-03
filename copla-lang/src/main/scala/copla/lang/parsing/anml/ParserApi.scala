@@ -5,7 +5,7 @@ object ParserApi {
   val baseApi = fastparse.noApi
   val whiteApi = fastparse.WhitespaceApi.Wrapper {
     import fastparse.all._
-    val inlineComment    = "//" ~ CharsWhile(c => c != '\n', min = 0) ~ ("\n" | PassWith("") ~ &(End))
+    val inlineComment = "//" ~ CharsWhile(c => c != '\n', min = 0) ~ ("\n" | PassWith("") ~ &(End))
     val multiLineComment = "/*" ~ (AnyChar ~ !"*/").rep ~ AnyChar ~ "*/"
 
     val white = (" " | "\r" | "\n" | "\t" | inlineComment | multiLineComment)
@@ -25,7 +25,7 @@ object ParserApi {
       def namedFilter(predicate: T => Boolean, name: String): Parser[T] =
         parser.filter(new Function[T, Boolean] {
           override def apply(v1: T) = predicate(v1)
-          override def toString()   = name
+          override def toString() = name
         })
     }
 

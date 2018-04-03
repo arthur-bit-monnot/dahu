@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 
 class AnmlParsingTest extends FunSuite {
 
-  for (anml <- InputAnmlModels.valid) {
+  for(anml <- InputAnmlModels.valid) {
     test("valid: " + anml) {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>
@@ -16,7 +16,7 @@ class AnmlParsingTest extends FunSuite {
     }
   }
 
-  for (anml <- InputAnmlModels.invalid) {
+  for(anml <- InputAnmlModels.invalid) {
     test("invalid: " + anml) {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>

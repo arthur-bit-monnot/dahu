@@ -5,8 +5,8 @@ import copla.lang.parsing.anml.Parser
 
 package object model {
 
-  val reservedPrefix       = "__"
+  val reservedPrefix = "__"
   private[this] var nextID = 0
-  def defaultId(): String  = reservedPrefix + { nextID += 1; nextID - 1 }
+  def defaultId(): String = reservedPrefix + { nextID += 1; nextID - 1 }
 
 }

@@ -31,23 +31,23 @@ abstract class AnmlParser(val initialContext: Ctx) {
   }
   val int: Parser[Int] = CharsWhileIn('0' to '9').!.map(_.toInt).opaque("int")
 
-  val typeKW: Parser[Unit]      = word.filter(_ == "type").silent.opaque("type")
-  val withKW: Parser[Unit]      = word.filter(_ == "with").silent.opaque("with")
-  val instanceKW: Parser[Unit]  = word.filter(_ == "instance").silent.opaque("instance")
-  val fluentKW: Parser[Unit]    = word.filter(_ == "fluent").silent.opaque("fluent")
-  val constantKW: Parser[Unit]  = word.filter(_ == "constant").silent.opaque("constant")
+  val typeKW: Parser[Unit] = word.filter(_ == "type").silent.opaque("type")
+  val withKW: Parser[Unit] = word.filter(_ == "with").silent.opaque("with")
+  val instanceKW: Parser[Unit] = word.filter(_ == "instance").silent.opaque("instance")
+  val fluentKW: Parser[Unit] = word.filter(_ == "fluent").silent.opaque("fluent")
+  val constantKW: Parser[Unit] = word.filter(_ == "constant").silent.opaque("constant")
   val timepointKW: Parser[Unit] = word.filter(_ == "timepoint").silent.opaque("instance")
-  val actionKW: Parser[Unit]    = word.filter(_ == "action").silent.opaque("action")
-  val durationKW: Parser[Unit]  = word.filter(_ == "duration").silent.opaque("duration")
-  val containsKW: Parser[Unit]  = word.filter(_ == "contains").silent.opaque("contains")
+  val actionKW: Parser[Unit] = word.filter(_ == "action").silent.opaque("action")
+  val durationKW: Parser[Unit] = word.filter(_ == "duration").silent.opaque("duration")
+  val containsKW: Parser[Unit] = word.filter(_ == "contains").silent.opaque("contains")
   val keywords: Set[String] =
     Set("type", "instance", "action", "duration", "fluent", "variable", "predicate", "timepoint")
   val nonIdent: Set[String] = keywords
 
   val simpleIdent: Parser[String] =
     word.opaque("ident").namedFilter(!nonIdent.contains(_), "not-reserved")
-  val ident: Parser[String]        = simpleIdent.rep(min = 1, sep = ".").!.opaque("possibly-nested-ident")
-  val typeName: Parser[String]     = word.filter(!keywords.contains(_)).opaque("type-name")
+  val ident: Parser[String] = simpleIdent.rep(min = 1, sep = ".").!.opaque("possibly-nested-ident")
+  val typeName: Parser[String] = word.filter(!keywords.contains(_)).opaque("type-name")
   val variableName: Parser[String] = ident.opaque("variable-name")
 
   val freeIdent: Parser[String] =
@@ -163,14 +163,14 @@ abstract class AnmlParser(val initialContext: Ctx) {
   private[this] def varList(expectedTypes: Seq[Type],
                             sep: String,
                             previous: Seq[StaticSymExpr] = Seq()): Parser[Seq[StaticSymExpr]] = {
-    if (expectedTypes.isEmpty) {
+    if(expectedTypes.isEmpty) {
       PassWith(previous)
     } else {
       staticSymExpr
         .namedFilter(_.typ.isSubtypeOf(expectedTypes.head), "has-expected-type")
         .flatMap(
           v =>
-            if (expectedTypes.tail.isEmpty)
+            if(expectedTypes.tail.isEmpty)
               PassWith(previous :+ v)
             else
               Pass ~ sep ~/ varList(expectedTypes.tail, sep, previous :+ v))
@@ -265,7 +265,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
 
   val timedAssertion: Parser[TimedAssertion] = {
     // variable that hold the first two parsed token to facilitate type checking logic
-    var id: String           = null
+    var id: String = null
     var fluent: TimedSymExpr = null
 
     def compatibleTypes(t1: Type, t2: Type): Boolean = t1.isSubtypeOf(t2) || t2.isSubtypeOf(t1)
@@ -279,7 +279,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
     val assertionId: Parser[String] =
       (freeIdent ~ ":" ~/ Pass).?.map {
         case Some(id) => id
-        case None => defaultId()
+        case None     => defaultId()
       }
 
     assertionId.sideEffect(id = _).silent ~
@@ -394,9 +394,9 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
         case (_, _, None) => Seq()
         case (t, _, Some(funcDecl)) =>
           funcDecl.map(fd => {
-            val id            = new Id(t.asScope, fd.id.name)
+            val id = new Id(t.asScope, fd.id.name)
             val functionScope = t.asScope + id.name
-            val selfArg       = new Arg(new Id(functionScope, "self"), t)
+            val selfArg = new Arg(new Id(functionScope, "self"), t)
             val params = selfArg +: fd.func.params.map(arg =>
               new Arg(new Id(functionScope, arg.id.name), arg.typ))
             val template = fd.func match {
@@ -456,7 +456,8 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
 
   /** FIXME: this interprets a "constant" as a local variable. This is is compatible with FAPE but not with official ANML. */
   val variableDeclaration: Parser[LocalVarDeclaration] = {
-    (constantKW ~/ declaredType ~/ freeIdent ~/ ";").map { case (typ, id) =>
+    (constantKW ~/ declaredType ~/ freeIdent ~/ ";").map {
+      case (typ, id) =>
         new LocalVarDeclaration(new LocalVar(new Id(ctx.scope, id), typ))
     }
   }
@@ -479,8 +480,7 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
       (temporalConstraint |
         temporallyQualifiedAssertion |
         staticAssertion.map(Seq(_)) |
-        variableDeclaration.map(Seq(_))
-        )
+        variableDeclaration.map(Seq(_)))
         .sideEffect(x => updateContext(currentAction ++ x)) // add assertions to the current action
         .rep ~
       "}" ~/
@@ -567,7 +567,7 @@ object Parser {
 
   private def parseFromFile(file: File, previousModel: Option[Model] = None): ParseResult = {
     Try {
-      val source        = scala.io.Source.fromFile(file)
+      val source = scala.io.Source.fromFile(file)
       val input: String = source.getLines.mkString("\n")
       source.close()
       parse(input, previousModel) match {
