@@ -2,7 +2,7 @@ name := "dahu"
 
 lazy val commonSettings = Seq(
   organization := "com.github.arthur-bit-monnot",
-  scalaVersion := "2.12.4",
+  scalaVersion := "2.12.5",
   crossPaths := true,
   // To sync with Maven central
   publishMavenStyle := true,
@@ -35,10 +35,10 @@ lazy val commonSettings = Seq(
     "-language:existentials"
   ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
-  addCompilerPlugin("io.tryp" % "splain" % "0.2.7" cross CrossVersion.patch),
+  //addCompilerPlugin("io.tryp" % "splain" % "0.2.10" cross CrossVersion.patch),
 )
 lazy val utestSettings = Seq(
-  libraryDependencies += "com.lihaoyi" %% "utest" % "0.5.4" % "test",
+  libraryDependencies += "com.lihaoyi" %% "utest" % "0.6.4" % "test",
   testFrameworks += new TestFramework("utest.runner.Framework")
 )
 
@@ -46,6 +46,7 @@ lazy val root = project
   .in(file("."))
   .aggregate(utils, recursion, model, solvers, benchmarks, anml)
   .settings(
+    scalaVersion := "2.12.5",
     publish := {},
     publishLocal := {}
   )
@@ -55,10 +56,10 @@ lazy val anml = project
   .settings(name := "copla-lang")
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "com.lihaoyi" %% "fastparse" % "0.4.4",
+    "com.lihaoyi" %% "fastparse" % "1.0.0",
     "com.github.scopt" %% "scopt" % "3.7.0",
     "com.github.arthur-bit-monnot" %% "landscaper" % "0.1.1",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ))
 
 lazy val utils = project
@@ -76,8 +77,8 @@ lazy val recursion = project
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-core" % "1.0.1",
-      "org.typelevel" %% "cats-free" % "1.0.1",
+      "org.typelevel" %% "cats-core" % "1.1.0",
+      "org.typelevel" %% "cats-free" % "1.1.0",
     ))
 
 lazy val model = project
