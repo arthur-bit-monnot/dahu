@@ -44,11 +44,23 @@ lazy val utestSettings = Seq(
 
 lazy val root = project
   .in(file("."))
-  .aggregate(utils, recursion, model, solvers, benchmarks)
+  .aggregate(utils, recursion, model, solvers, benchmarks, anml)
   .settings(
     publish := {},
     publishLocal := {}
   )
+
+lazy val anml = project
+  .in(file("copla-lang"))
+  .settings(name := "copla-lang")
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "com.lihaoyi" %% "fastparse" % "0.4.4",
+    "com.github.scopt" %% "scopt" % "3.7.0",
+    "com.github.arthur-bit-monnot" %% "landscaper" % "0.1.1",
+    "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+  ))
+
 lazy val utils = project
   .in(file("dahu-utils"))
   .settings(name := "dahu-utils")
@@ -67,7 +79,6 @@ lazy val recursion = project
       "org.typelevel" %% "cats-core" % "1.0.1",
       "org.typelevel" %% "cats-free" % "1.0.1",
     ))
-  .settings(testFrameworks += new TestFramework("utest.runner.Framework"))
 
 lazy val model = project
   .in(file("dahu-model"))

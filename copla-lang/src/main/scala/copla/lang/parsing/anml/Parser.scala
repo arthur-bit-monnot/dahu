@@ -94,7 +94,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
             .findTimepoint("start")
             .flatMap(st => ctx.findTimepoint("end").map(ed => (st, ed))) match {
             case Some((st, ed)) => PassWith(new Delay(st, ed + 1))
-            case None           => sys.error("No start/end timepoint"); Fail
+            case None           => sys.error("No start/end timepoint")
         })
       .opaque("duration") |
       (timepoint ~ "-" ~ definedTP ~ (("+" | "-").! ~ int).?).map {

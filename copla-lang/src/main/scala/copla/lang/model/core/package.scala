@@ -75,7 +75,7 @@ package object core {
     def typ: Type
   }
   object Var {
-    def unapply(v: Var) = Option(v.id, v.typ)
+    def unapply(v: Var) = Option((v.id, v.typ))
   }
 
   sealed trait VarDeclaration[V <: Var] extends Declaration[Var] {
@@ -233,6 +233,7 @@ package object core {
     override def toString: String = id.toString
   }
   object TPId {
+    import scala.language.implicitConversions
     implicit def asId(tpId: TPId): Id = tpId.id
   }
 
