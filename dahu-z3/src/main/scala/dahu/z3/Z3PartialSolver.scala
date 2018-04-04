@@ -70,6 +70,7 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
 
   override def nextSatisfyingAssignment(): Option[ast.PartialAssignment] = {
     assert(model == null, "Z3 only support extraction of a single solution")
+    println("Check with Z3...")
     solver.check() match {
       case Status.SATISFIABLE =>
         model = solver.getModel

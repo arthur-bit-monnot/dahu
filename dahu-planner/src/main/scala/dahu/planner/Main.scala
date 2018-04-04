@@ -3,43 +3,58 @@ package dahu.planner
 import copla.lang
 import copla.lang.model.core.{ActionTemplate, Instance, Statement}
 import dahu.utils.errors._
+import java.io.File
+
+import copla.lang.model.core
+
+case class Config(problemFile: File = null)
 
 object Main extends App {
 
-  val pb = """
-      |type X;
-      |type Y < X;
-      |type Z < X;
-      |type W < Y;
-      |instance X x1, x2, x3;
-      |
-      |constant X v1;
-      |constant X v2;
-      |constant X v3;
-      |
-      |v1 != v2;
-      |v2 != v3;
-      |v3 != v1;
-    """.stripMargin
-
-  println(solve(pb))
-
-  for(i <- Problems.satisfiables) {
-    val sol = solve(i)
-    println("== Solution ==")
-    println(sol)
+  val parser = new scopt.OptionParser[Config]("dahu") {
+    head("dahu", "0.x")
+    arg[File]("XXXX.pb.anml").action((f, c) => c.copy(problemFile = f))
   }
 
-  for(i <- Problems.unsatisfiables) {
-    val sol = solve(i)
-    println("== Solution (none expected) ==")
-    println(sol)
-  }
+  for(i <- 0 until 5)
+    parser.parse(args, Config()) match {
+      case Some(Config(pbFile)) =>
+        solve(pbFile) match {
+          case Some(sol) =>
+            println("== Solution ==")
+            println(sol)
+          case None => unexpected
+        }
+      case None =>
+    }
 
+//  for(i <- Problems.satisfiables) {
+//    solve(i) match {
+//      case Some(sol) =>
+//        println("== Solution ==")
+//        println(sol)
+//      case None => unexpected
+//    }
+//
+//  }
+//
+//  for(i <- Problems.unsatisfiables) {
+//    solve(i) match {
+//      case Some(sol) => unexpected("Got solution on unsatisfiable problem.")
+//      case None => println("No solution")
+//    }
+//  }
+
+  def solve(problemFile: File): Option[Any] = {
+    println("Parsing...")
+    solve(lang.parse(problemFile))
+  }
   def solve(anml: String): Option[Any] = {
-    println("\n\n=== Problem ===")
-    println(anml)
-    val parsed = lang.parse(anml)
+    solve(lang.parse(anml))
+  }
+
+  def solve(parsed: lang.Result[core.CoreModel]): Option[Any] = {
+    println("Encoding...")
     parsed match {
       case lang.Success(res) =>
         val ctx = ProblemContext.extract(res)

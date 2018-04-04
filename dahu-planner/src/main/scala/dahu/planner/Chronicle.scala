@@ -344,8 +344,12 @@ case class Chronicle(ctx: ProblemContext,
 
     val view = acts.map {
       case Opt(a, present) =>
-        Product.fromSeq(
-          Seq[Tentative[Any]](Cst(a.name)(Tag.default), Cst(a.args)(Tag.default), present))
+        Product(
+          Operator[Tentative](Cst(a.name)(Tag.default),
+                              Cst(a.args)(Tag.default),
+                              a.start,
+                              a.end,
+                              present))
     }
 
     SubjectTo(Product.fromSeq(view), Computation(bool.And, allConstraints))

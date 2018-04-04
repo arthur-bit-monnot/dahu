@@ -116,6 +116,7 @@ lazy val planner = project
   .in(file("dahu-planner"))
   .dependsOn(anml, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
+  .settings(libraryDependencies += "com.github.scopt" %% "scopt" % "X.Y.Z")
 
 resolvers += Resolver.sonatypeRepo("releases")
 

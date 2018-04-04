@@ -65,6 +65,6 @@ object Action {
       case (c, s) => c.extended(s)(argsRewrite)
     }
 
-    Action(act.name, ctx.encode(act.start), ctx.encode(act.end), args.toList, chronicle)
+    Action(act.template.name, ctx.encode(act.start), ctx.encode(act.end), args.toList, chronicle)
   }
 }
