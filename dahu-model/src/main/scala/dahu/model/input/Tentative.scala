@@ -154,14 +154,15 @@ object ProductExpr {
         gen.from(hListExtract.fromTerms(terms))
     }
 
-  implicit def peOfHNil[F[_]] = new HListExtract[HNil, F] {
+  implicit def peOfHNil[F[_]]: HListExtract[HNil, F] = new HListExtract[HNil, F] {
     override def terms(h: HNil): List[F[Any]] = Nil
     override def fromTerms(l: Seq[F[Any]]): HNil = {
       require(l.isEmpty)
       HNil
     }
   }
-  implicit def peOfHlist[H, T <: HList, F[_]](implicit t: HListExtract[T, F]) =
+  implicit def peOfHlist[H, T <: HList, F[_]](
+      implicit t: HListExtract[T, F]): HListExtract[F[H] :: T, F] =
     new HListExtract[F[H] :: T, F] {
       override def terms(l: F[H] :: T): List[F[Any]] =
         l.head.asInstanceOf[F[Any]] :: t.terms(l.tail)

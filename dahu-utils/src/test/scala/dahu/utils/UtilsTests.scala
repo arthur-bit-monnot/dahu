@@ -26,5 +26,12 @@ object UtilsTests extends TestSuite {
         assert(topologicalOrder(dag2).contains(1 to 4))
       }
     }
+
+    "combinations" - {
+      allCombinations(Seq(Set(1, 2), Set(3, 4)))      ==> Set(Seq(1, 3), Seq(1, 4), Seq(2, 3), Seq(2, 4))
+      allCombinations(Seq(Set(1, 2, 3), Set[Int]()))  ==> Set()
+      allCombinations(Seq())                          ==> Set(Seq())
+      allCombinations(Seq(Set(1), Set(2), Set(3, 4))) ==> Set(Seq(1, 2, 3), Seq(1, 2, 4))
+    }
   }
 }

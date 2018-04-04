@@ -129,7 +129,7 @@ object Tag {
       override def typ: Type = ev.tpe
     }
 
-//  implicit def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
-//    override def typ: Type = typeOf[T]
-//  }
+  def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
+    override def typ: Type = typeOf[T]
+  }
 }
