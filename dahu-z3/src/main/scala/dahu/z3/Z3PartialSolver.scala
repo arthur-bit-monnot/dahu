@@ -41,7 +41,6 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
               case enumerations.Z3_lbool.Z3_L_UNDEF => None
               case _                                => unexpected
             }
-
         }
 
       case None => None

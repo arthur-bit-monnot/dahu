@@ -218,11 +218,10 @@ object ProblemContext {
 }
 
 case class Chronicle(ctx: ProblemContext,
-                     binds: Map[Constant, Tentative[Instance]],
                      conditions: List[ConditionToken],
                      effects: List[EffectToken],
                      constraints: List[Tentative[Boolean]],
-                     actions: List[Action[Tentative]]) {
+                     actions: List[Opt[Action[Tentative]]]) {
 
   import ctx._
 
@@ -243,16 +242,6 @@ case class Chronicle(ctx: ProblemContext,
       copy(
         conditions = cond :: conditions
       )
-//      binds.get(encodeAsConstant(c)) match {
-//        case Some(other) =>
-//          this.copy(
-//            constraints = ctx.eqv(encode(v), other) :: constraints
-//          )
-//        case None =>
-//          this.copy(
-//            binds = binds.updated(encodeAsConstant(c), encode(v))
-//          )
-//      }
     case StaticDifferentAssertion(lhs, rhs) =>
       copy(
         constraints = ctx.neq(lhs, rhs) :: constraints
@@ -319,18 +308,39 @@ case class Chronicle(ctx: ProblemContext,
     else {
       assert(f1.args.size == f2.args.size)
       val identical = f1.args.zip(f2.args).map { case (p1, p2) => ctx.eqv(p1, p2) }
-      Computation(bool.And, identical)
+      and(identical: _*)
     }
   }
 
   private def and(conjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
-    Computation(bool.And, conjuncts)
+    if(conjuncts.contains(FALSE))
+      FALSE
+    else
+      Computation(bool.And, conjuncts)
+  }
+  private def or(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+    if(disjuncts.contains(TRUE))
+      TRUE
+    else
+      Computation(bool.Or, disjuncts)
+  }
+  private def implies(cond: Tentative[Boolean], effect: Tentative[Boolean]): Tentative[Boolean] = {
+    if(cond == FALSE)
+      TRUE
+    else
+      or(not(cond), effect)
+  }
+  private def not(pred: Tentative[Boolean]): Tentative[Boolean] = {
+    if(pred == TRUE)
+      FALSE
+    else if(pred == FALSE)
+      TRUE
+    else
+      Computation(bool.Not, pred)
   }
 
-  def toSatProblem = {
-    val prod = Product.fromMap(binds)
-
-    val acts: Seq[Opt[Action[Tentative]]] = actions.map(Opt.optional)
+  def toSatProblem(implicit cfg: Config) = {
+    val acts: Seq[Opt[Action[Tentative]]] = actions
     val effs: Seq[Opt[EffectToken]] =
       effects.map(Opt.present) ++
         acts.flatMap(oa => oa.a.chronicle.effects.map(Opt(_, oa.present)))
@@ -341,27 +351,12 @@ case class Chronicle(ctx: ProblemContext,
       constraints ++
         acts.map(a => a.present.implies(and(a.a.chronicle.constraints: _*)))
 
-    assert(acts.forall(_.a.chronicle.binds.isEmpty))
-
-    val bindConstraints =
-      for(b1 <- binds.keys; b2 <- binds.keys if b1 != b2) yield {
-        (b1, b2) match {
-          case (Constant(tpl1, vars1), Constant(tpl2, vars2)) if tpl1 == tpl2 =>
-            assert(vars1.length == vars2.length)
-            val identical = vars1.zip(vars2).map { case (v1, v2) => ctx.eqv(v1, v2) }
-            Computation(bool.And, identical).implies(ctx.eqv(binds(b1), binds(b2)))
-          case _ =>
-            TRUE
-        }
-      }
-
     val nonOverlappingEffectsConstraints =
       for(e1 <- effs; e2 <- effs if e1 != e2) yield {
         (e1, e2) match {
           case (Opt(EffectToken(start1, _, end1, fluent1, _), p1),
                 Opt(EffectToken(start2, _, end2, fluent2, _), p2)) =>
-            (p1 && p2 && sameFluent(fluent1, fluent2))
-              .implies(end1 < start2 || end2 < start1)
+            implies(and(p1, p2, sameFluent(fluent1, fluent2)), end1 < start2 || end2 < start1)
         }
       }
 
@@ -376,10 +371,13 @@ case class Chronicle(ctx: ProblemContext,
                   persistenceStart <= sc,
                   ec <= persistenceEnd)
           }
-          pc implies Computation(bool.Or, disjuncts)
+          if(cfg.useXorForSupport)
+            implies(pc, Computation(bool.XOr, disjuncts))
+          else
+            implies(pc, or(disjuncts: _*))
       }
 
-    val allConstraints = consts ++ bindConstraints ++ nonOverlappingEffectsConstraints ++ supportConstraints
+    val allConstraints = consts ++ nonOverlappingEffectsConstraints ++ supportConstraints
 
     val view = acts.map {
       case Opt(a, present) =>
@@ -391,18 +389,13 @@ case class Chronicle(ctx: ProblemContext,
                               present))
     }
 
-    SubjectTo(Product.fromSeq(view), Computation(bool.And, allConstraints))
+    SubjectTo(Product.fromSeq(view), and(allConstraints: _*))
   }
 }
 
 object Chronicle {
   def empty(ctx: ProblemContext): Chronicle =
-    new Chronicle(ctx = ctx,
-                  binds = Map(),
-                  conditions = Nil,
-                  effects = Nil,
-                  constraints = Nil,
-                  actions = Nil)
+    new Chronicle(ctx = ctx, conditions = Nil, effects = Nil, constraints = Nil, actions = Nil)
 }
 
 case class Opt[A](a: A, present: Tentative[Boolean]) {

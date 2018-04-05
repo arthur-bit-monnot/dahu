@@ -95,6 +95,10 @@ object bool {
     override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs || rhs
     override val identity: Boolean = false
   }
+  object XOr extends FunN[Boolean, Boolean] {
+    override def of(args: Seq[Boolean]): Boolean = args.count(_ == true) == 1
+    override def name: String = "xor"
+  }
 
   object Not extends Fun1[Boolean, Boolean] {
     override def name: String = "not"

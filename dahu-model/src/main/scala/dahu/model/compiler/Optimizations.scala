@@ -7,6 +7,8 @@ import dahu.model.types._
 import dahu.recursion._
 import dahu.utils.errors._
 
+import scala.collection.mutable.ArrayBuffer
+
 object Optimizations {
 
   type Tree = Total[Fix[Total]]
@@ -64,12 +66,15 @@ object Optimizations {
 
     val flattenMonoid: PASS = namedPass("flatten-monoid") {
       case ComputationF(f: Monoid[_], args, t) =>
-        val flatArgs: Seq[Fix[Total]] = args.flatMap(x =>
-          x.unfix match {
+        val flatArgs = ArrayBuffer[Fix[Total]]()
+        for(a <- args) {
+          a.unfix match {
             case ComputationF(g, subargs, t2) if f == g && t == t2 =>
-              subargs
-            case x => Fix(x) :: Nil
-        })
+              flatArgs ++= subargs
+            case x =>
+              flatArgs += Fix(x)
+          }
+        }
         ComputationF(f, flatArgs, t)
       case x => x
     }
@@ -80,10 +85,16 @@ object Optimizations {
       case x                                   => x
     }
 
-    val elimDuplicatesAndOr: PASS = namedPass("elim-singleton-and-or") {
+    val elimDuplicatesAndOr: PASS = namedPass("elim-duplicates-and-or") {
       case ComputationF(bool.And, args, tpe) => ComputationF(bool.And, args.distinct, tpe)
       case ComputationF(bool.Or, args, tpe)  => ComputationF(bool.Or, args.distinct, tpe)
       case x                                 => x
+    }
+
+    val elimTautologies: PASS = namedPass("elim-tautologies") {
+      case ComputationF(int.LEQ, Seq(a1, a2), _) if a1 == a2 => TRUE.unfix
+      case ComputationF(int.EQ, Seq(a1, a2), _) if a1 == a2  => TRUE.unfix
+      case x                                                 => x
     }
   }
 
@@ -93,6 +104,7 @@ object Optimizations {
     elimEmptyMonoids,
     flattenMonoid,
     constantFolding,
+    elimTautologies,
     elimSingletonAndOr,
     elimDuplicatesAndOr,
     // repeated

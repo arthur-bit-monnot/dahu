@@ -91,6 +91,12 @@ object Compiler {
       f match {
         case bool.And => ctx.mkAnd(args: _*)
         case bool.Or  => ctx.mkOr(args: _*)
+        case bool.XOr =>
+          def xor(l: List[BoolExpr]): BoolExpr = l match {
+            case Nil    => ctx.mkBool(false)
+            case h :: t => ctx.mkXor(h, xor(t))
+          }
+          xor(args)
       }
     case ComputationF(f: FunN[_, _], Ints(args), t) =>
       f match {

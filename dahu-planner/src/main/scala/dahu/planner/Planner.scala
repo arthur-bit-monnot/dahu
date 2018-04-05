@@ -12,7 +12,7 @@ object Planner {
 
   val backend = Z3PartialSolver.builder
 
-  def solve(chronicle: Chronicle): Option[String] = {
+  def solve(chronicle: Chronicle)(implicit cfg: Config): Option[String] = {
     val sat = chronicle.toSatProblem
     println("Building meta-solver...")
     val solver = MetaSolver.of(Algebras.parse(sat), backend)

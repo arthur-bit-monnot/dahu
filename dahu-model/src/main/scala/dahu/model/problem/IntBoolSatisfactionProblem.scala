@@ -52,6 +52,7 @@ class IntBoolSatisfactionProblem[AST <: TotalSubAST[_]](val ast: AST) {
                                                  int.Min,
                                                  bool.And,
                                                  bool.Or,
+                                                 bool.XOr,
                                                  bool.Not)
 
     implicit val dag: DAG[Total, ast.ID] = new DAG[Total, ast.ID] {
