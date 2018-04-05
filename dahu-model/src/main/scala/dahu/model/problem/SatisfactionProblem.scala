@@ -140,6 +140,8 @@ object SatisfactionProblem {
 
     val ir = Recursion.hylo(coalgebra, compiler(optimize = optimize))(root)
 
+//    println(Algebras.format(ir.valid))
+
     ir.valid
   }
 

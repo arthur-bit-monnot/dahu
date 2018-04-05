@@ -87,7 +87,7 @@ object Main extends App {
     solution
   }
 
-  def solveIncremental(model: core.CoreModel, maxSteps: Int = 20): Option[Any] = {
+  def solveIncremental(model: core.CoreModel, maxSteps: Int): Option[Any] = {
     for(i <- 0 to maxSteps) {
       solveIncrementalStep(model, i) match {
         case Some(sol) => return Some(sol)
@@ -103,7 +103,7 @@ object Main extends App {
     val result = model.foldLeft(Chronicle.empty(ctx)) {
       case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
       case (chronicle, action: ActionTemplate) =>
-        val actionInstances = (0 until step).map { args =>
+        val actionInstances = (0 until step).map { _ =>
           Action.instance(action, ctx)
         }
         chronicle.copy(actions = chronicle.actions ++ actionInstances)

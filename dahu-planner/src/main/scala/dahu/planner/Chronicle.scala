@@ -11,8 +11,8 @@ import dahu.utils.errors._
 
 import scala.collection.mutable
 
-case class Fluent(template: FluentTemplate, args: Array[Tentative[Instance]])
-case class Constant(template: ConstantTemplate, args: Array[Tentative[Instance]])
+case class Fluent(template: FunctionTemplate, args: Seq[Tentative[Instance]])
+case class Constant(template: ConstantTemplate, args: Seq[Tentative[Instance]])
 
 case class ConditionToken(start: Tentative[Int],
                           end: Tentative[Int],
@@ -83,8 +83,10 @@ case class ProblemContext(topTag: TagIsoInt[Instance],
       case a: Arg                => argRewrite(a)
     }
 
-  private val temporalOrigin = Cst(0)
-  private val temporalHorizon = Input[Int]().subjectTo(temporalOrigin <= _)
+  val temporalOrigin = Cst(0)
+  val temporalHorizon = Input[Int]().subjectTo(temporalOrigin <= _)
+  def anonymousTp(): Tentative[Int] =
+    Input[Int]().subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
 
   def encode(tp: TPRef): Tentative[Int] = tp match {
     case TPRef(id, 0) if id.toString == "start" => temporalOrigin // TODO: match by string....
@@ -94,9 +96,14 @@ case class ProblemContext(topTag: TagIsoInt[Instance],
     case TPRef(id, delay) => encode(TPRef(id, 0)) + delay
   }
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
-    Fluent(orig.template, orig.params.map(encode(_)).toArray)
-  def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Instance]): Constant =
-    Constant(orig.template, orig.params.map(encode(_)).toArray)
+    Fluent(orig.template, orig.params.map(encode(_)))
+  def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
+    Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
+  def encodeAsConstant(orig: core.Constant)(
+      implicit argRewrite: Arg => Tentative[Instance]): Constant = {
+    assert(orig.params.isEmpty)
+    Constant(orig.template, Seq())
+  }
 
   def eqv(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Instance]): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
@@ -227,16 +234,25 @@ case class Chronicle(ctx: ProblemContext,
     case _: LocalVarDeclaration  => this
     case _: ArgDeclaration       => this
     case BindAssertion(c, v) =>
-      binds.get(encode(c)) match {
-        case Some(other) =>
-          this.copy(
-            constraints = ctx.eqv(encode(v), other) :: constraints
-          )
-        case None =>
-          this.copy(
-            binds = binds.updated(encode(c), encode(v))
-          )
-      }
+      val cond = ConditionToken(
+        start = ctx.temporalOrigin,
+        end = ctx.temporalHorizon,
+        fluent = encode(c),
+        value = encode(v)
+      )
+      copy(
+        conditions = cond :: conditions
+      )
+//      binds.get(encodeAsConstant(c)) match {
+//        case Some(other) =>
+//          this.copy(
+//            constraints = ctx.eqv(encode(v), other) :: constraints
+//          )
+//        case None =>
+//          this.copy(
+//            binds = binds.updated(encodeAsConstant(c), encode(v))
+//          )
+//      }
     case StaticDifferentAssertion(lhs, rhs) =>
       copy(
         constraints = ctx.neq(lhs, rhs) :: constraints
@@ -249,7 +265,7 @@ case class Chronicle(ctx: ProblemContext,
     case TimedAssignmentAssertion(start, end, fluent, value) =>
       val changeStart = encode(start)
       val changeEnd = encode(end).subjectTo(changeStart <= _)
-      val persistenceEnd = Input[Int]().subjectTo(changeEnd <= _)
+      val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
       val token = EffectToken(
         changeStart = changeStart,
         changeEnd = changeEnd,
@@ -274,11 +290,23 @@ case class Chronicle(ctx: ProblemContext,
       val start = encode(s)
       val changeStart = start + 1
       val changeEnd = encode(e).subjectTo(changeStart <= _)
-      val persistenceEnd = Input[Int]().subjectTo(changeEnd <= _)
+      val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
       val cond = ConditionToken(start, start, encode(f), encode(v1))
       val eff = EffectToken(changeStart, changeEnd, persistenceEnd, encode(f), encode(v2))
       copy(
         conditions = cond :: conditions,
+        effects = eff :: effects
+      )
+
+    case StaticAssignmentAssertion(lhs, rhs) =>
+      val eff = EffectToken(
+        changeStart = ctx.temporalOrigin,
+        changeEnd = ctx.temporalOrigin,
+        persistenceEnd = ctx.temporalHorizon,
+        fluent = encode(lhs),
+        value = encode(rhs)
+      )
+      copy(
         effects = eff :: effects
       )
   }
@@ -295,6 +323,10 @@ case class Chronicle(ctx: ProblemContext,
     }
   }
 
+  private def and(conjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+    Computation(bool.And, conjuncts)
+  }
+
   def toSatProblem = {
     val prod = Product.fromMap(binds)
 
@@ -305,6 +337,9 @@ case class Chronicle(ctx: ProblemContext,
     val conds: Seq[Opt[ConditionToken]] =
       conditions.map(Opt.present) ++
         acts.flatMap(oa => oa.a.chronicle.conditions.map(Opt(_, oa.present)))
+    val consts =
+      constraints ++
+        acts.map(a => a.present.implies(and(a.a.chronicle.constraints: _*)))
 
     assert(acts.forall(_.a.chronicle.binds.isEmpty))
 
@@ -335,12 +370,16 @@ case class Chronicle(ctx: ProblemContext,
         case Opt(ConditionToken(sc, ec, fc, vc), pc) =>
           val disjuncts = effs.map {
             case Opt(EffectToken(_, persistenceStart, persistenceEnd, fe, ve), pe) =>
-              pe && sameFluent(fc, fe) && ctx.eqv(vc, ve) && persistenceStart <= sc && ec <= persistenceEnd
+              and(pe,
+                  sameFluent(fc, fe),
+                  ctx.eqv(vc, ve),
+                  persistenceStart <= sc,
+                  ec <= persistenceEnd)
           }
           pc implies Computation(bool.Or, disjuncts)
       }
 
-    val allConstraints = constraints ++ bindConstraints ++ nonOverlappingEffectsConstraints ++ supportConstraints
+    val allConstraints = consts ++ bindConstraints ++ nonOverlappingEffectsConstraints ++ supportConstraints
 
     val view = acts.map {
       case Opt(a, present) =>

@@ -79,6 +79,12 @@ object Optimizations {
       case ComputationF(bool.Or, Seq(arg), _)  => arg.unfix
       case x                                   => x
     }
+
+    val elimDuplicatesAndOr: PASS = namedPass("elim-singleton-and-or") {
+      case ComputationF(bool.And, args, tpe) => ComputationF(bool.And, args.distinct, tpe)
+      case ComputationF(bool.Or, args, tpe)  => ComputationF(bool.Or, args.distinct, tpe)
+      case x                                 => x
+    }
   }
 
   import Passes._
@@ -88,6 +94,7 @@ object Optimizations {
     flattenMonoid,
     constantFolding,
     elimSingletonAndOr,
+    elimDuplicatesAndOr,
     // repeated
     elimIdentity,
     elimSingletonAndOr,
