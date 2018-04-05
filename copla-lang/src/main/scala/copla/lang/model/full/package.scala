@@ -35,9 +35,12 @@ package object full {
   type Id = core.Id
   type Scope = core.Scope
 
+  type Expr = core.Expr
+  type StaticExpr = core.StaticExpr
   type SymExpr = core.SymExpr
   type TimedSymExpr = core.TimedSymExpr
   type StaticSymExpr = core.StaticSymExpr
+  type IntExpr = core.IntExpr
 
   /** A block wrapping other blocks pertaining to the same scope. */
   sealed trait Wrapper extends Block {
@@ -54,10 +57,11 @@ package object full {
       new TimepointDeclaration(start) +
       new TimepointDeclaration(end)
   }
-  case class TimedEqualAssertion(left: TimedSymExpr,
-                                 right: StaticSymExpr,
-                                 parent: Option[Ctx],
-                                 name: String)
+  case class TimedEqualAssertion(
+      left: TimedSymExpr, // TODO: should not restrict this to be symbolic
+      right: StaticExpr,
+      parent: Option[Ctx],
+      name: String)
       extends TimedAssertion(parent, name) {
     if(name == "__296")
       println(name)
@@ -67,8 +71,8 @@ package object full {
   }
 
   case class TimedTransitionAssertion(fluent: TimedSymExpr,
-                                      from: StaticSymExpr,
-                                      to: StaticSymExpr,
+                                      from: StaticExpr,
+                                      to: StaticExpr,
                                       parent: Option[Ctx],
                                       name: String)
       extends TimedAssertion(parent, name) {
@@ -78,7 +82,7 @@ package object full {
   }
 
   case class TimedAssignmentAssertion(fluent: TimedSymExpr,
-                                      to: StaticSymExpr,
+                                      to: StaticExpr,
                                       parent: Option[Ctx],
                                       name: String)
       extends TimedAssertion(parent, name) {
@@ -104,20 +108,19 @@ package object full {
   }
 
   trait StaticAssertion extends Statement
-  class StaticEqualAssertion(val left: StaticSymExpr, val right: StaticSymExpr)
-      extends StaticAssertion {
+  class StaticEqualAssertion(val left: StaticExpr, val right: StaticExpr) extends StaticAssertion {
     override def toString: String = s"$left == $right"
   }
-  class StaticDifferentAssertion(val left: StaticSymExpr, val right: StaticSymExpr)
+  class StaticDifferentAssertion(val left: StaticExpr, val right: StaticExpr)
       extends StaticAssertion {
     override def toString: String = s"$left != $right"
   }
-  class StaticAssignmentAssertion(val left: StaticSymExpr, val right: StaticSymExpr)
+  class StaticAssignmentAssertion(val left: StaticExpr, val right: StaticExpr)
       extends StaticAssertion {
     override def toString: String = s"$left := $right"
   }
 
-  class Fluent(val template: FluentTemplate, val params: Seq[StaticSymExpr]) extends TimedSymExpr {
+  class Fluent(val template: FluentTemplate, val params: Seq[StaticExpr]) extends TimedSymExpr {
     require(template.params.size == params.size)
     template.params.zip(params).foreach {
       case (tpl, v) =>
@@ -129,8 +132,7 @@ package object full {
     override def toString = s"$template(${params.mkString(", ")})"
   }
 
-  class Constant(val template: ConstantTemplate, val params: Seq[StaticSymExpr])
-      extends StaticSymExpr {
+  class Constant(val template: ConstantTemplate, val params: Seq[StaticExpr]) extends StaticExpr {
     require(template.params.size == params.size)
     template.params.zip(params).foreach {
       case (tpl, v) =>

@@ -60,7 +60,10 @@ object Main extends App {
           case Full                  => solveFull(model)
           case Incremental(maxSteps) => solveIncremental(model, maxSteps)
         }
-      case _ => sys.error("Parsing failed")
+      case lang.ParseError(fail) =>
+        println("Parsing failed:")
+        println(fail.format)
+        sys.exit(1)
     }
 
   }

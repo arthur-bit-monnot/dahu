@@ -69,7 +69,10 @@ object InputAnmlModels {
     "type T; fluent boolean sv(T t); action A(T t) { [all] sv(t) == false; };",
     "constant boolean sv; action A { sv == true; };",
     "type T; instance T t1; constant T sv(boolean b); action A(T t) { sv(true) != t; };",
-    "type T; instance T t1; constant T sv(boolean b); action A() { constant T t; sv(true) != t; };"
+    "type T; instance T t1; constant T sv(boolean b); action A() { constant T t; sv(true) != t; };",
+    "constant integer d;",
+    "constant boolean isTrue(integer x);",
+    "constant boolean isTrue(integer x); isTrue(1) := false;"
   )
 
   val invalid = Seq(
@@ -102,6 +105,7 @@ object InputAnmlModels {
     "type A with { fluent boolean f(B x); };",
     "type A with { fluent boolean f(boolean x); }; instance A a; [start,end] A.f(true) == false;",
     "action A(T t) {};",
-    "action A(boolean x, boolean x) {};"
+    "action A(boolean x, boolean x) {};",
+    "constant boolean isTrue(integer x); isTrue(false) := false;"
   )
 }

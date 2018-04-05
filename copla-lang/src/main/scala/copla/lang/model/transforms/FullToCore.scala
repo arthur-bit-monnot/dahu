@@ -10,7 +10,7 @@ object FullToCore {
 
   case class Context(scope: Scope, config: Config = Config())
 
-  private def staticExprToVar(expr: full.StaticSymExpr)(
+  private def staticExprToVar(expr: full.StaticExpr)(
       implicit ctx: Context): (core.Var, Seq[core.Statement]) = {
     expr match {
       case x: core.Var => (x, Seq())
@@ -24,7 +24,7 @@ object FullToCore {
     }
   }
 
-  private def staticExprsToVars(exprs: Seq[full.StaticSymExpr])(
+  private def staticExprsToVars(exprs: Seq[full.StaticExpr])(
       implicit ctx: Context): (Seq[core.Var], Seq[core.Statement]) =
     exprs
       .map(param => staticExprToVar(param))
@@ -55,11 +55,10 @@ object FullToCore {
 
     case x: full.StaticAssignmentAssertion =>
       (x.left, x.right) match {
-        case (cst: full.Constant, inst: core.Instance)
-            if cst.params.forall(_.isInstanceOf[core.Instance]) =>
+        case (cst: full.Constant, inst: core.Term)
+            if cst.params.forall(_.isInstanceOf[core.Term]) =>
           val boundCst =
-            new model.core.BoundConstant(cst.template,
-                                         cst.params.map(_.asInstanceOf[core.Instance]))
+            new model.core.BoundConstant(cst.template, cst.params.map(_.asInstanceOf[core.Term]))
           Seq(core.StaticAssignmentAssertion(boundCst, inst))
         case _ =>
           throw new UnsupportedOperationException(

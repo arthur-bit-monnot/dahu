@@ -7,7 +7,7 @@ import ParserApi.baseApi._
 import ParserApi.baseApi.Parsed.Success
 import ParserApi.whiteApi._
 import ParserApi.extendedApi._
-import copla.lang.model.core.SimpleTPRef
+import copla.lang.model.core.{SimpleTPRef, StaticIntExpr}
 import fastparse.core.Parsed.Failure
 import copla.lang.model.full._
 
@@ -162,11 +162,11 @@ abstract class AnmlParser(val initialContext: Ctx) {
 
   private[this] def varList(expectedTypes: Seq[Type],
                             sep: String,
-                            previous: Seq[StaticSymExpr] = Seq()): Parser[Seq[StaticSymExpr]] = {
+                            previous: Seq[StaticExpr] = Seq()): Parser[Seq[StaticExpr]] = {
     if(expectedTypes.isEmpty) {
       PassWith(previous)
     } else {
-      staticSymExpr
+      staticExpr
         .namedFilter(_.typ.isSubtypeOf(expectedTypes.head), "has-expected-type")
         .flatMap(
           v =>
@@ -220,7 +220,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
       }
   }
 
-  val staticSymExpr: Parser[StaticSymExpr] = {
+  val staticExpr: Parser[StaticExpr] = {
     val partiallyAppliedConstant = partiallyAppliedFunction
       .namedFilter(_._1.isInstanceOf[ConstantTemplate], "is-constant")
       .map(tup => (tup._1.asInstanceOf[ConstantTemplate], tup._2))
@@ -241,11 +241,13 @@ abstract class AnmlParser(val initialContext: Ctx) {
               "(" ~/ varList(paramTypes.tail, ",")
                 .map(args => new Constant(f, firstArg +: args)) ~ ")" ~/ Pass
           }
-      }
+      } |
+      int.optGet(i => ctx.findType("integer").map(t => core.IntLiteral(i, t)),
+                 "integer-type-declared")
   }
 
-  val symExpr: Parser[SymExpr] =
-    timedSymExpr | staticSymExpr
+  val expr: Parser[Expr] =
+    timedSymExpr | staticExpr
 
   val interval: Parser[Interval] =
     ("[" ~/
@@ -271,9 +273,8 @@ abstract class AnmlParser(val initialContext: Ctx) {
     def compatibleTypes(t1: Type, t2: Type): Boolean = t1.isSubtypeOf(t2) || t2.isSubtypeOf(t1)
 
     /** Reads a static symbolic expressions whose type is compatible with the one of the fluent */
-    val rightSideExpr: Parser[StaticSymExpr] = staticSymExpr.namedFilter(
-      expr => compatibleTypes(fluent.typ, expr.typ),
-      "has-compatible-type")
+    val rightSideExpr: Parser[StaticExpr] =
+      staticExpr.namedFilter(expr => compatibleTypes(fluent.typ, expr.typ), "has-compatible-type")
 
     /** Reads an identifier or construct a default one otherwise */
     val assertionId: Parser[String] =
@@ -305,10 +306,10 @@ abstract class AnmlParser(val initialContext: Ctx) {
   }
 
   val staticAssertion: Parser[StaticAssertion] = {
-    var leftExpr: StaticSymExpr = null
-    (staticSymExpr.sideEffect(leftExpr = _) ~/
+    var leftExpr: StaticExpr = null
+    (staticExpr.sideEffect(leftExpr = _) ~/
       (("==" | "!=" | ":=").! ~/
-        staticSymExpr.namedFilter(_.typ.overlaps(leftExpr.typ), "has-compatible-type")).? ~
+        staticExpr.namedFilter(_.typ.overlaps(leftExpr.typ), "has-compatible-type")).? ~
       ";")
       .namedFilter({
         case (_, Some(_)) => true
@@ -519,6 +520,7 @@ object Parser {
   private val anmlHeader =
     """|type boolean;
        |instance boolean true, false;
+       |type integer;
        |timepoint start;
        |timepoint end;
     """.stripMargin

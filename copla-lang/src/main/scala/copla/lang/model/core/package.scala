@@ -17,11 +17,20 @@ package object core {
     def wrapped: Seq[Block]
   }
 
-  sealed trait SymExpr {
+  trait Expr
+  trait StaticExpr extends Expr {
     def typ: Type
   }
+
+  sealed trait SymExpr extends Expr {
+    def typ: Type
+  }
+  sealed trait IntExpr extends Expr
   trait TimedSymExpr extends SymExpr
-  trait StaticSymExpr extends SymExpr
+  trait StaticSymExpr extends SymExpr with StaticExpr
+  trait StaticIntExpr extends IntExpr with StaticExpr
+
+  sealed trait Term extends Var
 
   case class Id(scope: Scope, name: String) {
     override def toString: String = scope.toScopedString(name)
@@ -70,7 +79,7 @@ package object core {
     }
   }
 
-  sealed trait Var extends StaticSymExpr {
+  sealed trait Var extends StaticExpr {
     def id: Id
     def typ: Type
   }
@@ -94,7 +103,7 @@ package object core {
   }
 
   /** Instance of a given type, result of the ANML statement "instance Type id;" */
-  case class Instance(id: Id, typ: Type) extends Var {
+  case class Instance(id: Id, typ: Type) extends Var with Term {
     override def toString: String = id.toString
   }
   case class InstanceDeclaration(instance: Instance)
@@ -153,7 +162,7 @@ package object core {
       with Function {
     override def toString: String = super.toString
   }
-  class BoundConstant(override val template: ConstantTemplate, override val params: Seq[Instance])
+  class BoundConstant(override val template: ConstantTemplate, override val params: Seq[Term])
       extends Constant(template, params)
 
   case class Fluent(override val template: FluentTemplate, override val params: Seq[Param])
@@ -174,8 +183,7 @@ package object core {
       with StaticAssertion {
     override def toString: String = super.toString
   }
-  case class StaticAssignmentAssertion(override val left: BoundConstant,
-                                       override val right: Instance)
+  case class StaticAssignmentAssertion(override val left: BoundConstant, override val right: Term)
       extends full.StaticAssignmentAssertion(left, right)
       with StaticAssertion {
     override def toString: String = super.toString
@@ -235,6 +243,10 @@ package object core {
   object TPId {
     import scala.language.implicitConversions
     implicit def asId(tpId: TPId): Id = tpId.id
+  }
+
+  case class IntLiteral(value: Int, typ: Type) extends StaticIntExpr with Term with Var {
+    override def id: Id = Id(RootScope + "_integers_", value.toString)
   }
 
   /** A timepoint, declared when appearing in the root of a context.*/
