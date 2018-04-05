@@ -346,7 +346,7 @@ case class Chronicle(ctx: ProblemContext,
       case Opt(a, present) =>
         Product(
           Operator[Tentative](Cst(a.name)(Tag.default),
-                              Cst(a.args)(Tag.default),
+                              Product.fromSeq(a.args),
                               a.start,
                               a.end,
                               present))

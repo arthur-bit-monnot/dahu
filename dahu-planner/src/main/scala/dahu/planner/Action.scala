@@ -7,9 +7,8 @@ import dahu.utils.errors._
 case class Action[F[_]](name: String,
                         start: F[Int],
                         end: F[Int],
-                        args: List[Instance],
+                        args: List[F[Instance]],
                         chronicle: Chronicle) {}
-case class OptAction[F[_]](act: Action[F], present: F[Boolean])
 
 object Action {
   var counter = 0
@@ -55,7 +54,7 @@ object Action {
     counter += 1
     val act = template.instance(s"${template.name}_$counter")
     assert(act.args.length == args.length)
-    def argsRewrite: Arg => Tentative[Instance] = x => {
+    val argsRewrite: Arg => Tentative[Instance] = x => {
       val id = act.args.indexOf(x)
       val instance = args(id)
       Cst(instance)(ctx.specializedTags(instance.typ))
@@ -65,6 +64,28 @@ object Action {
       case (c, s) => c.extended(s)(argsRewrite)
     }
 
-    Action(act.template.name, ctx.encode(act.start), ctx.encode(act.end), args.toList, chronicle)
+    Action(act.template.name,
+           ctx.encode(act.start),
+           ctx.encode(act.end),
+           args.toList.map(a => Cst(a)(ctx.specializedTags(a.typ))),
+           chronicle)
+  }
+
+  def instance(template: ActionTemplate, ctx: ProblemContext): Action[Tentative] = {
+    counter += 1
+    val act = template.instance(s"${template.name}_$counter")
+    val argsRewrite: Arg => Tentative[Instance] = {
+      case a @ Arg(_, tpe) => Input(Ident(a))(ctx.specializedTags(tpe))
+    }
+
+    val chronicle = act.content.foldLeft(Chronicle.empty(ctx)) {
+      case (c, s) => c.extended(s)(argsRewrite)
+    }
+
+    Action(act.template.name,
+           ctx.encode(act.start),
+           ctx.encode(act.end),
+           act.args.toList.map(argsRewrite),
+           chronicle)
   }
 }

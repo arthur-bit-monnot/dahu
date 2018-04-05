@@ -7,7 +7,10 @@ import java.io.File
 
 import copla.lang.model.core
 
-case class Config(problemFile: File = null)
+case class Config(problemFile: File = null, encoding: Encoding = Incremental(20))
+sealed trait Encoding
+case object Full extends Encoding
+case class Incremental(maxSteps: Int) extends Encoding
 
 object Main extends App {
 
@@ -16,17 +19,16 @@ object Main extends App {
     arg[File]("XXXX.pb.anml").action((f, c) => c.copy(problemFile = f))
   }
 
-  for(i <- 0 until 5)
-    parser.parse(args, Config()) match {
-      case Some(Config(pbFile)) =>
-        solve(pbFile) match {
-          case Some(sol) =>
-            println("== Solution ==")
-            println(sol)
-          case None => unexpected
-        }
-      case None =>
-    }
+  parser.parse(args, Config()) match {
+    case Some(Config(pbFile, enc)) =>
+      solve(pbFile, enc) match {
+        case Some(sol) =>
+          println("== Solution ==")
+          println(sol)
+        case None => unexpected
+      }
+    case None =>
+  }
 
 //  for(i <- Problems.satisfiables) {
 //    solve(i) match {
@@ -45,40 +47,72 @@ object Main extends App {
 //    }
 //  }
 
-  def solve(problemFile: File): Option[Any] = {
+  def solve(problemFile: File, encoding: Encoding): Option[Any] = {
     println("Parsing...")
-    solve(lang.parse(problemFile))
+    lang.parse(problemFile) match {
+      case lang.Success(model) =>
+        encoding match {
+          case Full                  => solveFull(model)
+          case Incremental(maxSteps) => solveIncremental(model, maxSteps)
+        }
+      case _ => sys.error("Parsing failed")
+    }
+
   }
-  def solve(anml: String): Option[Any] = {
-    solve(lang.parse(anml))
+//  def solve(anml: String): Option[Any] = {
+//    solve(lang.parse(anml))
+//  }
+
+  def solveFull(model: core.CoreModel): Option[Any] = {
+    println("Encoding...")
+    val ctx = ProblemContext.extract(model)
+    val result = model.foldLeft(Chronicle.empty(ctx)) {
+      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
+      case (chronicle, action: ActionTemplate) =>
+        val argDomains: Seq[Set[Instance]] = action.args.map(a => {
+          val tpe = ctx.specializedTags(a.typ)
+          (tpe.min to tpe.max).toSet.map(tpe.fromInt)
+        })
+        val allParameterCombinations: Set[Array[Instance]] =
+          dahu.utils.allCombinations(argDomains).map(_.toArray)
+        val actionInstances = allParameterCombinations.map { args =>
+          Action.primitive(action, ctx)(args)
+        }
+        chronicle.copy(actions = chronicle.actions ++ actionInstances)
+      case (chronicle, _) => chronicle
+    }
+//        println(result)
+    val solution = Planner.solve(result)
+//        println(solution)
+    solution
   }
 
-  def solve(parsed: lang.Result[core.CoreModel]): Option[Any] = {
-    println("Encoding...")
-    parsed match {
-      case lang.Success(res) =>
-        val ctx = ProblemContext.extract(res)
-        val result = res.foldLeft(Chronicle.empty(ctx)) {
-          case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
-          case (chronicle, action: ActionTemplate) =>
-            val argDomains: Seq[Set[Instance]] = action.args.map(a => {
-              val tpe = ctx.specializedTags(a.typ)
-              (tpe.min to tpe.max).toSet.map(tpe.fromInt)
-            })
-            val allParameterCombinations: Set[Array[Instance]] =
-              dahu.utils.allCombinations(argDomains).map(_.toArray)
-            val actionInstances = allParameterCombinations.map { args =>
-              Action.primitive(action, ctx)(args)
-            }
-            chronicle.copy(actions = chronicle.actions ++ actionInstances)
-          case (chronicle, _) => chronicle
-        }
-//        println(result)
-        val solution = Planner.solve(result)
-//        println(solution)
-        solution
-      case x => sys.error(s"Parsing failed: $x")
+  def solveIncremental(model: core.CoreModel, maxSteps: Int = 20): Option[Any] = {
+    for(i <- 0 to maxSteps) {
+      solveIncrementalStep(model, i) match {
+        case Some(sol) => return Some(sol)
+        case None      =>
+      }
     }
+    None
+  }
+
+  def solveIncrementalStep(model: core.CoreModel, step: Int): Option[Any] = {
+    println("Encoding...")
+    val ctx = ProblemContext.extract(model)
+    val result = model.foldLeft(Chronicle.empty(ctx)) {
+      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
+      case (chronicle, action: ActionTemplate) =>
+        val actionInstances = (0 until step).map { args =>
+          Action.instance(action, ctx)
+        }
+        chronicle.copy(actions = chronicle.actions ++ actionInstances)
+      case (chronicle, _) => chronicle
+    }
+//        println(result)
+    val solution = Planner.solve(result)
+//        println(solution)
+    solution
   }
 
 }
