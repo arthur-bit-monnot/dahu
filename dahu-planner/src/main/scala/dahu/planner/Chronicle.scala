@@ -97,23 +97,63 @@ case class ProblemContext(topTag: TagIsoInt[Instance],
   }
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
     Fluent(orig.template, orig.params.map(encode(_)))
+
   def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
     Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
-  def encodeAsConstant(orig: core.Constant)(
-      implicit argRewrite: Arg => Tentative[Instance]): Constant = {
-    assert(orig.params.isEmpty)
-    Constant(orig.template, Seq())
-  }
 
   def eqv(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Instance]): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
   def eqv(lhs: Tentative[Instance], rhs: Tentative[Instance]): Tentative[Boolean] =
-    Computation(Equality, lhs, rhs)
+    (lhs, rhs) match {
+      case (Cst(x), Cst(y)) if x == y => bool.True
+      case (Cst(x), Cst(y)) if x != y => bool.False
+      case _                          => Computation(Equality, lhs, rhs)
+    }
 
   def neq(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Instance]): Tentative[Boolean] =
     neq(encode(lhs), encode(rhs))
   def neq(lhs: Tentative[Instance], rhs: Tentative[Instance]): Tentative[Boolean] =
-    Computation(bool.Not, eqv(lhs, rhs))
+    not(eqv(lhs, rhs))
+
+  def and(conjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+    if(conjuncts.contains(bool.False))
+      bool.False
+    else {
+      val unsatConjuncts = conjuncts.filter(_ != bool.True)
+      if(unsatConjuncts.isEmpty)
+        bool.True
+      else
+        Computation(bool.And, unsatConjuncts)
+    }
+  }
+  def or(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+    if(disjuncts.contains(bool.True))
+      bool.True
+    else {
+      val satDisjuncts = disjuncts.filter(_ != bool.False)
+      if(satDisjuncts.isEmpty)
+        bool.False
+      else
+        Computation(bool.Or, satDisjuncts)
+    }
+  }
+  def xor(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+    Computation(bool.XOr, disjuncts.filter(_ != bool.False))
+  }
+  def implies(cond: Tentative[Boolean], effect: Tentative[Boolean]): Tentative[Boolean] = {
+    if(cond == bool.False)
+      bool.True
+    else
+      or(not(cond), effect)
+  }
+  def not(pred: Tentative[Boolean]): Tentative[Boolean] = {
+    if(pred == bool.True)
+      bool.False
+    else if(pred == bool.False)
+      bool.True
+    else
+      Computation(bool.Not, pred)
+  }
 
 }
 
@@ -299,44 +339,15 @@ case class Chronicle(ctx: ProblemContext,
         effects = eff :: effects
       )
   }
-  private val TRUE = Cst(true)
-  private val FALSE = Cst(false)
 
   private def sameFluent(f1: Fluent, f2: Fluent): Tentative[Boolean] = {
     if(f1.template != f2.template)
-      FALSE
+      bool.False
     else {
       assert(f1.args.size == f2.args.size)
       val identical = f1.args.zip(f2.args).map { case (p1, p2) => ctx.eqv(p1, p2) }
       and(identical: _*)
     }
-  }
-
-  private def and(conjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
-    if(conjuncts.contains(FALSE))
-      FALSE
-    else
-      Computation(bool.And, conjuncts)
-  }
-  private def or(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
-    if(disjuncts.contains(TRUE))
-      TRUE
-    else
-      Computation(bool.Or, disjuncts)
-  }
-  private def implies(cond: Tentative[Boolean], effect: Tentative[Boolean]): Tentative[Boolean] = {
-    if(cond == FALSE)
-      TRUE
-    else
-      or(not(cond), effect)
-  }
-  private def not(pred: Tentative[Boolean]): Tentative[Boolean] = {
-    if(pred == TRUE)
-      FALSE
-    else if(pred == FALSE)
-      TRUE
-    else
-      Computation(bool.Not, pred)
   }
 
   def toSatProblem(implicit cfg: Config) = {

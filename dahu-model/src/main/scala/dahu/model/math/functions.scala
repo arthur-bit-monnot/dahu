@@ -1,6 +1,7 @@
 package dahu.model.math
 
 import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
+import dahu.model.input.Cst
 import dahu.model.types.Tag
 
 object double {
@@ -104,5 +105,8 @@ object bool {
     override def name: String = "not"
     override def of(in: Boolean): Boolean = !in
   }
+
+  val True: Cst[Boolean] = Cst(true)
+  val False: Cst[Boolean] = Cst(false)
 
 }
