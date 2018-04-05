@@ -7,7 +7,7 @@ import ParserApi.baseApi._
 import ParserApi.baseApi.Parsed.Success
 import ParserApi.whiteApi._
 import ParserApi.extendedApi._
-import copla.lang.model.core.{SimpleTPRef, StaticIntExpr}
+import copla.lang.model.core.SimpleTPRef
 import fastparse.core.Parsed.Failure
 import copla.lang.model.full._
 
@@ -86,7 +86,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
         })
   }.opaque("timepoint")
 
-  val delay: Parser[Delay] =
+  lazy val delay: Parser[Delay] =
     (durationKW ~/ Pass)
       .flatMap(
         _ =>
@@ -97,14 +97,14 @@ abstract class AnmlParser(val initialContext: Ctx) {
             case None           => sys.error("No start/end timepoint")
         })
       .opaque("duration") |
-      (timepoint ~ "-" ~ definedTP ~ (("+" | "-").! ~ int).?).map {
+      (timepoint ~ "-" ~ definedTP ~ (("+" | "-").! ~ intExpr).?).map {
         case (t1, t2, None)           => t1 - t2
         case (t1, t2, Some(("+", i))) => (t1 - t2) + i
         case (t1, t2, Some(("-", i))) => (t1 - t2) - i
         case _                        => sys.error("Buggy parser implementation")
       }
 
-  val temporalConstraint: Parser[Seq[TBefore]] = {
+  lazy val temporalConstraint: Parser[Seq[TBefore]] = {
     (timepoint ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ timepoint ~ ";")
       .map {
         case (t1, "<", t2)                                     => Seq(t1 < t2)
@@ -114,7 +114,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
         case (t1, eq, t2) if Set("=", "==", ":=").contains(eq) => t1 === t2
         case _                                                 => sys.error("Buggy parser implementation")
       } |
-      (delay ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ int ~ ";")
+      (delay ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ intExpr ~ ";")
         .map {
           case (d, "<", t)                                     => Seq(d < t)
           case (d, "<=", t)                                    => Seq(d <= t)
@@ -242,9 +242,11 @@ abstract class AnmlParser(val initialContext: Ctx) {
                 .map(args => new Constant(f, firstArg +: args)) ~ ")" ~/ Pass
           }
       } |
-      int.optGet(i => ctx.findType("integer").map(t => core.IntLiteral(i, t)),
-                 "integer-type-declared")
+      int.map(i => core.IntLiteral(i))
   }
+
+  val intExpr: Parser[IntExpr] =
+    staticExpr.namedFilter(_.typ.id.name == "integer", "of-type-integer").map(core.GenIntExpr(_))
 
   val expr: Parser[Expr] =
     timedSymExpr | staticExpr

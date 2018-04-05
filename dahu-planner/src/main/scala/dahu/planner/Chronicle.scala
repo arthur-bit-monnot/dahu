@@ -88,12 +88,21 @@ case class ProblemContext(topTag: TagIsoInt[Instance],
   def anonymousTp(): Tentative[Int] =
     Input[Int]().subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
 
+  def encode(ie: IntExpr): Tentative[Int] = ie match {
+    case GenIntExpr(IntLiteral(d)) => Cst(d)
+    case Add(lhs, rhs)             => encode(lhs) + encode(rhs)
+    case Minus(x)                  => -encode(x)
+    case x                         => unexpected(s"Unsupported int expression: $x")
+  }
+
   def encode(tp: TPRef): Tentative[Int] = tp match {
-    case TPRef(id, 0) if id.toString == "start" => temporalOrigin // TODO: match by string....
-    case TPRef(id, 0) if id.toString == "end"   => temporalHorizon // TODO: match by string....
-    case TPRef(id, 0) =>
+    case TPRef(id, GenIntExpr(IntLiteral(0))) if id.toString == "start" =>
+      temporalOrigin // TODO: match by string....
+    case TPRef(id, GenIntExpr(IntLiteral(0))) if id.toString == "end" =>
+      temporalHorizon // TODO: match by string....
+    case TPRef(id, GenIntExpr(IntLiteral(0))) =>
       Input[Int](Ident(id)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
-    case TPRef(id, delay) => encode(TPRef(id, 0)) + delay
+    case TPRef(id, delay) => encode(TPRef(id)) + encode(delay)
   }
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
     Fluent(orig.template, orig.params.map(encode(_)))

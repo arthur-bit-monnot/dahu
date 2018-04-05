@@ -58,7 +58,7 @@ lazy val anml = project
   .settings(libraryDependencies ++= Seq(
     "com.lihaoyi" %% "fastparse" % "1.0.0",
     "com.github.scopt" %% "scopt" % "3.7.0",
-    "com.github.arthur-bit-monnot" %% "landscaper" % "0.1.1",
+    "com.github.arthur-bit-monnot" %% "landscaper" % "0.1.2",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ))
 

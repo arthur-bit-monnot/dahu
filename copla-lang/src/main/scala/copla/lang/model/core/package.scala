@@ -17,18 +17,16 @@ package object core {
     def wrapped: Seq[Block]
   }
 
-  trait Expr
-  trait StaticExpr extends Expr {
+  sealed trait Expr
+  sealed trait StaticExpr extends Expr {
     def typ: Type
   }
 
   sealed trait SymExpr extends Expr {
     def typ: Type
   }
-  sealed trait IntExpr extends Expr
-  trait TimedSymExpr extends SymExpr
-  trait StaticSymExpr extends SymExpr with StaticExpr
-  trait StaticIntExpr extends IntExpr with StaticExpr
+  sealed trait TimedSymExpr extends SymExpr
+  sealed trait StaticSymExpr extends SymExpr with StaticExpr
 
   sealed trait Term extends Var
 
@@ -71,6 +69,9 @@ package object core {
     def asScope: Scope = id.scope + id.name
 
     override def toString: String = id.toString
+  }
+  object Type {
+    val Integers = Type(Id(RootScope, "integer"), None)
   }
   case class TypeDeclaration(typ: Type) extends Declaration[Type] with InModuleBlock with InCore {
     override def id: Id = typ.id
@@ -228,13 +229,13 @@ package object core {
 
   /*** Time ***/
   case class Delay(from: TPRef, to: TPRef) {
-    def <=(dur: Int): TBefore = to <= from + dur
-    def <(dur: Int): TBefore = to < from + dur
-    def >=(dur: Int): TBefore = to >= from + dur
-    def >(dur: Int): TBefore = to > from + dur
-    def +(time: Int): Delay = Delay(from, to + time)
-    def -(time: Int): Delay = Delay(from, to - time)
-    def ===(dur: Int): Seq[TBefore] = Seq(this <= dur, this >= dur)
+    def <=(dur: IntExpr): TBefore = to <= from + dur
+    def <(dur: IntExpr): TBefore = to < from + dur
+    def >=(dur: IntExpr): TBefore = to >= from + dur
+    def >(dur: IntExpr): TBefore = to > from + dur
+    def +(time: IntExpr): Delay = Delay(from, to + time)
+    def -(time: IntExpr): Delay = Delay(from, to - time)
+    def ===(dur: IntExpr): Seq[TBefore] = Seq(this <= dur, this >= dur)
   }
 
   case class TPId(id: Id) {
@@ -245,22 +246,37 @@ package object core {
     implicit def asId(tpId: TPId): Id = tpId.id
   }
 
-  case class IntLiteral(value: Int, typ: Type) extends StaticIntExpr with Term with Var {
+  case class IntLiteral(value: Int) extends Term with Var {
+    override def typ: Type = Type.Integers
     override def id: Id = Id(RootScope + "_integers_", value.toString)
   }
 
+  sealed trait IntExpr
+  object IntExpr {
+    def apply(lit: Int): IntExpr = GenIntExpr(IntLiteral(lit))
+  }
+  case class GenIntExpr(e: StaticExpr) extends IntExpr {
+    require(e.typ.id.name == "integer")
+  }
+  case class Minus(e: IntExpr) extends IntExpr
+  case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
+
   /** A timepoint, declared when appearing in the root of a context.*/
-  case class TPRef(id: TPId, delay: Int = 0) {
+  case class TPRef(id: TPId, delay: IntExpr = IntExpr(0)) {
 
     override def toString: String =
       id.toString + (delay match {
-        case 0          => ""
-        case d if d > 0 => s"+$d"
-        case d if d < 0 => s"-${-d}"
+        case GenIntExpr(IntLiteral(d)) =>
+          if(d == 0) ""
+          else if(d > 0) s"+$d"
+          else s"-${-d}"
+        case x => s"+$x"
       })
 
-    def +(delay: Int) = TPRef(id, this.delay + delay)
-    def -(delay: Int) = TPRef(id, this.delay - delay)
+    def +(d: IntExpr): TPRef = TPRef(id, Add(delay, d))
+    def +(d: Int): TPRef = this + IntExpr(d)
+    def -(d: IntExpr): TPRef = TPRef(id, Add(delay, Minus(d)))
+    def -(d: Int): TPRef = this - IntExpr(d)
 
     def <=(other: TPRef): TBefore = TBefore(this, other)
     def <(other: TPRef): TBefore = TBefore(this, other - 1)
@@ -272,7 +288,7 @@ package object core {
   }
   sealed trait SimpleTPRefWitness {
     self: TPRef =>
-    require(delay == 0)
+    require(delay == IntExpr(0))
   }
   type SimpleTPRef = TPRef with SimpleTPRefWitness
   object SimpleTPRef {
@@ -280,7 +296,7 @@ package object core {
   }
 
   case class TimepointDeclaration(tp: TPRef) extends Declaration[TPRef] with Statement {
-    require(tp.delay == 0, "Cannot declare a relative timepoint.")
+    require(tp.delay == IntExpr(0), "Cannot declare a relative timepoint.")
     override def id: Id = tp.id
     override def toString: String = s"timepoint $id"
   }
@@ -316,14 +332,51 @@ package object core {
     def instance(instanceName: String): Action = {
       val instanceScope: InnerScope = scope.parent + instanceName
 
-      val trans: InnerScope => InnerScope = (x: InnerScope) => {
-        if(x == scope)
-          instanceScope
-        else
-          x
+      //      val trans: InnerScope => InnerScope = (x: InnerScope) => {
+      //        if(x == scope)
+      //          instanceScope
+      //        else
+      //          x
+      //      }
+      val trans: Id => Id = x => {
+        var transScope: Scope => Scope = null
+        transScope = {
+          case s if s == scope     => scope.parent + instanceName
+          case RootScope           => RootScope
+          case InnerScope(s, name) => transScope(s) + name
+        }
+        x match { case Id(s, name) => Id(transScope(s), name) }
       }
+      import landscaper.transformations._
 
-      val instanceContent = landscaper.rewrite(trans, content)
+      // landscaper has problem with the new ADT, provide some help
+      implicit val xx = Trans[Id, Id, StaticExpr]
+      implicit val yy = Trans[Id, Id, GenIntExpr]
+      implicit val zz = Trans[Id, Id, IntExpr]
+      implicit val x4 = Trans[Id, Id, TPRef]
+      implicit val x5 = Trans[Id, Id, TBefore] // ok
+      implicit val x6 = Trans[Id, Id, StaticAssertion] //ok
+      implicit val x7 = Trans[Id, Id, ArgDeclaration] //ok
+      implicit val x8 = Trans[Id, Id, TimedAssignmentAssertion] //ok
+      implicit val x9 = Trans[Id, Id, TimedEqualAssertion] //ok
+      implicit val x10 = Trans[Id, Id, TimedTransitionAssertion] //ok
+      implicit val x11 = Trans[Id, Id, TimedAssertion] //ok
+      implicit val x12 = Trans[Id, Id, LocalVarDeclaration] //ok
+      implicit val x13 = Trans[Id, Id, TimepointDeclaration] //ok
+
+      // derivation of Trans[Id,Id,Statement] fails for an obscure reason, dispatch manually
+      implicit val x14: Trans.Aux[Id, Id, Statement, Statement] = new Trans[Id, Id, Statement] {
+        override type Result = Statement
+        override def rewrite(f: Id => Id, in: Statement): Result = in match {
+          case x: TimedAssertion       => x11.rewrite(f, x)
+          case x: StaticAssertion      => x6.rewrite(f, x)
+          case x: TBefore              => x5.rewrite(f, x)
+          case x: ArgDeclaration       => x7.rewrite(f, x)
+          case x: LocalVarDeclaration  => x12.rewrite(f, x)
+          case x: TimepointDeclaration => x13.rewrite(f, x)
+        }
+      }
+      val instanceContent = content.map(s => x14.rewrite(trans, s))
       Action(instanceScope, instanceContent, this)
     }
   }
@@ -346,4 +399,283 @@ package object core {
       .getOrElse(sys.error("No end timepoint in this action"))
   }
 
+}
+
+import copla.lang.model.core.{InnerScope, RootScope, SimpleTPRef}
+import copla.lang.model.transforms.FullToCore
+import copla.lang.parsing.anml.Parser
+
+package object full {
+
+  trait Block
+  trait InModuleBlock extends Block
+  trait InActionBlock extends Block
+  trait Statement extends InModuleBlock with InActionBlock
+
+  type Declaration[T] = core.Declaration[T]
+  type Var = core.Var
+  type VarDeclaration[T <: Var] = core.VarDeclaration[T]
+  type Instance = core.Instance
+  type InstanceDeclaration = core.InstanceDeclaration
+  type LocalVar = core.LocalVar
+  type LocalVarDeclaration = core.LocalVarDeclaration
+  type Arg = core.Arg
+  type ArgDeclaration = core.ArgDeclaration
+  type TPRef = core.TPRef
+  type SimpleTPRef = core.SimpleTPRef
+  type TimepointDeclaration = core.TimepointDeclaration
+  type Interval = core.Interval
+  type Delay = core.Delay
+  type TBefore = core.TBefore
+  type FunctionTemplate = core.FunctionTemplate
+  type FunctionDeclaration = core.FunctionDeclaration
+  type ConstantTemplate = core.ConstantTemplate
+  type FluentTemplate = core.FluentTemplate
+  type Type = core.Type
+  type TypeDeclaration = core.TypeDeclaration
+  type Id = core.Id
+  type Scope = core.Scope
+
+  type Expr = core.Expr
+  type StaticExpr = core.StaticExpr
+  type SymExpr = core.SymExpr
+  type TimedSymExpr = core.TimedSymExpr
+  type StaticSymExpr = core.StaticSymExpr
+  type IntExpr = core.IntExpr
+
+  /** A block wrapping other blocks pertaining to the same scope. */
+  sealed trait Wrapper extends Block {
+    def wrapped: Seq[Block]
+  }
+
+  abstract class TimedAssertion(parent: Option[Ctx], name: String) extends Ctx with Block {
+    override val scope: InnerScope = parent.map(_.scope).getOrElse(RootScope) + name
+
+    val start: SimpleTPRef = SimpleTPRef(this.id("start").toTPId)
+    val end: SimpleTPRef = SimpleTPRef(this.id("end").toTPId)
+
+    override val store: BlockStore[Statement] = new BlockStore[Statement]() +
+      new TimepointDeclaration(start) +
+      new TimepointDeclaration(end)
+  }
+  case class TimedEqualAssertion(
+      left: TimedSymExpr, // TODO: should not restrict this to be symbolic
+      right: StaticExpr,
+      parent: Option[Ctx],
+      name: String)
+      extends TimedAssertion(parent, name) {
+    if(name == "__296")
+      println(name)
+    override def toString: String =
+      if(name.startsWith(reservedPrefix)) s"$left == $right"
+      else s"$name: $left == $right"
+  }
+
+  case class TimedTransitionAssertion(fluent: TimedSymExpr,
+                                      from: StaticExpr,
+                                      to: StaticExpr,
+                                      parent: Option[Ctx],
+                                      name: String)
+      extends TimedAssertion(parent, name) {
+    override def toString: String =
+      if(name.startsWith(reservedPrefix)) s"$fluent == $from :-> $to"
+      else s"$name: $fluent == $from :-> $to"
+  }
+
+  case class TimedAssignmentAssertion(fluent: TimedSymExpr,
+                                      to: StaticExpr,
+                                      parent: Option[Ctx],
+                                      name: String)
+      extends TimedAssertion(parent, name) {
+    override def toString: String =
+      if(name.startsWith(reservedPrefix)) s"$fluent := $to"
+      else s"$name: $fluent := $to"
+  }
+
+  trait TemporalQualifier
+  case class Equals(interval: Interval) extends TemporalQualifier {
+    override def toString: String = interval.toString
+  }
+  case class Contains(interval: Interval) extends TemporalQualifier {
+    override def toString: String = s"$interval contains"
+  }
+
+  case class TemporallyQualifiedAssertion(qualifier: TemporalQualifier, assertion: TimedAssertion)
+      extends Statement
+      with Wrapper {
+
+    override def wrapped = Seq(assertion)
+    override def toString = s"$qualifier $assertion"
+  }
+
+  trait StaticAssertion extends Statement
+  class StaticEqualAssertion(val left: StaticExpr, val right: StaticExpr) extends StaticAssertion {
+    override def toString: String = s"$left == $right"
+  }
+  class StaticDifferentAssertion(val left: StaticExpr, val right: StaticExpr)
+      extends StaticAssertion {
+    override def toString: String = s"$left != $right"
+  }
+  class StaticAssignmentAssertion(val left: StaticExpr, val right: StaticExpr)
+      extends StaticAssertion {
+    override def toString: String = s"$left := $right"
+  }
+
+  class Fluent(val template: FluentTemplate, val params: Seq[StaticExpr]) extends TimedSymExpr {
+    require(template.params.size == params.size)
+    template.params.zip(params).foreach {
+      case (tpl, v) =>
+        require(v.typ.isSubtypeOf(tpl.typ), s"$v is not of type ${tpl.typ}")
+    }
+
+    override def typ: Type = template.typ
+
+    override def toString = s"$template(${params.mkString(", ")})"
+  }
+
+  class Constant(val template: ConstantTemplate, val params: Seq[StaticExpr]) extends StaticExpr {
+    require(template.params.size == params.size)
+    template.params.zip(params).foreach {
+      case (tpl, v) =>
+        require(v.typ.isSubtypeOf(tpl.typ), s"$v is not of type ${tpl.typ}")
+    }
+
+    override def typ: Type = template.typ
+
+    override def toString: String = s"$template(${params.mkString(", ")})"
+  }
+
+  class ActionTemplate(override val name: String,
+                       val containingModel: Model,
+                       override val store: BlockStore[InActionBlock] = new BlockStore())
+      extends Ctx
+      with InModuleBlock {
+    override val parent: Some[Ctx] = Some(containingModel)
+    override val scope: InnerScope = parent.get.scope + name
+
+    def +(block: InActionBlock): ActionTemplate =
+      new ActionTemplate(name, containingModel, store + block)
+    def ++(newBlocks: Seq[InActionBlock]): ActionTemplate = newBlocks.headOption match {
+      case Some(first) => (this + first) ++ newBlocks.tail
+      case None        => this
+    }
+
+    override def toString: String =
+      s"action $name(${store.blocks
+        .collect { case x: ArgDeclaration => s"${x.arg.typ} ${x.arg.id.name}" }
+        .mkString(", ")}) {\n" +
+        store.blocks.map("    " + _.toString).mkString("\n") +
+        "  };"
+  }
+
+  case class Model(store: BlockStore[InModuleBlock] = new BlockStore()) extends Ctx {
+    override def parent = None
+    override def name = "_module_"
+    override val scope: Scope = RootScope
+
+    def +(block: InModuleBlock): Option[Model] = {
+      Some(Model(store + block))
+    }
+
+    def ++(blocks: Seq[InModuleBlock]): Option[Model] = {
+      blocks.foldLeft(Option(this))((m, block) => m.flatMap(_ + block))
+    }
+
+    def asCore(opt: transforms.Config = transforms.Config()): core.CoreModel =
+      FullToCore.trans(this)
+
+    override def toString: String =
+      "module:\n" +
+        store.blocks
+          .filter(!Parser.baseAnmlModel.store.blocks.contains(_))
+          .map("  " + _)
+          .mkString("\n")
+  }
+
+  class BlockStore[+T <: Block] private (val blocks: Vector[T],
+                                         val declarations: Map[Id, Declaration[_]]) {
+
+    def this() = this(Vector(), Map())
+
+    def +[B >: T <: Block](b: B): BlockStore[B] = {
+      val newBlocks = blocks :+ b
+      val toProcess = (b match {
+        case wrapper: Wrapper =>
+          wrapper +: wrapper.wrapped
+        case x => Seq(x)
+      }).flatMap {
+        case ctx: Ctx => ctx.store.blocks :+ ctx
+        case x        => Seq(x)
+      }
+      val newDeclarations = declarations ++ toProcess.collect {
+        case x: Declaration[_] => (x.id, x)
+      }
+
+      new BlockStore[B](newBlocks, newDeclarations)
+    }
+  }
+
+  trait Ctx {
+    def scope: Scope
+
+    def id(name: String): Id = new Id(scope, name)
+
+    def parent: Option[Ctx]
+    def name: String
+    def root: Ctx = parent match {
+      case Some(p) => p.root
+      case None    => this
+    }
+    def store: BlockStore[Block]
+
+    def findDeclaration(localID: String): Option[Declaration[_]] = {
+      (localID.split("\\.").toList match {
+        case single :: Nil =>
+          store.declarations.get(id(single))
+        case subScopeName :: name :: Nil =>
+          store.declarations
+            .get(new Id(scope + subScopeName, name))
+        case Nil =>
+          sys.error("Invalid name: " + localID)
+        case _ =>
+          sys.error(s"No support for multiple nested declarations: $localID")
+      }).orElse(parent.flatMap(_.findDeclaration(localID)))
+    }
+
+    def findVariable(name: String): Option[Var] =
+      findDeclaration(name: String).flatMap {
+        case decl: VarDeclaration[_] => Some(decl.variable)
+        case _                       => None
+      }
+
+    def findTimepoint(name: String): Option[TPRef] =
+      findDeclaration(name).flatMap {
+        case decl: TimepointDeclaration => Some(decl.tp)
+        case _                          => None
+      }
+
+    def findType(name: String): Option[Type] =
+      findDeclaration(name).flatMap {
+        case decl: TypeDeclaration => Some(decl.typ)
+        case _                     => None
+      }
+
+    def findFunction(name: String): Option[FunctionTemplate] =
+      findDeclaration(name).flatMap {
+        case decl: FunctionDeclaration => Some(decl.func)
+        case _                         => None
+      }
+
+    def findFluent(name: String): Option[FluentTemplate] =
+      findFunction(name).flatMap {
+        case t: FluentTemplate => Some(t)
+        case _                 => None
+      }
+
+    def findConstant(name: String): Option[ConstantTemplate] =
+      findFunction(name).flatMap {
+        case t: ConstantTemplate => Some(t)
+        case _                   => None
+      }
+  }
 }
