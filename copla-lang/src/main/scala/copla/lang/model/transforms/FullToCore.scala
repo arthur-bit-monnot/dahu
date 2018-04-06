@@ -85,9 +85,10 @@ object FullToCore {
   }
 
   private def f2c(act: full.ActionTemplate)(implicit ctx: Context): core.ActionTemplate = {
+    implicit val actionContext: Context = ctx.copy(scope = act.scope)
     val statements = act.store.blocks.flatMap {
       case x: core.Statement => Seq(x)
-      case x: full.Statement => f2c(x).statements
+      case x: full.Statement => f2c(x)(actionContext).statements
     }
     core.ActionTemplate(act.scope, statements)
   }
