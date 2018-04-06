@@ -42,6 +42,9 @@ object TagIsoInt {
   }
 }
 
+/** Marker trait for a type that is a simple container of Int. */
+trait BoxedInt[T] extends TagIsoInt[T]
+
 trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
   def exprProd: ProductExpr[P, Tentative]
   def idProd: ProductExpr[P, cats.Id]
@@ -92,14 +95,13 @@ object Tag {
 
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
-  implicit case object ofInt extends TagIsoInt[Int] {
+  implicit case object ofInt extends BoxedInt[Int] {
     override val typ: Type = typeOf[Int]
     override def fromInt(i: Int): Int = i
     override def toInt(t: Int): Int = t
 
-    // todo: put real bounds
-    override val min: Int = -100 //Integer.MIN_VALUE /2 +1
-    override val max: Int = 100 //Integer.MAX_VALUE /2 -1
+    override val min: Int = Integer.MIN_VALUE / 2 + 1
+    override val max: Int = Integer.MAX_VALUE / 2 - 1
   }
 
   implicit case object ofBoolean extends TagIsoInt[Boolean] {

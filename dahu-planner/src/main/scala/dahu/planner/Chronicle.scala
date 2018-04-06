@@ -6,7 +6,7 @@ import dahu.model.functions.WrappedFunction
 import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
-import dahu.model.types.{ProductTag, Tag, TagIsoInt}
+import dahu.model.types.{BoxedInt, Tag, TagIsoInt}
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -34,11 +34,9 @@ case class ObjLit(value: Instance) extends Literal {
   override def toString: String = value.toString
 }
 
-case class ProblemContext(intTag: TagIsoInt[Literal],
+case class ProblemContext(intTag: BoxedInt[Literal],
                           topTag: TagIsoInt[Literal],
                           specializedTags: Type => TagIsoInt[Literal]) {
-
-  private val Equality = WrappedFunction.wrap(int.EQ)(topTag, implicitly[TagIsoInt[Boolean]])
 
   def encode(v: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
     v match {
@@ -53,14 +51,22 @@ case class ProblemContext(intTag: TagIsoInt[Literal],
   def anonymousTp(): Tentative[Int] =
     Input[Int]().subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
 
-  def encode(ie: IntExpr): Tentative[Int] = ie match {
-    case VarIntExpr(IntLiteral(d)) => Cst(d)
-    case Add(lhs, rhs)             => encode(lhs) + encode(rhs)
-    case Minus(x)                  => -encode(x)
-    case x                         => unexpected(s"Unsupported int expression: $x")
-  }
+  def encode(ie: IntExpr)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] =
+    ie match {
+      case VarIntExpr(IntLiteral(d)) => Cst(d)
+      case VarIntExpr(v: Var) =>
+        assert(v.typ == Type.Integers)
+        val variable = encode(v)
+        variable.typ match {
+          case tpe: BoxedInt[Literal] => variable.unboxed(tpe)
+          case _                      => unexpected
+        }
+      case Add(lhs, rhs) => encode(lhs) + encode(rhs)
+      case Minus(x)      => -encode(x)
+      case x             => unexpected(s"Unsupported int expression: $x")
+    }
 
-  def encode(tp: TPRef): Tentative[Int] = tp match {
+  def encode(tp: TPRef)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] = tp match {
     case TPRef(id, VarIntExpr(IntLiteral(0))) if id.toString == "start" =>
       temporalOrigin // TODO: match by string....
     case TPRef(id, VarIntExpr(IntLiteral(0))) if id.toString == "end" =>
@@ -77,11 +83,31 @@ case class ProblemContext(intTag: TagIsoInt[Literal],
 
   def eqv(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
+
+  private val ObjEquality = WrappedFunction.wrap(int.EQ)(topTag, implicitly[TagIsoInt[Boolean]])
+  private val IntEquality = WrappedFunction.wrap(int.EQ)(intTag, implicitly[TagIsoInt[Boolean]])
+  private def isInt(e: Tentative[Literal]): Boolean = e.typ match {
+    case t: BoxedInt[_] =>
+      assert(t == intTag)
+      true
+    case t: TagIsoInt[_] =>
+      assert(topTag.min <= t.min && t.max <= topTag.max)
+      false
+    case _ =>
+      unexpected
+  }
   def eqv(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
     (lhs, rhs) match {
       case (Cst(x), Cst(y)) if x == y => bool.True
       case (Cst(x), Cst(y)) if x != y => bool.False
-      case _                          => Computation(Equality, lhs, rhs)
+      case _ =>
+        if(isInt(lhs) && isInt(rhs))
+          Computation(IntEquality, lhs, rhs)
+        else if(isInt(lhs) || isInt(rhs))
+          bool.False
+        else {
+          Computation(ObjEquality, lhs, rhs)
+        }
     }
 
   def neq(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
@@ -230,7 +256,7 @@ object ProblemContext {
 
       override def toString: String = s"TOP[$min,$max]"
     }
-    val intTag = new TagIsoInt[IntLit] {
+    val intTag = new BoxedInt[IntLit] {
       override def fromInt(i: Int): IntLit = IntLit(i)
       override def toInt(t: IntLit): Int = t.value
 
@@ -247,7 +273,7 @@ object ProblemContext {
       else
         memo.getOrElseUpdate(t, tagOf(t))
 
-    ProblemContext(intTag.asInstanceOf[TagIsoInt[Literal]],
+    ProblemContext(intTag.asInstanceOf[BoxedInt[Literal]],
                    topTag.asInstanceOf[TagIsoInt[Literal]],
                    specializedTag.asInstanceOf[Type => TagIsoInt[Literal]])
   }

@@ -7,6 +7,7 @@ import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
+import dahu.model.math.obj.Unboxed
 import dahu.model.types._
 import dahu.utils.errors._
 
@@ -91,13 +92,17 @@ class IntBoolSatisfactionProblem[AST <: TotalSubAST[_]](val ast: AST) {
           if supportedFunctions.contains(wf.f) && args.forall(sup) =>
         TRANS(ComputationF(wf.f, args, t)) // unwrap and retry
 
+      case x @ ComputationF(f: Unboxed[_], Seq(arg), t) =>
+        originalCells(arg) // unbox operation, use the previous cell
+
       case x =>
         x.typ match {
           case Tag.ofBoolean =>
             SupportedInput(InputF(Anonymous(), Tag.ofBoolean))
           case t: TagIsoInt[_] =>
             CompatibleInput(InputF(Anonymous(), Tag.ofInt), t)
-          case _ => Unsupported
+          case _ =>
+            Unsupported
         }
     }
 

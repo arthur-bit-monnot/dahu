@@ -34,7 +34,7 @@ object Planner {
                 }
                 .mkString("\n")
             )
-          case _ => unexpected
+          case x => unexpected(x.toString)
         }
       case None => None
     }

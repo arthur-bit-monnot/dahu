@@ -5,7 +5,8 @@ import dahu.model.ir.Total
 import dahu.model.math.BooleanLike.BooleanOps
 import dahu.model.math.Numeric.{NumericBase, NumericOps}
 import dahu.model.math._
-import dahu.model.types.Tag
+import dahu.model.math.obj.Unboxed
+import dahu.model.types.{BoxedInt, Tag}
 
 import scala.language.implicitConversions
 
@@ -46,6 +47,11 @@ object dsl {
     def subjectTo(cond: F[T] => Tentative[Boolean]): Tentative[T] =
       SubjectTo(lhs, cond(lhs))
 
+  }
+
+  implicit class UnboxOps[A](private val lhs: Tentative[A]) extends AnyVal {
+    def unboxed(implicit tag: BoxedInt[A]): Tentative[Int] =
+      Computation(new Unboxed[A], lhs)
   }
 
   implicit class ProductOps[T[_[_]]](private val lhs: Product[T]) extends AnyVal {

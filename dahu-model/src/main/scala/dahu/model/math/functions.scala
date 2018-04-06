@@ -2,7 +2,16 @@ package dahu.model.math
 
 import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
 import dahu.model.input.Cst
-import dahu.model.types.Tag
+import dahu.model.types.{BoxedInt, Tag}
+
+object obj {
+
+  /** Transforms a boxed int into an int. */
+  class Unboxed[A](implicit tag: BoxedInt[A]) extends Fun1[A, Int] {
+    override def of(in: A): Int = tag.toInt(in)
+    override def name: String = "unbox"
+  }
+}
 
 object double {
 

@@ -9,7 +9,7 @@ import copla.lang.model.core
 import dahu.model.input.Tentative
 
 case class Config(problemFile: File = null,
-                  encoding: Encoding = Incremental(20),
+                  encoding: Encoding = Incremental(10),
                   symBreak: Boolean = true,
                   useXorForSupport: Boolean = true)
 sealed trait Encoding
@@ -35,23 +35,6 @@ object Main extends App {
     case None =>
   }
 
-//  for(i <- Problems.satisfiables) {
-//    solve(i) match {
-//      case Some(sol) =>
-//        println("== Solution ==")
-//        println(sol)
-//      case None => unexpected
-//    }
-//
-//  }
-//
-//  for(i <- Problems.unsatisfiables) {
-//    solve(i) match {
-//      case Some(sol) => unexpected("Got solution on unsatisfiable problem.")
-//      case None => println("No solution")
-//    }
-//  }
-
   def solve(problemFile: File)(implicit cfg: Config): Option[Any] = {
     println("Parsing...")
     lang.parse(problemFile) match {
@@ -71,33 +54,6 @@ object Main extends App {
     }
 
   }
-//  def solve(anml: String): Option[Any] = {
-//    solve(lang.parse(anml))
-//  }
-
-//  def solveFull(model: core.CoreModel)(implicit cfg: Config): Option[Any] = {
-//    println("Encoding...")
-//    val ctx = ProblemContext.extract(model)
-//    val result = model.foldLeft(Chronicle.empty(ctx)) {
-//      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
-//      case (chronicle, action: ActionTemplate) =>
-//        val argDomains: Seq[Set[Lite]] = action.args.map(a => {
-//          val tpe = ctx.specializedTags(a.typ)
-//          (tpe.min to tpe.max).toSet.map(tpe.fromInt)
-//        })
-//        val allParameterCombinations: Set[Array[Instance]] =
-//          dahu.utils.allCombinations(argDomains).map(_.toArray)
-//        val actionInstances = allParameterCombinations.map { args =>
-//          Opt.optional(Action.primitive(action, ctx)(args))
-//        }
-//        chronicle.copy(actions = chronicle.actions ++ actionInstances)
-//      case (chronicle, _) => chronicle
-//    }
-////        println(result)
-//    val solution = Planner.solve(result)
-////        println(solution)
-//    solution
-//  }
 
   def solveIncremental(model: core.CoreModel, maxSteps: Int)(implicit cfg: Config): Option[Any] = {
     for(i <- 0 to maxSteps) {
