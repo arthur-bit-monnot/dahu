@@ -27,8 +27,12 @@ case class EffectToken(changeStart: Tentative[Int],
 sealed trait Literal {
   def asConstant(tag: TagIsoInt[Literal]): Cst[Literal] = Cst(this)(tag)
 }
-case class IntLit(value: Int) extends Literal
-case class ObjLit(value: Instance) extends Literal
+case class IntLit(value: Int) extends Literal {
+  override def toString: String = value.toString
+}
+case class ObjLit(value: Instance) extends Literal {
+  override def toString: String = value.toString
+}
 
 case class ProblemContext(intTag: TagIsoInt[Literal],
                           topTag: TagIsoInt[Literal],
