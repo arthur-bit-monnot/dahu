@@ -57,12 +57,16 @@ object Main extends App {
     lang.parse(problemFile) match {
       case lang.Success(model) =>
         cfg.encoding match {
-          case Full                  => solveFull(model)
+          case Full                  => sys.error("Unsupported option.")
           case Incremental(maxSteps) => solveIncremental(model, maxSteps)
         }
       case lang.ParseError(fail) =>
         println("Parsing failed:")
         println(fail.format)
+        sys.exit(1)
+      case lang.Crash(msg, err) =>
+        println(s"Parser crashed: $msg")
+        err.foreach(_.printStackTrace())
         sys.exit(1)
     }
 
@@ -71,29 +75,29 @@ object Main extends App {
 //    solve(lang.parse(anml))
 //  }
 
-  def solveFull(model: core.CoreModel)(implicit cfg: Config): Option[Any] = {
-    println("Encoding...")
-    val ctx = ProblemContext.extract(model)
-    val result = model.foldLeft(Chronicle.empty(ctx)) {
-      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
-      case (chronicle, action: ActionTemplate) =>
-        val argDomains: Seq[Set[Instance]] = action.args.map(a => {
-          val tpe = ctx.specializedTags(a.typ)
-          (tpe.min to tpe.max).toSet.map(tpe.fromInt)
-        })
-        val allParameterCombinations: Set[Array[Instance]] =
-          dahu.utils.allCombinations(argDomains).map(_.toArray)
-        val actionInstances = allParameterCombinations.map { args =>
-          Opt.optional(Action.primitive(action, ctx)(args))
-        }
-        chronicle.copy(actions = chronicle.actions ++ actionInstances)
-      case (chronicle, _) => chronicle
-    }
-//        println(result)
-    val solution = Planner.solve(result)
-//        println(solution)
-    solution
-  }
+//  def solveFull(model: core.CoreModel)(implicit cfg: Config): Option[Any] = {
+//    println("Encoding...")
+//    val ctx = ProblemContext.extract(model)
+//    val result = model.foldLeft(Chronicle.empty(ctx)) {
+//      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
+//      case (chronicle, action: ActionTemplate) =>
+//        val argDomains: Seq[Set[Lite]] = action.args.map(a => {
+//          val tpe = ctx.specializedTags(a.typ)
+//          (tpe.min to tpe.max).toSet.map(tpe.fromInt)
+//        })
+//        val allParameterCombinations: Set[Array[Instance]] =
+//          dahu.utils.allCombinations(argDomains).map(_.toArray)
+//        val actionInstances = allParameterCombinations.map { args =>
+//          Opt.optional(Action.primitive(action, ctx)(args))
+//        }
+//        chronicle.copy(actions = chronicle.actions ++ actionInstances)
+//      case (chronicle, _) => chronicle
+//    }
+////        println(result)
+//    val solution = Planner.solve(result)
+////        println(solution)
+//    solution
+//  }
 
   def solveIncremental(model: core.CoreModel, maxSteps: Int)(implicit cfg: Config): Option[Any] = {
     for(i <- 0 to maxSteps) {

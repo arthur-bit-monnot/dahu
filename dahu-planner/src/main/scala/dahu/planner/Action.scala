@@ -7,7 +7,7 @@ import dahu.utils.errors._
 case class Action[F[_]](name: String,
                         start: F[Int],
                         end: F[Int],
-                        args: List[F[Instance]],
+                        args: List[F[Literal]],
                         chronicle: Chronicle) {}
 
 object Action {
@@ -50,14 +50,18 @@ object Action {
 //  }
 
   def primitive(template: ActionTemplate, ctx: ProblemContext)(
-      args: Array[Instance]): Action[Tentative] = {
+      args: Array[Literal]): Action[Tentative] = {
+    def lit2Cst(lit: Literal): Cst[Literal] = lit match {
+      case x @ ObjLit(instance) => x.asConstant(ctx.specializedTags(instance.typ))
+      case x: IntLit            => x.asConstant(ctx.intTag)
+    }
+
     counter += 1
     val act = template.instance(s"${template.name}_$counter")
     assert(act.args.length == args.length)
-    val argsRewrite: Arg => Tentative[Instance] = x => {
+    val argsRewrite: Arg => Tentative[Literal] = x => {
       val id = act.args.indexOf(x)
-      val instance = args(id)
-      Cst(instance)(ctx.specializedTags(instance.typ))
+      lit2Cst(args(id))
     }
 
     val chronicle = act.content.foldLeft(Chronicle.empty(ctx)) {
@@ -67,14 +71,14 @@ object Action {
     Action(act.template.name,
            ctx.encode(act.start),
            ctx.encode(act.end),
-           args.toList.map(a => Cst(a)(ctx.specializedTags(a.typ))),
+           args.toList.map(lit2Cst),
            chronicle)
   }
 
   def instance(template: ActionTemplate, ctx: ProblemContext): Action[Tentative] = {
     counter += 1
     val act = template.instance(s"${template.name}_$counter")
-    val argsRewrite: Arg => Tentative[Instance] = {
+    val argsRewrite: Arg => Tentative[Literal] = {
       case a @ Arg(_, tpe) => Input(Ident(a))(ctx.specializedTags(tpe))
     }
 

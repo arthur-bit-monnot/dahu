@@ -11,117 +11,78 @@ import dahu.utils.errors._
 
 import scala.collection.mutable
 
-case class Fluent(template: FunctionTemplate, args: Seq[Tentative[Instance]])
-case class Constant(template: ConstantTemplate, args: Seq[Tentative[Instance]])
+case class Fluent(template: FunctionTemplate, args: Seq[Tentative[Literal]])
+case class Constant(template: ConstantTemplate, args: Seq[Tentative[Literal]])
 
 case class ConditionToken(start: Tentative[Int],
                           end: Tentative[Int],
                           fluent: Fluent,
-                          value: Tentative[Instance])
+                          value: Tentative[Literal])
 case class EffectToken(changeStart: Tentative[Int],
                        changeEnd: Tentative[Int],
                        persistenceEnd: Tentative[Int],
                        fluent: Fluent,
-                       value: Tentative[Instance])
+                       value: Tentative[Literal])
 
-case class EffectF[F[_]](cs: F[Int],
-                         ce: F[Int],
-                         pe: F[Int],
-                         value: F[Instance],
-                         f: FluentTemplate,
-                         args: List[F[Instance]]) {
-  override def toString: String = s"]$cs,$ce[ $f${args.mkString("(", ",", ")")} = $value"
+sealed trait Literal {
+  def asConstant(tag: TagIsoInt[Literal]): Cst[Literal] = Cst(this)(tag)
 }
-object EffectF {
-  implicit val productTag: ProductTag[EffectF] = new ProductTag[EffectF] {
+case class IntLit(value: Int) extends Literal
+case class ObjLit(value: Instance) extends Literal
 
-    override def exprProd: ProductExpr[EffectF, Tentative] = new ProductExpr[EffectF, Tentative] {
-      override def extractTerms(prod: EffectF[Tentative]): Seq[Tentative[Any]] =
-        (Seq(prod.cs, prod.ce, prod.pe, prod.value, Cst(prod.f)(Tag.default)) ++ prod.args)
-          .map(_.asInstanceOf[Tentative[Any]])
-      override def buildFromTerms(terms: Seq[Tentative[Any]]): EffectF[Tentative] =
-        terms.toList match {
-          case cs :: ce :: pe :: value :: f :: args =>
-            f match {
-              case Cst(template: FluentTemplate) =>
-                EffectF[Tentative](
-                  cs.asInstanceOf[Tentative[Int]],
-                  ce.asInstanceOf[Tentative[Int]],
-                  pe.asInstanceOf[Tentative[Int]],
-                  value.asInstanceOf[Tentative[Instance]],
-                  template,
-                  args.asInstanceOf[List[Tentative[Instance]]]
-                )
-              case _ => unexpected
-            }
-        }
-    }
-
-    override def idProd: ProductExpr[EffectF, cats.Id] = new ProductExpr[EffectF, cats.Id] {
-      override def extractTerms(prod: EffectF[cats.Id]): Seq[cats.Id[Any]] =
-        Seq(prod.cs, prod.ce, prod.pe, prod.value, prod.f) ++ prod.args
-
-      override def buildFromTerms(terms: Seq[cats.Id[Any]]): EffectF[cats.Id] = terms.toList match {
-        case (cs: Int) :: (ce: Int) :: (pe: Int) :: (value: Instance) :: (f: FluentTemplate) :: args =>
-          EffectF[cats.Id](cs, ce, pe, value, f, args.asInstanceOf[List[Instance]])
-      }
-    }
-
-    override def typ: Tag.Type = ???
-  }
-}
-
-case class ProblemContext(topTag: TagIsoInt[Instance],
-                          specializedTags: Type => TagIsoInt[Instance]) {
+case class ProblemContext(intTag: TagIsoInt[Literal],
+                          topTag: TagIsoInt[Literal],
+                          specializedTags: Type => TagIsoInt[Literal]) {
 
   private val Equality = WrappedFunction.wrap(int.EQ)(topTag, implicitly[TagIsoInt[Boolean]])
 
-  def encode(v: Var)(implicit argRewrite: Arg => Tentative[Instance]): Tentative[Instance] =
+  def encode(v: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
     v match {
-      case lv @ LocalVar(_, tpe) => Input(Ident(lv))(specializedTags(tpe))
-      case i @ Instance(_, tpe)  => Cst(i)(specializedTags(tpe))
+      case IntLiteral(i)         => IntLit(i).asConstant(intTag)
+      case lv @ LocalVar(_, tpe) => Input[Literal](Ident(lv))(specializedTags(tpe))
+      case i @ Instance(_, tpe)  => ObjLit(i).asConstant(specializedTags(tpe))
       case a: Arg                => argRewrite(a)
     }
 
   val temporalOrigin = Cst(0)
-  val temporalHorizon = Input[Int]().subjectTo(temporalOrigin <= _)
+  val temporalHorizon: Tentative[Int] = Input[Int]().subjectTo(temporalOrigin <= _)
   def anonymousTp(): Tentative[Int] =
     Input[Int]().subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
 
   def encode(ie: IntExpr): Tentative[Int] = ie match {
-    case GenIntExpr(IntLiteral(d)) => Cst(d)
+    case VarIntExpr(IntLiteral(d)) => Cst(d)
     case Add(lhs, rhs)             => encode(lhs) + encode(rhs)
     case Minus(x)                  => -encode(x)
     case x                         => unexpected(s"Unsupported int expression: $x")
   }
 
   def encode(tp: TPRef): Tentative[Int] = tp match {
-    case TPRef(id, GenIntExpr(IntLiteral(0))) if id.toString == "start" =>
+    case TPRef(id, VarIntExpr(IntLiteral(0))) if id.toString == "start" =>
       temporalOrigin // TODO: match by string....
-    case TPRef(id, GenIntExpr(IntLiteral(0))) if id.toString == "end" =>
+    case TPRef(id, VarIntExpr(IntLiteral(0))) if id.toString == "end" =>
       temporalHorizon // TODO: match by string....
-    case TPRef(id, GenIntExpr(IntLiteral(0))) =>
+    case TPRef(id, VarIntExpr(IntLiteral(0))) =>
       Input[Int](Ident(id)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
     case TPRef(id, delay) => encode(TPRef(id)) + encode(delay)
   }
-  def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
+  def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
     Fluent(orig.template, orig.params.map(encode(_)))
 
-  def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Instance]): Fluent =
+  def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
     Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
 
-  def eqv(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Instance]): Tentative[Boolean] =
+  def eqv(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
-  def eqv(lhs: Tentative[Instance], rhs: Tentative[Instance]): Tentative[Boolean] =
+  def eqv(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
     (lhs, rhs) match {
       case (Cst(x), Cst(y)) if x == y => bool.True
       case (Cst(x), Cst(y)) if x != y => bool.False
       case _                          => Computation(Equality, lhs, rhs)
     }
 
-  def neq(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Instance]): Tentative[Boolean] =
+  def neq(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
     neq(encode(lhs), encode(rhs))
-  def neq(lhs: Tentative[Instance], rhs: Tentative[Instance]): Tentative[Boolean] =
+  def neq(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
     not(eqv(lhs, rhs))
 
   def and(conjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
@@ -168,41 +129,47 @@ case class ProblemContext(topTag: TagIsoInt[Instance],
 
 object ProblemContext {
   def extract(m: Seq[InModuleBlock]): ProblemContext = {
-    val types = m.collect { case TypeDeclaration(t) => t }
-    val subtypes = mutable.LinkedHashMap[Type, mutable.Set[Type]]()
+    val objectTypes = m.collect { case TypeDeclaration(t) if t != Type.Integers => t }
+    val objectSubtypes = mutable.LinkedHashMap[Type, mutable.Set[Type]]()
     val instances = m
       .collect { case InstanceDeclaration(i) => i }
       .map { case i @ Instance(_, t) => (t, i) }
       .groupBy(_._1)
       .mapValues(vs => vs.map(_._2).sortBy(_.id.name))
+      .mapValues(is => is.map(ObjLit))
 
-    for(t <- types) {
-      subtypes.getOrElseUpdate(t, mutable.Set())
+    for(t <- objectTypes) {
+      objectSubtypes.getOrElseUpdate(t, mutable.Set())
       t.parent match {
         case Some(parent) =>
-          subtypes.getOrElseUpdate(parent, mutable.Set()) += t
+          objectSubtypes.getOrElseUpdate(parent, mutable.Set()) += t
         case None =>
       }
     }
     val x = mutable.ArrayBuffer[Type]()
-    val roots = types.collect { case t @ Type(_, None) => t }.toList
+    val roots = objectTypes.collect { case t @ Type(_, None) => t }.toList
 
     def process(t: Type): Unit = {
       assert(!x.contains(t))
       x += t
-      subtypes(t).foreach(process)
+      objectSubtypes(t).foreach(process)
     }
     roots.foreach(process)
 
-    val tmp = x.toList.flatMap(t => instances.getOrElse(t, Seq()).toList).zipWithIndex
+    val tmp: List[(ObjLit, Int)] =
+      x.toList
+        .flatMap(t => instances.getOrElse(t, Seq()).toList)
+        .zipWithIndex
     val fromIndex = tmp.map(_.swap).toMap
     val toIndex = tmp.toMap
     assert(toIndex.size == fromIndex.size)
 
-    def tagOf(t: Type): TagIsoInt[Instance] = {
-      def instancesOf(t: Type): Seq[Instance] =
-        instances.getOrElse(t, Seq()) ++ subtypes(t).flatMap(instancesOf)
-      def continuousMinMax(is: Seq[Instance]): (Int, Int) = {
+    def tagOf(t: Type): TagIsoInt[ObjLit] = {
+      assert(t != Type.Integers)
+
+      def instancesOf(t: Type): Seq[ObjLit] =
+        instances.getOrElse(t, Seq()) ++ objectSubtypes(t).flatMap(instancesOf)
+      def continuousMinMax(is: Seq[ObjLit]): (Int, Int) = {
         val sorted = is.sortBy(t => toIndex(t)).toList
         sorted match {
           case Nil          => (0, -1)
@@ -219,14 +186,14 @@ object ProblemContext {
       val is = instancesOf(t)
       val (minId, maxId) = continuousMinMax(is)
 
-      new TagIsoInt[Instance] {
-        override def toInt(t: Instance): Int = {
+      new TagIsoInt[ObjLit] {
+        override def toInt(t: ObjLit): Int = {
           val ret = toIndex(t)
           assert(min <= ret && ret <= max)
           ret
         }
 
-        override def fromInt(i: Int): Instance = {
+        override def fromInt(i: Int): ObjLit = {
           assert(min <= i && i <= max)
           fromIndex(i)
         }
@@ -234,22 +201,20 @@ object ProblemContext {
         override val max: Int = maxId
         override val min: Int = minId
 
-        override def typ: Tag.Type = ???
+        override def typ: Tag.Type = Tag.typeOf[ObjLit]
 
         override def toString: String = s"${t.id}[$min,$max]"
       }
     }
 
-    val memo = mutable.Map[Type, TagIsoInt[Instance]]()
-    val specializedTag = (t: Type) => memo.getOrElseUpdate(t, tagOf(t))
-    val topTag = new TagIsoInt[Instance] {
-      override def toInt(t: Instance): Int = {
+    val topTag = new TagIsoInt[ObjLit] {
+      override def toInt(t: ObjLit): Int = {
         val ret = toIndex(t)
         assert(min <= ret && ret <= max)
         ret
       }
 
-      override def fromInt(i: Int): Instance = {
+      override def fromInt(i: Int): ObjLit = {
         assert(min <= i && i <= max)
         fromIndex(i)
       }
@@ -257,12 +222,30 @@ object ProblemContext {
       override val min: Int = toIndex.values.min
       override val max: Int = toIndex.values.max
 
-      override def typ: Tag.Type = ???
+      override def typ: Tag.Type = Tag.typeOf[ObjLit]
 
       override def toString: String = s"TOP[$min,$max]"
     }
+    val intTag = new TagIsoInt[IntLit] {
+      override def fromInt(i: Int): IntLit = IntLit(i)
+      override def toInt(t: IntLit): Int = t.value
 
-    ProblemContext(topTag, specializedTag)
+      override val min: Int = Int.MinValue / 2
+      override val max: Int = Int.MaxValue / 2
+
+      override def typ: Tag.Type = Tag.typeOf[IntLit]
+    }
+
+    val memo = mutable.Map[Type, TagIsoInt[ObjLit]]()
+    val specializedTag = (t: Type) =>
+      if(t == Type.Integers)
+        intTag
+      else
+        memo.getOrElseUpdate(t, tagOf(t))
+
+    ProblemContext(intTag.asInstanceOf[TagIsoInt[Literal]],
+                   topTag.asInstanceOf[TagIsoInt[Literal]],
+                   specializedTag.asInstanceOf[Type => TagIsoInt[Literal]])
   }
 }
 
@@ -274,7 +257,7 @@ case class Chronicle(ctx: ProblemContext,
 
   import ctx._
 
-  def extended(e: Statement)(implicit argRewrite: Arg => Tentative[Instance]): Chronicle = e match {
+  def extended(e: Statement)(implicit argRewrite: Arg => Tentative[Literal]): Chronicle = e match {
     case _: TypeDeclaration      => this
     case _: InstanceDeclaration  => this
     case _: TimepointDeclaration => this

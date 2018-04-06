@@ -227,17 +227,6 @@ package object core {
     override def toString: String = s"[$start, $end] $fluent == $from :-> $to"
   }
 
-  /*** Time ***/
-  case class Delay(from: TPRef, to: TPRef) {
-    def <=(dur: IntExpr): TBefore = to <= from + dur
-    def <(dur: IntExpr): TBefore = to < from + dur
-    def >=(dur: IntExpr): TBefore = to >= from + dur
-    def >(dur: IntExpr): TBefore = to > from + dur
-    def +(time: IntExpr): Delay = Delay(from, to + time)
-    def -(time: IntExpr): Delay = Delay(from, to - time)
-    def ===(dur: IntExpr): Seq[TBefore] = Seq(this <= dur, this >= dur)
-  }
-
   case class TPId(id: Id) {
     override def toString: String = id.toString
   }
@@ -251,22 +240,23 @@ package object core {
     override def id: Id = Id(RootScope + "_integers_", value.toString)
   }
 
-  sealed trait IntExpr
+  sealed trait IntExpr extends full.IntExpr
   object IntExpr {
-    def apply(lit: Int): IntExpr = GenIntExpr(IntLiteral(lit))
+    def apply(lit: Int): IntExpr = VarIntExpr(IntLiteral(lit))
   }
-  case class GenIntExpr(e: StaticExpr) extends IntExpr {
+  case class VarIntExpr(e: Var) extends IntExpr {
     require(e.typ.id.name == "integer")
   }
   case class Minus(e: IntExpr) extends IntExpr
   case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
 
   /** A timepoint, declared when appearing in the root of a context.*/
-  case class TPRef(id: TPId, delay: IntExpr = IntExpr(0)) {
+  case class TPRef(override val id: TPId, override val delay: IntExpr = IntExpr(0))
+      extends full.TPRef(id, delay) {
 
     override def toString: String =
       id.toString + (delay match {
-        case GenIntExpr(IntLiteral(d)) =>
+        case VarIntExpr(IntLiteral(d)) =>
           if(d == 0) ""
           else if(d > 0) s"+$d"
           else s"-${-d}"
@@ -274,17 +264,15 @@ package object core {
       })
 
     def +(d: IntExpr): TPRef = TPRef(id, Add(delay, d))
-    def +(d: Int): TPRef = this + IntExpr(d)
+    override def +(d: Int): TPRef = this + IntExpr(d)
     def -(d: IntExpr): TPRef = TPRef(id, Add(delay, Minus(d)))
-    def -(d: Int): TPRef = this - IntExpr(d)
+    override def -(d: Int): TPRef = this - IntExpr(d)
 
     def <=(other: TPRef): TBefore = TBefore(this, other)
     def <(other: TPRef): TBefore = TBefore(this, other - 1)
     def >=(other: TPRef): TBefore = other <= this
     def >(other: TPRef): TBefore = other < this
     def ===(other: TPRef): Seq[TBefore] = Seq(this <= other, this >= other)
-
-    def -(other: TPRef) = Delay(other, this)
   }
   sealed trait SimpleTPRefWitness {
     self: TPRef =>
@@ -299,10 +287,6 @@ package object core {
     require(tp.delay == IntExpr(0), "Cannot declare a relative timepoint.")
     override def id: Id = tp.id
     override def toString: String = s"timepoint $id"
-  }
-
-  case class Interval(start: TPRef, end: TPRef) {
-    override def toString: String = s"[$start, $end]"
   }
 
   case class TBefore(from: TPRef, to: TPRef) extends Statement {
@@ -332,12 +316,6 @@ package object core {
     def instance(instanceName: String): Action = {
       val instanceScope: InnerScope = scope.parent + instanceName
 
-      //      val trans: InnerScope => InnerScope = (x: InnerScope) => {
-      //        if(x == scope)
-      //          instanceScope
-      //        else
-      //          x
-      //      }
       val trans: Id => Id = x => {
         var transScope: Scope => Scope = null
         transScope = {
@@ -350,9 +328,9 @@ package object core {
       import landscaper.transformations._
 
       // landscaper has problem with the new ADT, provide some help
-      implicit val xx = Trans[Id, Id, StaticExpr]
-      implicit val yy = Trans[Id, Id, GenIntExpr]
-      implicit val zz = Trans[Id, Id, IntExpr]
+      implicit val x1 = Trans[Id, Id, StaticExpr]
+      implicit val x2 = Trans[Id, Id, VarIntExpr]
+      implicit val x3 = Trans[Id, Id, IntExpr]
       implicit val x4 = Trans[Id, Id, TPRef]
       implicit val x5 = Trans[Id, Id, TBefore] // ok
       implicit val x6 = Trans[Id, Id, StaticAssertion] //ok
@@ -364,7 +342,7 @@ package object core {
       implicit val x12 = Trans[Id, Id, LocalVarDeclaration] //ok
       implicit val x13 = Trans[Id, Id, TimepointDeclaration] //ok
 
-      // derivation of Trans[Id,Id,Statement] fails for an obscure reason, dispatch manually
+      // derivation of Trans[Id,Id,Statement] never ends for an obscure reason, dispatch manually
       implicit val x14: Trans.Aux[Id, Id, Statement, Statement] = new Trans[Id, Id, Statement] {
         override type Result = Statement
         override def rewrite(f: Id => Id, in: Statement): Result = in match {
@@ -421,12 +399,8 @@ package object full {
   type LocalVarDeclaration = core.LocalVarDeclaration
   type Arg = core.Arg
   type ArgDeclaration = core.ArgDeclaration
-  type TPRef = core.TPRef
   type SimpleTPRef = core.SimpleTPRef
   type TimepointDeclaration = core.TimepointDeclaration
-  type Interval = core.Interval
-  type Delay = core.Delay
-  type TBefore = core.TBefore
   type FunctionTemplate = core.FunctionTemplate
   type FunctionDeclaration = core.FunctionDeclaration
   type ConstantTemplate = core.ConstantTemplate
@@ -435,13 +409,64 @@ package object full {
   type TypeDeclaration = core.TypeDeclaration
   type Id = core.Id
   type Scope = core.Scope
-
   type Expr = core.Expr
   type StaticExpr = core.StaticExpr
   type SymExpr = core.SymExpr
   type TimedSymExpr = core.TimedSymExpr
   type StaticSymExpr = core.StaticSymExpr
-  type IntExpr = core.IntExpr
+
+  sealed trait IntExpr
+
+  /** A timepoint, declared when appearing in the root of a context.*/
+  class TPRef(val id: core.TPId, val delay: IntExpr = core.IntExpr(0)) {
+
+    override def toString: String =
+      id.toString + (delay match {
+        case GenIntExpr(core.IntLiteral(d)) =>
+          if(d == 0) ""
+          else if(d > 0) s"+$d"
+          else s"-${-d}"
+        case x => s"+$x"
+      })
+
+    def +(d: IntExpr): TPRef = new TPRef(id, Add(delay, d))
+    def +(d: Int): TPRef = this + core.IntExpr(d)
+    def -(d: IntExpr): TPRef = new TPRef(id, Add(delay, Minus(d)))
+    def -(d: Int): TPRef = this - core.IntExpr(d)
+
+    def <=(other: TPRef): TBefore = TBefore(this, other)
+    def <(other: TPRef): TBefore = TBefore(this, other - 1)
+    def >=(other: TPRef): TBefore = other <= this
+    def >(other: TPRef): TBefore = other < this
+    def ===(other: TPRef): Seq[TBefore] = Seq(this <= other, this >= other)
+
+    def -(other: TPRef) = Delay(other, this)
+  }
+
+  case class GenIntExpr(e: StaticExpr) extends IntExpr {
+    require(e.typ.id.name == "integer")
+  }
+  case class Minus(e: IntExpr) extends IntExpr
+  case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
+
+  case class Interval(start: TPRef, end: TPRef) {
+    override def toString: String = s"[$start, $end]"
+  }
+
+  case class TBefore(from: TPRef, to: TPRef) extends Statement {
+    override def toString: String = s"$from <= $to"
+  }
+
+  /*** Time ***/
+  case class Delay(from: TPRef, to: TPRef) {
+    def <=(dur: IntExpr): TBefore = to <= from + dur
+    def <(dur: IntExpr): TBefore = to < from + dur
+    def >=(dur: IntExpr): TBefore = to >= from + dur
+    def >(dur: IntExpr): TBefore = to > from + dur
+    def +(time: IntExpr): Delay = Delay(from, to + time)
+    def -(time: IntExpr): Delay = Delay(from, to - time)
+    def ===(dur: IntExpr): Seq[TBefore] = Seq(this <= dur, this >= dur)
+  }
 
   /** A block wrapping other blocks pertaining to the same scope. */
   sealed trait Wrapper extends Block {

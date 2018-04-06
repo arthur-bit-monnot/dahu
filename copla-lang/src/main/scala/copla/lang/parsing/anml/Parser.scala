@@ -246,7 +246,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
   }
 
   val intExpr: Parser[IntExpr] =
-    staticExpr.namedFilter(_.typ.id.name == "integer", "of-type-integer").map(core.GenIntExpr(_))
+    staticExpr.namedFilter(_.typ.id.name == "integer", "of-type-integer").map(full.GenIntExpr(_))
 
   val expr: Parser[Expr] =
     timedSymExpr | staticExpr
