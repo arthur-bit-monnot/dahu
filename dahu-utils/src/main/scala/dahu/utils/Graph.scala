@@ -1,23 +1,37 @@
 package dahu.utils
 
-import scala.collection.{immutable, mutable}
+import scala.reflect.ClassTag
 
 object Graph {
+
+  def tarjan[V: ClassTag](graph: Map[V, Set[V]]): Array[debox.Set[V]] = {
+    tarjan(
+      debox.Map.fromIterable(graph.mapValues(s => debox.Set.fromIterable(s)))
+    )
+  }
 
   /** Tarjan's algorithm for extracting strongly connected components.
     *
     * Given a directed graph, the algorithm outputs a sequence of strongly connected
     * components sorted in topological order.
     * */
-  def tarjan[V](graph: Map[V, Set[V]]): Seq[Set[V]] = {
+  def tarjan[@specialized(Int) V: ClassTag](
+      graph: debox.Map[V, debox.Set[V]]): Array[debox.Set[V]] = {
     class Data(var index: Int, var lowLink: Int, var onStack: Boolean)
     var index = 0
-    val stack = new mutable.ArrayBuffer[V]()
-    val data = mutable.Map[V, Data]()
+    val stack = debox.Buffer[V]()
+    val data = debox.Map[V, Data]()
 
-    var components: Seq[Set[V]] = immutable.Seq()
+    @inline def last(stack: debox.Buffer[V]): V = {
+      stack(stack.length - 1)
+    }
+    @inline def pop(stack: debox.Buffer[V]): V = {
+      stack.remove(stack.length - 1)
+    }
 
-    for(v <- graph.keys) {
+    val components: debox.Buffer[debox.Set[V]] = debox.Buffer()
+
+    for(v <- graph.keysSet) {
       if(!data.contains(v))
         strongConnect(v)
     }
@@ -27,7 +41,7 @@ object Graph {
       data(v) = new Data(index, index, true)
       index += 1
       stack += v
-      for(w <- graph.getOrElse(v, Set())) {
+      for(w <- graph.getOrElse(v, debox.Set())) { // todo: creating an object that is not needed
         if(!data.contains(w)) {
           strongConnect(w)
           data(v).lowLink = data(v).lowLink.min(data(w).lowLink)
@@ -37,28 +51,34 @@ object Graph {
       }
 
       if(data(v).lowLink == data(v).index) {
-        var scc: Set[V] = Set()
-        var w = stack.last
+        val scc: debox.Set[V] = debox.Set()
+        var w = last(stack)
         do {
-          w = stack.last
-          stack.remove(stack.size - 1)
+          w = pop(stack)
           data(w).onStack = false
           scc += w
         } while(w != v)
-        components = components :+ scc
+        components += scc
       }
     }
 
-    components.reverse
+    components.reverse.toArray()
   }
 
-  def topologicalOrder[V](graph: Map[V, Set[V]]): Option[Seq[V]] = {
+  def topologicalOrder[V: ClassTag](graph: Map[V, Set[V]]): Option[Seq[V]] = {
     val sccs = tarjan(graph)
 
-    sccs.foldLeft(Option(Seq[V]())) {
-      case (opt, scc) if scc.size == 1 => opt.map(_ :+ scc.head)
-      case _                           => None // non singleton strongly connected component
+    val order = debox.Buffer[V]()
+
+    var i = 0
+    while(i < sccs.length) {
+      if(sccs(i).size == 1)
+        sccs(i).foreach(e => order += e)
+      else
+        return None // the graph has a (non-singleton) strongly connected component
+      i += 1
     }
+    Some(order.toArray())
   }
 
 }

@@ -15,9 +15,13 @@ object UtilsTests extends TestSuite {
   def tests = Tests {
     "graph-utils" - {
       "tarjan" - {
-        assert(tarjan(g1) == Seq(Set(1, 2), Set(3)))
-        assert(tarjan(dag1) == (1 to 4).map(Set(_)))
-        assert(tarjan(dag2) == (1 to 4).map(Set(_)))
+        // simple converter function to help the comparison.
+        def tj(g: Map[Int, Set[Int]]): Seq[Set[Int]] =
+          tarjan(g).toList.map(_.toScalaSet())
+
+        tj(g1) ==> Seq(Set(1, 2), Set(3))
+        assert(tj(dag1) == (1 to 4).map(Set(_)))
+        assert(tj(dag2) == (1 to 4).map(Set(_)))
       }
 
       "topological-order" - {
