@@ -126,10 +126,8 @@ object SatisfactionProblem {
             and(value.valid, implies(condition.present, and(condition.value, condition.valid)))
         )
     }
-    if(optimize)
-      IR(optimizer(value1), optimizer(present1), optimizer(valid1))
-    else
-      IR(value1, present1, valid1)
+
+    IR(value1, present1, valid1)
   }
 
   def optimizer(tot: Fix[Total]): Fix[Total] =
@@ -141,8 +139,10 @@ object SatisfactionProblem {
     val ir = Recursion.hylo(coalgebra, compiler(optimize = optimize))(root)
 
 //    println(Algebras.format(ir.valid))
-
-    ir.valid
+    if(optimize)
+      optimizer(ir.valid)
+    else
+      ir.valid
   }
 
 }
