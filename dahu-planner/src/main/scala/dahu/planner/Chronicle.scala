@@ -138,7 +138,11 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     }
   }
   def xor(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
-    Computation(bool.XOr, disjuncts.filter(_ != bool.False))
+    val noFalse = disjuncts.filter(_ != bool.False)
+    if(noFalse.isEmpty)
+      bool.False
+    else
+      Computation(bool.XOr, noFalse)
   }
   def implies(cond: Tentative[Boolean], effect: Tentative[Boolean]): Tentative[Boolean] = {
     if(cond == bool.False)
@@ -373,6 +377,7 @@ case class Chronicle(ctx: ProblemContext,
   }
 
   def toSatProblem(implicit cfg: Config) = {
+    var count = 0
     val acts: Seq[Opt[Action[Tentative]]] = actions
     val effs: Seq[Opt[EffectToken]] =
       effects.map(Opt.present) ++
@@ -386,6 +391,7 @@ case class Chronicle(ctx: ProblemContext,
 
     val nonOverlappingEffectsConstraints =
       for(e1 <- effs; e2 <- effs if e1 != e2) yield {
+        count += 1
         (e1, e2) match {
           case (Opt(EffectToken(start1, _, end1, fluent1, _), p1),
                 Opt(EffectToken(start2, _, end2, fluent2, _), p2)) =>
@@ -405,12 +411,14 @@ case class Chronicle(ctx: ProblemContext,
                   ec <= persistenceEnd)
           }
           if(cfg.useXorForSupport)
-            implies(pc, Computation(bool.XOr, disjuncts))
+            implies(pc, xor(disjuncts: _*))
           else
             implies(pc, or(disjuncts: _*))
       }
 
     val allConstraints = consts ++ nonOverlappingEffectsConstraints ++ supportConstraints
+
+    val tmp = and(allConstraints: _*)
 
     val view = acts.map {
       case Opt(a, present) =>

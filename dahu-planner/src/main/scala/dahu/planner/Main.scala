@@ -3,46 +3,124 @@ package dahu.planner
 import copla.lang
 import copla.lang.model.core.{ActionTemplate, Instance, Statement}
 import dahu.utils.errors._
-import java.io.File
+import java.io.{File, FileWriter}
 
 import copla.lang.model.core
 import dahu.model.input.Tentative
+import monix.eval.{MVar, Task}
+
+import scala.concurrent.duration._
+import monix.execution.Scheduler.Implicits.global
+
+import scala.concurrent.{Await, Promise, TimeoutException}
+import scala.util.{Failure, Success, Try}
+import dahu.utils.debug._
 
 case class Config(problemFile: File = null,
-                  encoding: Encoding = Incremental(10),
+                  minInstances: Int = 0,
+                  maxInstances: Int = 500,
                   symBreak: Boolean = true,
-                  useXorForSupport: Boolean = true)
-sealed trait Encoding
-case object Full extends Encoding
-case class Incremental(maxSteps: Int) extends Encoding
+                  useXorForSupport: Boolean = true,
+                  numThreads: Int = 1,
+                  maxRuntime: Int = 300,
+                  warmupTimeSec: Int = 0
+                 )
+
 
 object Main extends App {
 
   val parser = new scopt.OptionParser[Config]("dahu") {
     head("dahu", "0.x")
+
+    opt[Int]("num-threads")
+        .action((n, c) => c.copy(numThreads = n))
+
+    opt[Int]("warmup")
+      .action((t, c) => c.copy(warmupTimeSec = t))
+
+    opt[Int]("max-depth")
+      .action((d, c) => c.copy(maxInstances = d))
+
+    opt[Int]("timeout")
+      .action((t, c) => c.copy(maxRuntime = t))
+
+    opt[Boolean]("use-xor")
+      .action((b, c) => c.copy(useXorForSupport = b))
+
+    opt[Boolean]("sym-break")
+      .action((b, c) => c.copy(symBreak = b))
+
     arg[File]("XXXX.pb.anml").action((f, c) => c.copy(problemFile = f))
   }
+
+  import dahu.utils.debug._
 
   parser.parse(args, Config()) match {
     case Some(cfg) =>
       implicit val cfgImpl = cfg
-      solve(cfg.problemFile) match {
-        case Some(sol) =>
-          println("== Solution ==")
-          println(sol)
-        case None => unexpected
+
+      if(cfg.warmupTimeSec > 0) {
+        info("Warming up...")
+        dahu.utils.debug.LOG_LEVEL = 0
+
+        val warmUpTask = solveTask(cfg.problemFile, System.currentTimeMillis() + cfg.warmupTimeSec * 1000)
+            .map(res => Success(res))
+            .timeoutTo(cfg.warmupTimeSec.seconds, Task(Failure(new TimeoutException())))
+            .runAsync
+
+        Try(Await.result(warmUpTask, (cfg.warmupTimeSec +10).seconds))
+
+        dahu.utils.debug.LOG_LEVEL = 3
       }
+
+      val startTime = System.currentTimeMillis()
+
+      def writeResult(solved: Boolean, time: Long): Unit = {
+        val fw = new FileWriter("dahu-result.txt", true)
+        try {
+          fw.write(s"${cfg.problemFile.getName} ${if(solved) "SOLVED" else "FAIL"} $time\n")
+        }
+        finally fw.close()
+      }
+
+      val future =
+        solveTask(cfg.problemFile, System.currentTimeMillis() + cfg.maxRuntime * 1000)
+        .map(res => Success(res))
+        .timeoutTo(cfg.maxRuntime.seconds, Task(Failure(new TimeoutException())))
+        .runAsync
+
+      Await.result(future, (cfg.maxRuntime +10).seconds) match {
+        case Success(Some(result)) =>
+          val runtime = System.currentTimeMillis() - startTime
+          out(s"== Solution (in ${runtime / 1000}.${(runtime %1000)/10}s) ==")
+          out(result.toString)
+          writeResult(solved = true, runtime)
+        case Success(None) =>
+          out("Max depth or time reached")
+        case Failure(_: TimeoutException) =>
+          out("Timeout")
+          writeResult(solved = false, System.currentTimeMillis() - startTime)
+        case Failure(exception) =>
+          out("Crash")
+          exception.printStackTrace()
+      }
+
+      sys.exit(0)
     case None =>
   }
 
-  def solve(problemFile: File)(implicit cfg: Config): Option[Any] = {
-    println("Parsing...")
+  def solveTask(problemFile: File, deadline: Long)(implicit cfg: Config): Task[Option[Any]] = {
+    Task {
+      info(problemFile.getName)
+      solve(problemFile, deadline)
+    }
+  }
+
+  def solve(problemFile: File, deadline: Long)(implicit cfg: Config): Option[String] = {
+    info("Parsing...")
     lang.parse(problemFile) match {
       case lang.Success(model) =>
-        cfg.encoding match {
-          case Full                  => sys.error("Unsupported option.")
-          case Incremental(maxSteps) => solveIncremental(model, maxSteps)
-        }
+        solveIncremental(model, cfg.maxInstances, deadline)
       case lang.ParseError(fail) =>
         println("Parsing failed:")
         println(fail.format)
@@ -52,22 +130,49 @@ object Main extends App {
         err.foreach(_.printStackTrace())
         sys.exit(1)
     }
-
   }
 
-  def solveIncremental(model: core.CoreModel, maxSteps: Int)(implicit cfg: Config): Option[Any] = {
-    for(i <- 0 to maxSteps) {
-      println(s"Step: $i")
-      solveIncrementalStep(model, i) match {
-        case Some(sol) => return Some(sol)
-        case None      =>
-      }
+  def solveIncremental(model: core.CoreModel, maxSteps: Int, deadline: Long)(implicit cfg: Config): Option[String] = {
+    val q = new java.util.concurrent.ConcurrentLinkedQueue[Integer]()
+    for(i <- cfg.minInstances to cfg.maxInstances)
+      q.add(i)
+
+    val workers = (0 until cfg.numThreads) map { workerID =>
+      Task {
+        while (System.currentTimeMillis() < deadline) {
+          val step: Integer = q.poll()
+          if (step == null)
+            return None
+
+          info(s"Depth: $step (worker: $workerID)")
+          solveIncrementalStep(model, step.toInt, deadline) match {
+            case Some(sol) =>
+              info(s"  Solution found at depth $step (worker: $workerID)")
+              return Some(sol)
+            case None =>
+              info(s"  No solution at depth $step (worker: $workerID)")
+          }
+        }
+        None
+      } : Task[Option[String]]
     }
-    None
+    val future = Task.raceMany(workers).runAsync
+
+    Try {
+      Await.result(future, (deadline - System.currentTimeMillis()).millis)
+    } match {
+      case Success(solution) =>
+        solution
+      case Failure(to: TimeoutException) => None
+      case Failure(e) => throw e
+    }
   }
 
-  def solveIncrementalStep(model: core.CoreModel, step: Int)(implicit cfg: Config): Option[Any] = {
-    println("Encoding...")
+  def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Long)(implicit cfg: Config): Option[String] = {
+    if(System.currentTimeMillis() >= deadline)
+      return None
+
+    info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)
     val result = model.foldLeft(Chronicle.empty(ctx)) {
       case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
@@ -100,7 +205,7 @@ object Main extends App {
       case (chronicle, _) => chronicle
     }
 //        println(result)
-    val solution = Planner.solve(result)
+    val solution = Planner.solve(result, deadline)
 //        println(solution)
     solution
   }

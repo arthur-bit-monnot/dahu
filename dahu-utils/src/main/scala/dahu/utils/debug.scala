@@ -19,7 +19,7 @@ import scala.annotation.elidable._
 object debug {
 
   var DEBUG_LEVEL = 3
-  val LOG = 0
+  var LOG_LEVEL = 3
 
   @elidable(ASSERTION)
   @inline
@@ -49,8 +49,29 @@ object debug {
       throw new java.lang.AssertionError("assertion failed: " + message)
   }
 
-  final def warning(msg: => String): Unit = if(LOG >= 1) println("warning: " + msg)
-  final def info(msg: => String): Unit = if(LOG >= 3) println("info: " + msg)
+  private var lastLog = System.currentTimeMillis()
+  private var prevNeedsTime = false
+
+  def out(msg: String, withDuration: Boolean = false): Unit = {
+    val time = System.currentTimeMillis()
+    if(prevNeedsTime)
+      println(s"\t[${time-lastLog}]")
+    if(withDuration) {
+      print(msg)
+      prevNeedsTime = true
+      lastLog = time
+    } else {
+      println(msg)
+      prevNeedsTime = false
+    }
+
+  }
+
+  @inline final def warning(msg: => String): Unit = if(LOG_LEVEL >= 1) println("warning: " + msg)
+  @inline final def info(msg: => String): Unit =
+    if(LOG_LEVEL >= 3) {
+      out("info: " + msg, withDuration = true)
+    }
 
   /** Use to annotate blocks that should not be in hot paths, typically here to maintain genericity.
     *

@@ -19,7 +19,7 @@ class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver
     case _ => ???
   }
 
-  def nextSolution(): Option[ast.Assignment] = solver.nextSatisfyingAssignment() match {
+  def nextSolution(deadline: Long = -1): Option[ast.Assignment] = solver.nextSatisfyingAssignment(deadline) match {
     case Some(assignment) =>
       val f: sat.PartialAssignment = assignment
       val partial: ast.PartialAssignment = (k: ast.VID) => {

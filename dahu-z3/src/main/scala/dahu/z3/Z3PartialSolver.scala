@@ -67,9 +67,26 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
   solver.add(satProblem)
   var model: Model = null
 
-  override def nextSatisfyingAssignment(): Option[ast.PartialAssignment] = {
+  override def nextSatisfyingAssignment(deadline: Long = -1): Option[ast.PartialAssignment] = {
     assert(model == null, "Z3 only support extraction of a single solution")
-    println("Check with Z3...")
+    val timeout =
+      if(deadline < 0)
+        None
+      else if(deadline >= System.currentTimeMillis())
+        Some((deadline - System.currentTimeMillis()).toInt)
+      else
+        Some(0)
+
+    timeout match {
+      case Some(0) => return None // deadline passed, to not attempt to solve
+      case Some(t) =>
+        val params = ctx.mkParams()
+        params.add("timeout", t)
+        solver.setParameters(params)
+      case None =>
+    }
+
+    dahu.utils.debug.info("  Solving with Z3...")
     solver.check() match {
       case Status.SATISFIABLE =>
         model = solver.getModel

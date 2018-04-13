@@ -32,7 +32,11 @@ lazy val commonSettings = Seq(
     //  "-Ywarn-unused",
     "-feature",
     "-language:higherKinds",
-    "-language:existentials"
+    "-language:existentials",
+
+    // experimental option to speed up the build	
+    //"-Ycache-plugin-class-loader",
+    //"-Ycache-macro-class-loader"
   ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
   //addCompilerPlugin("io.tryp" % "splain" % "0.2.10" cross CrossVersion.patch),
@@ -116,7 +120,14 @@ lazy val planner = project
   .in(file("dahu-planner"))
   .dependsOn(anml, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
-  .settings(libraryDependencies += "com.github.scopt" %% "scopt" % "X.Y.Z")
+  .settings(
+    mainClass in assembly := Some("dahu.planner.Main"),
+    assemblyJarName in assembly := "dahu-planner.jar"
+  )
+  .settings(libraryDependencies ++= Seq(
+    "com.github.scopt" %% "scopt" % "3.7.0",
+    "io.monix" %% "monix" % "3.0.0-RC1"
+  ))
 
 resolvers += Resolver.sonatypeRepo("releases")
 

@@ -7,20 +7,23 @@ import dahu.model.types.Value
 import dahu.solvers.MetaSolver
 import dahu.z3.Z3PartialSolver
 import dahu.utils.errors._
+import dahu.utils.debug._
 
 object Planner {
 
   val backend = Z3PartialSolver.builder
 
-  def solve(chronicle: Chronicle)(implicit cfg: Config): Option[String] = {
+  def solve(chronicle: Chronicle, deadline: Long)(implicit cfg: Config): Option[String] = {
+    if(System.currentTimeMillis() > deadline)
+      return None
     val sat = chronicle.toSatProblem
-    println("Building meta-solver...")
+    info("  Encoding...")
     val solver = MetaSolver.of(Algebras.parse(sat), backend)
     val evaluatedSolution: solver.ast.Assignment => Interpreter.Result[Value] =
       (ass: solver.ast.Assignment) => {
         Interpreter.evalWithFailureCause(solver.ast)(ass)
       }
-    solver.nextSolution() match {
+    solver.nextSolution(deadline) match {
       case Some(ass) =>
         evaluatedSolution(ass) match {
           case Res(operators) =>

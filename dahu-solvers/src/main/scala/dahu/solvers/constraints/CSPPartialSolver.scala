@@ -15,7 +15,9 @@ class CSPPartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[A
   private val intPB = IntCSP.intProblem(intBoolPb)
   private val csp = intPB.getSolver
 
-  override def nextSatisfyingAssignment(): Option[ast.PartialAssignment] = {
+  override def nextSatisfyingAssignment(deadlineMs: Long = -1): Option[ast.PartialAssignment] = {
+    if(deadlineMs != -1)
+      dahu.utils.debug.warning("CSP Partial solver does not support deadlines yet.")
     csp.nextSolution() match {
       case Some(ass) =>
         val partial: ast.PartialAssignment = (k: ast.VID) => {

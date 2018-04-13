@@ -8,7 +8,7 @@ abstract class PartialSolver[AST <: TotalSubAST[_]](final val ast: AST) {
 
   type K <: ast.ID
 
-  def nextSatisfyingAssignment(): Option[ast.PartialAssignment]
+  def nextSatisfyingAssignment(deadlineMs: Long = -1): Option[ast.PartialAssignment]
 }
 
 object PartialSolver {
