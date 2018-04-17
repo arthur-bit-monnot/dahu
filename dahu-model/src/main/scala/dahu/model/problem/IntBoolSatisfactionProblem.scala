@@ -1,176 +1,304 @@
 package dahu.model.problem
 
+import cats.Functor
+import cats.implicits._
 import dahu.graphs.DAG
-import dahu.maps.ArrayMap
+import dahu.maps.{ArrayMap, Counter, Wrapped}
 import dahu.maps.growable.GrowableBiMap
 import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.math.obj.Unboxed
+import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
 import dahu.utils.errors._
 
 import scala.collection.mutable
 
-class IntBoolSatisfactionProblem[AST <: TotalSubAST[_]](val ast: AST) {
+class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) {
 
   /** Methods and variables in Internal are public so that there is no escape of private types.
     * However they are meant for internal use only are are subject to change. */
   object Internal {
 
-    type K = builder.K
+    //    type K = builder.K
 
-    sealed trait CellOpt
+    sealed trait CellOpt[K]
 
-    case class SupportedInput(value: InputF[K]) extends CellOpt {
+    case class SupportedInput[K](value: InputF[K]) extends CellOpt[K] {
       require(value.typ == Tag.ofBoolean)
     }
 
-    case class CompatibleInput(value: InputF[K], t: TagIsoInt[_]) extends CellOpt {
-      def constraint: Set[K] = Set(idOf(leq(cst(t.min), this)), idOf(leq(this, cst(t.max))))
-    }
+    case class CompatibleInput[K](value: InputF[K], t: TagIsoInt[_]) extends CellOpt[K] {}
 
-    case class SupportedConstant(value: CstF[K]) extends CellOpt {
+    case class SupportedConstant[K](value: CstF[K]) extends CellOpt[K] {
       require(value.typ == Tag.ofBoolean)
       require(value.value.isInstanceOf[Boolean])
 
     }
 
-    case class CompatibleConstant(value: CstF[K], t: TagIsoInt[_]) extends CellOpt {
+    case class CompatibleConstant[K](value: CstF[K], t: TagIsoInt[_]) extends CellOpt[K] {
       require(value.value.isInstanceOf[Int])
     }
 
-    case class IntermediateExpression(value: ComputationF[K]) extends CellOpt {}
+    case class IntermediateExpression[K](value: ComputationF[K]) extends CellOpt[K] {}
 
-    case object Unsupported extends CellOpt
+    case object Unsupported extends CellOpt[Nothing]
+
+    def unsupported[K](): CellOpt[K] = Unsupported.asInstanceOf[CellOpt[K]]
 
     private val supportedFunctions = Set[Fun[_]](int.Add,
-                                                 int.LEQ,
-                                                 int.EQ,
-                                                 int.Times,
-                                                 int.Negate,
-                                                 int.Min,
-                                                 bool.And,
-                                                 bool.Or,
-                                                 bool.XOr,
-                                                 bool.Not)
+      int.LEQ,
+      int.EQ,
+      int.Times,
+      int.Negate,
+      int.Min,
+      bool.And,
+      bool.Or,
+      bool.XOr,
+      bool.Not)
 
-    implicit val dag: DAG[Total, ast.ID] = new DAG[Total, ast.ID] {
-      override def algebra: ast.ID => Total[ast.ID] = ast.tree.asFunction
-
-      override def children(graph: Total[ast.ID]): Set[ast.ID] = graph match {
-        case ProductF(members, _)     => members.toSet
-        case ComputationF(_, args, _) => args.toSet
-        case _                        => Set()
-      }
-    }
+    //    implicit val dag: DAG[Total, ast.ID] = new DAG[Total, ast.ID] {
+    //      override def algebra: ast.ID => Total[ast.ID] = ast.tree.asFunction
+    //
+    //      override def children(graph: Total[ast.ID]): Set[ast.ID] = graph match {
+    //        case ProductF(members, _)     => members.toSet
+    //        case ComputationF(_, args, _) => args.toSet
+    //        case _                        => Set()
+    //      }
+    //    }
 
     // translate all nodes of the AST to cells.
     // we need to take since we want to maintain the same IDs and a node typically refers to its subnodes.
-    private val leavesToRoot = dag.topologicalOrder(ast.tree.domain.toScalaSet()).reverse
-    private val originalCells = mutable.Map[ast.ID, CellOpt]()
-    for(i <- leavesToRoot) {
-      originalCells += ((i, TRANS(ast.tree(i))))
-    }
+    //    private val leavesToRoot = dag.topologicalOrder(ast.tree.domain.toScalaSet()).reverse
+    //    private val originalCells = mutable.Map[ID, CellOpt]()
+    //    for(i <- leavesToRoot) {
+    //      originalCells += ((i, TRANS(ast.tree(i))))
+    //    }
 
-    private def sup(e: ast.ID) = originalCells(e) match {
-      case Unsupported => false
-      case _           => true
-    }
+    // AST:
+    //   X => Total[AST.ID]
+    //   AST.ID => Total[AST.ID]
+    // target:
+    //   X => CellOpt
 
-    private def TRANS: Total[ast.ID] => CellOpt = {
-      case x @ CstF(v, Tag.ofBoolean) => SupportedConstant(x)
-      case x @ CstF(v, t: TagIsoInt[_]) =>
-        CompatibleConstant(CstF(Value(t.toIntUnsafe(v)), Tag.ofInt), t)
-      case x @ InputF(name, Tag.ofBoolean)   => SupportedInput(x)
-      case x @ InputF(name, t: TagIsoInt[_]) => CompatibleInput(InputF(name, Tag.ofInt), t)
-      case x @ ComputationF(f, args, t: TagIsoInt[_])
-          if supportedFunctions.contains(f) && args.forall(sup) =>
-        IntermediateExpression(ComputationF(f, args.map(x => x: K), t))
-      case x @ ComputationF(wf: WrappedFunction, args, t: TagIsoInt[_])
-          if supportedFunctions.contains(wf.f) && args.forall(sup) =>
-        TRANS(ComputationF(wf.f, args, t)) // unwrap and retry
+    abstract class LazyTree[K, F[_] : TreeNode : Functor, G[_], Opt[_] : Functor](orig: ILazyTree[K, F, Opt])
+      extends ILazyTree[K, G, Opt] {
 
-      case x @ ComputationF(f: Unboxed[_], Seq(arg), t) =>
-        originalCells(arg) // unbox operation, use the previous cell
+      def g(rec: G[ID] => ID)(prev: ID => G[ID])(node: F[ID]): G[ID]
 
-      case x =>
-        x.typ match {
-          case Tag.ofBoolean =>
-            SupportedInput(InputF(Anonymous(), Tag.ofBoolean))
-          case t: TagIsoInt[_] =>
-            CompatibleInput(InputF(Anonymous(), Tag.ofInt), t)
-          case _ =>
-            Unsupported
-        }
-    }
+      private val treeNode = implicitly[TreeNode[F]]
+      private val functor = implicitly[Functor[F]]
 
-    // initialize with direct mapping from the ast to Cells
-    val builder: GrowableBiMap[CellOpt] =
-      GrowableBiMap.fromArray(ast.tree)(x => originalCells(x))
+      private val idsMap = mutable.HashMap[orig.ID, ID]()
+      private val repMap = mutable.ArrayBuffer[G[ID]]() // ID => G[ID]
 
-    // todo: we should provide this automatically
-    // by construction, each ast.ID is also a member of K (ast.ID is a subset of K)
-    private implicit def ev: <:<[ast.ID, K] = implicitly[Any <:< Any].asInstanceOf[ast.ID <:< K]
-
-    private def toCell(id: ast.ID): CellOpt = builder(id)
-
-    /** Retrieves or generates an ID for this cell. If e is absent from builder, it is added to it with the generated id. */
-    private def idOf(e: CellOpt): K = builder.keyOf(e)
-
-    private def and(conjuncts: CellOpt*): CellOpt = {
-      IntermediateExpression(
-        ComputationF(bool.And, conjuncts.toSeq.map(x => idOf(x)), Tag.ofBoolean)
-      )
-    }
-
-    private def leq(lhs: CellOpt, rhs: CellOpt): CellOpt = {
-      IntermediateExpression(
-        ComputationF(int.LEQ, Seq(lhs, rhs).map(x => idOf(x)), Tag.ofBoolean)
-      )
-    }
-
-    private def cst(n: Int): CellOpt = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
-
-    private def gatherConstraints(k: K): Set[K] = builder(k) match {
-      case i: CompatibleInput        => i.constraint
-      case IntermediateExpression(e) => e.args.toSet.flatMap(gatherConstraints)
-
-      case Unsupported =>
-        unexpected("Gathering constraints from unsupported, we ned to by pass it...")
-      case _ => Set()
-    }
-
-    // the root value, is the conjunction of the original root and all constraints placed on inputs.
-    private val rootValue = IntermediateExpression(
-      ComputationF(bool.And, (gatherConstraints(ast.root) + (ast.root: K)).toSeq, bool.And.tpe))
-    val root = idOf(rootValue)
-
-    val coalg: K => Option[Total[K]] = k => {
-      val res = builder(k) match {
-        case IntermediateExpression(e) => Some(e)
-        case CompatibleInput(v, _)     => Some(v)
-        case SupportedInput(v)         => Some(v)
-        case CompatibleConstant(v, _)  => Some(v)
-        case SupportedConstant(v)      => Some(v)
-        case Unsupported               => None
+      def rec(ga: G[ID]): ID = {
+        val id = repMap.size
+        repMap += ga
+        id
       }
-      res
+
+      private val g2: F[ID] => G[ID] = {
+        val prev: ID => G[ID] = repMap(_)
+        g(rec)(prev)
+      }
+
+      @inline private def processed(k: orig.ID): Boolean = {
+        assert(!idsMap.contains(k) || repMap.size > idsMap(k))
+        idsMap.contains(k)
+      }
+
+      def get(k: K): Opt[G[ID]] = {
+        orig.getInternalID(k).map(getFromOrigID)
+      }
+
+      def getFromOrigID(origID: orig.ID): G[ID] = {
+        val queue = mutable.Stack[orig.ID]()
+        def push(origID: orig.ID): Unit = {
+          if(!processed(origID)) {
+            queue.push(origID)
+          }
+        }
+        push(origID)
+        while (queue.nonEmpty) {
+          val cur = queue.pop()
+          if(!processed(cur)) {
+            val fk = orig.getInt(cur)
+            if (treeNode.children(fk).forall(processed)) {
+              val fg: F[ID] = functor.map(fk)(id => idsMap(id))
+              val g: G[ID] = g2(fg)
+              val id = rec(g)
+              idsMap += ((cur, id))
+            } else {
+              push(cur)
+              treeNode.children(fk).foreach(push)
+            }
+          }
+        }
+        println(s"PUSH / POPS : $pushes / $pops")
+        repMap(idsMap(origID))
+      }
+
+      override def getExt(k: K): Opt[G[ID]] = get(k)
+
+      override def getInt(i: ID): G[ID] = repMap(i)
+
+      override def getInternalID(k: K): Opt[ID] = getExt(k).map(rec)
     }
 
-    // from builder, gather all expression that can be represented (i.e. int or bool)
-    val tmp =
-      ArrayMap
-        .buildWithKey(builder.domain)(k => coalg(k))
-        .collect { case Some(v) => v }
+    private def sup[X](e: CellOpt[X]) = e match {
+      case Unsupported => false
+      case _ => true
+    }
+
+    private def TRANS[K](rec: CellOpt[K] => K)(prev: K => CellOpt[K])(
+      node: Total[K]): CellOpt[K] = {
+      def and(conjuncts: CellOpt[K]*): CellOpt[K] = {
+        IntermediateExpression(
+          ComputationF(bool.And, conjuncts.toSeq.map(x => rec(x)), Tag.ofBoolean)
+        )
+      }
+
+      def leq(lhs: CellOpt[K], rhs: CellOpt[K]): CellOpt[K] = {
+        IntermediateExpression(
+          ComputationF(int.LEQ, Seq(lhs, rhs).map(x => rec(x)), Tag.ofBoolean)
+        )
+      }
+
+      def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
+
+      node match {
+        case x@CstF(v, Tag.ofBoolean) => SupportedConstant(x)
+        case x@CstF(v, t: TagIsoInt[_]) =>
+          CompatibleConstant(CstF(Value(t.toIntUnsafe(v)), Tag.ofInt), t)
+        case x@InputF(name, Tag.ofBoolean) => SupportedInput(x)
+        case x@InputF(name, t: TagIsoInt[_]) => CompatibleInput(InputF(name, Tag.ofInt), t)
+        case x@ComputationF(f, args, t: TagIsoInt[_])
+          if supportedFunctions.contains(f) && args.forall(x => sup(prev(x))) =>
+          IntermediateExpression(ComputationF(f, args, t))
+        case x@ComputationF(wf: WrappedFunction, args, t: TagIsoInt[_])
+          if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
+          TRANS(rec)(prev)(ComputationF(wf.f, args, t)) // unwrap and retry
+
+        case x@ComputationF(f: Unboxed[_], Seq(arg), t) =>
+          prev(arg) // unbox operation, use the previous cell
+
+        case x =>
+          x.typ match {
+            case Tag.ofBoolean =>
+              SupportedInput(InputF(Anonymous(), Tag.ofBoolean))
+            case t: TagIsoInt[_] =>
+              CompatibleInput(InputF(Anonymous(), Tag.ofInt), t)
+            case _ =>
+              unsupported()
+          }
+      }
+    }
+
+    val lt = new LazyTree[X, Total, CellOpt, cats.Id](ast.tree) {
+      override def g(rec: CellOpt[ID] => ID)(prev: ID => CellOpt[ID])(
+        node: Total[ID]): CellOpt[ID] =
+        TRANS(rec)(prev)(node)
+    }
+
+    def leq(lhs: CellOpt[lt.ID], rhs: CellOpt[lt.ID]): CellOpt[lt.ID] = {
+      IntermediateExpression(
+        ComputationF(int.LEQ, Seq(lhs, rhs).map(x => lt.rec(x)), Tag.ofBoolean)
+      )
+    }
+
+    def cst[K](n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
+
+    private def gatherConstraints(k: lt.ID): Set[lt.ID] = {
+      val cs = mutable.HashSet[lt.ID]()
+      val visited = mutable.HashSet[lt.ID]()
+      val stack = mutable.Stack[lt.ID]()
+      def push(i: lt.ID) : Unit = { if(!visited.contains(i)) stack.push(i) }
+
+      push(k)
+      while(stack.nonEmpty) {
+        val cur = stack.pop()
+        visited += cur
+        lt.getInt(cur) match {
+          case i@CompatibleInput(_, tpe) =>
+            cs += lt.rec(leq(cst(tpe.min), i))
+            cs += lt.rec(leq(i, cst(tpe.max)))
+          case IntermediateExpression(e) =>
+            e.args.foreach(push)
+          case _ =>
+        }
+      }
+      cs.toSet
+    }
+
+    //
+    // the root value, is the conjunction of the original root and all constraints placed on inputs.
+    private val internalPrevRoot = lt.rec(lt.getFromOrigID(ast.root))
+    private val rootValue = IntermediateExpression(
+      ComputationF(bool.And,
+        (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
+        bool.And.tpe))
+    val root: lt.ID = lt.rec(rootValue)
+
+//    val optTree: RootedLazyTree[X, CellOpt, cats.Id] = RootedLazyTree(root, lt)
+
+    type OptTotal[T] = Option[Total[T]]
+
+    val partialTree = new ILazyTree[X, Total, Option] {
+      val t = lt.map[OptTotal]({
+        case IntermediateExpression(e) => Some(e)
+        case CompatibleInput(v, _) => Some(v)
+        case SupportedInput(v) => Some(v)
+        case CompatibleConstant(v, _) => Some(v)
+        case SupportedConstant(v) => Some(v)
+        case x if x == Unsupported => None
+      })
+      override def getExt(k: X): Option[Total[ID]] = t.getExt(k)
+
+      override def getInternalID(k: X): Option[ID] = getExt(k).map(_ => t.getInternalID(k))
+
+      override def getInt(i: ID): Total[ID] = t.getInt(i) match {
+        case Some(e) => e
+        case None => unexpected
+      }
+    }
+
+
+    val tree = RootedLazyTree(root, partialTree)
   }
 
-  type K = Internal.tmp.K
+  val tree: RootedLazyTree[X, Total, Option] = Internal.tree
+//
+//    val coalg: K => Option[Total[K]] = k => {
+//      val res = builder(k) match {
+//        case IntermediateExpression(e) => Some(e)
+//        case CompatibleInput(v, _)     => Some(v)
+//        case SupportedInput(v)         => Some(v)
+//        case CompatibleConstant(v, _)  => Some(v)
+//        case SupportedConstant(v)      => Some(v)
+//        case Unsupported               => None
+//      }
+//      res
+//    }
+//
+//    // from builder, gather all expression that can be represented (i.e. int or bool)
+//    val tmp =
+//      ArrayMap
+//        .buildWithKey(builder.domain)(k => coalg(k))
+//        .collect { case Some(v) => v }
 
-  // an algebra X => Total[X], where Total[X] is guaranteed to be representable.
-  val algebra: ArrayMap.Aux[K, Total[K]] = Internal.tmp.asInstanceOf[ArrayMap.Aux[K, Total[K]]]
+//
+////  type K = Internal.tmp.K
+//
+//  // an algebra X => Total[X], where Total[X] is guaranteed to be representable.
+//  val algebra: ArrayMap.Aux[K, Total[K]] = Internal.tmp.asInstanceOf[ArrayMap.Aux[K, Total[K]]]
+//
+//  assert(algebra.isInDomain(Internal.root))
+//  val root: K = Internal.root.asInstanceOf[K]
 
-  assert(algebra.isInDomain(Internal.root))
-  val root: K = Internal.root.asInstanceOf[K]
+//  def tree: RootedLazyTree[X, Total] = {
+//    new RootedLazyTree[X, Total](ast.root, )
+//  }
 }

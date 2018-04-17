@@ -21,18 +21,8 @@ class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver
 
   def nextSolution(deadline: Long = -1): Option[ast.Assignment] = solver.nextSatisfyingAssignment(deadline) match {
     case Some(assignment) =>
-      val f: sat.PartialAssignment = assignment
-      val partial: ast.PartialAssignment = (k: ast.VID) => {
-        val k2: Option[sat.ID] = sat.subset.to(k)
-        val k3: Option[sat.VID] = k2.flatMap(sat.asVariableID)
-        k3.flatMap(i => f(i))
-      }
       val total: ast.Assignment = (x: ast.VID) =>
-        partial(x) match {
-          case Some(v) => v
-          case None =>
-            defaultDomain(x).head // TODO: use head option or fail early if an input has an empty domain
-      }
+        assignment(x).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
       Some(total)
     case None => None
   }

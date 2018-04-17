@@ -38,14 +38,14 @@ object Compiler {
   object Ints {
     def unapply(args: Seq[Expr]): Option[List[IntExpr]] =
       if(args.forall(_.isInstanceOf[IntExpr]))
-        Some(args.asInstanceOf[List[IntExpr]])
+        Some(args.toList.asInstanceOf[List[IntExpr]])
       else
         None
   }
   object Bools {
     def unapply(args: Seq[Expr]): Option[List[BoolExpr]] =
       if(args.forall(_.isInstanceOf[BoolExpr]))
-        Some(args.asInstanceOf[List[BoolExpr]])
+        Some(args.toList.asInstanceOf[List[BoolExpr]])
       else
         None
   }

@@ -29,4 +29,13 @@ package object maps {
 
   def untagged[T <: SubInt, F[_]](v: F[T]): F[Int] = v.asInstanceOf[F[Int]]
   private def tagged[T <: SubInt, F[_]](v: F[Int]): F[T] = v.asInstanceOf[F[T]]
+
+  class Counter {
+    type ID = Int with Wrapped[this.type]
+    private var nextValue: Int = 0
+    def next(): ID = { nextValue += 1; nextValue.asInstanceOf[ID] }
+  }
+  object Counter {
+    type Aux[ID0] = Counter { type ID = ID0 }
+  }
 }

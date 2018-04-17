@@ -1,56 +1,82 @@
 package dahu.z3
 
+import cats.Functor
 import com.microsoft.z3._
-import dahu.maps.SubSubInt
 import dahu.model.ir._
 import dahu.model.problem.IntBoolSatisfactionProblem
+import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.errors._
-import dahu.recursion.Recursion.hylo
 
-import scala.util.{Failure, Success}
+import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AST](_ast) {
+class TreeBuilder[X, F[_], G, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(implicit F: Functor[F], T: TreeNode[F]) {
+  private val memo = mutable.HashMap[t.ID, G]()
+
+  def build(k: t.ID) : G = {
+    val stack = mutable.Stack[t.ID]()
+    def push(i: t.ID) : Unit = {
+      if(!memo.contains(i))
+        stack.push(i)
+    }
+    push(k)
+    while(stack.nonEmpty) {
+      val a = stack.pop()
+      val fa = t.getInt(a)
+      if(T.children(fa).forall(memo.contains)) {
+        val g = f(F.map(fa)(memo))
+        memo += ((a, g))
+      } else {
+        push(a)
+        T.children(fa).foreach(push)
+      }
+    }
+    memo(k)
+  }
+}
+
+class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends PartialSolver[X](_ast) {
   trait Tag
 
-  val intBoolPb = new IntBoolSatisfactionProblem[ast.type](ast)
+  val intBoolPb = new IntBoolSatisfactionProblem[X](ast)
+  val root = intBoolPb.tree.root
+  val tree = intBoolPb.tree.tree
+
+  private val ctx = new Context()
+  type OptTotal[T] = Option[Total[T]]
+
+  val treeBuilder = new TreeBuilder(tree, Compiler.partialAlgebra(ctx))
 
   // Total
-  def asExpr(id: ast.ID): Option[com.microsoft.z3.Expr] = {
-    intBoolPb.algebra.get(id) match {
-      case Some(e) =>
-        hylo(intBoolPb.algebra.asFunction, algebra)(id.asInstanceOf[intBoolPb.K]).toOption
-      case None => None
-    }
+  def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
+    tree.getInternalID(id).map(internalID => treeBuilder.build(internalID))
   }
-  def eval(id: ast.ID, model: com.microsoft.z3.Model): Option[Value] =
+  def eval(id: X, model: com.microsoft.z3.Model): Option[Value] = {
     asExpr(id) match {
       case Some(e) =>
         model.eval(e, false) match {
           case i: IntNum =>
-            ast.tree(id).typ match {
+            ast.tree.getExt(id).typ match {
               case t: TagIsoInt[_] => Some(t.toValue(i.getInt))
-              case _               => unexpected
+              case _ => unexpected
             }
           case b: BoolExpr =>
             b.getBoolValue match {
               case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))
-              case enumerations.Z3_lbool.Z3_L_TRUE  => Some(Value(true))
+              case enumerations.Z3_lbool.Z3_L_TRUE => Some(Value(true))
               case enumerations.Z3_lbool.Z3_L_UNDEF => None
-              case _                                => unexpected
+              case _ => unexpected
             }
         }
 
       case None => None
     }
+  }
 
-  override type K = SubSubInt[ast.ID, Tag]
-
-  private val ctx = new Context()
-  private val algebra = Compiler.algebra(ctx)
-  val compiled = hylo(intBoolPb.algebra.asFunction, algebra)(intBoolPb.root)
+  val compiled = Try(treeBuilder.build(root)) //hylo(intBoolPb.algebra.asFunction, algebra)(intBoolPb.root)
   private val satProblem = compiled match {
     case Success(x: BoolExpr) => x
     case Failure(NonFatal(e)) => unexpected("Failure while parsing Z3. Cause: ", e)
@@ -67,7 +93,7 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
   solver.add(satProblem)
   var model: Model = null
 
-  override def nextSatisfyingAssignment(deadline: Long = -1): Option[ast.PartialAssignment] = {
+  override def nextSatisfyingAssignment(deadline: Long = -1): Option[X => Option[Value]] = {
     assert(model == null, "Z3 only support extraction of a single solution")
     val timeout =
       if(deadline < 0)
@@ -90,10 +116,7 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
     solver.check() match {
       case Status.SATISFIABLE =>
         model = solver.getModel
-        val partial = (id: ast.VID) => {
-          eval(id, model)
-        }
-        Some(partial)
+        Some(id => eval(id, model))
       case _ =>
         None
     }
@@ -104,7 +127,7 @@ class Z3PartialSolver[AST <: TotalSubAST[_]](_ast: AST) extends PartialSolver[AS
 object Z3PartialSolver {
 
   object builder extends PartialSolver.Builder {
-    override def apply(ast: TotalSubAST[_]): Z3PartialSolver[ast.type] =
-      new Z3PartialSolver[ast.type](ast)
+    override def apply[X](ast: RootedLazyTree[X, Total, cats.Id]): Z3PartialSolver[X] =
+      new Z3PartialSolver[X](ast)
   }
 }

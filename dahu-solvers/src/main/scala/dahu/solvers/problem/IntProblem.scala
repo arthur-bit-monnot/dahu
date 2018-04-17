@@ -8,6 +8,7 @@ import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
 import dahu.model.functions.Fun
 import dahu.model.ir._
 import dahu.model.problem.IntBoolSatisfactionProblem
+import dahu.model.problem.SatisfactionProblemFAST.RootedLazyTree
 import dahu.utils.errors._
 
 object IntProblem {
@@ -40,7 +41,7 @@ object IntCSP {
 
   def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
 
-  def translate[T <: SubInt](id: T, coalgebra: T => Total[T]): Option[IntProblem.Expr] = {
+  def translate[T <: SubInt](e: Total[T]): Option[IntProblem.Expr] = {
     def asIntFunction(f: Fun[_]): Option[Func] = {
       IntCompatibleFunc
         .compat(f)
@@ -51,7 +52,7 @@ object IntCSP {
         .map(i2iFunc => Func(i2iFunc, Propagator.forward(f), Propagator.backward(f)))
     }
 
-    coalgebra(id) match {
+    e match {
       case InputF(_, typ: TagIsoInt[_]) =>
         Some(Expr(domainOfType(typ), None, typ))
       case CstF(value, typ: TagIsoInt[_]) =>
@@ -60,39 +61,46 @@ object IntCSP {
         val expr: Option[Comp] = asIntFunction(f).map(fi => Comp(fi, args.toArray))
         Some(Expr(domainOfType(typ), expr, typ))
       case _ =>
-        unexpected(s"${coalgebra(id)} is not supported.")
+        unexpected(s"$e is not supported.")
     }
   }
-
-  def intProblem(ast: IntBoolSatisfactionProblem[_]): IntCSP[IntCSP.Key[ast.K]] = {
-    type K = IntCSP.Key[ast.K]
-
-    val factory = new IMapBuilder[Expr]
-
-    ast.algebra.domain
-      .toIterable()
-      .map(i => IntCSP.translate(i, ast.algebra.asFunction).map((i, _)))
-      .foreach {
-        case Some((i, expr)) =>
-          factory += (i, expr)
-        case _ => // not representable or not in candidate set, ignore
-      }
-
-    val conjunction = Set(ast.root.asInstanceOf[K])
-    new IntCSP[K] {
-      private val pb: ArrayMap.Aux[K, Expr] =
-        factory.toImmutableArray.castKey[K]
-
-      override def toSatisfy: Set[K] = conjunction
-
-      override def dom: K => IntDomain = pb(_).domain
-
-      override def exprs: K => Option[Comp] = pb(_).comp
-
-      override def vars: Array[K] = pb.domain.toArray
-
-      override def getSolver: CSP[K] =
-        new CSP(pb, toSatisfy)
-    }
-  }
+//  def intProblem[X](ast: RootedLazyTree[X, Total]): IntCSP[X] = {
+////    type K = IntCSP.Key[ast.ID]
+//
+//    val factory = new IMapBuilder[Expr]
+//
+////    val nodes = ast.nodes
+////      .map { case (a, fa) => IntCSP.translate(fa).map((a, _)) }
+////      .foreach {
+////        case Some((i, expr)) => factory += (i, expr)
+////        case _ => // not representable ??? // TODO: doule check that we don't want to raise an error.
+////      }
+//
+////    ast.algebra.domain
+////      .toIterable()
+////      .map(i => IntCSP.translate(i, ast.algebra.asFunction).map((i, _)))
+////      .foreach {
+////        case Some((i, expr)) =>
+////          factory += (i, expr)
+////        case _ => // not representable or not in candidate set, ignore
+////      }
+////
+////    val conjunction = Set(ast.root.asInstanceOf[K])
+////    new IntCSP[K] {
+////      private val pb: ArrayMap.Aux[K, Expr] =
+////        factory.toImmutableArray.castKey[K]
+////
+////      override def toSatisfy: Set[K] = conjunction
+////
+////      override def dom: K => IntDomain = pb(_).domain
+////
+////      override def exprs: K => Option[Comp] = pb(_).comp
+////
+////      override def vars: Array[K] = pb.domain.toArray
+////
+////      override def getSolver: CSP[K] =
+////        new CSP(pb, toSatisfy)
+////    }
+//      ???
+//  }
 }

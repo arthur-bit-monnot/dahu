@@ -17,8 +17,8 @@ import scala.util.{Failure, Success, Try}
 import dahu.utils.debug._
 
 case class Config(problemFile: File = null,
-                  minInstances: Int = 0,
-                  maxInstances: Int = 500,
+                  minInstances: Int = 1,
+                  maxInstances: Int = 6,
                   symBreak: Boolean = true,
                   useXorForSupport: Boolean = true,
                   numThreads: Int = 1,
