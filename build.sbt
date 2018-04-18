@@ -33,7 +33,6 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:higherKinds",
     "-language:existentials",
-
     // experimental option to speed up the build	
     //"-Ycache-plugin-class-loader",
     //"-Ycache-macro-class-loader"
@@ -124,10 +123,11 @@ lazy val planner = project
     mainClass in assembly := Some("dahu.planner.Main"),
     assemblyJarName in assembly := "dahu-planner.jar"
   )
-  .settings(libraryDependencies ++= Seq(
-    "com.github.scopt" %% "scopt" % "3.7.0",
-    "io.monix" %% "monix" % "3.0.0-RC1"
-  ))
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.scopt" %% "scopt" % "3.7.0",
+      "io.monix" %% "monix" % "3.0.0-RC1"
+    ))
 
 resolvers += Resolver.sonatypeRepo("releases")
 

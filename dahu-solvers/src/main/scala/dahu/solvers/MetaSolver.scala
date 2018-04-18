@@ -19,13 +19,13 @@ class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver
     case _ => ???
   }
 
-  def nextSolution(deadline: Long = -1): Option[ast.Assignment] = solver.nextSatisfyingAssignment(deadline) match {
-    case Some(assignment) =>
-      val total: ast.Assignment = (x: ast.VID) =>
-        assignment(x).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
-      Some(total)
-    case None => None
-  }
+  def nextSolution(deadline: Long = -1): Option[ast.Assignment] =
+    solver.nextSatisfyingAssignment(deadline) match {
+      case Some(assignment) =>
+        val total: ast.Assignment = (x: ast.VID) => assignment(x).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
+        Some(total)
+      case None => None
+    }
 
   def enumerateSolutions(maxSolutions: Option[Int] = None,
                          onSolutionFound: ast.Assignment => Unit = _ => ()): Int = {

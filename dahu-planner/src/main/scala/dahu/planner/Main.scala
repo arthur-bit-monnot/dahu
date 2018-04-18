@@ -17,15 +17,13 @@ import scala.util.{Failure, Success, Try}
 import dahu.utils.debug._
 
 case class Config(problemFile: File = null,
-                  minInstances: Int = 1,
-                  maxInstances: Int = 6,
+                  minInstances: Int = 0,
+                  maxInstances: Int = 500,
                   symBreak: Boolean = true,
                   useXorForSupport: Boolean = true,
                   numThreads: Int = 1,
-                  maxRuntime: Int = 300,
-                  warmupTimeSec: Int = 0
-                 )
-
+                  maxRuntime: Int = 1800,
+                  warmupTimeSec: Int = 0)
 
 object Main extends App {
 
@@ -33,7 +31,7 @@ object Main extends App {
     head("dahu", "0.x")
 
     opt[Int]("num-threads")
-        .action((n, c) => c.copy(numThreads = n))
+      .action((n, c) => c.copy(numThreads = n))
 
     opt[Int]("warmup")
       .action((t, c) => c.copy(warmupTimeSec = t))
@@ -63,12 +61,13 @@ object Main extends App {
         info("Warming up...")
         dahu.utils.debug.LOG_LEVEL = 0
 
-        val warmUpTask = solveTask(cfg.problemFile, System.currentTimeMillis() + cfg.warmupTimeSec * 1000)
+        val warmUpTask =
+          solveTask(cfg.problemFile, System.currentTimeMillis() + cfg.warmupTimeSec * 1000)
             .map(res => Success(res))
             .timeoutTo(cfg.warmupTimeSec.seconds, Task(Failure(new TimeoutException())))
             .runAsync
 
-        Try(Await.result(warmUpTask, (cfg.warmupTimeSec +10).seconds))
+        Try(Await.result(warmUpTask, (cfg.warmupTimeSec + 10).seconds))
 
         dahu.utils.debug.LOG_LEVEL = 3
       }
@@ -79,20 +78,19 @@ object Main extends App {
         val fw = new FileWriter("dahu-result.txt", true)
         try {
           fw.write(s"${cfg.problemFile.getName} ${if(solved) "SOLVED" else "FAIL"} $time\n")
-        }
-        finally fw.close()
+        } finally fw.close()
       }
 
       val future =
         solveTask(cfg.problemFile, System.currentTimeMillis() + cfg.maxRuntime * 1000)
-        .map(res => Success(res))
-        .timeoutTo(cfg.maxRuntime.seconds, Task(Failure(new TimeoutException())))
-        .runAsync
+          .map(res => Success(res))
+          .timeoutTo(cfg.maxRuntime.seconds, Task(Failure(new TimeoutException())))
+          .runAsync
 
-      Await.result(future, (cfg.maxRuntime +10).seconds) match {
+      Await.result(future, (cfg.maxRuntime + 10).seconds) match {
         case Success(Some(result)) =>
           val runtime = System.currentTimeMillis() - startTime
-          out(s"== Solution (in ${runtime / 1000}.${(runtime %1000)/10}s) ==")
+          out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
           out(result.toString)
           writeResult(solved = true, runtime)
         case Success(None) =>
@@ -132,16 +130,17 @@ object Main extends App {
     }
   }
 
-  def solveIncremental(model: core.CoreModel, maxSteps: Int, deadline: Long)(implicit cfg: Config): Option[String] = {
+  def solveIncremental(model: core.CoreModel, maxSteps: Int, deadline: Long)(
+      implicit cfg: Config): Option[String] = {
     val q = new java.util.concurrent.ConcurrentLinkedQueue[Integer]()
     for(i <- cfg.minInstances to cfg.maxInstances)
       q.add(i)
 
     val workers = (0 until cfg.numThreads) map { workerID =>
       Task {
-        while (System.currentTimeMillis() < deadline) {
+        while(System.currentTimeMillis() < deadline) {
           val step: Integer = q.poll()
-          if (step == null)
+          if(step == null)
             return None
 
           info(s"Depth: $step (worker: $workerID)")
@@ -154,7 +153,7 @@ object Main extends App {
           }
         }
         None
-      } : Task[Option[String]]
+      }: Task[Option[String]]
     }
     val future = Task.raceMany(workers).runAsync
 
@@ -164,11 +163,12 @@ object Main extends App {
       case Success(solution) =>
         solution
       case Failure(to: TimeoutException) => None
-      case Failure(e) => throw e
+      case Failure(e)                    => throw e
     }
   }
 
-  def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Long)(implicit cfg: Config): Option[String] = {
+  def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Long)(
+      implicit cfg: Config): Option[String] = {
     if(System.currentTimeMillis() >= deadline)
       return None
 

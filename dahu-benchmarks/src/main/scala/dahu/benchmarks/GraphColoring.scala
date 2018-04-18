@@ -29,7 +29,7 @@ object GraphColoring extends Family("graph-coloring") {
     val B = color("B")
 //    val C = color("C")
 
-    val sat = A =!= B// && B =!= C// && C =!= A
+    val sat = A =!= B // && B =!= C// && C =!= A
     Seq(
       SatProblem.fromSat(sat, 6),
 //      SatProblem.fromSat(sat && A === Green, 2),

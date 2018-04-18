@@ -7,6 +7,20 @@ import scala.reflect.ClassTag
 
 object structures {
 
+  object ArrayUtils {
+    def map[@specialized(Int) A, @specialized(Int) B](array: Array[A])(f: A => B)(
+        implicit ct: ClassTag[B]): Array[B] = {
+      val ret = Array.ofDim[B](array.length)
+      var i = 0
+      while(i < array.length) {
+        ret(i) = f(array(i))
+        i += 1
+      }
+      ret
+    }
+
+  }
+
   /** todo: check if we need to specialized this, e.g. requiring `A <: Int` to avoid boxing. */
   implicit final class BufferOps[A](val buff: debox.Buffer[A]) extends AnyVal {
 

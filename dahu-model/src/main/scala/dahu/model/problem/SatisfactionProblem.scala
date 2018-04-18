@@ -174,66 +174,12 @@ object SatisfactionProblem {
 
 object SatisfactionProblemFAST {
 
-  def satisfactionSubAST(ast: AST[_]): TotalSubAST[ast.ID] = {
-    val condition = encode(ast.root, ast.tree.asFunction)
-    ???
-//    val memory = mutable.LinkedHashMap[Total[Int], Int]()
-//
-//    val alg: Total[Int] => Int = env => {
-//      memory.getOrElseUpdate(env, memory.size)
-//    }
-//    val treeRoot = Recursion.cata[Total, Int](alg)(condition)
-//    val reversedMemory = memory.map(_.swap).toMap
-//    val genTree = ArrayMap.build(reversedMemory.keys, k => reversedMemory(k))
-//
-//    new TotalSubAST[ast.ID] {
-//      override def tree: ArrayMap.Aux[ID, Total[ID]] =
-//        genTree.asInstanceOf[ArrayMap.Aux[ID, Total[ID]]]
-//
-//      override def root: ID = treeRoot.asInstanceOf[ID]
-//
-//      override val subset: TotalSubAST.SubSet[ast.ID, ID] = new TotalSubAST.SubSet[ast.ID, ID] {
-//        override def from: ID => Option[ast.ID] = x => {
-//          val e = tree(x)
-//          ast.reverseTree.get(e.asInstanceOf[ast.Expr])
-//        }
-//        override def to: ast.ID => Option[ID] = x => {
-//          val e: ExprF[ast.ID] = ast.tree(x)
-//          e match {
-//            case t: Total[_] => reverseTree.get(t.asInstanceOf[Total[ID]])
-//            case _           => None
-//          }
-//        }
-//
-//      }
-//    }
-  }
-
   type ID = Int
 
   private object Utils {
     import scala.language.implicitConversions
     implicit def autoFix[F[_]](x: F[Fix[F]]): Fix[F] = Fix(x)
 
-    def and(conjuncts: ID*)(implicit record: Total[ID] => ID): ID = {
-      record(ComputationF(bool.And, conjuncts, Tag.ofBoolean))
-//      assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
-//      val nonEmptyConjuncts = conjuncts.filter {
-//        case ComputationF(bool.And, Seq(), _) => false
-//        case CstF(true, _)                    => false
-//        case _                                => true
-//      }
-//      ComputationF(bool.And, nonEmptyConjuncts, Tag.ofBoolean)
-    }
-    def not(e: ID)(implicit record: Total[ID] => ID): ID = {
-//      assert(e.unfix.typ == Tag.ofBoolean)
-      record(ComputationF(bool.Not, Seq(e), Tag.ofBoolean))
-    }
-    def implies(cond: ID, eff: ID)(implicit record: Total[ID] => ID): ID = {
-//      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
-      val notCond = record(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
-      record(ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean))
-    }
   }
   import Utils._
 
@@ -271,10 +217,13 @@ object SatisfactionProblemFAST {
     def getInternalID(k: K): Opt[ID]
     def getInt(i: ID): F[ID]
 
-    def map[G[_]](f: F[Int] => G[Int])(implicit fOpt: Functor[Opt]): ILazyTree[K, G, Opt] = new MappedLazyTree(f, this)
+    def map[G[_]](f: F[Int] => G[Int])(implicit fOpt: Functor[Opt]): ILazyTree[K, G, Opt] =
+      new MappedLazyTree(f, this)
   }
 
-  class MappedLazyTree[K, F[_], G[_], Opt[_] : Functor](f: F[Int] => G[Int], mapped: ILazyTree[K, F, Opt]) extends ILazyTree[K,G, Opt] {
+  class MappedLazyTree[K, F[_], G[_], Opt[_]: Functor](f: F[Int] => G[Int],
+                                                       mapped: ILazyTree[K, F, Opt])
+      extends ILazyTree[K, G, Opt] {
     private val memo = mutable.HashMap[ID, G[ID]]()
 
     override def getExt(k: K): Opt[G[ID]] = {
@@ -286,9 +235,9 @@ object SatisfactionProblemFAST {
     override def getInt(i: ID): G[ID] = memo.getOrElseUpdate(i, f(mapped.getInt(i)))
   }
 
-
-  case class RootedLazyTree[K, F[_], Opt[_] : Functor](root: Int, tree: ILazyTree[K,F, Opt]) {
-    def map[G[_]](f: F[Int] => G[Int]): RootedLazyTree[K,G, Opt] = RootedLazyTree(root, tree.map(f))
+  case class RootedLazyTree[K, F[_], Opt[_]: Functor](root: Int, tree: ILazyTree[K, F, Opt]) {
+    def map[G[_]](f: F[Int] => G[Int]): RootedLazyTree[K, G, Opt] =
+      RootedLazyTree(root, tree.map(f))
 
     def nodes(implicit tn: TreeNode[F]): Seq[(tree.ID, F[tree.ID])] = {
       val queue = mutable.Stack[tree.ID]()
@@ -311,100 +260,45 @@ object SatisfactionProblemFAST {
     }
   }
 
-//  class LazyTree2[K, F[_]: TreeNode: Functor, G[_]](f: K => F[K],
-//                                                   g: (G[ID] => ID) => F[G[ID]] => G[ID]) extends ILazyTree[K,G] {
+  final class Context(val rec: Total[ID] => ID) {
+    val TRUE: ID = rec(CstF(Value(true), Tag.ofBoolean))
+    val FALSE: ID = rec(CstF(Value(false), Tag.ofBoolean))
 
-//  class LazyTree[K, F[_]: TreeNode: Functor, G[_]](f: K => F[K],
-//                                                   g: (G[ID] => ID) => F[G[ID]] => G[ID]) extends ILazyTree[K,G] {
-//    private val treeNode = implicitly[TreeNode[F]]
-//    private val functor = implicitly[Functor[F]]
-//
-//    private val idsMap = mutable.HashMap[K, ID]()
-//    private val repMap = mutable.ArrayBuffer[G[ID]]() // ID => G[ID]
-//
-//    private val g2: F[G[ID]] => G[ID] = g(ga => {
-//      val id = repMap.size
-//      repMap += ga
-//      id
-//    })
-//
-//    @inline private def processed(k: K): Boolean = idsMap.contains(k)
-//
-//    def get(k: K): G[ID] = {
-//      val queue = mutable.Queue[K]()
-//      queue += k
-//      while(queue.nonEmpty) {
-//        val cur = queue.dequeue()
-//        val fk = f(k)
-//        if(treeNode.children(fk).forall(processed)) {
-//          val fg = functor.map(fk)(id => repMap(idsMap(id)))
-//          val g: G[ID] = g2(fg)
-//          val id: ID = repMap.size
-//          repMap += g
-//          idsMap += ((k, id))
-//        } else {
-//          queue ++= treeNode.children(fk)
-//          queue += k
-//        }
-//      }
-//      repMap(idsMap(k))
-//    }
-//
-//    override def getExt(k: K): G[ID] = get(k)
-//
-//    override def getInt(i: ID): G[ID] = repMap(i)
-//  }
-
-  abstract class TreeGenerator[K, F[_] : Functor : TreeNode] {
-    def gen(k: K) : F[K]
-//    def rec(fk: F[K]) : K
-
-    private val treeNode = implicitly[TreeNode[F]]
-    private val F = implicitly[Functor[F]]
-
-    def cata[G](key: K)(f: F[G] =>  G) : G = {
-      val trees = mutable.HashMap[K, G]()
-
-      val queue = mutable.Stack[K]()
-      queue.push(key)
-
-      while(queue.nonEmpty) {
-        val cur = queue.pop()
-        val fk = gen(cur)
-//        println(s"$cur (${queue.size}) -- $fk -- ${treeNode.children(fk)}")
-        if(treeNode.children(fk).forall(k => trees.contains(k))) {
-          val tree = f(F.map(fk)(id => trees(id)))
-          trees += ((cur, tree))
-        } else {
-          queue.push(cur)
-          queue.pushAll(treeNode.children(fk))
-        }
+    def and(conjuncts: ID*): ID = {
+      if(conjuncts.contains(FALSE)) {
+        FALSE
+      } else {
+        val reduced = conjuncts.distinct.filter(_ != TRUE).sorted
+        if(reduced.isEmpty)
+          TRUE
+        else if(reduced.size == 1)
+          reduced.head
+        else
+          rec(ComputationF(bool.And, reduced, Tag.ofBoolean))
       }
-      trees(key)
+    }
+    def or(disjuncts: ID*): ID = {
+      if(disjuncts.contains(TRUE)) {
+        TRUE
+      } else {
+        val reduced = disjuncts.distinct.filter(_ != FALSE).sorted
+        if(reduced.isEmpty)
+          FALSE
+        else if(reduced.size == 1)
+          reduced.head
+        else
+          rec(ComputationF(bool.Or, reduced, Tag.ofBoolean))
+      }
+    }
+    def not(e: ID): ID = {
+      rec(ComputationF(bool.Not, Seq(e), Tag.ofBoolean))
+    }
+    def implies(cond: ID, eff: ID): ID = {
+      or(not(cond), eff)
     }
   }
-  class TreeGenWithMap[ID, F[_], G[_] : Functor : TreeNode](f: F[ID] => G[ID], base: TreeGenerator[ID, F]) extends TreeGenerator[ID, G] {
-    private val fw = mutable.HashMap[ID, G[ID]]()
-//    private val bw = mutable.HashMap[G[ID], ID]()
 
-    override def gen(k: ID): G[ID] =
-      if(fw.contains(k))
-        fw(k)
-      else {
-        val gk = f(base.gen(k))
-        fw += ((k, gk))
-        gk
-      }
-  }
-
-  case class TreeWithRoot[K, F[_]](root: K, treeGenerator: TreeGenerator[K,F]) {
-    def cata[G](f: F[G] => G): G = treeGenerator.cata(root)(f)
-    def tree: Fix[F] = treeGenerator.cata[Fix[F]](root)(n => Fix(n))
-
-    def map[G[_] : Functor : TreeNode](f: F[K] => G[K]): TreeWithRoot[K, G] = TreeWithRoot(root, new TreeGenWithMap(f, treeGenerator))
-  }
-
-  class LazyTreeSpec[K](f: K => ExprF[K], g: (Total[ID] => ID) => ExprF[IR[ID]] => IR[ID]) {
+  class LazyTreeSpec[@specialized(Int) K](f: K => ExprF[K], g: Context => ExprF[IR[ID]] => IR[ID]) {
     private val treeNode = implicitly[TreeNode[ExprF]]
     private val functor = implicitly[Functor[ExprF]]
 
@@ -421,12 +315,10 @@ object SatisfactionProblemFAST {
         memo += ((e, id))
         id
       }
-
     }
+    private val ctx: Context = new Context(getID)
 
-    private val g2: ExprF[IR[ID]] => IR[ID] = g(ga => {
-      getID(ga)
-    })
+    private val g2: ExprF[IR[ID]] => IR[ID] = g(ctx)
 
     @inline private def processed(k: K): Boolean = idsMap.contains(k)
 
@@ -439,7 +331,6 @@ object SatisfactionProblemFAST {
       while(queue.nonEmpty) {
         val cur = queue.pop()
         val fk = f(cur)
-//        println(s"$cur (${queue.size}) -- $fk -- ${treeNode.children(fk)}")
         if(treeNode.children(fk).forall(processed)) {
           val fg = functor.map(fk)(id => idsMap(id))
           val g: IR[ID] = g2(fg)
@@ -451,111 +342,70 @@ object SatisfactionProblemFAST {
       }
       idsMap(key)
     }
-
-    def tree(key: ID): TreeWithRoot[ID, Total] = {
-      val treeNode = implicitly[TreeNode[Total]]
-      val F = implicitly[Functor[Total]]
-
-      val trees = mutable.HashMap[ID, Fix[Total]]()
-
-      val queue = mutable.Stack[ID]()
-      queue.push(key)
-
-      while(queue.nonEmpty) {
-        val cur = queue.pop()
-        val fk = repMap(cur)
-//        println(s"$cur (${queue.size}) -- $fk -- ${treeNode.children(fk)}")
-        if(treeNode.children(fk).forall(k => trees.contains(k))) {
-          val tree = F.map(fk)(id => trees(id))
-          trees += ((cur, tree))
-        } else {
-          queue.push(cur)
-          queue.pushAll(treeNode.children(fk))
-        }
-      }
-      trees(key)
-      val x = new TreeGenerator[ID, Total] {
-        override def gen(k: ID): Total[ID] = repMap(k)
-      }
-      TreeWithRoot(key, x)
-    }
   }
 
-  // X => ExprF[X]
-  // ExprF[IR] => IR
-  // X => IR ?
+  case class IR[@specialized(Int) A](value: A, present: A, valid: A)
 
-  case class IR[A](value: A, present: A, valid: A)
-
-  def compiler[X](record: Total[ID] => ID): ExprF[IR[ID]] => IR[ID] = x => {
-    implicit val implRec = record
+  def compiler(ctx: Context): ExprF[IR[ID]] => IR[ID] = x => {
     val ir = x match {
-      case x: InputF[_] => IR(record(x), and(), and())
-      case x: CstF[_]   => IR(record(x), and(), and())
+      case x: InputF[_] => IR(ctx.rec(x), ctx.TRUE, ctx.TRUE)
+      case x: CstF[_]   => IR(ctx.rec(x), ctx.TRUE, ctx.TRUE)
       case ComputationF(f, args, t) =>
         IR(
-          value = record(ComputationF(f, args.map(a => a.value), t)),
-          present = and(args.map(_.present): _*),
-          valid = and(args.map(_.valid): _*)
+          value = ctx.rec(ComputationF(f, args.map(a => a.value), t)),
+          present = ctx.and(args.map(_.present): _*),
+          valid = ctx.and(args.map(_.valid): _*)
         )
       case ProductF(members, t) =>
         IR(
-          value = record(ProductF(members.map(a => a.value), t)),
-          present = and(members.map(_.present): _*),
-          valid = and(members.map(_.valid): _*)
+          value = ctx.rec(ProductF(members.map(a => a.value), t)),
+          present = ctx.and(members.map(_.present): _*),
+          valid = ctx.and(members.map(_.valid): _*)
         )
       case ITEF(cond, onTrue, onFalse, t) =>
         IR(
-          value = record(ITEF(cond.value, onTrue.value, onFalse.value, t)),
-          present = and(cond.present,
-                        implies(cond.value, onTrue.present),
-                        implies(not(cond.value), onFalse.present)),
-          valid = and(cond.valid,
-                      implies(cond.value, onTrue.valid),
-                      implies(not(cond.value), onFalse.valid))
+          value = ctx.rec(ITEF(cond.value, onTrue.value, onFalse.value, t)),
+          present = ctx.and(cond.present,
+                            ctx.implies(cond.value, onTrue.present),
+                            ctx.implies(ctx.not(cond.value), onFalse.present)),
+          valid = ctx.and(cond.valid,
+                          ctx.implies(cond.value, onTrue.valid),
+                          ctx.implies(ctx.not(cond.value), onFalse.valid))
         )
       case OptionalF(value, present, _) =>
         IR(
           value = value.value,
-          present = and(value.present, present.present, present.value),
-          valid = and(present.valid, value.valid)
+          present = ctx.and(value.present, present.present, present.value),
+          valid = ctx.and(present.valid, value.valid)
         )
       case PresentF(opt) =>
         IR(
           value = opt.present,
-          present = and(),
+          present = ctx.TRUE,
           valid = opt.valid
         )
       case ValidF(part) =>
         IR(
           value = part.valid,
           present = part.present,
-          valid = and()
+          valid = ctx.TRUE
         )
       case Partial(value, condition, tpe) =>
         IR(
           value = value.value,
           present = value.present,
-          valid =
-            and(value.valid, implies(condition.present, and(condition.value, condition.valid)))
+          valid = ctx.and(value.valid,
+                          ctx.implies(condition.present, ctx.and(condition.value, condition.valid)))
         )
     }
     ir
   }
 
-  def optimizer(tot: Fix[Total]): Fix[Total] =
-    dahu.recursion.Recursion
-      .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(tot)
-
-
-  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): RootedLazyTree[X, Total, cats.Id] = {
+  def encode[@specialized(Int) X](root: X,
+                                  coalgebra: FCoalgebra[ExprF, X],
+                                  optimize: Boolean = true): RootedLazyTree[X, Total, cats.Id] = {
     val lt = new LazyTreeSpec[X](coalgebra, compiler)
     val x = lt.get(root)
-
-//    println(x)
-//
-//    lt.tree(x.valid)
-//      .cata[Fix[Total]](node => Fix(node))
 
     val totalTrees = new ILazyTree[X, Total, cats.Id] {
       override def getExt(k: X): Total[ID] = lt.get(lt.get(k).value)
@@ -564,16 +414,6 @@ object SatisfactionProblemFAST {
     }
     val satRoot = lt.get(root).valid
     RootedLazyTree(satRoot, totalTrees)
-//    val cache = mutable.Map[ExprF[IR], IR]()
-//    val ir = Recursion.hylo(coalgebra, compiler(cache, optimize = optimize))(root)
-//
-//    println(s"MISS / HIT : $cacheMiss / $cacheHit")
-//
-//        println(Algebras.format(ir.valid))
-//    if(optimize)
-//      optimizer(ir.valid)
-//    else
-//      ir.valid
   }
 
 }

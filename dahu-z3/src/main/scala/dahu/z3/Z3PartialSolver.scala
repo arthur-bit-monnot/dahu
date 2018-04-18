@@ -13,12 +13,13 @@ import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class TreeBuilder[X, F[_], G, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(implicit F: Functor[F], T: TreeNode[F]) {
+class TreeBuilder[X, F[_], G, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(implicit F: Functor[F],
+                                                                             T: TreeNode[F]) {
   private val memo = mutable.HashMap[t.ID, G]()
 
-  def build(k: t.ID) : G = {
+  def build(k: t.ID): G = {
     val stack = mutable.Stack[t.ID]()
-    def push(i: t.ID) : Unit = {
+    def push(i: t.ID): Unit = {
       if(!memo.contains(i))
         stack.push(i)
     }
@@ -61,14 +62,14 @@ class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Partia
           case i: IntNum =>
             ast.tree.getExt(id).typ match {
               case t: TagIsoInt[_] => Some(t.toValue(i.getInt))
-              case _ => unexpected
+              case _               => unexpected
             }
           case b: BoolExpr =>
             b.getBoolValue match {
               case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))
-              case enumerations.Z3_lbool.Z3_L_TRUE => Some(Value(true))
+              case enumerations.Z3_lbool.Z3_L_TRUE  => Some(Value(true))
               case enumerations.Z3_lbool.Z3_L_UNDEF => None
-              case _ => unexpected
+              case _                                => unexpected
             }
         }
 
