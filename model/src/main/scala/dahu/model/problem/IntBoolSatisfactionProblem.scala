@@ -137,7 +137,6 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
             }
           }
         }
-        println(s"PUSH / POPS : $pushes / $pops")
         repMap(idsMap(origID))
       }
 
