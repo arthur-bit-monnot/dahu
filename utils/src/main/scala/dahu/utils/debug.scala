@@ -55,7 +55,7 @@ object debug {
   def out(msg: String, withDuration: Boolean = false): Unit = {
     val time = System.currentTimeMillis()
     if(prevNeedsTime)
-      println(s"\t[${time-lastLog}]")
+      println(s"\t[${time - lastLog}]")
     if(withDuration) {
       print(msg)
       prevNeedsTime = true

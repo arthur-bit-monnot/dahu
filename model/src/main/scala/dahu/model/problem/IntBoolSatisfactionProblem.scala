@@ -49,42 +49,19 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
     def unsupported[K](): CellOpt[K] = Unsupported.asInstanceOf[CellOpt[K]]
 
     private val supportedFunctions = Set[Fun[_]](int.Add,
-      int.LEQ,
-      int.EQ,
-      int.Times,
-      int.Negate,
-      int.Min,
-      bool.And,
-      bool.Or,
-      bool.XOr,
-      bool.Not)
+                                                 int.LEQ,
+                                                 int.EQ,
+                                                 int.Times,
+                                                 int.Negate,
+                                                 int.Min,
+                                                 bool.And,
+                                                 bool.Or,
+                                                 bool.XOr,
+                                                 bool.Not)
 
-    //    implicit val dag: DAG[Total, ast.ID] = new DAG[Total, ast.ID] {
-    //      override def algebra: ast.ID => Total[ast.ID] = ast.tree.asFunction
-    //
-    //      override def children(graph: Total[ast.ID]): Set[ast.ID] = graph match {
-    //        case ProductF(members, _)     => members.toSet
-    //        case ComputationF(_, args, _) => args.toSet
-    //        case _                        => Set()
-    //      }
-    //    }
-
-    // translate all nodes of the AST to cells.
-    // we need to take since we want to maintain the same IDs and a node typically refers to its subnodes.
-    //    private val leavesToRoot = dag.topologicalOrder(ast.tree.domain.toScalaSet()).reverse
-    //    private val originalCells = mutable.Map[ID, CellOpt]()
-    //    for(i <- leavesToRoot) {
-    //      originalCells += ((i, TRANS(ast.tree(i))))
-    //    }
-
-    // AST:
-    //   X => Total[AST.ID]
-    //   AST.ID => Total[AST.ID]
-    // target:
-    //   X => CellOpt
-
-    abstract class LazyTree[K, F[_] : TreeNode : Functor, G[_], Opt[_] : Functor](orig: ILazyTree[K, F, Opt])
-      extends ILazyTree[K, G, Opt] {
+    abstract class LazyTree[K, F[_]: TreeNode: Functor, G[_], Opt[_]: Functor](
+        orig: ILazyTree[K, F, Opt])
+        extends ILazyTree[K, G, Opt] {
 
       def g(rec: G[ID] => ID)(prev: ID => G[ID])(node: F[ID]): G[ID]
 
@@ -122,11 +99,11 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
           }
         }
         push(origID)
-        while (queue.nonEmpty) {
+        while(queue.nonEmpty) {
           val cur = queue.pop()
           if(!processed(cur)) {
             val fk = orig.getInt(cur)
-            if (treeNode.children(fk).forall(processed)) {
+            if(treeNode.children(fk).forall(processed)) {
               val fg: F[ID] = functor.map(fk)(id => idsMap(id))
               val g: G[ID] = g2(fg)
               val id = rec(g)
@@ -149,11 +126,11 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
 
     private def sup[X](e: CellOpt[X]) = e match {
       case Unsupported => false
-      case _ => true
+      case _           => true
     }
 
     private def TRANS[K](rec: CellOpt[K] => K)(prev: K => CellOpt[K])(
-      node: Total[K]): CellOpt[K] = {
+        node: Total[K]): CellOpt[K] = {
       def and(conjuncts: CellOpt[K]*): CellOpt[K] = {
         IntermediateExpression(
           ComputationF(bool.And, conjuncts.toSeq.map(x => rec(x)), Tag.ofBoolean)
@@ -169,19 +146,19 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
 
       node match {
-        case x@CstF(v, Tag.ofBoolean) => SupportedConstant(x)
-        case x@CstF(v, t: TagIsoInt[_]) =>
+        case x @ CstF(v, Tag.ofBoolean) => SupportedConstant(x)
+        case x @ CstF(v, t: TagIsoInt[_]) =>
           CompatibleConstant(CstF(Value(t.toIntUnsafe(v)), Tag.ofInt), t)
-        case x@InputF(name, Tag.ofBoolean) => SupportedInput(x)
-        case x@InputF(name, t: TagIsoInt[_]) => CompatibleInput(InputF(name, Tag.ofInt), t)
-        case x@ComputationF(f, args, t: TagIsoInt[_])
-          if supportedFunctions.contains(f) && args.forall(x => sup(prev(x))) =>
+        case x @ InputF(name, Tag.ofBoolean)   => SupportedInput(x)
+        case x @ InputF(name, t: TagIsoInt[_]) => CompatibleInput(InputF(name, Tag.ofInt), t)
+        case x @ ComputationF(f, args, t: TagIsoInt[_])
+            if supportedFunctions.contains(f) && args.forall(x => sup(prev(x))) =>
           IntermediateExpression(ComputationF(f, args, t))
-        case x@ComputationF(wf: WrappedFunction, args, t: TagIsoInt[_])
-          if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
+        case x @ ComputationF(wf: WrappedFunction, args, t: TagIsoInt[_])
+            if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
           TRANS(rec)(prev)(ComputationF(wf.f, args, t)) // unwrap and retry
 
-        case x@ComputationF(f: Unboxed[_], Seq(arg), t) =>
+        case x @ ComputationF(f: Unboxed[_], Seq(arg), t) =>
           prev(arg) // unbox operation, use the previous cell
 
         case x =>
@@ -198,7 +175,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
 
     val lt = new LazyTree[X, Total, CellOpt, cats.Id](ast.tree) {
       override def g(rec: CellOpt[ID] => ID)(prev: ID => CellOpt[ID])(
-        node: Total[ID]): CellOpt[ID] =
+          node: Total[ID]): CellOpt[ID] =
         TRANS(rec)(prev)(node)
     }
 
@@ -214,14 +191,14 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       val cs = mutable.HashSet[lt.ID]()
       val visited = mutable.HashSet[lt.ID]()
       val stack = mutable.Stack[lt.ID]()
-      def push(i: lt.ID) : Unit = { if(!visited.contains(i)) stack.push(i) }
+      def push(i: lt.ID): Unit = { if(!visited.contains(i)) stack.push(i) }
 
       push(k)
       while(stack.nonEmpty) {
         val cur = stack.pop()
         visited += cur
         lt.getInt(cur) match {
-          case i@CompatibleInput(_, tpe) =>
+          case i @ CompatibleInput(_, tpe) =>
             cs += lt.rec(leq(cst(tpe.min), i))
             cs += lt.rec(leq(i, cst(tpe.max)))
           case IntermediateExpression(e) =>
@@ -237,8 +214,8 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
     private val internalPrevRoot = lt.rec(lt.getFromOrigID(ast.root))
     private val rootValue = IntermediateExpression(
       ComputationF(bool.And,
-        (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
-        bool.And.tpe))
+                   (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
+                   bool.And.tpe))
     val root: lt.ID = lt.rec(rootValue)
 
 //    val optTree: RootedLazyTree[X, CellOpt, cats.Id] = RootedLazyTree(root, lt)
@@ -248,11 +225,11 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
     val partialTree = new ILazyTree[X, Total, Option] {
       val t = lt.map[OptTotal]({
         case IntermediateExpression(e) => Some(e)
-        case CompatibleInput(v, _) => Some(v)
-        case SupportedInput(v) => Some(v)
-        case CompatibleConstant(v, _) => Some(v)
-        case SupportedConstant(v) => Some(v)
-        case x if x == Unsupported => None
+        case CompatibleInput(v, _)     => Some(v)
+        case SupportedInput(v)         => Some(v)
+        case CompatibleConstant(v, _)  => Some(v)
+        case SupportedConstant(v)      => Some(v)
+        case x if x == Unsupported     => None
       })
       override def getExt(k: X): Option[Total[ID]] = t.getExt(k)
 
@@ -260,10 +237,9 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
 
       override def getInt(i: ID): Total[ID] = t.getInt(i) match {
         case Some(e) => e
-        case None => unexpected
+        case None    => unexpected
       }
     }
-
 
     val tree = RootedLazyTree(root, partialTree)
   }
