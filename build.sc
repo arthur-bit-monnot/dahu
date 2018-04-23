@@ -28,6 +28,11 @@ trait Module extends SbtModule {
     "-Ycache-plugin-class-loader:last-modified",
     "-Ycache-macro-class-loader:last-modified"
   )
+
+   def unmanagedClasspath = T {
+     if (!ammonite.ops.exists(millSourcePath / "lib")) Agg()  else
+     Agg.from(ammonite.ops.ls(millSourcePath / "lib").map(PathRef(_)))
+   }
 }
 
 object anml extends Module {
@@ -75,3 +80,33 @@ object model extends Module {
     def testFrameworks = Seq("utest.runner.Framework")
   }
 }
+
+object solvers extends Module {
+  def moduleDeps = Seq(utils, model)
+
+  object tests extends Tests {
+    def ivyDeps = Agg(
+      ivy"com.lihaoyi::utest:0.6.4",
+      ivy"org.scalacheck::scalacheck:1.13.5"
+    )
+    def testFrameworks = Seq("utest.runner.Framework")
+  }
+}
+
+object z3 extends Module {
+  def moduleDeps = Seq(utils, model, solvers)
+}
+
+object planner extends Module {
+  def moduleDeps = Seq(anml, solvers, z3)
+
+  def ivyDeps = Agg(
+    ivy"com.github.scopt::scopt:3.7.0",
+    ivy"io.monix::monix:3.0.0-RC1"
+  )
+
+    object tests extends Tests {
+    def ivyDeps = Agg(ivy"com.lihaoyi::utest:0.6.4")
+    def testFrameworks = Seq("utest.runner.Framework")
+  }
+}  

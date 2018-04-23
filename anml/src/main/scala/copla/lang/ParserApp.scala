@@ -15,7 +15,7 @@ case class Config(mode: Mode = ParsingMode,
                   full: Boolean = false,
                   abstractionHierarchyType: AbstractionHierarchyType = DetailedKnoblock)
 
-object ParserApp extends App {
+object ParserApp {
 
   val optionsParser = new scopt.OptionParser[Config]("copla-lang") {
     head("""copla-lang is a set of libraries and command line utilities
@@ -61,27 +61,29 @@ object ParserApp extends App {
     }
   }
 
-  optionsParser.parse(args, Config()) match {
-    case Some(conf) if conf.mode == ParsingMode && conf.full =>
-      handleResult(parseToFull(conf.anmlFile),
-                   (m: full.Model) => println(Formatter[full.Model].format(m)))
-    case Some(conf) if conf.mode == ParsingMode =>
-      handleResult(parse(conf.anmlFile),
-                   (m: core.CoreModel) => println(Formatter[core.CoreModel].format(m)))
-    case Some(conf) if conf.mode == AbstractionHierarchyMode =>
-      handleResult(
-        parse(conf.anmlFile),
-        (m: core.CoreModel) => {
-          println(
-            analysis
-              .abstractionHierarchy(m, conf.abstractionHierarchyType)
-              .toSeq
-              .map { case (fluent, lvl) => s"$lvl $fluent" }
-              .sorted
-              .mkString("\n"))
-        }
-      )
-    case None =>
-      sys.exit(1)
+  def main(args: Array[String]): Unit = {
+    optionsParser.parse(args, Config()) match {
+      case Some(conf) if conf.mode == ParsingMode && conf.full =>
+        handleResult(parseToFull(conf.anmlFile),
+                     (m: full.Model) => println(Formatter[full.Model].format(m)))
+      case Some(conf) if conf.mode == ParsingMode =>
+        handleResult(parse(conf.anmlFile),
+                     (m: core.CoreModel) => println(Formatter[core.CoreModel].format(m)))
+      case Some(conf) if conf.mode == AbstractionHierarchyMode =>
+        handleResult(
+          parse(conf.anmlFile),
+          (m: core.CoreModel) => {
+            println(
+              analysis
+                .abstractionHierarchy(m, conf.abstractionHierarchyType)
+                .toSeq
+                .map { case (fluent, lvl) => s"$lvl $fluent" }
+                .sorted
+                .mkString("\n"))
+          }
+        )
+      case None =>
+        sys.exit(1)
+    }
   }
 }

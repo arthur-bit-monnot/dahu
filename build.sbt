@@ -56,8 +56,8 @@ lazy val root = project
   )
 
 lazy val anml = project
-  .in(file("copla-lang"))
-  .settings(name := "copla-lang")
+  .in(file("anml"))
+  .settings(name := "dahu-anml")
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= Seq(
     "com.lihaoyi" %% "fastparse" % "1.0.0",
@@ -67,7 +67,7 @@ lazy val anml = project
   ))
 
 lazy val utils = project
-  .in(file("dahu-utils"))
+  .in(file("utils"))
   .settings(name := "dahu-utils")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
@@ -86,7 +86,7 @@ lazy val recursion = project
     ))
 
 lazy val model = project
-  .in(file("dahu-model"))
+  .in(file("model"))
   .dependsOn(utils, recursion)
   .settings(name := "dahu-model")
   .settings(commonSettings ++ utestSettings: _*)
@@ -96,7 +96,7 @@ lazy val model = project
     ))
 
 lazy val solvers = project
-  .in(file("dahu-solvers"))
+  .in(file("solvers"))
   .dependsOn(utils, model)
   .settings(name := "dahu-solvers")
   .settings(commonSettings ++ utestSettings: _*)
@@ -106,18 +106,18 @@ lazy val solvers = project
     ))
 
 lazy val z3 = project
-  .in(file("dahu-z3"))
+  .in(file("z3"))
   .dependsOn(utils, model, solvers)
   .settings(name := "dahu-z3")
   .settings(commonSettings ++ utestSettings: _*)
 
 lazy val benchmarks = project
-  .in(file("dahu-benchmarks"))
+  .in(file("benchmarks"))
   .dependsOn(utils, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
 
 lazy val planner = project
-  .in(file("dahu-planner"))
+  .in(file("planner"))
   .dependsOn(anml, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
