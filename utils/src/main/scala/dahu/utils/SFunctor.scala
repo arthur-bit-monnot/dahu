@@ -1,8 +1,7 @@
-package dahu
-
-import scala.{specialized => sp}
+package dahu.utils
 
 import scala.reflect.ClassTag
+import scala.{specialized => sp}
 
 trait SFunctor[F[_]] {
 

@@ -1,12 +1,12 @@
 package dahu.z3
 
 import com.microsoft.z3._
-import dahu.SFunctor
 import dahu.model.ir._
 import dahu.model.problem.IntBoolSatisfactionProblem
 import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
+import dahu.utils.SFunctor
 import dahu.utils.errors._
 
 import scala.collection.mutable

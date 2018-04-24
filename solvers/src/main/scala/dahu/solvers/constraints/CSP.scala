@@ -1,6 +1,6 @@
 package dahu.constraints
 
-import dahu.IArray
+import dahu.utils._
 import dahu.constraints.Constraint.Updater
 import dahu.constraints.domains._
 import dahu.model.types._
@@ -45,7 +45,7 @@ object Constraint {
   private val emptyUpdateSingleton = Array[Inference[Nothing]]()
   def emptyUpdate[T <: SubInt] = emptyUpdateSingleton.asInstanceOf[Array[Inference[T]]]
 
-  def fromForward[T <: SubInt](id: T, args: IArray[T], prop: ForwardPropagator): Updater[T] = {
+  def fromForward[T <: SubInt](id: T, args: Vec[T], prop: ForwardPropagator): Updater[T] = {
     (csp: CSP[T]) =>
       {
         val d = prop.propagate(args, csp.dom)
@@ -57,7 +57,7 @@ object Constraint {
         }
       }
   }
-  def fromBackward[T <: SubInt](id: T, args: IArray[T], prop: BackwardPropagator): Updater[T] = {
+  def fromBackward[T <: SubInt](id: T, args: Vec[T], prop: BackwardPropagator): Updater[T] = {
     (csp: CSP[T]) =>
       {
         val doms = prop.propagate(args, id, csp.dom)
@@ -76,7 +76,7 @@ class CSP[K <: SubInt](params: ArrayMap.Aux[K, IntProblem.Expr], conjunct: Set[K
   type Assignment = ArrayMap.Aux[K, Int]
 
   type Var = K
-  type Vars = IArray[Var]
+  type Vars = Vec[Var]
 
   val ids: debox.Buffer[Var] = params.domain.toSortedBuffer
   def initialDomains(v: Var): IntDomain = params(v).domain

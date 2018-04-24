@@ -2,7 +2,7 @@ package dahu.recursion
 
 import cats.{Functor, Monad}
 import cats.free.Free
-import dahu.SFunctor
+import dahu.utils.SFunctor
 
 final class FAlgebraOps[F[_], A](private val self: FAlgebra[F, A]) extends AnyVal {
 

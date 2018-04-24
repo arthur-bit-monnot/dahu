@@ -2,7 +2,7 @@ package dahu.recursion
 
 import cats.{~>, Comonad, Eval, Functor, Monad, Traverse}
 import cats.free.{Cofree, Free}
-import dahu.SFunctor
+import dahu.utils.SFunctor
 import spire.ClassTag
 
 object RecursionFn {

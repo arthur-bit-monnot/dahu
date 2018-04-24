@@ -3,7 +3,8 @@ package dahu.model.interpreter
 import cats.Foldable
 import cats.implicits._
 import cats.kernel.Monoid
-import dahu.IArray
+
+import dahu.utils._
 import dahu.model.input.Present
 import dahu.model.ir._
 import dahu.model.types._
@@ -66,7 +67,7 @@ object Interpreter {
   }
   object Result {
     def pure[A](a: A): Result[A] = Res(a)
-    def sequence[T: ClassTag](rs: IArray[Result[T]]): Result[IArray[T]] = {
+    def sequence[T: ClassTag](rs: Vec[Result[T]]): Result[Vec[T]] = {
       val l = rs.toList
       @tailrec def go(current: Result[List[T]], pending: List[Result[T]]): Result[List[T]] = {
         pending match {
@@ -84,7 +85,7 @@ object Interpreter {
         }
       }
       val res = go(pure(Nil), l)
-      res.map(IArray.fromSeq(_))
+      res.map(Vec.fromSeq(_))
     }
     implicit def monoidInstance[T: Monoid](): Monoid[Result[T]] = new Monoid[Result[T]] {
       override def empty: Result[T] = Res(Monoid[T].empty)

@@ -1,6 +1,6 @@
 package dahu.model.ir
 
-import dahu.{IArray, SFunctor}
+import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.Ident
 import dahu.model.types.{ProductTag, Tag, Type, Value}
@@ -72,7 +72,7 @@ object Total {
         case x @ InputF(_, _) => x
         case x @ CstF(_, _)   => x
         case ComputationF(fun, args, typ) =>
-          new ComputationF(fun, implicitly[SFunctor[IArray]].smap(args)(f), typ)
+          new ComputationF(fun, implicitly[SFunctor[Vec]].smap(args)(f), typ)
         case ProductF(members, typ)           => ProductF(members.map(f), typ)
         case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
       }
@@ -103,22 +103,21 @@ object CstF {
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }
 
-final case class ComputationF[@sp(Int) F](fun: Fun[_], args: IArray[F], typ: Type)
-    extends Total[F] {
+final case class ComputationF[@sp(Int) F](fun: Fun[_], args: Vec[F], typ: Type) extends Total[F] {
   override def toString: String = s"$fun(${args.mkString(", ")})"
 }
 object ComputationF {
   def apply[F: ClassTag](fun: Fun[_], args: Seq[F], tpe: Type): ComputationF[F] =
-    new ComputationF(fun, IArray.fromArray(args.toArray), tpe)
+    new ComputationF(fun, Vec.fromArray(args.toArray), tpe)
 
 }
 
-final case class ProductF[@sp(Int) F](members: IArray[F], typ: ProductTag[Any]) extends Total[F] {
+final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
 }
 object ProductF {
   def apply[F: ClassTag](args: Seq[F], tpe: ProductTag[Any]): ProductF[F] =
-    new ProductF[F](IArray.fromArray(args.toArray), tpe)
+    new ProductF[F](Vec.fromArray(args.toArray), tpe)
 }
 
 final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) extends Total[F] {

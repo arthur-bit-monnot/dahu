@@ -1,6 +1,5 @@
 package dahu.planner
 
-import dahu.IArray
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res

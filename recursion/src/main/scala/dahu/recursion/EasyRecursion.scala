@@ -1,7 +1,7 @@
 package dahu.recursion
 
 import cats.{Monad, Traverse}
-import dahu.SFunctor
+import dahu.utils.SFunctor
 
 import scala.reflect.ClassTag
 

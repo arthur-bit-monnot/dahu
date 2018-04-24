@@ -1,6 +1,6 @@
 package dahu.solvers.problem
 
-import dahu.IArray
+import dahu.utils._
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
 import dahu.model.types._
@@ -8,8 +8,6 @@ import dahu.constraints.domains._
 import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
 import dahu.model.functions.Fun
 import dahu.model.ir._
-import dahu.model.problem.IntBoolSatisfactionProblem
-import dahu.model.problem.SatisfactionProblemFAST.RootedLazyTree
 import dahu.utils.errors._
 
 object IntProblem {
@@ -17,8 +15,8 @@ object IntProblem {
   type Var = Int
   type Val = Int
 
-  type Vars = IArray[Var]
-  type Vals = IArray[Val]
+  type Vars = Vec[Var]
+  type Vals = Vec[Val]
 
   final case class Func(eval: Vals => Val, fw: ForwardPropagator, bw: BackwardPropagator)
 

@@ -1,12 +1,12 @@
 package dahu.model.compiler
 
-import dahu.IArray
+import dahu.utils.Vec
+import dahu.utils.Vec._
 import dahu.model.ir.{ComputationF, CstF, ExprF, Total}
 import dahu.model.math._
 import dahu.model.types._
 import dahu.recursion._
 import dahu.utils.errors._
-import dahu.IArray._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -46,7 +46,7 @@ object Optimizations {
           case ((vs, cs), CstF(v, _)) => (vs, v :: cs)
           case ((vs, cs), x)          => (x :: vs, cs)
         }
-        val evalOfConstants = CstF[Fix[Total]](Value(f.compute(IArray.fromSeq(csts))), f.tpe)
+        val evalOfConstants = CstF[Fix[Total]](Value(f.compute(Vec.fromSeq(csts))), f.tpe)
         if(vars.isEmpty) {
           // no unevaluated terms, return results
           evalOfConstants
@@ -81,8 +81,8 @@ object Optimizations {
     }
 
     val elimSingletonAndOr: PASS = namedPass("elim-singleton-and-or") {
-      case ComputationF(bool.And, Arr1(arg), _) => arg.unfix
-      case ComputationF(bool.Or, Arr1(arg), _)  => arg.unfix
+      case ComputationF(bool.And, Vec1(arg), _) => arg.unfix
+      case ComputationF(bool.Or, Vec1(arg), _)  => arg.unfix
       case x                                    => x
     }
 
@@ -93,8 +93,8 @@ object Optimizations {
     }
 
     val elimTautologies: PASS = namedPass("elim-tautologies") {
-      case ComputationF(int.LEQ, Arr2(a1, a2), _) if a1 == a2 => TRUE.unfix
-      case ComputationF(int.EQ, Arr2(a1, a2), _) if a1 == a2  => TRUE.unfix
+      case ComputationF(int.LEQ, Vec2(a1, a2), _) if a1 == a2 => TRUE.unfix
+      case ComputationF(int.EQ, Vec2(a1, a2), _) if a1 == a2  => TRUE.unfix
       case x                                                  => x
     }
   }

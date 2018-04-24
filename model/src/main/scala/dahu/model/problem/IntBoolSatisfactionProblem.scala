@@ -2,8 +2,7 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.SFunctor
-import dahu.IArray.Arr1
+import dahu._
 import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
@@ -11,6 +10,8 @@ import dahu.model.math._
 import dahu.model.math.obj.Unboxed
 import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
+import dahu.utils.SFunctor
+import dahu.utils.Vec.Vec1
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -158,7 +159,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
             if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
           TRANS(rec)(prev)(ComputationF(wf.f, args, t)) // unwrap and retry
 
-        case x @ ComputationF(f: Unboxed[_], Arr1(arg), t) =>
+        case x @ ComputationF(f: Unboxed[_], Vec1(arg), t) =>
           prev(arg) // unbox operation, use the previous cell
 
         case x =>

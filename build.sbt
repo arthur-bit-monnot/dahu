@@ -34,8 +34,14 @@ lazy val commonSettings = Seq(
     "-language:higherKinds",
     "-language:existentials",
     // experimental option to speed up the build	
-    //"-Ycache-plugin-class-loader",
-    //"-Ycache-macro-class-loader"
+    "-Ycache-plugin-class-loader:last-modified",
+    "-Ycache-macro-class-loader:last-modified",
+//    "-opt:simplify-jumps",
+//    "-opt:compact-locals",
+//    "-opt:copy-propagation",
+//    "-opt:box-unbox",
+//    "-opt:closure-invocations",
+//    "-opt:unreachable-code"
   ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
   //addCompilerPlugin("io.tryp" % "splain" % "0.2.10" cross CrossVersion.patch),

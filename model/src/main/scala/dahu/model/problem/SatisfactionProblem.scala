@@ -2,11 +2,13 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.{IArray, SFunctor}
+
+import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math.bool
 import dahu.model.types._
 import dahu.recursion._
+import dahu.utils.SFunctor
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -116,7 +118,7 @@ object SatisfactionProblem {
           rec(ComputationF(bool.And, reduced, Tag.ofBoolean))
       }
     }
-    def and(conjuncts: IArray[ID]): ID = {
+    def and(conjuncts: Vec[ID]): ID = {
       if(conjuncts.contains(FALSE)) {
         FALSE
       } else {

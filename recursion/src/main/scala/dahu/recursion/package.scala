@@ -2,6 +2,7 @@ package dahu
 
 import cats.{Applicative, Eval, Functor, Traverse}
 import cats.free.{Cofree, Free}
+import dahu.utils.SFunctor
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
