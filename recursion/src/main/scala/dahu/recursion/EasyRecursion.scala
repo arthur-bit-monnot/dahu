@@ -13,10 +13,12 @@ object EasyRecursion {
   def fold[F[_]: SFunctor, A: ClassTag](alg: FAlgebra[F, A])(f: Fix[F]): A =
     Recursion.cata(alg)(f)
 
-  def unfold[F[_]: SFunctor, A: ClassTag](coalg: FCoalgebra[F, A])(a: A)(implicit ct: ClassTag[F[Fix[F]]]): Fix[F] =
+  def unfold[F[_]: SFunctor, A: ClassTag](coalg: FCoalgebra[F, A])(a: A)(
+      implicit ct: ClassTag[F[Fix[F]]]): Fix[F] =
     Recursion.ana(coalg)(a)
 
-  def unfoldIntoFold[F[_]: SFunctor, A, B: ClassTag](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(a: A): B =
+  def unfoldIntoFold[F[_]: SFunctor, A, B: ClassTag](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(
+      a: A): B =
     Recursion.hylo(coalg, alg)(a)
 
   def monadicFold[M[_]: Monad, F[_]: Traverse, A](alg: FAlgebraM[M, F, A])(f: Fix[F]): M[A] =

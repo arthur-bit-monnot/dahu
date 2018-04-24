@@ -3,13 +3,13 @@ package dahu.model.problem
 import cats.Functor
 import cats.implicits._
 import dahu.SFunctor
-import dahu.ImmutableArray.Arr1
+import dahu.IArray.Arr1
 import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.math.obj.Unboxed
-import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree, TreeNode}
+import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
 import dahu.utils.errors._
 

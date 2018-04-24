@@ -1,5 +1,6 @@
 package dahu.solvers.problem
 
+import dahu.IArray
 import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
 import dahu.model.types._
@@ -16,8 +17,8 @@ object IntProblem {
   type Var = Int
   type Val = Int
 
-  type Vars = Array[Var]
-  type Vals = Array[Val]
+  type Vars = IArray[Var]
+  type Vals = IArray[Val]
 
   final case class Func(eval: Vals => Val, fw: ForwardPropagator, bw: BackwardPropagator)
 
@@ -58,7 +59,7 @@ object IntCSP {
       case CstF(value, typ: TagIsoInt[_]) =>
         Some(Expr(SingletonDomain(typ.toIntUnsafe(value)), None, typ))
       case ComputationF(f, args, typ: TagIsoInt[_]) =>
-        val expr: Option[Comp] = asIntFunction(f).map(fi => Comp(fi, args.toArray))
+        val expr: Option[Comp] = asIntFunction(f).map(fi => Comp(fi, args.upcast))
         Some(Expr(domainOfType(typ), expr, typ))
       case _ =>
         unexpected(s"$e is not supported.")

@@ -27,33 +27,33 @@ object GraphColoring extends Family("graph-coloring") {
   instances("simple-graph") {
     val A = color("A")
     val B = color("B")
-//    val C = color("C")
+    val C = color("C")
 
-    val sat = A =!= B // && B =!= C// && C =!= A
+    val sat = A =!= B && B =!= C && C =!= A
     Seq(
       SatProblem.fromSat(sat, 6),
-//      SatProblem.fromSat(sat && A === Green, 2),
-//      SatProblem.fromSat(sat && A =!= Green, 4)
+      SatProblem.fromSat(sat && A === Green, 2),
+      SatProblem.fromSat(sat && A =!= Green, 4)
     )
   }
 
-//  instances("australia") {
-//    val WA = color("WA")
-//    val NT = color("NT")
-//    val SA = color("SA")
-//    val Q = color("QL")
-//    val NSW = color("NSW")
-//    val V = color("Vic")
-//
-//    val vars = Seq(SA, WA, NT, Q, NSW, V)
-//
-//    val sat =
-//      WA =!= NT && WA =!= SA && NT =!= SA && NT =!= Q && Q =!= SA && Q =!= NSW && NSW =!= V && NSW =!= SA && V =!= SA
-//
-//    Seq(
-//      SatProblem.fromSat(sat, 6),
-//      SatProblem.fromSat(sat && SA === Red, 2),
-//      SatProblem.fromSat(sat && SA =!= Red, 4)
-//    )
-//  }
+  instances("australia") {
+    val WA = color("WA")
+    val NT = color("NT")
+    val SA = color("SA")
+    val Q = color("QL")
+    val NSW = color("NSW")
+    val V = color("Vic")
+
+    val vars = Seq(SA, WA, NT, Q, NSW, V)
+
+    val sat =
+      WA =!= NT && WA =!= SA && NT =!= SA && NT =!= Q && Q =!= SA && Q =!= NSW && NSW =!= V && NSW =!= SA && V =!= SA
+
+    Seq(
+      SatProblem.fromSat(sat, 6),
+      SatProblem.fromSat(sat && SA === Red, 2),
+      SatProblem.fromSat(sat && SA =!= Red, 4)
+    )
+  }
 }

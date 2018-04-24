@@ -1,12 +1,12 @@
 package dahu.model.functions
 
+import dahu.IArray
 import dahu.model.types.Value
-
 import dahu.model.types._
 
 abstract class Fun[O: Tag] {
   final val outType: Tag[O] = Tag[O]
-  def compute(args: Seq[Value]): O
+  def compute(args: IArray[Value]): O
 
   def name: String
 
@@ -16,7 +16,7 @@ abstract class Fun[O: Tag] {
 abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] {
   final val inType = typeOf[I]
 
-  override final def compute(args: Seq[Value]): O = {
+  override final def compute(args: IArray[Value]): O = {
     require(args.size == 1)
     of(args(0).asInstanceOf[I])
   }
@@ -34,7 +34,7 @@ abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
 
-  override final def compute(args: Seq[Value]): O = {
+  override final def compute(args: IArray[Value]): O = {
     require(args.size == 2, "Wrong number of arguments, expected 2")
     of(args(0).asInstanceOf[I1], args(1).asInstanceOf[I2])
   }
@@ -47,7 +47,7 @@ abstract class Fun3[-I1: Tag, -I2: Tag, -I3: Tag, O: Tag] extends Fun[O] {
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
 
-  override final def compute(args: Seq[Value]): O = {
+  override final def compute(args: IArray[Value]): O = {
     require(args.size == 3, "Wrong number of arguments, expected 3")
     of(args(0).asInstanceOf[I1], args(1).asInstanceOf[I2], args(2).asInstanceOf[I3])
   }
@@ -61,7 +61,7 @@ abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[
   final val inType3 = typeOf[I3]
   final val inType4 = typeOf[I4]
 
-  override final def compute(args: Seq[Value]): O = {
+  override final def compute(args: IArray[Value]): O = {
     require(args.size == 4, "Wrong number of arguments, expected 3")
     of(args(0).asInstanceOf[I1],
        args(1).asInstanceOf[I2],
@@ -75,9 +75,10 @@ abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[
 abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
   final val inTypes = typeOf[I]
 
-  override final def compute(args: Seq[Value]): O = of(args.asInstanceOf[Seq[I]])
+  override final def compute(args: IArray[Value]): O =
+    of(args.toSeq.asInstanceOf[Seq[I]]) //TODO: avoid conversion
 
-  def of(args: Seq[I]): O
+  def of(args: Seq[I]): O //TODO
 }
 
 trait WrappedFunction {

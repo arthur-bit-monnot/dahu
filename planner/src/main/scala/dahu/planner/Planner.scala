@@ -1,5 +1,6 @@
 package dahu.planner
 
+import dahu.IArray
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
@@ -8,6 +9,8 @@ import dahu.solvers.MetaSolver
 import dahu.z3.Z3PartialSolver
 import dahu.utils.errors._
 import dahu.utils.debug._
+
+import cats.implicits._
 
 object Planner {
 
@@ -29,7 +32,7 @@ object Planner {
           case Res(operators) =>
             Some(
               operators
-                .asInstanceOf[List[Operator[cats.Id]]]
+                .asInstanceOf[Seq[Operator[cats.Id]]]
                 .filter(_.present)
                 .sortBy(_.start)
                 .map {

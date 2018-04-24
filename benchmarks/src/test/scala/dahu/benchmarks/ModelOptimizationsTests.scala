@@ -17,7 +17,9 @@ object ModelOptimizationsTests extends TestSuite {
 
   def totalFormula(pb: SatProblem): Fix[Total] = {
     val parsed = dahu.model.compiler.Algebras.parse(pb.pb)
-    SatisfactionProblem.encode(parsed.root, parsed.tree.asFunction, optimize = false)
+    SatisfactionProblem
+      .encode(parsed.root, parsed.tree.asFunction, optimize = false)
+      .fullTree
   }
 
   def randomValue(t: TagIsoInt[_]): Value = {

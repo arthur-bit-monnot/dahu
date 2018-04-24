@@ -1,5 +1,6 @@
 package dahu.model.compiler
 
+import dahu.IArray
 import dahu.maps.ArrayMap
 import dahu.model.input._
 import dahu.model.ir._
@@ -16,7 +17,7 @@ object Algebras {
     case x @ Cst(value)                 => CstF(Value(value), x.typ)
     case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
     case x @ SubjectTo(value, cond)     => Partial(value, cond, x.typ)
-    case x @ Product(value)             => ProductF(x.members, x.typ)
+    case x @ Product(value)             => ProductF(x.members.asInstanceOf[IArray[Tentative[_]]], x.typ)
     case x @ Optional(value, present)   => OptionalF(value, present, x.typ)
     case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
     case Present(partial)               => PresentF(partial)

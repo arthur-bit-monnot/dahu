@@ -1,6 +1,6 @@
 package dahu.model.ir
 
-import dahu.{ImmutableArray, SFunctor}
+import dahu.{IArray, SFunctor}
 import dahu.model.functions.Fun
 import dahu.model.input.Ident
 import dahu.model.types.{ProductTag, Tag, Type, Value}
@@ -24,7 +24,8 @@ sealed trait TotalOrPartialF[@sp(Int) F] { self: ExprF[F] =>
 }
 object TotalOrOptionalF {
   implicit val functor: SFunctor[TotalOrOptionalF] = new SFunctor[TotalOrOptionalF] {
-    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: TotalOrOptionalF[A])(f: A => B): TotalOrOptionalF[B] = fa match {
+    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: TotalOrOptionalF[A])(
+        f: A => B): TotalOrOptionalF[B] = fa match {
       case fa: Total[A] => Total.functor.smap(fa)(f)
       case OptionalF(value, present, typ) =>
         OptionalF(f(value), f(present), typ)
@@ -34,15 +35,16 @@ object TotalOrOptionalF {
 
 object ExprF {
   implicit val functor: SFunctor[ExprF] = new SFunctor[ExprF] {
-    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: ExprF[A])(f: A => B): ExprF[B] = fa match {
-      case fa: Total[A] => Total.functor.smap(fa)(f)
-      case Partial(value, condition, typ) =>
-        Partial(f(value), f(condition), typ)
-      case OptionalF(value, present, typ) =>
-        OptionalF(f(value), f(present), typ)
-      case PresentF(v) => PresentF(f(v))
-      case ValidF(v)   => ValidF(f(v))
-    }
+    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: ExprF[A])(f: A => B): ExprF[B] =
+      fa match {
+        case fa: Total[A] => Total.functor.smap(fa)(f)
+        case Partial(value, condition, typ) =>
+          Partial(f(value), f(condition), typ)
+        case OptionalF(value, present, typ) =>
+          OptionalF(f(value), f(present), typ)
+        case PresentF(v) => PresentF(f(v))
+        case ValidF(v)   => ValidF(f(v))
+      }
   }
 
   def hash[@sp(Int) A](exprF: ExprF[A]): Int = exprF match {
@@ -62,17 +64,15 @@ object ExprF {
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[@sp(Int) F]
-    extends ExprF[F]
-    with TotalOrOptionalF[F]
-    with TotalOrPartialF[F]
+sealed trait Total[@sp(Int) F] extends ExprF[F] with TotalOrOptionalF[F] with TotalOrPartialF[F]
 object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
       fa match {
-        case x @ InputF(_, _)                 => x
-        case x @ CstF(_, _)                   => x
-        case ComputationF(fun, args, typ)     => new ComputationF(fun,  implicitly[SFunctor[ImmutableArray]].smap(args)(f), typ)
+        case x @ InputF(_, _) => x
+        case x @ CstF(_, _)   => x
+        case ComputationF(fun, args, typ) =>
+          new ComputationF(fun, implicitly[SFunctor[IArray]].smap(args)(f), typ)
         case ProductF(members, typ)           => ProductF(members.map(f), typ)
         case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
       }
@@ -103,27 +103,25 @@ object CstF {
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }
 
-final case class ComputationF[@sp(Int) F](fun: Fun[_], args: ImmutableArray[F], typ: Type)
+final case class ComputationF[@sp(Int) F](fun: Fun[_], args: IArray[F], typ: Type)
     extends Total[F] {
   override def toString: String = s"$fun(${args.mkString(", ")})"
 }
 object ComputationF {
-  def apply[F : ClassTag](fun: Fun[_], args: Seq[F], tpe: Type): ComputationF[F] =
-    new ComputationF(fun, ImmutableArray.fromArray(args.toArray), tpe)
+  def apply[F: ClassTag](fun: Fun[_], args: Seq[F], tpe: Type): ComputationF[F] =
+    new ComputationF(fun, IArray.fromArray(args.toArray), tpe)
 
 }
 
-final case class ProductF[@sp(Int) F](members: ImmutableArray[F], typ: ProductTag[Any])
-    extends Total[F] {
+final case class ProductF[@sp(Int) F](members: IArray[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
 }
 object ProductF {
   def apply[F: ClassTag](args: Seq[F], tpe: ProductTag[Any]): ProductF[F] =
-    new ProductF[F](ImmutableArray.fromArray(args.toArray), tpe)
+    new ProductF[F](IArray.fromArray(args.toArray), tpe)
 }
 
-final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type)
-    extends Total[F] {
+final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) extends Total[F] {
   override def toString: String = s"ite($cond, $onTrue, $onFalse)"
 }
 

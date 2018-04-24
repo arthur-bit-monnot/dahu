@@ -3,7 +3,7 @@ package dahu.solvers.constraints
 import dahu.constraints.interval.Interval
 import dahu.model.ir.{Total, TotalSubAST}
 import dahu.model.problem.IntBoolSatisfactionProblem
-import dahu.model.problem.SatisfactionProblemFAST.RootedLazyTree
+import dahu.model.problem.SatisfactionProblem.RootedLazyTree
 import dahu.model.types.{TagIsoInt, Value}
 import dahu.solvers.PartialSolver
 import dahu.solvers.problem.IntCSP

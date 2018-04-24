@@ -1,5 +1,6 @@
 package dahu.solvers.constraints
 
+import dahu.IArray
 import dahu.constraints.{BackwardPropagator, ForwardPropagator, Propagator}
 import dahu.constraints.interval._
 import dahu.model.functions._
@@ -50,22 +51,26 @@ object PropagatorTests extends TestSuite {
   }
 
   /** Generator for a seq of domains to be used as the input of the given function.*/
-  def inputGenerator(f: Fun[_]): Gen[Array[Interval]] = f match {
-    case x: Fun1[_, _] => Gen.sequence[Array[Interval], Interval](Array(gen(x.inType)))
+  def inputGenerator(f: Fun[_]): Gen[IArray[Interval]] = f match {
+    case x: Fun1[_, _] =>
+      Gen.sequence[Array[Interval], Interval](Array(gen(x.inType))).map(IArray.fromArray)
     case x: Fun2[_, _, _] =>
-      Gen.sequence[Array[Interval], Interval](Array(gen(x.inType1), gen(x.inType2)))
+      Gen
+        .sequence[Array[Interval], Interval](Array(gen(x.inType1), gen(x.inType2)))
+        .map(IArray.fromArray)
     case x: FunN[_, _] => // uses an arbitrary number of arguments in [0, 4]
       Gen
         .choose(0, 4)
         .flatMap(n => Gen.sequence[Array[Interval], Interval](Array.fill(n)(gen(x.inTypes))))
+        .map(IArray.fromArray)
   }
   def outputGenerator(f: Fun[_]): Gen[Interval] = gen(f.outType)
 
-  def typeTags(f: Fun[_], domains: Seq[Interval]): Seq[TagIsoInt[_]] = f match {
-    case x: Fun1[_, _]       => Seq(x.inType)
-    case x: Fun2[_, _, _]    => Seq(x.inType1, x.inType2)
-    case x: Fun3[_, _, _, _] => Seq(x.inType1, x.inType2, x.inType3)
-    case x: FunN[_, _]       => Seq.fill(domains.size)(x.inTypes)
+  def typeTags(f: Fun[_], domains: IArray[Interval]): IArray[TagIsoInt[_]] = f match {
+    case x: Fun1[_, _]       => IArray(x.inType)
+    case x: Fun2[_, _, _]    => IArray(x.inType1, x.inType2)
+    case x: Fun3[_, _, _, _] => IArray(x.inType1, x.inType2, x.inType3)
+    case x: FunN[_, _]       => IArray.fill(domains.size)(x.inTypes)
   }
 
   /** From a sequence of domains, generate all possible combination of inputs */
@@ -78,10 +83,10 @@ object PropagatorTests extends TestSuite {
 
   def forward(f: Fun[_], fw: ForwardPropagator): Unit = {
 
-    val inputsGen: Gen[Array[Interval]] = inputGenerator(f)
+    val inputsGen: Gen[IArray[Interval]] = inputGenerator(f)
 
     // generate a set of inputs for the function
-    val testSet: Array[Array[Interval]] = Array.fill(numTrials)(inputsGen.sample.toArray).flatten
+    val testSet: Array[IArray[Interval]] = Array.fill(numTrials)(inputsGen.sample.toArray).flatten
 
     for(doms <- testSet) {
       val types = typeTags(f, doms)
@@ -89,7 +94,7 @@ object PropagatorTests extends TestSuite {
 
       // for all possible argument sequence from the domains, check that the result of the function is indeed in the
       // generated domain.
-      val inputSet = combinations(doms.map(_.values.toSet))
+      val inputSet = combinations(doms.map(_.values.toSet).toSeq).map(IArray.fromSeq(_))
       for(input <- inputSet) {
         val convertedInputs = types.zip(input).map { case (t, i) => Value(t.fromInt(i)) }
         val out = f.compute(convertedInputs)
@@ -100,10 +105,10 @@ object PropagatorTests extends TestSuite {
   }
 
   def backward(f: Fun[_], bw: BackwardPropagator): Unit = {
-    val inputsGen: Gen[Array[Interval]] = inputGenerator(f)
+    val inputsGen: Gen[IArray[Interval]] = inputGenerator(f)
     val outputGen: Gen[Interval] = outputGenerator(f)
 
-    val testSet: Array[(Array[Interval], Interval)] =
+    val testSet: Array[(IArray[Interval], Interval)] =
       Array
         .fill(numTrials)(
           inputsGen.sample
@@ -119,7 +124,7 @@ object PropagatorTests extends TestSuite {
       // inputDomains.zip(resultDomains).foreach{
       //   case (in, out) => assert(in.contains(out))
       // }
-      val removedValues: Array[Set[Int]] = inputDomains.zip(resultDomains).map {
+      val removedValues: IArray[Set[Int]] = inputDomains.zip(resultDomains).map {
         case (in, out) => in.values.toSet.filterNot(out.contains(_))
       }
 
@@ -128,7 +133,7 @@ object PropagatorTests extends TestSuite {
         val testInputDomains =
           removedValues.indices.map(i =>
             if(i == focus) removedValues(i) else inputDomains(i).values.toSet)
-        val testInputs = combinations(testInputDomains)
+        val testInputs = combinations(testInputDomains).map(IArray.fromSeq(_))
         for(input <- testInputs) {
           val convertedInputs = types.zip(input).map { case (t, i) => Value(t.fromInt(i)) }
           val out = f.compute(convertedInputs)

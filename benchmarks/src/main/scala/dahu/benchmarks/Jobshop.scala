@@ -67,9 +67,9 @@ object Jobshop extends Family("jobshop") {
     JobShopInstance(2, List(List(2), List(4)), None),
     JobShopInstance(1, List(List(2, 2), List(4)), None),
     JobShopInstance(2, List(List(2, 2), List(4)), None),
-//     JobShopInstance(2, List(List(2, 4), List(4, 3)), None),
-//     JobShopInstance(2, List(List(2, 4), List(4, 3, 3)), None),
-//     JobShopInstance(4, List(List(2, 4, 2, 1), List(5, 3, 2), List(3, 5, 7)), Some(14)),
+     JobShopInstance(2, List(List(2, 4), List(4, 3)), None),
+     JobShopInstance(2, List(List(2, 4), List(4, 3, 3)), None),
+     JobShopInstance(4, List(List(2, 4, 2, 1), List(5, 3, 2), List(3, 5, 7)), Some(14)),
   )
 
   instances("simple")(problems.map(jobShopModel))

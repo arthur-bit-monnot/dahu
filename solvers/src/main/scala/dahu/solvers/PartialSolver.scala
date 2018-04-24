@@ -2,7 +2,7 @@ package dahu.solvers
 
 import dahu.constraints.interval.Interval
 import dahu.model.ir.{Total, TotalSubAST}
-import dahu.model.problem.SatisfactionProblemFAST.RootedLazyTree
+import dahu.model.problem.SatisfactionProblem.RootedLazyTree
 import dahu.model.types.Value
 import dahu.solvers.problem.IntCSP
 

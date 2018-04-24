@@ -1,9 +1,12 @@
 package dahu.model.input
 
 import cats.Id
+import dahu.IArray
 import dahu.graphs.DAG
 import dahu.model.functions._
 import dahu.model.types._
+
+import scala.reflect.ClassTag
 
 final case class ConstraintViolated(constraint: Tentative[Boolean])
 
@@ -79,9 +82,9 @@ sealed abstract class Computation[O] extends Tentative[O] {
 final case class Product[T[_[_]]](value: T[Tentative])(implicit tt: ProductTag[T])
     extends Tentative[T[Id]] {
   override def typ: ProductTag[T] = tt
-  def members: Seq[Tentative[Any]] = tt.exprProd.extractTerms(value)
-  def buildFromVals(terms: Seq[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
-  def buildFromExpr(terms: Seq[Tentative[Any]]): T[Tentative] = tt.exprProd.buildFromTerms(terms)
+  def members: IArray[Tentative[Any]] = tt.exprProd.extractTerms(value)
+  def buildFromVals(terms: IArray[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
+  def buildFromExpr(terms: IArray[Tentative[Any]]): T[Tentative] = tt.exprProd.buildFromTerms(terms)
 }
 object Product {
   def fromSeq[T](seq: Seq[Tentative[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
@@ -89,32 +92,33 @@ object Product {
     new Product[ProductTag.Sequence[?[_], T]](seq)(ev)
 
   import scala.reflect.runtime.universe
-  def fromMap[K, V](map: Map[K, Tentative[V]])(
+  def fromMap[K: ClassTag, V: ClassTag](map: Map[K, Tentative[V]])(
       implicit tt: universe.WeakTypeTag[Map[K, Id[V]]]): Product[PMap[K, ?[_], V]] = {
     type M[F[_]] = PMap[K, F, V]
-    val keys: List[K] = map.keys.toList
-    val values: List[Tentative[Any]] = keys.map(map(_).asInstanceOf[Tentative[Any]])
+    val keys: IArray[K] = IArray.fromSeq(map.keys.toSeq)
+    val values: IArray[Tentative[Any]] = keys.map(map(_).asInstanceOf[Tentative[Any]])
 
     // build a specific type tag that remembers the keys of the original map.
     val tag = new ProductTag[M] {
       override def exprProd: ProductExpr[M, Tentative] = new ProductExpr[M, Tentative] {
-        override def extractTerms(prod: M[Tentative]): Seq[Tentative[Any]] = {
+        override def extractTerms(prod: M[Tentative])(
+            implicit ct: ClassTag[Tentative[Any]]): IArray[Tentative[Any]] = {
           assert(prod == map)
           values
         }
 
-        override def buildFromTerms(terms: Seq[Tentative[Any]]): M[Tentative] = {
+        override def buildFromTerms(terms: IArray[Tentative[Any]]): M[Tentative] = {
           assert(terms == values)
           map
         }
       }
 
       override def idProd: ProductExpr[M, Id] = new ProductExpr[M, Id] {
-        override def extractTerms(prod: M[Id]): Seq[Id[Any]] = {
+        override def extractTerms(prod: M[Id])(implicit ct: ClassTag[Id[Any]]): IArray[Id[Any]] = {
           assert(prod.keys == map.keys)
           keys.map(k => prod(k))
         }
-        override def buildFromTerms(terms: Seq[Id[Any]]): M[Id] = {
+        override def buildFromTerms(terms: IArray[Id[Any]]): M[Id] = {
           assert(terms.size == values.size)
           keys.zip(terms.map(_.asInstanceOf[Id[V]])).toMap
         }
@@ -130,9 +134,10 @@ object Product {
 }
 
 trait ProductExpr[P[_[_]], F[_]] {
-  def extractTerms(prod: P[F]): Seq[F[Any]]
-  def buildFromTerms(terms: Seq[F[Any]]): P[F]
-  def buildFromValues(terms: Seq[F[Value]]): P[F] = buildFromTerms(terms.asInstanceOf[Seq[F[Any]]])
+  def extractTerms(prod: P[F])(implicit ct: ClassTag[F[Any]]): IArray[F[Any]]
+  def buildFromTerms(terms: IArray[F[Any]]): P[F]
+  def buildFromValues(terms: IArray[F[Value]]): P[F] =
+    buildFromTerms(terms.asInstanceOf[IArray[F[Any]]])
 }
 
 object ProductExpr {
@@ -149,9 +154,10 @@ object ProductExpr {
   implicit def genPE[P[_[_]], F[_], H <: HList](implicit gen: Generic.Aux[P[F], H],
                                                 hListExtract: HListExtract[H, F]) =
     new ProductExpr[P, F] {
-      override def extractTerms(prod: P[F]): Seq[F[Any]] = hListExtract.terms(gen.to(prod))
-      override def buildFromTerms(terms: Seq[F[Any]]): P[F] =
-        gen.from(hListExtract.fromTerms(terms))
+      override def extractTerms(prod: P[F])(implicit ct: ClassTag[F[Any]]): IArray[F[Any]] =
+        IArray.fromSeq(hListExtract.terms(gen.to(prod)))
+      override def buildFromTerms(terms: IArray[F[Any]]): P[F] =
+        gen.from(hListExtract.fromTerms(terms.toSeq))
     }
 
   implicit def peOfHNil[F[_]]: HListExtract[HNil, F] = new HListExtract[HNil, F] {

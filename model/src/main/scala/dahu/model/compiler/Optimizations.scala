@@ -1,11 +1,12 @@
 package dahu.model.compiler
 
+import dahu.IArray
 import dahu.model.ir.{ComputationF, CstF, ExprF, Total}
 import dahu.model.math._
 import dahu.model.types._
 import dahu.recursion._
 import dahu.utils.errors._
-import dahu.ImmutableArray._
+import dahu.IArray._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -24,13 +25,13 @@ object Optimizations {
 
     val elimIdentity: PASS = namedPass("elim-identity") {
       case ComputationF(f: Monoid[_], args, t) =>
-        ComputationF(f, args.filterNot(_.unfix == f.liftedIdentity), t)
+        ComputationF(f, args.filter(_.unfix != f.liftedIdentity), t)
       case x => x
     }
 
     val elimEmptyMonoids: PASS = namedPass("elim-empty-monoid") {
       case x @ ComputationF(f: Monoid[_], args, _) if args.isEmpty => f.liftedIdentity
-      case x                                        => x
+      case x                                                       => x
     }
     private val FALSE: Fix[Total] = Fix(CstF(Value(false), Tag.ofBoolean))
     private val TRUE: Fix[Total] = Fix(CstF(Value(true), Tag.ofBoolean))
@@ -45,7 +46,7 @@ object Optimizations {
           case ((vs, cs), CstF(v, _)) => (vs, v :: cs)
           case ((vs, cs), x)          => (x :: vs, cs)
         }
-        val evalOfConstants = CstF[Fix[Total]](Value(f.compute(csts)), f.tpe)
+        val evalOfConstants = CstF[Fix[Total]](Value(f.compute(IArray.fromSeq(csts))), f.tpe)
         if(vars.isEmpty) {
           // no unevaluated terms, return results
           evalOfConstants
@@ -70,7 +71,7 @@ object Optimizations {
         for(a <- args) {
           a.unfix match {
             case ComputationF(g, subargs, t2) if f == g && t == t2 =>
-              flatArgs ++= subargs
+              subargs.foreach(flatArgs += _)
             case x =>
               flatArgs += Fix(x)
           }
@@ -82,7 +83,7 @@ object Optimizations {
     val elimSingletonAndOr: PASS = namedPass("elim-singleton-and-or") {
       case ComputationF(bool.And, Arr1(arg), _) => arg.unfix
       case ComputationF(bool.Or, Arr1(arg), _)  => arg.unfix
-      case x                                   => x
+      case x                                    => x
     }
 
     val elimDuplicatesAndOr: PASS = namedPass("elim-duplicates-and-or") {
@@ -94,7 +95,7 @@ object Optimizations {
     val elimTautologies: PASS = namedPass("elim-tautologies") {
       case ComputationF(int.LEQ, Arr2(a1, a2), _) if a1 == a2 => TRUE.unfix
       case ComputationF(int.EQ, Arr2(a1, a2), _) if a1 == a2  => TRUE.unfix
-      case x                                                 => x
+      case x                                                  => x
     }
   }
 

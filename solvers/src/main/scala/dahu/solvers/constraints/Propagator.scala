@@ -5,6 +5,7 @@ import dahu.model.math._
 import dahu.utils.errors.unexpected
 import dahu.constraints.interval._
 import BooleanDomain._
+import dahu.IArray
 import dahu.model.functions._
 import dahu.utils.debug._
 import spire.syntax.cfor
@@ -40,7 +41,7 @@ object Propagator {
 }
 
 abstract class IntCompatibilityLayer {
-  def argsFromInt(args: Seq[Int]): Seq[Value]
+  def argsFromInt(args: IArray[Int]): IArray[Value]
   def outToInt(out: Value): Int
 }
 object IntCompatibleFunc {
@@ -51,7 +52,7 @@ object IntCompatibleFunc {
       (f.inTypes, f.outType) match {
         case (it: IsoInt @unchecked, ot: IsoInt @unchecked) =>
           Some(new IntCompatibilityLayer {
-            override def argsFromInt(args: Seq[Int]): Seq[Value] =
+            override def argsFromInt(args: IArray[Int]): IArray[Value] =
               args.map(a => Value(it.fromInt(a)))
             override def outToInt(out: Value): Int = ot.toInt(out)
           })
@@ -61,7 +62,7 @@ object IntCompatibleFunc {
       (f.inType1, f.inType2, f.outType) match {
         case (it1: IsoInt @unchecked, it2: IsoInt @unchecked, ot: IsoInt @unchecked) =>
           Some(new IntCompatibilityLayer {
-            override def argsFromInt(args: Seq[Int]): Seq[Value] = Seq(
+            override def argsFromInt(args: IArray[Int]): IArray[Value] = IArray(
               Value(it1.fromInt(args(0))),
               Value(it2.fromInt(args(1)))
             )
@@ -73,7 +74,8 @@ object IntCompatibleFunc {
       (f.inType, f.outType) match {
         case (it: IsoInt @unchecked, ot: IsoInt @unchecked) =>
           Some(new IntCompatibilityLayer {
-            override def argsFromInt(args: Seq[Int]): Seq[Value] = Seq(Value(it.fromInt(args.head)))
+            override def argsFromInt(args: IArray[Int]): IArray[Value] =
+              IArray(Value(it.fromInt(args(0))))
             override def outToInt(out: Value): Int = ot.toInt(out)
           })
         case _ => None
@@ -95,7 +97,7 @@ object Types {
 }
 
 trait ForwardPropagator {
-  def propagate[T](args: Seq[T], dom: T => Interval): Interval
+  def propagate[T](args: IArray[T], dom: T => Interval): Interval
 }
 object ForwardPropagator {
 
@@ -104,9 +106,9 @@ object ForwardPropagator {
       .compat(f)
       .map(translator =>
         new ForwardPropagator {
-          override def propagate[T](args: Seq[T], dom: T => Interval): Interval =
+          override def propagate[T](args: IArray[T], dom: T => Interval): Interval =
             if(args.map(dom).forall(_.isSingleton)) {
-              val argValues: Seq[Value] = translator.argsFromInt(args.map(a => dom(a).lb))
+              val argValues = translator.argsFromInt(args.map(a => dom(a).lb))
               val eval = translator.outToInt(Value(f.compute(argValues)))
               Interval(eval)
             } else {
@@ -117,11 +119,11 @@ object ForwardPropagator {
 
 }
 trait BackwardPropagator {
-  def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval]
+  def propagate[T](args: IArray[T], out: T, dom: T => Interval): IArray[Interval]
 }
 object BackwardPropagator {
   case object NoOp extends BackwardPropagator {
-    override def propagate[T](args: Array[T], otr: T, dom: T => Interval): Array[Interval] =
+    override def propagate[T](args: IArray[T], otr: T, dom: T => Interval): IArray[Interval] =
       args.map(dom)
   }
 }
@@ -129,39 +131,39 @@ object BackwardPropagator {
 abstract class ForwardPropagator1 extends ForwardPropagator {
   def propagate(d: Interval): Interval
 
-  override def propagate[T](args: Seq[T], dom: T => Interval): Interval =
-    propagate(dom(args.head))
+  override def propagate[T](args: IArray[T], dom: T => Interval): Interval =
+    propagate(dom(args(0)))
 }
 abstract class ForwardPropagator2 extends ForwardPropagator {
   def propagate(l: Interval, r: Interval): Interval
-  def propagate[T](args: Seq[T], dom: T => Interval): Interval =
+  def propagate[T](args: IArray[T], dom: T => Interval): Interval =
     propagate(dom(args(0)), dom(args(1)))
 }
 abstract class ForwardPropagatorN extends ForwardPropagator {
-  def propagate(domains: Seq[Interval]): Interval
-  def propagate[T](args: Seq[T], dom: T => Interval): Interval =
-    propagate(args.map(dom))
+  def propagate(domains: Seq[Interval]): Interval //TODO: use array
+  def propagate[T](args: IArray[T], dom: T => Interval): Interval =
+    propagate(args.map(dom).toSeq)
 }
 
 abstract class BackwardPropagator1 extends BackwardPropagator {
   def propagate(in: Interval, out: Interval): Interval
 
-  override def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval] =
-    Array(propagate(dom(args.head), dom(out)))
+  override def propagate[T](args: IArray[T], out: T, dom: T => Interval): IArray[Interval] =
+    IArray(propagate(dom(args(0)), dom(out)))
 }
 abstract class BackwardPropagator2 extends BackwardPropagator {
   def propagate(in1: Interval, r: Interval, out: Interval): (Interval, Interval)
 
-  override def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval] = {
+  override def propagate[T](args: IArray[T], out: T, dom: T => Interval): IArray[Interval] = {
     val (d1, d2) = propagate(dom(args(0)), dom(args(1)), dom(out))
-    Array(d1, d2)
+    IArray(d1, d2)
   }
 }
 abstract class BackwardPropagatorN extends BackwardPropagator {
   def propagate(in: Array[Interval], out: Interval): Array[Interval]
 
-  override def propagate[T](args: Array[T], out: T, dom: T => Interval): Array[Interval] = {
-    propagate(args.map(dom), dom(out))
+  override def propagate[T](args: IArray[T], out: T, dom: T => Interval): IArray[Interval] = {
+    IArray.fromArray(propagate(args.map(dom).toArray, dom(out)))
   }
 }
 

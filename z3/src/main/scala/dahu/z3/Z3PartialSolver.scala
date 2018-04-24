@@ -4,7 +4,7 @@ import com.microsoft.z3._
 import dahu.SFunctor
 import dahu.model.ir._
 import dahu.model.problem.IntBoolSatisfactionProblem
-import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree, TreeNode}
+import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.errors._
@@ -14,8 +14,9 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(implicit F: SFunctor[F],
-                                                                                       T: TreeNode[F]) {
+class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(
+    implicit F: SFunctor[F],
+    T: TreeNode[F]) {
   private val memo = mutable.HashMap[t.ID, G]()
 
   def build(k: t.ID): G = {

@@ -2,187 +2,22 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.SFunctor
+import dahu.{IArray, SFunctor}
 import dahu.model.ir._
 import dahu.model.math.bool
-import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree}
 import dahu.model.types._
 import dahu.recursion._
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object SatisfactionProblem {
 
   def satisfactionSubAST(ast: AST[_]): RootedLazyTree[ast.ID, Total, cats.Id] = {
-    SatisfactionProblemFAST.encode(ast.root, ast.tree.asFunction)
-//    val start = System.currentTimeMillis()
-//    val conditionFast = SatisfactionProblemFAST.encode(ast.root, ast.tree.asFunction)
-//    val inter = System.currentTimeMillis()
-////    val conditionSlow = encode(ast.root, ast.tree.asFunction)
-//    val end = System.currentTimeMillis()
-//    println(s"opt:  ${inter - start}")
-//    println(s"slow: ${end - inter}")
-//
-//    val condition = conditionFast
-//
-//    val memory = mutable.LinkedHashMap[Total[Int], Int]()
-//
-//    val alg: Total[Int] => Int = env => {
-//      memory.getOrElseUpdate(env, memory.size)
-//    }
-//    val treeRoot = Recursion.cata[Total, Int](alg)(condition)
-//    val reversedMemory = memory.map(_.swap).toMap
-//    val genTree = ArrayMap.build(reversedMemory.keys, k => reversedMemory(k))
-//
-//    new TotalSubAST[ast.ID] {
-//      override def tree: ArrayMap.Aux[ID, Total[ID]] =
-//        genTree.asInstanceOf[ArrayMap.Aux[ID, Total[ID]]]
-//
-//      override def root: ID = treeRoot.asInstanceOf[ID]
-//
-//      override val subset: TotalSubAST.SubSet[ast.ID, ID] = new TotalSubAST.SubSet[ast.ID, ID] {
-//        override def from: ID => Option[ast.ID] = x => {
-//          val e = tree(x)
-//          ast.reverseTree.get(e.asInstanceOf[ast.Expr])
-//        }
-//        override def to: ast.ID => Option[ID] = x => {
-//          val e: ExprF[ast.ID] = ast.tree(x)
-//          e match {
-//            case t: Total[_] => reverseTree.get(t.asInstanceOf[Total[ID]])
-//            case _           => None
-//          }
-//        }
-//
-//      }
-//    }
+    encode(ast.root, ast.tree.asFunction)
   }
-
-  type PB = Partial[Fix[Total]]
-
-  private object Utils {
-    import scala.language.implicitConversions
-    implicit def autoFix[F[_]](x: F[Fix[F]]): Fix[F] = Fix(x)
-
-    def and(conjuncts: Fix[Total]*): Fix[Total] = {
-      assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
-      val nonEmptyConjuncts = conjuncts.filter {
-        case ComputationF(bool.And, args, _) if args.isEmpty => false
-        case CstF(true, _)                    => false
-        case _                                => true
-      }
-      ComputationF(bool.And, nonEmptyConjuncts, Tag.ofBoolean)
-    }
-    def not(e: Fix[Total]): Fix[Total] = {
-      assert(e.unfix.typ == Tag.ofBoolean)
-      ComputationF(bool.Not, Seq(e), Tag.ofBoolean)
-    }
-    def implies(cond: Fix[Total], eff: Fix[Total]): Fix[Total] = {
-      assert(cond.unfix.typ == Tag.ofBoolean && eff.unfix.typ == Tag.ofBoolean)
-      val notCond = Fix(ComputationF(bool.Not, Seq(cond), Tag.ofBoolean))
-      ComputationF(bool.Or, Seq(notCond, eff), Tag.ofBoolean)
-    }
-  }
-  import Utils._
-
-  var cacheMiss = 0
-  var cacheHit = 0
-
-  case class IR(value: Fix[Total], present: Fix[Total], valid: Fix[Total])
-  def compiler(cache: mutable.Map[ExprF[IR], IR], optimize: Boolean): FAlgebra[ExprF, IR] = x => {
-    val ir = x match {
-      case x if cache.contains(x) =>
-        cacheHit += 1
-        cache(x)
-      case x: InputF[_] => IR(Fix(x), and(), and())
-      case x: CstF[_]   => IR(Fix(x), and(), and())
-      case ComputationF(f, args, t) =>
-        IR(
-          value = ComputationF(f, args.map(a => a.value), t),
-          present = and(args.map(_.present): _*),
-          valid = and(args.map(_.valid): _*)
-        )
-      case ProductF(members, t) =>
-        IR(
-          value = ProductF(members.map(a => a.value), t),
-          present = and(members.map(_.present): _*),
-          valid = and(members.map(_.valid): _*)
-        )
-      case ITEF(cond, onTrue, onFalse, t) =>
-        IR(
-          value = ITEF(cond.value, onTrue.value, onFalse.value, t),
-          present = and(cond.present,
-                        implies(cond.value, onTrue.present),
-                        implies(not(cond.value), onFalse.present)),
-          valid = and(cond.valid,
-                      implies(cond.value, onTrue.valid),
-                      implies(not(cond.value), onFalse.valid))
-        )
-      case OptionalF(value, present, _) =>
-        IR(
-          value = value.value,
-          present = and(value.present, present.present, present.value),
-          valid = and(present.valid, value.valid)
-        )
-      case PresentF(opt) =>
-        IR(
-          value = opt.present,
-          present = and(),
-          valid = opt.valid
-        )
-      case ValidF(part) =>
-        IR(
-          value = part.valid,
-          present = part.present,
-          valid = and()
-        )
-      case Partial(value, condition, tpe) =>
-        IR(
-          value = value.value,
-          present = value.present,
-          valid =
-            and(value.valid, implies(condition.present, and(condition.value, condition.valid)))
-        )
-    }
-
-    if(!cache.contains(x)) {
-      cacheMiss += 1
-      cache += ((x, ir))
-    }
-    ir
-  }
-
-  def optimizer(tot: Fix[Total]): Fix[Total] =
-    dahu.recursion.Recursion
-      .cata[Total, Fix[Total]](dahu.model.compiler.Optimizations.simplificationAlgebra)(tot)
-
-  def encode[X](root: X, coalgebra: FCoalgebra[ExprF, X], optimize: Boolean = true): Fix[Total] = {
-    val cache = mutable.Map[ExprF[IR], IR]()
-    val ir = Recursion.hylo(coalgebra, compiler(cache, optimize = optimize))(root)
-
-    println(s"MISS / HIT : $cacheMiss / $cacheHit")
-
-//    println(Algebras.format(ir.valid))
-    if(optimize)
-      optimizer(ir.valid)
-    else
-      ir.valid
-  }
-
-}
-
-object SatisfactionProblemFAST {
 
   type ID = Int
-
-  private object Utils {
-    import scala.language.implicitConversions
-    implicit def autoFix[F[_]](x: F[Fix[F]]): Fix[F] = Fix(x)
-
-  }
-  import Utils._
-
-  var cacheMiss = 0
-  var cacheHit = 0
 
   trait TreeNode[N[_]] {
     def children[K](n: N[K]): Iterable[K]
@@ -190,11 +25,11 @@ object SatisfactionProblemFAST {
   object TreeNode {
     implicit val totalInstance: TreeNode[Total] = new TreeNode[Total] {
       override def children[A](fa: Total[A]): Iterable[A] = fa match {
-        case ComputationF(_, args, _) => args
+        case ComputationF(_, args, _) => args.toSeq
         case _: CstF[A]               => Nil
         case _: InputF[A]             => Nil
         case ITEF(c, t, f, _)         => Seq(c, t, f)
-        case ProductF(as, _)          => as
+        case ProductF(as, _)          => as.toSeq
       }
     }
 
@@ -217,6 +52,10 @@ object SatisfactionProblemFAST {
 
     def map[G[_]](f: F[Int] => G[Int])(implicit fOpt: Functor[Opt]): ILazyTree[K, G, Opt] =
       new MappedLazyTree(f, this)
+
+    def build(id: ID)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = {
+      Recursion.ana(i => getInt(i))(id)
+    }
   }
 
   class MappedLazyTree[K, F[_], G[_], Opt[_]: Functor](f: F[Int] => G[Int],
@@ -256,6 +95,8 @@ object SatisfactionProblemFAST {
       }
       result.toList
     }
+
+    def fullTree(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = tree.build(root)
   }
 
   final class Context(val rec: Total[ID] => ID) {
@@ -271,6 +112,19 @@ object SatisfactionProblemFAST {
           TRUE
         else if(reduced.size == 1)
           reduced.head
+        else
+          rec(ComputationF(bool.And, reduced, Tag.ofBoolean))
+      }
+    }
+    def and(conjuncts: IArray[ID]): ID = {
+      if(conjuncts.contains(FALSE)) {
+        FALSE
+      } else {
+        val reduced = conjuncts.distinct.filter(_ != TRUE).sorted
+        if(reduced.isEmpty)
+          TRUE
+        else if(reduced.size == 1)
+          reduced(0)
         else
           rec(ComputationF(bool.And, reduced, Tag.ofBoolean))
       }
@@ -351,14 +205,14 @@ object SatisfactionProblemFAST {
       case ComputationF(f, args, t) =>
         IR(
           value = ctx.rec(ComputationF(f, args.map(a => a.value), t)),
-          present = ctx.and(args.map(_.present): _*),
-          valid = ctx.and(args.map(_.valid): _*)
+          present = ctx.and(args.map(_.present)),
+          valid = ctx.and(args.map(_.valid))
         )
       case ProductF(members, t) =>
         IR(
           value = ctx.rec(ProductF(members.map(a => a.value), t)),
-          present = ctx.and(members.map(_.present): _*),
-          valid = ctx.and(members.map(_.valid): _*)
+          present = ctx.and(members.map(_.present)),
+          valid = ctx.and(members.map(_.valid))
         )
       case ITEF(cond, onTrue, onFalse, t) =>
         IR(

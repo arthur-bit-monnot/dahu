@@ -1,20 +1,21 @@
 package dahu.recursion
 
-import cats.{Functor, Monad, Traverse, ~>}
+import cats.{~>, Functor, Monad, Traverse}
 import dahu.SFunctor
 
 import scala.reflect.ClassTag
 
 object Recursion {
 
-  def cata[F[_], A : ClassTag](alg: FAlgebra[F, A])(f: Fix[F])(implicit F: SFunctor[F]): A =
+  def cata[F[_], A: ClassTag](alg: FAlgebra[F, A])(f: Fix[F])(implicit F: SFunctor[F]): A =
     RecursionFn.cata(alg).apply(f)
 
   def cataM[M[_], F[_], A](alg: FAlgebraM[M, F, A])(f: Fix[F])(implicit M: Monad[M],
                                                                F: Traverse[F]): M[A] =
     RecursionFn.cataM(alg).apply(f)
 
-  def ana[F[_], A: ClassTag](coalg: FCoalgebra[F, A])(a: A)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] =
+  def ana[F[_], A: ClassTag](coalg: FCoalgebra[F, A])(a: A)(implicit F: SFunctor[F],
+                                                            ct: ClassTag[F[Fix[F]]]): Fix[F] =
     RecursionFn.ana(coalg).apply(a)
 
   def anaM[M[_], F[_], A](coalg: FCoalgebraM[M, F, A])(a: A)(implicit M: Monad[M],
@@ -34,14 +35,16 @@ object Recursion {
     * Top-most structure (i.e. the input) is not transformed.
     * Outside to inside.
     */
-  def prepro[F[_], A: ClassTag](pre: F ~> F, alg: FAlgebra[F, A])(f: Fix[F])(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): A =
+  def prepro[F[_], A: ClassTag](pre: F ~> F, alg: FAlgebra[F, A])(
+      f: Fix[F])(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): A =
     RecursionFn.prepro(pre, alg).apply(f)
 
   /** ana that creates a structure, transforming each new child (i.e. the entire structure as exists at the end of a pass).
     * Top-most structure (i.e. the end result) is not transformed.
     * Inside to outside.
     */
-  def postpro[F[_], A: ClassTag](coalg: FCoalgebra[F, A], pro: F ~> F)(a: A)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] =
+  def postpro[F[_], A: ClassTag](coalg: FCoalgebra[F, A], pro: F ~> F)(
+      a: A)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] =
     RecursionFn.postpro(coalg, pro).apply(a)
 
   /** hylo that can short-circuit on construction */

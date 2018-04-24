@@ -5,7 +5,7 @@ import dahu.model.ir._
 import dahu.model.math._
 import dahu.recursion.FAlgebra
 import cats.implicits._
-import dahu.ImmutableArray
+import dahu.IArray
 import dahu.model.functions._
 import dahu.model.types.{Tag, TagIsoInt}
 
@@ -37,14 +37,14 @@ object Compiler {
   }
 
   object Ints {
-    def unapply(args: ImmutableArray[Expr]): Option[List[IntExpr]] =
+    def unapply(args: IArray[Expr]): Option[List[IntExpr]] =
       if(args.forall(_.isInstanceOf[IntExpr]))
         Some(args.toList.asInstanceOf[List[IntExpr]])
       else
         None
   }
   object Bools {
-    def unapply(args: ImmutableArray[Expr]): Option[List[BoolExpr]] =
+    def unapply(args: IArray[Expr]): Option[List[BoolExpr]] =
       if(args.forall(_.isInstanceOf[BoolExpr]))
         Some(args.toList.asInstanceOf[List[BoolExpr]])
       else

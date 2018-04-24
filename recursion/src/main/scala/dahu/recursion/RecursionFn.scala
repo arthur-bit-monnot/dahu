@@ -1,13 +1,13 @@
 package dahu.recursion
 
-import cats.{Comonad, Eval, Functor, Monad, Traverse, ~>}
+import cats.{~>, Comonad, Eval, Functor, Monad, Traverse}
 import cats.free.{Cofree, Free}
 import dahu.SFunctor
 import spire.ClassTag
 
 object RecursionFn {
 
-  def cata[F[_], A : ClassTag](alg: FAlgebra[F, A])(implicit F: SFunctor[F]): Fix[F] => A = {
+  def cata[F[_], A: ClassTag](alg: FAlgebra[F, A])(implicit F: SFunctor[F]): Fix[F] => A = {
     var self: Fix[F] => A = null
     self = f => alg(F.smap(f.unfix)(self))
     self
@@ -20,7 +20,8 @@ object RecursionFn {
     self
   }
 
-  def ana[F[_], A : ClassTag](coalg: FCoalgebra[F, A])(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): A => Fix[F] = {
+  def ana[F[_], A: ClassTag](coalg: FCoalgebra[F, A])(implicit F: SFunctor[F],
+                                                      ct: ClassTag[F[Fix[F]]]): A => Fix[F] = {
     var self: A => Fix[F] = null
     self = a => Fix[F](F.smap(coalg(a))(self))
     self
@@ -53,7 +54,9 @@ object RecursionFn {
     * Top-most structure (i.e. the input) is not transformed.
     * Outside to inside.
     */
-  def prepro[F[_], A: ClassTag](pre: F ~> F, alg: FAlgebra[F, A])(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] => A = {
+  def prepro[F[_], A: ClassTag](pre: F ~> F, alg: FAlgebra[F, A])(
+      implicit F: SFunctor[F],
+      ct: ClassTag[F[Fix[F]]]): Fix[F] => A = {
     var self: Fix[F] => A = null
     val algF: FAlgebra[F, Fix[F]] = f => Fix[F](pre(f))
     val cataF: Fix[F] => Fix[F] = cata(algF)
@@ -81,8 +84,9 @@ object RecursionFn {
     * Top-most structure (i.e. the end result) is not transformed.
     * Inside to outside.
     */
-  def postpro[F[_], A : ClassTag](coalg: FCoalgebra[F, A], pro: F ~> F)(
-      implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): A => Fix[F] = {
+  def postpro[F[_], A: ClassTag](coalg: FCoalgebra[F, A], pro: F ~> F)(
+      implicit F: SFunctor[F],
+      ct: ClassTag[F[Fix[F]]]): A => Fix[F] = {
     var self: A => Fix[F] = null
     val algF: FCoalgebra[F, Fix[F]] = f => pro(f.unfix)
     val anaF: Fix[F] => Fix[F] = ana(algF)

@@ -18,7 +18,8 @@ object SFunctor {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: F[A])(f: A => B): F[B] = F.map(fa)(f)
   }
 
-  implicit def fromCats[F[_]: cats.Functor]: SFunctor[F] = new FromCats[F](implicitly[cats.Functor[F]])
+  implicit def fromCats[F[_]: cats.Functor]: SFunctor[F] =
+    new FromCats[F](implicitly[cats.Functor[F]])
 
   implicit final class SFunctorOps[F[_], A](private val lhs: F[A]) extends AnyVal {
     def smap[@sp(Int) B: ClassTag](f: A => B)(implicit F: SFunctor[F]): F[B] = F.smap(lhs)(f)

@@ -1,9 +1,11 @@
 package dahu.model.types
 
 import cats.Id
+import dahu.IArray
 import dahu.model.input.{ProductExpr, Tentative}
 
 import scala.annotation.switch
+import scala.reflect.ClassTag
 
 trait Tag[+T] {
 
@@ -71,16 +73,18 @@ object ProductTag {
     new ProductTag[Sequence[?[_], A]] {
       override def exprProd: ProductExpr[Sequence[?[_], A], Tentative] =
         new ProductExpr[Sequence[?[_], A], Tentative] {
-          override def extractTerms(prod: Sequence[Tentative, A]): Seq[Tentative[Any]] =
-            prod.map(_.asInstanceOf[Tentative[Any]])
-          override def buildFromTerms(terms: Seq[Tentative[Any]]): Sequence[Tentative, A] =
-            terms.map(_.asInstanceOf[Tentative[A]])
+          override def extractTerms(prod: Sequence[Tentative, A])(
+              implicit ct: ClassTag[Tentative[Any]]): IArray[Tentative[Any]] =
+            IArray.fromSeq(prod.map(_.asInstanceOf[Tentative[Any]]))
+          override def buildFromTerms(terms: IArray[Tentative[Any]]): Sequence[Tentative, A] =
+            terms.map(_.asInstanceOf[Tentative[A]]).toSeq
         }
       override def idProd: ProductExpr[Sequence[?[_], A], Id] =
         new ProductExpr[Sequence[?[_], A], Id] {
-          override def extractTerms(prod: Sequence[Id, A]): Seq[Id[Any]] = prod
-          override def buildFromTerms(terms: Seq[Id[Any]]): Sequence[Id, A] =
-            terms.map(_.asInstanceOf[Id[A]])
+          override def extractTerms(prod: Sequence[Id, A])(
+              implicit ct: ClassTag[Id[Any]]): IArray[Id[Any]] = IArray.fromSeq(prod)
+          override def buildFromTerms(terms: IArray[Id[Any]]): Sequence[Id, A] =
+            terms.asInstanceOf[IArray[Id[A]]].toSeq
         }
 
       override def typ: Tag.Type = tt.tpe
