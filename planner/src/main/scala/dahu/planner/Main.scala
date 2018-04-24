@@ -36,6 +36,9 @@ object Main extends App {
     opt[Int]("warmup")
       .action((t, c) => c.copy(warmupTimeSec = t))
 
+    opt[Int]("min-depth")
+      .action((d, c) => c.copy(minInstances = d))
+
     opt[Int]("max-depth")
       .action((d, c) => c.copy(maxInstances = d))
 

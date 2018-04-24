@@ -3,7 +3,9 @@ package dahu
 import cats.{Applicative, Eval, Functor, Traverse}
 import cats.free.{Cofree, Free}
 
+
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 package object recursion {
 
@@ -33,6 +35,8 @@ package object recursion {
       Fix.unfix(self)
   }
 
+  implicit def fixClassTag[F[_]](implicit ct: ClassTag[F[Fix[F]]]): ClassTag[Fix[F]] = ct.asInstanceOf[ClassTag[Fix[F]]]
+
   @inline implicit def fAlgebraOps[F[_], A](self: F[A] => A): FAlgebraOps[F, A] =
     new FAlgebraOps(self)
 
@@ -49,6 +53,13 @@ package object recursion {
         override def map[A, B](fa: EnvT[Z, F, A])(f: A => B): EnvT[Z, F, B] =
           EnvT(fa.ask, F.map(fa.lower)(f))
       }
+
+    implicit def envTSFunctor[Z, F[_]](implicit F: SFunctor[F]): SFunctor[EnvT[Z, F, ?]] =
+      new SFunctor[EnvT[Z, F, ?]] {
+        override def smap[@specialized(Int) A, @specialized(Int) B: ClassTag](fa: EnvT[Z, F, A])(f: A => B): EnvT[Z, F, B] =
+          EnvT(fa.ask, F.smap(fa.lower)(f))
+      }
+
     implicit def envTTraverse[Z, F[_]](implicit F: Traverse[F]): Traverse[EnvT[Z, F, ?]] =
       new Traverse[EnvT[Z, F, ?]] {
         def traverse[G[_], A, B](fa: EnvT[Z, F, A])(f: A => G[B])(

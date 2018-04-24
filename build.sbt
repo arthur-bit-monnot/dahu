@@ -71,11 +71,13 @@ lazy val utils = project
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "org.spire-math" %% "debox" % "0.8.0"
+      "org.spire-math" %% "debox" % "0.8.0",
+      "org.typelevel" %% "cats-core" % "1.1.0",
     ))
 
 lazy val recursion = project
   .in(file("recursion"))
+  .dependsOn(utils)
   .settings(name := "recursion")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(

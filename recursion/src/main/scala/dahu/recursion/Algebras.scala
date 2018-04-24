@@ -1,8 +1,8 @@
 package dahu.recursion
 
-//import scalaz.{-\/, Free, Functor, Monad, \/, \/-}
 import cats.{Functor, Monad}
-import cats.free.{Cofree, Free}
+import cats.free.Free
+import dahu.SFunctor
 
 final class FAlgebraOps[F[_], A](private val self: FAlgebra[F, A]) extends AnyVal {
 
@@ -34,7 +34,7 @@ final class FCoalgebraOps[F[_], A](private val self: FCoalgebra[F, A]) extends A
   def toCVCoalgebra(implicit F: Functor[F]): CVCoalgebra[F, A] =
     a => F.map(self(a))(Free.pure)
 
-  def toAttributeCoalgebra(implicit F: Functor[F]): AttributeCoalgebra[F, A] =
+  def toAttributeCoalgebra(implicit F: SFunctor[F]): AttributeCoalgebra[F, A] =
     a => EnvT(a, self(a))
 
   def cozip[B](that: FCoalgebra[F, B])(implicit F: Functor[F]): FCoalgebra[F, Either[A, B]] = {

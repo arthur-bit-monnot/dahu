@@ -2,9 +2,8 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.graphs.DAG
-import dahu.maps.{ArrayMap, Counter, Wrapped}
-import dahu.maps.growable.GrowableBiMap
+import dahu.SFunctor
+import dahu.ImmutableArray.Arr1
 import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
@@ -15,6 +14,7 @@ import dahu.model.types._
 import dahu.utils.errors._
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) {
 
@@ -59,14 +59,14 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
                                                  bool.XOr,
                                                  bool.Not)
 
-    abstract class LazyTree[K, F[_]: TreeNode: Functor, G[_], Opt[_]: Functor](
+    abstract class LazyTree[K, F[_]: TreeNode: SFunctor, G[_], Opt[_]: Functor](
         orig: ILazyTree[K, F, Opt])
         extends ILazyTree[K, G, Opt] {
 
       def g(rec: G[ID] => ID)(prev: ID => G[ID])(node: F[ID]): G[ID]
 
       private val treeNode = implicitly[TreeNode[F]]
-      private val functor = implicitly[Functor[F]]
+      private val functor = implicitly[SFunctor[F]]
 
       private val idsMap = mutable.HashMap[orig.ID, ID]()
       private val repMap = mutable.ArrayBuffer[G[ID]]() // ID => G[ID]
@@ -104,7 +104,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
           if(!processed(cur)) {
             val fk = orig.getInt(cur)
             if(treeNode.children(fk).forall(processed)) {
-              val fg: F[ID] = functor.map(fk)(id => idsMap(id))
+              val fg: F[ID] = functor.smap(fk)(id => idsMap(id))
               val g: G[ID] = g2(fg)
               val id = rec(g)
               idsMap += ((cur, id))
@@ -129,7 +129,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       case _           => true
     }
 
-    private def TRANS[K](rec: CellOpt[K] => K)(prev: K => CellOpt[K])(
+    private def TRANS[K: ClassTag](rec: CellOpt[K] => K)(prev: K => CellOpt[K])(
         node: Total[K]): CellOpt[K] = {
       def and(conjuncts: CellOpt[K]*): CellOpt[K] = {
         IntermediateExpression(
@@ -158,7 +158,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
             if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
           TRANS(rec)(prev)(ComputationF(wf.f, args, t)) // unwrap and retry
 
-        case x @ ComputationF(f: Unboxed[_], Seq(arg), t) =>
+        case x @ ComputationF(f: Unboxed[_], Arr1(arg), t) =>
           prev(arg) // unbox operation, use the previous cell
 
         case x =>

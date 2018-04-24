@@ -1,11 +1,11 @@
 package dahu.model.compiler
 
-import dahu.model.functions.{Fun, FunN}
 import dahu.model.ir.{ComputationF, CstF, ExprF, Total}
 import dahu.model.math._
 import dahu.model.types._
 import dahu.recursion._
 import dahu.utils.errors._
+import dahu.ImmutableArray._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -29,7 +29,7 @@ object Optimizations {
     }
 
     val elimEmptyMonoids: PASS = namedPass("elim-empty-monoid") {
-      case x @ ComputationF(f: Monoid[_], Seq(), _) => f.liftedIdentity
+      case x @ ComputationF(f: Monoid[_], args, _) if args.isEmpty => f.liftedIdentity
       case x                                        => x
     }
     private val FALSE: Fix[Total] = Fix(CstF(Value(false), Tag.ofBoolean))
@@ -80,8 +80,8 @@ object Optimizations {
     }
 
     val elimSingletonAndOr: PASS = namedPass("elim-singleton-and-or") {
-      case ComputationF(bool.And, Seq(arg), _) => arg.unfix
-      case ComputationF(bool.Or, Seq(arg), _)  => arg.unfix
+      case ComputationF(bool.And, Arr1(arg), _) => arg.unfix
+      case ComputationF(bool.Or, Arr1(arg), _)  => arg.unfix
       case x                                   => x
     }
 
@@ -92,8 +92,8 @@ object Optimizations {
     }
 
     val elimTautologies: PASS = namedPass("elim-tautologies") {
-      case ComputationF(int.LEQ, Seq(a1, a2), _) if a1 == a2 => TRUE.unfix
-      case ComputationF(int.EQ, Seq(a1, a2), _) if a1 == a2  => TRUE.unfix
+      case ComputationF(int.LEQ, Arr2(a1, a2), _) if a1 == a2 => TRUE.unfix
+      case ComputationF(int.EQ, Arr2(a1, a2), _) if a1 == a2  => TRUE.unfix
       case x                                                 => x
     }
   }

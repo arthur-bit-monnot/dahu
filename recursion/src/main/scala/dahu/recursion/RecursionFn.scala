@@ -1,13 +1,15 @@
 package dahu.recursion
 
-import cats.{~>, Comonad, Eval, Functor, Monad, Traverse}
+import cats.{Comonad, Eval, Functor, Monad, Traverse, ~>}
 import cats.free.{Cofree, Free}
+import dahu.SFunctor
+import spire.ClassTag
 
 object RecursionFn {
 
-  def cata[F[_], A](alg: FAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
+  def cata[F[_], A : ClassTag](alg: FAlgebra[F, A])(implicit F: SFunctor[F]): Fix[F] => A = {
     var self: Fix[F] => A = null
-    self = f => alg(F.map(f.unfix)(self))
+    self = f => alg(F.smap(f.unfix)(self))
     self
   }
 
@@ -18,9 +20,9 @@ object RecursionFn {
     self
   }
 
-  def ana[F[_], A](coalg: FCoalgebra[F, A])(implicit F: Functor[F]): A => Fix[F] = {
+  def ana[F[_], A : ClassTag](coalg: FCoalgebra[F, A])(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): A => Fix[F] = {
     var self: A => Fix[F] = null
-    self = a => Fix[F](F.map(coalg(a))(self))
+    self = a => Fix[F](F.smap(coalg(a))(self))
     self
   }
 
@@ -32,10 +34,10 @@ object RecursionFn {
   }
 
   /** ana with immediate cata */
-  def hylo[F[_], A, B](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(
-      implicit F: Functor[F]): A => B = {
+  def hylo[F[_], A, B: ClassTag](coalg: FCoalgebra[F, A], alg: FAlgebra[F, B])(
+      implicit F: SFunctor[F]): A => B = {
     var self: A => B = null
-    self = a => alg(F.map(coalg(a))(self))
+    self = a => alg(F.smap(coalg(a))(self))
     self
   }
 
@@ -51,12 +53,12 @@ object RecursionFn {
     * Top-most structure (i.e. the input) is not transformed.
     * Outside to inside.
     */
-  def prepro[F[_], A](pre: F ~> F, alg: FAlgebra[F, A])(implicit F: Functor[F]): Fix[F] => A = {
+  def prepro[F[_], A: ClassTag](pre: F ~> F, alg: FAlgebra[F, A])(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] => A = {
     var self: Fix[F] => A = null
     val algF: FAlgebra[F, Fix[F]] = f => Fix[F](pre(f))
     val cataF: Fix[F] => Fix[F] = cata(algF)
     val inner: Fix[F] => A = f => self(cataF(f))
-    self = f => alg(F.map(f.unfix)(inner))
+    self = f => alg(F.smap(f.unfix)(inner))
     /*
     // Inspection
     var space = ""
@@ -79,13 +81,13 @@ object RecursionFn {
     * Top-most structure (i.e. the end result) is not transformed.
     * Inside to outside.
     */
-  def postpro[F[_], A](coalg: FCoalgebra[F, A], pro: F ~> F)(
-      implicit F: Functor[F]): A => Fix[F] = {
+  def postpro[F[_], A : ClassTag](coalg: FCoalgebra[F, A], pro: F ~> F)(
+      implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): A => Fix[F] = {
     var self: A => Fix[F] = null
     val algF: FCoalgebra[F, Fix[F]] = f => pro(f.unfix)
     val anaF: Fix[F] => Fix[F] = ana(algF)
     val inner: A => Fix[F] = a => anaF(self(a))
-    self = a => Fix[F](F.map(coalg(a))(inner))
+    self = a => Fix[F](F.smap(coalg(a))(inner))
     /*
     // Inspection
     var space = ""

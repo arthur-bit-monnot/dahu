@@ -1,7 +1,7 @@
 package dahu.z3
 
-import cats.Functor
 import com.microsoft.z3._
+import dahu.SFunctor
 import dahu.model.ir._
 import dahu.model.problem.IntBoolSatisfactionProblem
 import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree, TreeNode}
@@ -10,11 +10,12 @@ import dahu.solvers.PartialSolver
 import dahu.utils.errors._
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class TreeBuilder[X, F[_], G, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(implicit F: Functor[F],
-                                                                             T: TreeNode[F]) {
+class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(implicit F: SFunctor[F],
+                                                                                       T: TreeNode[F]) {
   private val memo = mutable.HashMap[t.ID, G]()
 
   def build(k: t.ID): G = {
@@ -28,7 +29,7 @@ class TreeBuilder[X, F[_], G, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(imp
       val a = stack.pop()
       val fa = t.getInt(a)
       if(T.children(fa).forall(memo.contains)) {
-        val g = f(F.map(fa)(memo))
+        val g = f(F.smap(fa)(memo))
         memo += ((a, g))
       } else {
         push(a)

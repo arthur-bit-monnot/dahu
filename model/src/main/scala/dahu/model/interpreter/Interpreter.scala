@@ -5,7 +5,7 @@ import cats.implicits._
 import cats.kernel.Monoid
 import dahu.model.input.Present
 import dahu.model.ir._
-import dahu.model.types.Value
+import dahu.model.types._
 import dahu.utils.errors._
 import dahu.recursion._
 import dahu.recursion.Recursion._

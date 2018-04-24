@@ -4,8 +4,8 @@ import cats.Id
 import dahu.graphs.DAG
 import dahu.model.ir._
 import dahu.model.problem.SatisfactionProblem
-import dahu.model.types.{TagIsoInt, Value}
-import dahu.recursion.{FAlgebra, Fix}
+import dahu.model.types._
+import dahu.recursion._
 import dahu.utils.errors._
 import dahu.model.compiler.Optimizations.{simplifications, PASS, Tree}
 import dahu.model.input.Ident

@@ -2,9 +2,7 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.maps.{ArrayMap, Counter, Wrapped}
-import dahu.maps.growable.GrowableBiMap
-import dahu.model.compiler.Algebras
+import dahu.SFunctor
 import dahu.model.ir._
 import dahu.model.math.bool
 import dahu.model.problem.SatisfactionProblemFAST.{ILazyTree, RootedLazyTree}
@@ -68,7 +66,7 @@ object SatisfactionProblem {
     def and(conjuncts: Fix[Total]*): Fix[Total] = {
       assert(conjuncts.forall(c => c.unfix.typ == Tag.ofBoolean))
       val nonEmptyConjuncts = conjuncts.filter {
-        case ComputationF(bool.And, Seq(), _) => false
+        case ComputationF(bool.And, args, _) if args.isEmpty => false
         case CstF(true, _)                    => false
         case _                                => true
       }
@@ -300,7 +298,7 @@ object SatisfactionProblemFAST {
 
   class LazyTreeSpec[@specialized(Int) K](f: K => ExprF[K], g: Context => ExprF[IR[ID]] => IR[ID]) {
     private val treeNode = implicitly[TreeNode[ExprF]]
-    private val functor = implicitly[Functor[ExprF]]
+    private val functor = implicitly[SFunctor[ExprF]]
 
     private val idsMap = mutable.HashMap[K, IR[ID]]()
     private val repMap = mutable.ArrayBuffer[Total[ID]]() // ID => Total[ID]
@@ -332,7 +330,7 @@ object SatisfactionProblemFAST {
         val cur = queue.pop()
         val fk = f(cur)
         if(treeNode.children(fk).forall(processed)) {
-          val fg = functor.map(fk)(id => idsMap(id))
+          val fg = functor.smap(fk)(id => idsMap(id))
           val g: IR[ID] = g2(fg)
           idsMap += ((cur, g))
         } else {
