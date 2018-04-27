@@ -1,7 +1,9 @@
 package dahu.planner
 
-import copla.lang.model.core
+import copla.lang.model.common
+import copla.lang.model.common.{Cst => _, Term => _, _}
 import copla.lang.model.core._
+import copla.lang.model.core
 import dahu.model.functions.WrappedFunction
 import dahu.model.input._
 import dahu.model.input.dsl._
@@ -38,7 +40,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
                           topTag: TagIsoInt[Literal],
                           specializedTags: Type => TagIsoInt[Literal]) {
 
-  def encode(v: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
+  def encode(v: common.Term)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
     v match {
       case IntLiteral(i)         => IntLit(i).asConstant(intTag)
       case lv @ LocalVar(_, tpe) => Input[Literal](Ident(lv))(specializedTags(tpe))
@@ -81,7 +83,8 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
     Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
 
-  def eqv(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
+  def eqv(lhs: common.Term, rhs: common.Term)(
+      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
 
   private val ObjEquality = WrappedFunction.wrap(int.EQ)(topTag, implicitly[TagIsoInt[Boolean]])
@@ -110,7 +113,8 @@ case class ProblemContext(intTag: BoxedInt[Literal],
         }
     }
 
-  def neq(lhs: Var, rhs: Var)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
+  def neq(lhs: common.Term, rhs: common.Term)(
+      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
     neq(encode(lhs), encode(rhs))
   def neq(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
     not(eqv(lhs, rhs))
@@ -291,80 +295,81 @@ case class Chronicle(ctx: ProblemContext,
 
   import ctx._
 
-  def extended(e: Statement)(implicit argRewrite: Arg => Tentative[Literal]): Chronicle = e match {
-    case _: TypeDeclaration      => this
-    case _: InstanceDeclaration  => this
-    case _: TimepointDeclaration => this
-    case _: FunctionDeclaration  => this
-    case _: LocalVarDeclaration  => this
-    case _: ArgDeclaration       => this
-    case BindAssertion(c, v) =>
-      val cond = ConditionToken(
-        start = ctx.temporalOrigin,
-        end = ctx.temporalHorizon,
-        fluent = encode(c),
-        value = encode(v)
-      )
-      copy(
-        conditions = cond :: conditions
-      )
-    case StaticDifferentAssertion(lhs, rhs) =>
-      copy(
-        constraints = ctx.neq(lhs, rhs) :: constraints
-      )
-    case StaticEqualAssertion(lhs, rhs) =>
-      copy(constraints = ctx.eqv(lhs, rhs) :: constraints)
-    case TBefore(lhs, rhs) =>
-      copy(constraints = (encode(lhs) <= encode(rhs)) :: constraints)
+  def extended(e: InActionBlock)(implicit argRewrite: Arg => Tentative[Literal]): Chronicle =
+    e match {
+      case _: TypeDeclaration      => this
+      case _: InstanceDeclaration  => this
+      case _: TimepointDeclaration => this
+      case _: FunctionDeclaration  => this
+      case _: LocalVarDeclaration  => this
+      case _: ArgDeclaration       => this
+      case BindAssertion(c, v) =>
+        val cond = ConditionToken(
+          start = ctx.temporalOrigin,
+          end = ctx.temporalHorizon,
+          fluent = encode(c),
+          value = encode(v)
+        )
+        copy(
+          conditions = cond :: conditions
+        )
+      case StaticDifferentAssertion(lhs, rhs) =>
+        copy(
+          constraints = ctx.neq(lhs, rhs) :: constraints
+        )
+      case StaticEqualAssertion(lhs, rhs) =>
+        copy(constraints = ctx.eqv(lhs, rhs) :: constraints)
+      case TBefore(lhs, rhs) =>
+        copy(constraints = (encode(lhs) <= encode(rhs)) :: constraints)
 
-    case TimedAssignmentAssertion(start, end, fluent, value) =>
-      val changeStart = encode(start)
-      val changeEnd = encode(end).subjectTo(changeStart <= _)
-      val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
-      val token = EffectToken(
-        changeStart = changeStart,
-        changeEnd = changeEnd,
-        persistenceEnd = persistenceEnd,
-        fluent = encode(fluent),
-        value = encode(value)
-      )
-      copy(effects = token :: effects)
+      case TimedAssignmentAssertion(start, end, fluent, value) =>
+        val changeStart = encode(start)
+        val changeEnd = encode(end).subjectTo(changeStart <= _)
+        val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
+        val token = EffectToken(
+          changeStart = changeStart,
+          changeEnd = changeEnd,
+          persistenceEnd = persistenceEnd,
+          fluent = encode(fluent),
+          value = encode(value)
+        )
+        copy(effects = token :: effects)
 
-    case TimedEqualAssertion(s, e, f, v) =>
-      val start = encode(s)
-      val end = encode(e)
-      val token = ConditionToken(
-        start = start,
-        end = end,
-        fluent = encode(f),
-        value = encode(v)
-      )
-      copy(conditions = token :: conditions)
+      case TimedEqualAssertion(s, e, f, v) =>
+        val start = encode(s)
+        val end = encode(e)
+        val token = ConditionToken(
+          start = start,
+          end = end,
+          fluent = encode(f),
+          value = encode(v)
+        )
+        copy(conditions = token :: conditions)
 
-    case TimedTransitionAssertion(s, e, f, v1, v2) =>
-      val start = encode(s)
-      val changeStart = start + 1
-      val changeEnd = encode(e).subjectTo(changeStart <= _)
-      val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
-      val cond = ConditionToken(start, start, encode(f), encode(v1))
-      val eff = EffectToken(changeStart, changeEnd, persistenceEnd, encode(f), encode(v2))
-      copy(
-        conditions = cond :: conditions,
-        effects = eff :: effects
-      )
+      case TimedTransitionAssertion(s, e, f, v1, v2) =>
+        val start = encode(s)
+        val changeStart = start + 1
+        val changeEnd = encode(e).subjectTo(changeStart <= _)
+        val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
+        val cond = ConditionToken(start, start, encode(f), encode(v1))
+        val eff = EffectToken(changeStart, changeEnd, persistenceEnd, encode(f), encode(v2))
+        copy(
+          conditions = cond :: conditions,
+          effects = eff :: effects
+        )
 
-    case StaticAssignmentAssertion(lhs, rhs) =>
-      val eff = EffectToken(
-        changeStart = ctx.temporalOrigin,
-        changeEnd = ctx.temporalOrigin,
-        persistenceEnd = ctx.temporalHorizon,
-        fluent = encode(lhs),
-        value = encode(rhs)
-      )
-      copy(
-        effects = eff :: effects
-      )
-  }
+      case StaticAssignmentAssertion(lhs, rhs) =>
+        val eff = EffectToken(
+          changeStart = ctx.temporalOrigin,
+          changeEnd = ctx.temporalOrigin,
+          persistenceEnd = ctx.temporalHorizon,
+          fluent = encode(lhs),
+          value = encode(rhs)
+        )
+        copy(
+          effects = eff :: effects
+        )
+    }
 
   private def sameFluent(f1: Fluent, f2: Fluent): Tentative[Boolean] = {
     if(f1.template != f2.template)

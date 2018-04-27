@@ -1,5 +1,6 @@
 package copla.lang
 
+import copla.lang.model.common._
 import copla.lang.model.core._
 
 import scala.collection.mutable

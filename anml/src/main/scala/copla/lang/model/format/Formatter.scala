@@ -21,7 +21,7 @@ object Formatter extends LowPriorityFormatter {
 
   def apply[T](implicit fmt: Formatter[T]): Formatter[T] = fmt
 
-  implicit def fAction(implicit ev: Formatter[Statement]) = new Formatter[ActionTemplate] {
+  implicit def fAction(implicit ev: Formatter[InActionBlock]) = new Formatter[ActionTemplate] {
     override def format(t: ActionTemplate, indent: Int): String = {
       val sb = new StringBuilder()
       sb ++= "\n" + " " * indent + t.toString + ":"

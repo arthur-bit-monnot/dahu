@@ -1,7 +1,7 @@
 package dahu.planner
 
 import copla.lang
-import copla.lang.model.core.{ActionTemplate, Instance, Statement}
+import copla.lang.model.core.{ActionTemplate, Statement}
 import dahu.utils.errors._
 import java.io.{File, FileWriter}
 
@@ -90,7 +90,7 @@ object Main extends App {
           out(result.toString)
         case Success(None) =>
           out("Max depth or time reached")
-        case Failure(_: TimeoutException)  =>
+        case Failure(_: TimeoutException) =>
           out("Timeout")
         case Failure(exception) =>
           out("Crash")

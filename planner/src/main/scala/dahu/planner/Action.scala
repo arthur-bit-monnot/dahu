@@ -1,5 +1,6 @@
 package dahu.planner
 
+import copla.lang.model.common._
 import copla.lang.model.core._
 import dahu.model.input.{Ident, Input, Tentative}
 

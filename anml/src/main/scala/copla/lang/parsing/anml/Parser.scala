@@ -7,8 +7,8 @@ import ParserApi.baseApi._
 import ParserApi.baseApi.Parsed.Success
 import ParserApi.whiteApi._
 import ParserApi.extendedApi._
-import copla.lang.model.core.SimpleTPRef
 import fastparse.core.Parsed.Failure
+import copla.lang.model.common._
 import copla.lang.model.full._
 
 import scala.util.Try
@@ -64,15 +64,15 @@ abstract class AnmlParser(val initialContext: Ctx) {
 
   val timepointDeclaration: Parser[TimepointDeclaration] =
     timepointKW ~/
-      freeIdent.map(name => new TimepointDeclaration(SimpleTPRef(ctx.id(name).toTPId))) ~
+      freeIdent.map(name => TimepointDeclaration(Timepoint(ctx.id(name)))) ~
       ";"
 
-  protected val definedTP: Parser[TPRef] =
+  protected val definedTP: Parser[Timepoint] =
     ident.optGet(ctx.findTimepoint(_), "declared-timepoint")
 
   val timepoint: Parser[TPRef] = {
     (int ~ "+").flatMap(d => timepoint.map(tp => tp + d)) |
-      (definedTP ~ (("+" | "-").! ~ int).?).map {
+      (definedTP.map(TPRef(_)) ~ (("+" | "-").! ~ int).?).map {
         case (tp, Some(("+", delay))) => tp + delay
         case (tp, Some(("-", delay))) => tp - delay
         case (tp, None)               => tp
@@ -81,7 +81,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
       int.flatMap(
         i => // integer as a tp defined relatively to the global start, if one exists
           ctx.root.findTimepoint("start") match {
-            case Some(st) => PassWith(st + i)
+            case Some(st) => PassWith(TPRef(st) + i)
             case None     => Fail.opaque("fail: no start timepoint in top level scope")
         })
   }.opaque("timepoint")
@@ -92,12 +92,12 @@ abstract class AnmlParser(val initialContext: Ctx) {
         _ =>
           ctx
             .findTimepoint("start")
-            .flatMap(st => ctx.findTimepoint("end").map(ed => (st, ed))) match {
-            case Some((st, ed)) => PassWith(new Delay(st, ed))
+            .flatMap(st => ctx.findTimepoint("end").map(ed => (TPRef(st), TPRef(ed)))) match {
+            case Some((st, ed)) => PassWith(Delay(st, ed))
             case None           => sys.error("No start/end timepoint")
         })
       .opaque("duration") |
-      (timepoint ~ "-" ~ definedTP ~ (("+" | "-").! ~ intExpr).?).map {
+      (timepoint ~ "-" ~ definedTP.map(TPRef(_)) ~ (("+" | "-").! ~ intExpr).?).map {
         case (t1, t2, None)           => t1 - t2
         case (t1, t2, Some(("+", i))) => (t1 - t2) + i
         case (t1, t2, Some(("-", i))) => (t1 - t2) - i
@@ -125,7 +125,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
         }
   }
 
-  val variable: Parser[Var] =
+  val variable: Parser[Term] =
     ident.optGet(ctx.findVariable(_), "declared-variable")
 
   val fluent: Parser[FluentTemplate] =
@@ -137,7 +137,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
   /** Parses a fluent in the object oriented notation.
     * "x.f" where x is a variable of type T and f is a fluent declared in type T or in a supertype of T.
     * Returns the fluent T.f and x which is to be the first argument of T.f */
-  val partiallyAppliedFunction: Parser[(FunctionTemplate, Var)] = {
+  val partiallyAppliedFunction: Parser[(FunctionTemplate, Term)] = {
 
     /** Retrieves a fluent template declared the the given type or one of its super types.*/
     def findInTypeFunction(typ: Type, fluentName: String): Option[FunctionTemplate] =
@@ -198,7 +198,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
       PassWith(Seq()).opaque("no-args") // no args no, parenthesis
   }
 
-  val timedSymExpr: Parser[TimedSymExpr] = {
+  val timedSymExpr: Parser[TimedExpr] = {
     val partiallyAppliedFluent = partiallyAppliedFunction
       .namedFilter(_._1.isInstanceOf[FluentTemplate], "is-fluent")
       .map(tup => (tup._1.asInstanceOf[FluentTemplate], tup._2))
@@ -212,10 +212,11 @@ abstract class AnmlParser(val initialContext: Ctx) {
       (partiallyAppliedFluent ~/ Pass).flatMap {
         case (f, firstArg) =>
           f.params.map(param => param.typ) match {
-            case Seq(singleParam) => (("(" ~/ ")") | Pass) ~ PassWith(new Fluent(f, Seq(firstArg)))
+            case Seq(singleParam) =>
+              (("(" ~/ ")") | Pass) ~ PassWith(new Fluent(f, Seq(CommonTerm(firstArg))))
             case paramTypes =>
               "(" ~/ varList(paramTypes.tail, ",")
-                .map(args => new Fluent(f, firstArg +: args)) ~ ")" ~/ Pass
+                .map(args => new Fluent(f, CommonTerm(firstArg) +: args)) ~ ")" ~/ Pass
           }
       }
   }
@@ -225,24 +226,24 @@ abstract class AnmlParser(val initialContext: Ctx) {
       .namedFilter(_._1.isInstanceOf[ConstantTemplate], "is-constant")
       .map(tup => (tup._1.asInstanceOf[ConstantTemplate], tup._2))
 
-    variable |
+    variable.map(CommonTerm(_)) |
       (constantFunc ~/ Pass).flatMap(f =>
         f.params.map(param => param.typ) match {
-          case Seq() => (("(" ~/ ")") | Pass) ~ PassWith(new Constant(f, Seq()))
+          case Seq() => (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq()))
           case paramTypes =>
-            "(" ~/ varList(paramTypes, ",").map(args => new Constant(f, args)) ~ ")" ~/ Pass
+            "(" ~/ varList(paramTypes, ",").map(args => Constant(f, args)) ~ ")" ~/ Pass
       }) |
       (partiallyAppliedConstant ~/ Pass).flatMap {
         case (f, firstArg) =>
           f.params.map(param => param.typ) match {
             case Seq(singleParam) =>
-              (("(" ~/ ")") | Pass) ~ PassWith(new Constant(f, Seq(firstArg)))
+              (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq(CommonTerm(firstArg))))
             case paramTypes =>
               "(" ~/ varList(paramTypes.tail, ",")
-                .map(args => new Constant(f, firstArg +: args)) ~ ")" ~/ Pass
+                .map(args => Constant(f, CommonTerm(firstArg) +: args)) ~ ")" ~/ Pass
           }
       } |
-      int.map(i => core.IntLiteral(i))
+      int.map(i => CommonTerm(IntLiteral(i)))
   }
 
   val intExpr: Parser[IntExpr] =
@@ -259,18 +260,18 @@ abstract class AnmlParser(val initialContext: Ctx) {
       } |
         P("all").map(_ => {
           (ctx.findTimepoint("start"), ctx.findTimepoint("end")) match {
-            case (Some(st), Some(ed)) => (st, ed)
+            case (Some(st), Some(ed)) => (TPRef(st), TPRef(ed))
             case _                    => sys.error("Start and/or end timepoints are not defined.")
           }
         })) ~
       "]").map {
-      case (tp1, tp2) => new Interval(tp1, tp2)
+      case (tp1, tp2) => Interval(tp1, tp2)
     }
 
   val timedAssertion: Parser[TimedAssertion] = {
     // variable that hold the first two parsed token to facilitate type checking logic
     var id: String = null
-    var fluent: TimedSymExpr = null
+    var fluent: TimedExpr = null
 
     def compatibleTypes(t1: Type, t2: Type): Boolean = t1.isSubtypeOf(t2) || t2.isSubtypeOf(t1)
 
@@ -318,10 +319,10 @@ abstract class AnmlParser(val initialContext: Ctx) {
         case (expr, None) => expr.typ.id.name == "boolean"
       }, "boolean-if-no-right-side")
       .map {
-        case (left, Some(("==", right))) => new StaticEqualAssertion(left, right)
-        case (left, Some(("!=", right))) => new StaticDifferentAssertion(left, right)
-        case (left, Some((":=", right))) => new StaticAssignmentAssertion(left, right)
-        case (expr, None)                => new StaticEqualAssertion(expr, ctx.findVariable("true").get)
+        case (left, Some(("==", right))) => StaticEqualAssertion(left, right)
+        case (left, Some(("!=", right))) => StaticDifferentAssertion(left, right)
+        case (left, Some((":=", right))) => StaticAssignmentAssertion(left, right)
+        case (expr, None)                => StaticEqualAssertion(expr, CommonTerm(ctx.findVariable("true").get))
         case _                           => sys.error("Something is wrong with this parser.")
       }
   }
@@ -453,15 +454,15 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
     }
     val emptyAct = new ActionTemplate(actionName, container)
     emptyAct +
-      new TimepointDeclaration(SimpleTPRef(new Id(emptyAct.scope, "start").toTPId)) +
-      new TimepointDeclaration(SimpleTPRef(new Id(emptyAct.scope, "end").toTPId))
+      TimepointDeclaration(Timepoint(Id(emptyAct.scope, "start"))) +
+      TimepointDeclaration(Timepoint(Id(emptyAct.scope, "end")))
   }
 
   /** FIXME: this interprets a "constant" as a local variable. This is is compatible with FAPE but not with official ANML. */
   val variableDeclaration: Parser[LocalVarDeclaration] = {
     (constantKW ~/ declaredType ~/ freeIdent ~/ ";").map {
       case (typ, id) =>
-        new LocalVarDeclaration(new LocalVar(new Id(ctx.scope, id), typ))
+        LocalVarDeclaration(LocalVar(Id(ctx.scope, id), typ))
     }
   }
 
@@ -476,7 +477,7 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
       }) ~/
       argList // parse arguments and update the current action
         .map(_.map {
-          case (name, typ) => new ArgDeclaration(new Arg(new Id(ctx.scope, name), typ))
+          case (name, typ) => ArgDeclaration(Arg(Id(ctx.scope, name), typ))
         })
         .sideEffect(argDeclarations => updateContext(currentAction ++ argDeclarations)) ~
       "{" ~/

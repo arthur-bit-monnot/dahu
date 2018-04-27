@@ -2,9 +2,15 @@ package copla.lang.model.transforms
 
 import copla.lang.model
 import copla.lang.model._
-import copla.lang.model.full.Scope
+import copla.lang.model.common._
 
 object FullToCore {
+
+  private object ImplicitConversions {
+    import scala.language.implicitConversions
+    implicit def absolute2relativeTimepoint(tp: Timepoint): core.TPRef = core.TPRef(tp)
+  }
+  import ImplicitConversions._
 
   case class Context(scope: Scope, config: Config = Config())
 
@@ -21,23 +27,23 @@ object FullToCore {
     def unit(statements: core.Statement*): CoreM[Unit] = CoreM((), statements)
   }
 
-  private def f2c(expr: full.StaticExpr)(implicit ctx: Context): CoreM[core.Var] = {
+  private def f2c(expr: full.StaticExpr)(implicit ctx: Context): CoreM[Term] = {
     expr match {
-      case x: core.Var => CoreM.pure(x)
-      case x: full.Constant =>
+      case full.ConstantExpr(cst) => CoreM.pure(cst)
+      case full.Variable(v)       => CoreM.pure(v)
+      case full.Constant(template, params) =>
         for {
-          params <- f2c(x.params.toList)
-          cst = core.Constant(x.template, params)
-          variable = core.LocalVar(ctx.scope.makeNewId(), cst.typ)
+          params <- f2c(params.toList)
+          cst = core.Constant(template, params)
+          variable = LocalVar(ctx.scope.makeNewId(), cst.typ)
           _ <- CoreM.unit(core.LocalVarDeclaration(variable))
           _ <- CoreM.unit(core.BindAssertion(cst, variable))
         } yield variable
     }
   }
 
-  private def f2c(e: full.IntExpr)(implicit ctx: Context): CoreM[core.IntExpr] =
-    e match {
-      case x: core.IntExpr => CoreM.pure(x)
+  private def f2c(expr: full.IntExpr)(implicit ctx: Context): CoreM[core.IntExpr] =
+    expr match {
       case full.GenIntExpr(e) =>
         for {
           v <- f2c(e)
@@ -56,15 +62,11 @@ object FullToCore {
     }
 
   private def f2c(tp: full.TPRef)(implicit ctx: Context): CoreM[core.TPRef] =
-    tp match {
-      case x: core.TPRef => CoreM.pure(x)
-      case x: full.TPRef =>
-        for {
-          de <- f2c(x.delay)
-        } yield core.TPRef(x.id, de)
-    }
+    for {
+      de <- f2c(tp.delay)
+    } yield core.TPRef(tp.id, de)
 
-  private def f2c(exprs: List[full.StaticExpr])(implicit ctx: Context): CoreM[List[core.Var]] = {
+  private def f2c(exprs: List[full.StaticExpr])(implicit ctx: Context): CoreM[List[Term]] = {
     exprs match {
       case Nil => CoreM.pure(Nil)
       case head :: tail =>
@@ -75,7 +77,7 @@ object FullToCore {
     }
   }
 
-  private def f2c(expr: full.TimedSymExpr)(implicit ctx: Context): CoreM[core.Fluent] = {
+  private def f2c(expr: full.TimedExpr)(implicit ctx: Context): CoreM[core.Fluent] = {
     expr match {
       case fluent: full.Fluent =>
         for {
@@ -87,26 +89,24 @@ object FullToCore {
   private def f2c(act: full.ActionTemplate)(implicit ctx: Context): core.ActionTemplate = {
     implicit val actionContext: Context = ctx.copy(scope = act.scope)
     val statements = act.store.blocks.flatMap {
-      case x: core.Statement => Seq(x)
-      case x: full.Statement => f2c(x)(actionContext).statements
+      case full.ArgDeclaration(arg) => Seq(core.ArgDeclaration(arg))
+      case x: full.Statement        => f2c(x)(actionContext).statements
     }
     core.ActionTemplate(act.scope, statements)
   }
 
   private def f2c(block: full.Statement)(implicit ctx: Context): CoreM[Unit] = block match {
-    case x: core.Statement => CoreM.unit(x)
-
-    case x: full.StaticAssignmentAssertion =>
-      (x.left, x.right) match {
-        case (cst: full.Constant, inst: core.Term)
-            if cst.params.forall(_.isInstanceOf[core.Term]) =>
-          val boundCst =
-            new model.core.BoundConstant(cst.template, cst.params.map(_.asInstanceOf[core.Term]))
-          CoreM.unit(core.StaticAssignmentAssertion(boundCst, inst))
-        case _ =>
-          throw new UnsupportedOperationException(
-            s"Assignment assertions on constant functions are only supported when all parameters are declared instances: $block")
-      }
+    case full.StaticAssignmentAssertion(lhs: full.Constant, full.ConstantExpr(rhs))
+        if lhs.params.forall(_.isInstanceOf[full.ConstantExpr]) =>
+      val boundCst =
+        new model.core.BoundConstant(lhs.template, lhs.params.map {
+          case full.ConstantExpr(x) => x
+          case _                    => throw new RuntimeException("impossible")
+        })
+      CoreM.unit(core.StaticAssignmentAssertion(boundCst, rhs))
+    case full.StaticAssignmentAssertion(_, _) =>
+      throw new UnsupportedOperationException(
+        s"Assignment assertions on constant functions are only supported when all parameters are declared instances: $block")
 
     case x: full.StaticEqualAssertion =>
       for {
@@ -196,13 +196,18 @@ object FullToCore {
           core.TBefore(f, t)
         )
       } yield ()
+
+    case full.TimepointDeclaration(tp) => CoreM.unit(core.TimepointDeclaration(tp))
+    case full.LocalVarDeclaration(v)   => CoreM.unit(core.LocalVarDeclaration(v))
   }
 
   def trans(model: full.Model, config: Config = Config()): Seq[core.InModuleBlock] = {
     model.store.blocks.flatMap {
-      case x: core.InModuleBlock  => Seq(x)
-      case x: full.Statement      => f2c(x)(Context(model.scope, config)).statements
-      case x: full.ActionTemplate => Seq(f2c(x)(Context(model.scope, config)))
+      case full.FunctionDeclaration(x) => Seq(core.FunctionDeclaration(x))
+      case full.InstanceDeclaration(x) => Seq(core.InstanceDeclaration(x))
+      case full.TypeDeclaration(x)     => Seq(core.TypeDeclaration(x))
+      case x: full.Statement           => f2c(x)(Context(model.scope, config)).statements
+      case x: full.ActionTemplate      => Seq(f2c(x)(Context(model.scope, config)))
     }
   }
 

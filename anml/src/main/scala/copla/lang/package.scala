@@ -3,6 +3,7 @@ package copla
 import java.io.File
 
 import copla.lang.model.core.CoreModel
+import copla.lang.model.transforms.FullToCore
 import copla.lang.model.{core, full}
 import copla.lang.parsing.anml
 
@@ -24,10 +25,10 @@ package object lang {
   }
 
   def parse(anml: String): Result[core.CoreModel] =
-    parseToFull(anml).map(_.asCore())
+    parseToFull(anml).map(FullToCore.trans(_))
 
   def parse(anml: File): Result[CoreModel] =
-    parseToFull(anml).map(_.asCore())
+    parseToFull(anml).map(FullToCore.trans(_))
 
   def parseToFull(anmlString: String): Result[full.Model] = {
     anml.Parser.parse(anmlString) match {
