@@ -109,9 +109,12 @@ package object full {
 
   case class GenIntExpr(e: StaticExpr) extends IntExpr {
     require(e.typ.id.name == "integer")
+    override def toString: String = e.toString
   }
   case class Minus(e: IntExpr) extends IntExpr
   case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
+  case class Mul(lhs: IntExpr, rhs: IntExpr) extends IntExpr
+  case class Div(lhs: IntExpr, rhs: IntExpr) extends IntExpr
 
   case class Interval(start: TPRef, end: TPRef) {
     override def toString: String = s"[$start, $end]"

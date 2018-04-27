@@ -11,6 +11,7 @@ import fastparse.core.Parsed.Failure
 import copla.lang.model.common._
 import copla.lang.model.full._
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 abstract class AnmlParser(val initialContext: Ctx) {
@@ -246,8 +247,41 @@ abstract class AnmlParser(val initialContext: Ctx) {
       int.map(i => CommonTerm(IntLiteral(i)))
   }
 
-  val intExpr: Parser[IntExpr] =
-    staticExpr.namedFilter(_.typ == Type.Integers, "of-type-integer").map(full.GenIntExpr(_))
+  object IntOperators {
+    val expression: P[IntExpr] = additiveExpr
+
+    def primary: Parser[IntExpr] = P {
+      P("(").flatMap(_ => additiveExpr ~ ")") |
+        staticExpr.namedFilter(_.typ == Type.Integers, "of-type-integer").map(full.GenIntExpr) |
+        int.map(i => GenIntExpr(ConstantExpr(IntLiteral(i)))) |
+        "-" ~/ primary
+    }
+
+    def multiplicativeExpr: P[IntExpr] = P {
+      (primary ~ (("*" | "/").! ~/ primary).rep).map {
+        case (head, rest) => transform(head, rest)
+      }
+    }
+
+    def additiveExpr: P[IntExpr] = P {
+      (multiplicativeExpr ~ (("+" | "-").! ~/ multiplicativeExpr).rep).map {
+        case (head, rest) => transform(head, rest)
+      }
+    }
+
+    @tailrec def transform(lhs: IntExpr, tail: Seq[(String, IntExpr)]): IntExpr =
+      tail.toList match {
+        case Nil                => lhs
+        case ("*", rhs) :: rest => transform(Mul(lhs, rhs), rest)
+        case ("/", rhs) :: rest => transform(Div(lhs, rhs), rest)
+        case ("+", rhs) :: rest => transform(Add(lhs, rhs), rest)
+        case ("-", rhs) :: rest => transform(Add(lhs, Minus(rhs)), rest)
+        case x :: _             => sys.error(s"Unrecognized term: $x")
+      }
+
+  }
+
+  lazy val intExpr: P[IntExpr] = IntOperators.expression
 
   val expr: Parser[Expr] =
     timedSymExpr | staticExpr

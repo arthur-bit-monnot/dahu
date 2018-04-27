@@ -59,6 +59,18 @@ object FullToCore {
           el <- f2c(lhs)
           er <- f2c(rhs)
         } yield core.Add(el, er)
+
+      case full.Mul(lhs, rhs) =>
+        for {
+          el <- f2c(lhs)
+          er <- f2c(rhs)
+        } yield core.Mul(el, er)
+
+      case full.Div(lhs, rhs) =>
+        for {
+          el <- f2c(lhs)
+          er <- f2c(rhs)
+        } yield core.Div(el, er)
     }
 
   private def f2c(tp: full.TPRef)(implicit ctx: Context): CoreM[core.TPRef] =

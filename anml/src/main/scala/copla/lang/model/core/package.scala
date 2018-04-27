@@ -152,6 +152,8 @@ package object core {
   }
   final case class Minus(e: IntExpr) extends IntExpr
   final case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
+  final case class Mul(lhs: IntExpr, rhs: IntExpr) extends IntExpr
+  final case class Div(lhs: IntExpr, rhs: IntExpr) extends IntExpr
 
   /** A timepoint, declared when appearing in the root of a context.*/
   final case class TPRef(id: Timepoint, delay: IntExpr = IntExpr(0)) {

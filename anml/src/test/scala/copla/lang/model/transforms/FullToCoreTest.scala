@@ -32,8 +32,8 @@ class FullToCoreTest extends FunSuite {
         case ParseSuccess(fullMod) =>
           val m = FullToCore.trans(fullMod)
           checkInvariantsInCore(m)
-        case _ =>
-          fail("Could not parse anml string")
+        case err =>
+          fail(s"Could not parse anml string: $err")
       }
     }
   }

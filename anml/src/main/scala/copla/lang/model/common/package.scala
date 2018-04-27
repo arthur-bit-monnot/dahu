@@ -62,6 +62,7 @@ package object common {
   case class IntLiteral(value: Int) extends Cst {
     override def typ: Type = Type.Integers
     override def id: Id = Id(RootScope + "_integers_", value.toString)
+    override def toString: String = value.toString
   }
 
   /** Variable declared locally */

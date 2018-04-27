@@ -72,7 +72,9 @@ object InputAnmlModels {
     "type T; instance T t1; constant T sv(boolean b); action A() { constant T t; sv(true) != t; };",
     "constant integer d;",
     "constant boolean isTrue(integer x);",
-    "constant boolean isTrue(integer x); isTrue(1) := false;"
+    "constant boolean isTrue(integer x); isTrue(1) := false;",
+    "duration == 10 * 4 + 2;",
+    "constant integer i; duration == 10 * i + 2;",
   )
 
   val invalid = Seq(
