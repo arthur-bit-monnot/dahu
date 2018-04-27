@@ -30,8 +30,8 @@ object Main extends App {
   val parser = new scopt.OptionParser[Config]("dahu") {
     head("dahu", "0.x")
 
-    opt[Int]("num-threads")
-      .action((n, c) => c.copy(numThreads = n))
+//    opt[Int]("num-threads")
+//      .action((n, c) => c.copy(numThreads = n))
 
     opt[Int]("warmup")
       .action((t, c) => c.copy(warmupTimeSec = t))
@@ -45,11 +45,11 @@ object Main extends App {
     opt[Int]("timeout")
       .action((t, c) => c.copy(maxRuntime = t))
 
-    opt[Boolean]("use-xor")
-      .action((b, c) => c.copy(useXorForSupport = b))
-
-    opt[Boolean]("sym-break")
-      .action((b, c) => c.copy(symBreak = b))
+//    opt[Boolean]("use-xor")
+//      .action((b, c) => c.copy(useXorForSupport = b))
+//
+//    opt[Boolean]("sym-break")
+//      .action((b, c) => c.copy(symBreak = b))
 
     arg[File]("XXXX.pb.anml").action((f, c) => c.copy(problemFile = f))
   }
@@ -77,13 +77,6 @@ object Main extends App {
 
       val startTime = System.currentTimeMillis()
 
-      def writeResult(solved: Boolean, time: Long): Unit = {
-        val fw = new FileWriter("dahu-result.txt", true)
-        try {
-          fw.write(s"${cfg.problemFile.getName} ${if(solved) "SOLVED" else "FAIL"} $time\n")
-        } finally fw.close()
-      }
-
       val future =
         solveTask(cfg.problemFile, System.currentTimeMillis() + cfg.maxRuntime * 1000)
           .map(res => Success(res))
@@ -95,12 +88,10 @@ object Main extends App {
           val runtime = System.currentTimeMillis() - startTime
           out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
           out(result.toString)
-          writeResult(solved = true, runtime)
         case Success(None) =>
           out("Max depth or time reached")
-        case Failure(_: TimeoutException) =>
+        case Failure(_: TimeoutException)  =>
           out("Timeout")
-          writeResult(solved = false, System.currentTimeMillis() - startTime)
         case Failure(exception) =>
           out("Crash")
           exception.printStackTrace()

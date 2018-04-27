@@ -1,8 +1,9 @@
 import mill._
 import mill.scalalib._
+import ammonite.ops._
 
 trait Module extends SbtModule {
-  def scalaVersion = "2.12.5"
+  def scalaVersion = "2.12.4"
 
   def compileIvyDeps = Agg(ivy"org.spire-math::kind-projector:0.9.6")
   def scalacPluginIvyDeps = Agg(ivy"org.spire-math::kind-projector:0.9.6")
@@ -25,8 +26,8 @@ trait Module extends SbtModule {
     "-language:existentials",
 
     // experimental option to speed up the build        
-    "-Ycache-plugin-class-loader:last-modified",
-    "-Ycache-macro-class-loader:last-modified"
+//    "-Ycache-plugin-class-loader:last-modified",
+//    "-Ycache-macro-class-loader:last-modified"
   )
 
    def unmanagedClasspath = T {
@@ -51,6 +52,7 @@ object anml extends Module {
 }
 
 object recursion extends Module {
+  def moduleDeps = Seq(utils)
   def ivyDeps = Agg(
     ivy"org.typelevel::cats-core:1.1.0",
     ivy"org.typelevel::cats-free:1.1.0"
@@ -63,7 +65,10 @@ object recursion extends Module {
 }
 
 object utils extends Module {
-  def ivyDeps = Agg(ivy"org.spire-math::debox:0.8.0")
+  def ivyDeps = Agg(
+    ivy"org.spire-math::debox:0.8.0",
+    ivy"org.typelevel::cats-core:1.1.0"
+  )
 
   object tests extends Tests {
     def ivyDeps = Agg(ivy"com.lihaoyi::utest:0.6.4")
@@ -100,6 +105,8 @@ object z3 extends Module {
 object planner extends Module {
   def moduleDeps = Seq(anml, solvers, z3)
 
+  def mainClass = Some("dahu.planner.Main")
+
   def ivyDeps = Agg(
     ivy"com.github.scopt::scopt:3.7.0",
     ivy"io.monix::monix:3.0.0-RC1"
@@ -108,5 +115,28 @@ object planner extends Module {
     object tests extends Tests {
     def ivyDeps = Agg(ivy"com.lihaoyi::utest:0.6.4")
     def testFrameworks = Seq("utest.runner.Framework")
+  }
+
+
+  def bundle() = T.command {
+    val fatjar: PathRef = assembly()
+    val dest = T.ctx.dest
+    val z3Dir = Path("/home/arthur/work/ext/z3-4.6.0-x64-ubuntu-16.04/bin")
+    cp(fatjar.path, dest / "lcp.jar")
+    mkdir(dest / "z3")
+    cp(z3Dir / "libz3.so", dest / "z3" / "libz3.so")
+    cp(z3Dir / "libz3java.so", dest / "z3" / "libz3java.so")
+    cp(z3Dir / "com.microsoft.z3.jar", dest / "z3" / "com.microsoft.z3.jar")
+    write(dest / "lcp",
+      """#!/bin/bash
+        |
+        |DIR=$(dirname "$0")
+        |export LD_LIBRARY_PATH=$DIR/z3:$LD_LIBRARY_PATH
+        |
+        |java -cp $DIR/z3/com.microsoft.z3.jar:$DIR/lcp.jar dahu.planner.Main "$@"
+      """.stripMargin)
+    //cp(Path("/home/arthur/work/fape/planning/domains/tmp"), dest / "domains")
+
+    println(s"Bundled in ${T.ctx.dest}")
   }
 }  
