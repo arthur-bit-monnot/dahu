@@ -22,7 +22,7 @@ class ActionInstantiationTest extends FunSuite {
         model.collectFirst { case x: ActionTemplate => x } match {
           case Some(act) =>
             val name = "myInstance"
-            val instance = act.instance(name)
+            val instance = ActionInstantiation.instance(act, name)
             assert(instance.name == name)
 
             // check that the name template has disappeared

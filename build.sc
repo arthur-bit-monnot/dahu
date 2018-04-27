@@ -42,7 +42,8 @@ object anml extends Module {
   def ivyDeps = Agg(
     ivy"com.lihaoyi::fastparse:1.0.0",
     ivy"com.github.scopt::scopt:3.7.0",
-    ivy"com.github.arthur-bit-monnot::landscaper:0.1.2"
+    ivy"com.github.arthur-bit-monnot::landscaper:0.1.2",
+    ivy"com.propensive::magnolia:0.7.1"
   )
 
   object tests extends Tests {

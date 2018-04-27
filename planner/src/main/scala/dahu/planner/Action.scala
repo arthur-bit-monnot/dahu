@@ -2,6 +2,7 @@ package dahu.planner
 
 import copla.lang.model.common._
 import copla.lang.model.core._
+import copla.lang.model.transforms.ActionInstantiation
 import dahu.model.input.{Ident, Input, Tentative}
 
 case class Action[F[_]](name: String,
@@ -15,7 +16,7 @@ object Action {
 
   def instance(template: ActionTemplate, ctx: ProblemContext): Action[Tentative] = {
     counter += 1
-    val act = template.instance(s"${template.name}_$counter")
+    val act = ActionInstantiation.instance(template, s"${template.name}_$counter")
     val argsRewrite: Arg => Tentative[Literal] = {
       case a @ Arg(_, tpe) => Input(Ident(a))(ctx.specializedTags(tpe))
     }

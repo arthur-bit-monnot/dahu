@@ -297,10 +297,7 @@ case class Chronicle(ctx: ProblemContext,
 
   def extended(e: InActionBlock)(implicit argRewrite: Arg => Tentative[Literal]): Chronicle =
     e match {
-      case _: TypeDeclaration      => this
-      case _: InstanceDeclaration  => this
       case _: TimepointDeclaration => this
-      case _: FunctionDeclaration  => this
       case _: LocalVarDeclaration  => this
       case _: ArgDeclaration       => this
       case BindAssertion(c, v) =>
