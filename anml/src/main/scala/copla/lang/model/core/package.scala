@@ -143,10 +143,10 @@ package object core {
 
   sealed trait IntExpr
   object IntExpr {
-    def apply(lit: Int): IntExpr = VarIntExpr(IntLiteral(lit))
+    def apply(lit: Int): IntExpr = IntTerm(IntLiteral(lit))
   }
-  final case class VarIntExpr(e: Term) extends IntExpr {
-    require(e.typ == Type.Integers)
+  final case class IntTerm(e: Term) extends IntExpr {
+    require(e.typ.isSubtypeOf(Type.Integers))
 
     override def toString: String = e.toString
   }
@@ -160,7 +160,7 @@ package object core {
 
     override def toString: String =
       id.toString + (delay match {
-        case VarIntExpr(IntLiteral(d)) =>
+        case IntTerm(IntLiteral(d)) =>
           if(d == 0) ""
           else if(d > 0) s"+$d"
           else s"-${-d}"

@@ -47,7 +47,7 @@ object FullToCore {
       case full.GenIntExpr(e) =>
         for {
           v <- f2c(e)
-        } yield core.VarIntExpr(v)
+        } yield core.IntTerm(v)
 
       case full.Minus(e) =>
         for {

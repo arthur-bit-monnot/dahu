@@ -55,8 +55,8 @@ case class ProblemContext(intTag: BoxedInt[Literal],
 
   def encode(ie: IntExpr)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] =
     ie match {
-      case VarIntExpr(IntLiteral(d)) => Cst(d)
-      case VarIntExpr(v: Var) =>
+      case IntTerm(IntLiteral(d)) => Cst(d)
+      case IntTerm(v: Var) =>
         assert(v.typ == Type.Integers)
         val variable = encode(v)
         variable.typ match {
@@ -69,11 +69,11 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     }
 
   def encode(tp: TPRef)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] = tp match {
-    case TPRef(id, VarIntExpr(IntLiteral(0))) if id.toString == "start" =>
+    case TPRef(id, IntTerm(IntLiteral(0))) if id.toString == "start" =>
       temporalOrigin // TODO: match by string....
-    case TPRef(id, VarIntExpr(IntLiteral(0))) if id.toString == "end" =>
+    case TPRef(id, IntTerm(IntLiteral(0))) if id.toString == "end" =>
       temporalHorizon // TODO: match by string....
-    case TPRef(id, VarIntExpr(IntLiteral(0))) =>
+    case TPRef(id, IntTerm(IntLiteral(0))) =>
       Input[Int](Ident(id)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
     case TPRef(id, delay) => encode(TPRef(id)) + encode(delay)
   }
