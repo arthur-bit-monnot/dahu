@@ -3,11 +3,9 @@ package copla.lang.model
 import copla.lang.model
 import copla.lang.model.common.operators.{BinaryOperator, UnaryOperator}
 
-import scala.annotation.tailrec
-
 package object common {
 
-  case class Id(scope: Scope, name: String) {
+  final case class Id(scope: Scope, name: String) {
     override def toString: String = scope.toScopedString(name)
 
     def toTPId = Timepoint(this)
@@ -37,7 +35,7 @@ package object common {
     def toScopedString(name: String): String = s"$this.$name"
   }
 
-  case class Type(id: Id, parent: Option[Type]) {
+  final case class Type(id: Id, parent: Option[Type]) {
     def isSubtypeOf(typ: Type): Boolean =
       this == typ || parent.exists(t => t == typ || t.isSubtypeOf(typ))
 

@@ -87,14 +87,6 @@ package object core {
     require(e.typ.isSubtypeOf(Type.Boolean))
     override def toString: String = s"assert($e)"
   }
-  @deprecated
-  final case class StaticEqualAssertion(left: Term, right: Term) extends StaticAssertion {
-    override def toString: String = s"$left == $right"
-  }
-  @deprecated
-  final case class StaticDifferentAssertion(left: Term, right: Term) extends StaticAssertion {
-    override def toString: String = s"$left != $right"
-  }
   final case class StaticAssignmentAssertion(left: BoundConstant, right: Cst)
       extends StaticAssertion {
     override def toString: String = s"$left := $right"
