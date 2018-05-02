@@ -5,7 +5,6 @@ import org.scalatest.FunSuite
 class ActionInstantiationTest extends FunSuite {
 
   import copla.lang.model.core._
-  import landscaper._
 
   import copla.lang
 
@@ -26,7 +25,7 @@ class ActionInstantiationTest extends FunSuite {
             assert(instance.name == name)
 
             // check that the name template has disappeared
-            val stringWithAPattern = pattern { case x: String if x.contains("Template") => Seq(x) }
+//            val stringWithAPattern = pattern { case x: String if x.contains("Template") => Seq(x) }
 //            assert(landscaper.extract(stringWithAPattern, instance.content).isEmpty) // TODO
 
             assert(instance.args.size == act.args.size)

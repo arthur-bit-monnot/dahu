@@ -2,7 +2,7 @@ name := "dahu"
 
 lazy val commonSettings = Seq(
   organization := "com.github.arthur-bit-monnot",
-  scalaVersion := "2.12.5",
+  scalaVersion := "2.12.6",
   crossPaths := true,
   // To sync with Maven central
   publishMavenStyle := true,
@@ -36,6 +36,7 @@ lazy val commonSettings = Seq(
     // experimental option to speed up the build	
     "-Ycache-plugin-class-loader:last-modified",
     "-Ycache-macro-class-loader:last-modified",
+    "-Ybackend-parallelism", "3"
 //    "-opt:simplify-jumps",
 //    "-opt:compact-locals",
 //    "-opt:copy-propagation",
@@ -55,7 +56,7 @@ lazy val root = project
   .in(file("."))
   .aggregate(utils, recursion, model, solvers, benchmarks, anml)
   .settings(
-    scalaVersion := "2.12.5",
+    scalaVersion := "2.12.6",
     publish := {},
     publishLocal := {}
   )
@@ -67,8 +68,7 @@ lazy val anml = project
   .settings(libraryDependencies ++= Seq(
     "com.lihaoyi" %% "fastparse" % "1.0.0",
     "com.github.scopt" %% "scopt" % "3.7.0",
-    "com.github.arthur-bit-monnot" %% "landscaper" % "0.1.2",
-    "com.propensive" %% "magnolia" % "0.7.1",
+    "com.chuusai" %% "shapeless" % "2.3.3",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ))
 
