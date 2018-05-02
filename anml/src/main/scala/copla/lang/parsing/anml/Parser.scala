@@ -71,68 +71,68 @@ abstract class AnmlParser(val initialContext: Ctx) {
   val declaredType: Parser[Type] =
     typeName.optGet(ctx.findType(_), "declared")
 
-  val timepointDeclaration: Parser[TimepointDeclaration] =
+  val timepointDeclaration: Parser[LocalVarDeclaration] =
     timepointKW ~/
-      freeIdent.map(name => TimepointDeclaration(Timepoint(ctx.id(name)))) ~
+      freeIdent.map(name => TimepointDeclaration(ctx.id(name))) ~
       ";"
 
-  protected val definedTP: Parser[Timepoint] =
+  protected val definedTP: Parser[LocalVar] =
     ident.optGet(ctx.findTimepoint(_), "declared-timepoint")
 
-  val timepoint: Parser[TPRef] = {
-    (int ~ "+").flatMap(d => timepoint.map(tp => tp + d)) |
-      (definedTP.map(TPRef(_)) ~ (("+" | "-").! ~ int).?).map {
-        case (tp, Some(("+", delay))) => tp + delay
-        case (tp, Some(("-", delay))) => tp - delay
-        case (tp, None)               => tp
-        case _                        => sys.error("Buggy parser implementation")
-      } |
-      int.flatMap(
-        i => // integer as a tp defined relatively to the global start, if one exists
-          ctx.root.findTimepoint("start") match {
-            case Some(st) => PassWith(TPRef(st) + i)
-            case None     => Fail.opaque("fail: no start timepoint in top level scope")
-        })
-  }.opaque("timepoint")
+//  val timepoint: Parser[TPRef] = {
+//    (int ~ "+").flatMap(d => timepoint.map(tp => tp + d)) |
+//      (definedTP.map(TPRef(_)) ~ (("+" | "-").! ~ int).?).map {
+//        case (tp, Some(("+", delay))) => tp + delay
+//        case (tp, Some(("-", delay))) => tp - delay
+//        case (tp, None)               => tp
+//        case _                        => sys.error("Buggy parser implementation")
+//      } |
+//      int.flatMap(
+//        i => // integer as a tp defined relatively to the global start, if one exists
+//          ctx.root.findTimepoint("start") match {
+//            case Some(st) => PassWith(TPRef(st) + i)
+//            case None     => Fail.opaque("fail: no start timepoint in top level scope")
+//        })
+//  }.opaque("timepoint")
 
-  lazy val delay: Parser[Delay] =
-    (durationKW ~/ Pass)
-      .flatMap(
-        _ =>
-          ctx
-            .findTimepoint("start")
-            .flatMap(st => ctx.findTimepoint("end").map(ed => (TPRef(st), TPRef(ed)))) match {
-            case Some((st, ed)) => PassWith(Delay(st, ed))
-            case None           => sys.error("No start/end timepoint")
-        })
-      .opaque("duration") |
-      (timepoint ~ "-" ~ definedTP.map(TPRef(_)) ~ (("+" | "-").! ~ intExpr).?).map {
-        case (t1, t2, None)           => t1 - t2
-        case (t1, t2, Some(("+", i))) => (t1 - t2) + i
-        case (t1, t2, Some(("-", i))) => (t1 - t2) - i
-        case _                        => sys.error("Buggy parser implementation")
-      }
-
-  lazy val temporalConstraint: Parser[Seq[TBefore]] = {
-    (timepoint ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ timepoint ~ ";")
-      .map {
-        case (t1, "<", t2)                                     => Seq(t1 < t2)
-        case (t1, "<=", t2)                                    => Seq(t1 <= t2)
-        case (t1, ">", t2)                                     => Seq(t1 > t2)
-        case (t1, ">=", t2)                                    => Seq(t1 >= t2)
-        case (t1, eq, t2) if Set("=", "==", ":=").contains(eq) => t1 === t2
-        case _                                                 => sys.error("Buggy parser implementation")
-      } |
-      (delay ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ intExpr ~ ";")
-        .map {
-          case (d, "<", t)                                     => Seq(d < t)
-          case (d, "<=", t)                                    => Seq(d <= t)
-          case (d, ">", t)                                     => Seq(d > t)
-          case (d, ">=", t)                                    => Seq(d >= t)
-          case (d, eq, t) if Set("=", "==", ":=").contains(eq) => d === t
-          case _                                               => sys.error("Buggy parser implementation")
-        }
-  }
+//  lazy val delay: Parser[Delay] =
+//    (durationKW ~/ Pass)
+//      .flatMap(
+//        _ =>
+//          ctx
+//            .findTimepoint("start")
+//            .flatMap(st => ctx.findTimepoint("end").map(ed => (TPRef(st), TPRef(ed)))) match {
+//            case Some((st, ed)) => PassWith(Delay(st, ed))
+//            case None           => sys.error("No start/end timepoint")
+//        })
+//      .opaque("duration") |
+//      (timepoint ~ "-" ~ definedTP.map(TPRef(_)) ~ (("+" | "-").! ~ intExpr).?).map {
+//        case (t1, t2, None)           => t1 - t2
+//        case (t1, t2, Some(("+", i))) => (t1 - t2) + i
+//        case (t1, t2, Some(("-", i))) => (t1 - t2) - i
+//        case _                        => sys.error("Buggy parser implementation")
+//      }
+//
+//  lazy val temporalConstraint: Parser[Seq[TBefore]] = {
+//    (timepoint ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ timepoint ~ ";")
+//      .map {
+//        case (t1, "<", t2)                                     => Seq(t1 < t2)
+//        case (t1, "<=", t2)                                    => Seq(t1 <= t2)
+//        case (t1, ">", t2)                                     => Seq(t1 > t2)
+//        case (t1, ">=", t2)                                    => Seq(t1 >= t2)
+//        case (t1, eq, t2) if Set("=", "==", ":=").contains(eq) => t1 === t2
+//        case _                                                 => sys.error("Buggy parser implementation")
+//      } |
+//      (delay ~ ("<=" | "<" | ">=" | ">" | "==" | ":=" | "=").! ~/ intExpr ~ ";")
+//        .map {
+//          case (d, "<", t)                                     => Seq(d < t)
+//          case (d, "<=", t)                                    => Seq(d <= t)
+//          case (d, ">", t)                                     => Seq(d > t)
+//          case (d, ">=", t)                                    => Seq(d >= t)
+//          case (d, eq, t) if Set("=", "==", ":=").contains(eq) => d === t
+//          case _                                               => sys.error("Buggy parser implementation")
+//        }
+//  }
 
   val variable: Parser[Term] =
     ident.optGet(ctx.findVariable(_), "declared-variable")
@@ -235,7 +235,17 @@ abstract class AnmlParser(val initialContext: Ctx) {
       .namedFilter(_._1.isInstanceOf[ConstantTemplate], "is-constant")
       .map(tup => (tup._1.asInstanceOf[ConstantTemplate], tup._2))
 
-    int.map(i => CommonTerm(IntLiteral(i))) |
+    (durationKW ~/ Pass)
+      .flatMap(_ =>
+        (for {
+          st <- ctx.findTimepoint("start")
+          ed <- ctx.findTimepoint("end")
+        } yield full.BinaryExprTree(operators.Sub, CommonTerm(ed), CommonTerm(st))) match {
+          case Some(e) => PassWith(e)
+          case None    => sys.error("No start/end timepoint")
+      })
+      .opaque("duration") |
+      int.map(i => CommonTerm(IntLiteral(i))) |
       variable.map(CommonTerm(_)) |
       (constantFunc ~/ Pass).flatMap(f =>
         f.params.map(param => param.typ) match {
@@ -271,9 +281,8 @@ abstract class AnmlParser(val initialContext: Ctx) {
     def binGroupParser(gpe: BinOperatorGroup, inner: PE): PE = {
       // parser for a single operator in the group
       val operator: P[BinaryOperator] =
-        StringIn(gpe.ops.map(_.op).toSeq: _*).!
-          .optGet(str => gpe.ops.find(_.op == str))
-          .opaque(gpe.ops.map(a => "\""+a.op+"\"").mkString("(", "|",")"))
+        StringIn(gpe.ops.map(_.op).toSeq: _*).!.optGet(str => gpe.ops.find(_.op == str))
+          .opaque(gpe.ops.map(a => "\"" + a.op + "\"").mkString("(", "|", ")"))
       gpe match {
         case BinOperatorGroup(ops, _, Associativity.Left) =>
           (inner ~/ (operator ~/ inner).rep).optGet({
@@ -284,17 +293,24 @@ abstract class AnmlParser(val initialContext: Ctx) {
           }, "well-typed")
 
         case BinOperatorGroup(ops, _, Associativity.Right) =>
-          (inner ~/ (operator ~/ inner).rep).optGet({
-            case (head, tail) =>
-              def makeRightAssociative[A,B](e1: A, nexts: List[(B, A)]): (List[(A,B)], A) = nexts match {
-                case Nil => (Nil, e1)
-                case (b, e2) :: rest =>
-                  val (prevs, last) = makeRightAssociative(e2, rest)
-                  ((e1, b) :: prevs, last)
-              }
-              val (prevs: List[(StaticExpr, BinaryOperator)], last: StaticExpr) = makeRightAssociative(head, tail.toList)
-              prevs.foldRight(Option(last)) { case ((lhs, op), rhs) => rhs.flatMap(asBinary(op, lhs, _)) }
-          }, "well-typed")
+          (inner ~/ (operator ~/ inner).rep).optGet(
+            {
+              case (head, tail) =>
+                def makeRightAssociative[A, B](e1: A, nexts: List[(B, A)]): (List[(A, B)], A) =
+                  nexts match {
+                    case Nil => (Nil, e1)
+                    case (b, e2) :: rest =>
+                      val (prevs, last) = makeRightAssociative(e2, rest)
+                      ((e1, b) :: prevs, last)
+                  }
+                val (prevs: List[(StaticExpr, BinaryOperator)], last: StaticExpr) =
+                  makeRightAssociative(head, tail.toList)
+                prevs.foldRight(Option(last)) {
+                  case ((lhs, op), rhs) => rhs.flatMap(asBinary(op, lhs, _))
+                }
+            },
+            "well-typed"
+          )
 
         case BinOperatorGroup(ops, _, Associativity.Non) =>
           (inner ~/ (operator ~/ inner).?).optGet({
@@ -306,13 +322,13 @@ abstract class AnmlParser(val initialContext: Ctx) {
 
     def unaryGroupParser(gpe: UniOperatorGroup, inner: PE): PE = {
       val operator: P[UnaryOperator] =
-        StringIn(gpe.ops.map(_.op).toSeq: _*).!
-          .optGet(str => gpe.ops.find(_.op == str))
-          .opaque(gpe.ops.map(a => "\""+a.op+"\"").mkString("(", "|",")"))
-      (operator.? ~ inner).sideEffect(println).optGet({
-        case (None, e)     => Some(e)
-        case (Some(op), e) => Try(full.UnaryExprTree(op, e)).toOption
-      }, "well-typed")
+        StringIn(gpe.ops.map(_.op).toSeq: _*).!.optGet(str => gpe.ops.find(_.op == str))
+          .opaque(gpe.ops.map(a => "\"" + a.op + "\"").mkString("(", "|", ")"))
+      (operator.? ~ inner)
+        .optGet({
+          case (None, e)     => Some(e)
+          case (Some(op), e) => Try(full.UnaryExprTree(op, e)).toOption
+        }, "well-typed")
     }
 
     def groupParser(gpe: OperatorGroup, inner: PE): PE = gpe match {
@@ -322,49 +338,15 @@ abstract class AnmlParser(val initialContext: Ctx) {
     def asBinary(op: BinaryOperator, lhs: StaticExpr, rhs: StaticExpr): Option[StaticExpr] = {
       op.tpe(lhs.typ, rhs.typ) match {
         case Right(_) => Some(full.BinaryExprTree(op, lhs, rhs))
-        case Left(_) => None
+        case Left(_)  => None
       }
     }
   }
 
-  object IntOperators {
-    val expression: P[IntExpr] = additiveExpr
-
-    def primary: Parser[IntExpr] = P {
-      P("(").flatMap(_ => additiveExpr ~ ")") |
-        staticExpr.namedFilter(_.typ == Type.Integer, "of-type-integer").map(full.GenIntExpr) |
-        int.map(i => GenIntExpr(ConstantExpr(IntLiteral(i)))) |
-        "-" ~/ primary
-    }
-
-    def multiplicativeExpr: P[IntExpr] = P {
-      (primary ~ (("*" | "/").! ~/ primary).rep).map {
-        case (head, rest) => transform(head, rest)
-      }
-    }
-
-    def additiveExpr: P[IntExpr] = P {
-      (multiplicativeExpr ~ (("+" | "-").! ~/ multiplicativeExpr).rep).map {
-        case (head, rest) => transform(head, rest)
-      }
-    }
-
-    @tailrec def transform(lhs: IntExpr, tail: Seq[(String, IntExpr)]): IntExpr =
-      tail.toList match {
-        case Nil                => lhs
-        case ("*", rhs) :: rest => transform(Mul(lhs, rhs), rest)
-        case ("/", rhs) :: rest => transform(Div(lhs, rhs), rest)
-        case ("+", rhs) :: rest => transform(Add(lhs, rhs), rest)
-        case ("-", rhs) :: rest => transform(Add(lhs, Minus(rhs)), rest)
-        case x :: _             => sys.error(s"Unrecognized term: $x")
-      }
-
-  }
-
-  lazy val intExpr: P[IntExpr] = IntOperators.expression
-
-  val expr: Parser[Expr] =
+  val expr: Parser[full.Expr] =
     timedSymExpr | staticExpr
+
+  val timepoint: P[StaticExpr] = staticExpr.filter(_.typ.isSubtypeOf(Type.Time))
 
   val interval: Parser[Interval] =
     ("[" ~/
@@ -374,7 +356,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
       } |
         P("all").map(_ => {
           (ctx.findTimepoint("start"), ctx.findTimepoint("end")) match {
-            case (Some(st), Some(ed)) => (TPRef(st), TPRef(ed))
+            case (Some(st), Some(ed)) => (CommonTerm(st), CommonTerm(ed))
             case _                    => sys.error("Start and/or end timepoints are not defined.")
           }
         })) ~
@@ -529,10 +511,9 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
       instancesDeclaration |
       functionDeclaration.map(Seq(_)) |
       timepointDeclaration.map(Seq(_)) |
-//      temporalConstraint |
-//      temporallyQualifiedAssertion |
-      staticAssertion.map(Seq(_)) //|
-//      action.map(Seq(_))
+      temporallyQualifiedAssertion |
+      staticAssertion.map(Seq(_)) |
+      action.map(Seq(_))
 
   def currentModel: Model = ctx match {
     case m: Model => m
@@ -565,8 +546,8 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
     }
     val emptyAct = new ActionTemplate(actionName, container)
     emptyAct +
-      TimepointDeclaration(Timepoint(Id(emptyAct.scope, "start"))) +
-      TimepointDeclaration(Timepoint(Id(emptyAct.scope, "end")))
+      TimepointDeclaration(Id(emptyAct.scope, "start")) +
+      TimepointDeclaration(Id(emptyAct.scope, "end"))
   }
 
   /** FIXME: this interprets a "constant" as a local variable. This is is compatible with FAPE but not with official ANML. */
@@ -592,8 +573,7 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
         })
         .sideEffect(argDeclarations => updateContext(currentAction ++ argDeclarations)) ~
       "{" ~/
-      (temporalConstraint |
-        temporallyQualifiedAssertion |
+      (temporallyQualifiedAssertion |
         staticAssertion.map(Seq(_)) |
         variableDeclaration.map(Seq(_)))
         .sideEffect(x => updateContext(currentAction ++ x)) // add assertions to the current action
@@ -639,8 +619,8 @@ object Parser {
       TypeDeclaration(Type.Integer),
       InstanceDeclaration(Instance(Id(RootScope, "true"), Type.Boolean)),
       InstanceDeclaration(Instance(Id(RootScope, "false"), Type.Boolean)),
-      TimepointDeclaration(Timepoint(Id(RootScope, "start"))),
-      TimepointDeclaration(Timepoint(Id(RootScope, "end"))),
+      TimepointDeclaration(Id(RootScope, "start")),
+      TimepointDeclaration(Id(RootScope, "end")),
     )).getOrElse(sys.error("Could not instantiate base model"))
 
   /** Parses an ANML string. If the previous model parameter is Some(m), then the result

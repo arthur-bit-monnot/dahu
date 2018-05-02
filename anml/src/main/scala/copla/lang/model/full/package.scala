@@ -13,9 +13,10 @@ package object full {
   sealed trait Declaration[T] {
     def id: Id
   }
-  case class TimepointDeclaration(tp: Timepoint) extends Declaration[Timepoint] with Statement {
-    override def id: Id = tp.id
-    override def toString: String = s"timepoint $id"
+
+  object TimepointDeclaration {
+    def apply(id: Id): LocalVarDeclaration =
+      LocalVarDeclaration(LocalVar(id, Type.Time))
   }
 
   case class TypeDeclaration(typ: Type) extends Declaration[Type] with InModuleBlock {
@@ -75,7 +76,7 @@ package object full {
   case class UnaryExprTree(op: UnaryOperator, lhs: StaticExpr) extends ExprTree {
     override val typ: Type = op.tpe(lhs.typ) match {
       case Right(tpe) => tpe
-      case Left(err) => sys.error(err)
+      case Left(err)  => sys.error(err)
     }
 
     override def toString: String = s"(${op.op} $lhs)"
@@ -98,63 +99,10 @@ package object full {
     override def toString: String = term.toString
   }
 
-  sealed trait IntExpr
-  object IntExpr {
-    def apply(lit: Int): IntExpr = GenIntExpr(ConstantExpr(IntLiteral(lit)))
-  }
-
-  /** A timepoint, declared when appearing in the root of a context.*/
-  case class TPRef(id: Timepoint, delay: IntExpr = IntExpr(0)) {
-
-    override def toString: String =
-      id.toString + (delay match {
-        case GenIntExpr(ConstantExpr(IntLiteral(d))) =>
-          if(d == 0) ""
-          else if(d > 0) s"+$d"
-          else s"-${-d}"
-        case x => s"+$x"
-      })
-
-    def +(d: IntExpr): TPRef = TPRef(id, Add(delay, d))
-    def +(d: Int): TPRef = this + IntExpr(d)
-    def -(d: IntExpr): TPRef = TPRef(id, Add(delay, Minus(d)))
-    def -(d: Int): TPRef = this - IntExpr(d)
-
-    def <=(other: TPRef): TBefore = TBefore(this, other)
-    def <(other: TPRef): TBefore = TBefore(this, other - 1)
-    def >=(other: TPRef): TBefore = other <= this
-    def >(other: TPRef): TBefore = other < this
-    def ===(other: TPRef): Seq[TBefore] = Seq(this <= other, this >= other)
-
-    def -(other: TPRef) = Delay(other, this)
-  }
-
-  case class GenIntExpr(e: StaticExpr) extends IntExpr {
-    require(e.typ.id.name == "integer")
-    override def toString: String = e.toString
-  }
-  case class Minus(e: IntExpr) extends IntExpr
-  case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
-  case class Mul(lhs: IntExpr, rhs: IntExpr) extends IntExpr
-  case class Div(lhs: IntExpr, rhs: IntExpr) extends IntExpr
-
-  case class Interval(start: TPRef, end: TPRef) {
+  case class Interval(start: StaticExpr, end: StaticExpr) {
+    require(start.typ.isSubtypeOf(Type.Time))
+    require(end.typ.isSubtypeOf(Type.Time))
     override def toString: String = s"[$start, $end]"
-  }
-
-  case class TBefore(from: TPRef, to: TPRef) extends Statement {
-    override def toString: String = s"$from <= $to"
-  }
-
-  /*** Time ***/
-  case class Delay(from: TPRef, to: TPRef) {
-    def <=(dur: IntExpr): TBefore = to <= from + dur
-    def <(dur: IntExpr): TBefore = to < from + dur
-    def >=(dur: IntExpr): TBefore = to >= from + dur
-    def >(dur: IntExpr): TBefore = to > from + dur
-    def +(time: IntExpr): Delay = Delay(from, to + time)
-    def -(time: IntExpr): Delay = Delay(from, to - time)
-    def ===(dur: IntExpr): Seq[TBefore] = Seq(this <= dur, this >= dur)
   }
 
   /** A block wrapping other blocks pertaining to the same scope. */
@@ -165,12 +113,12 @@ package object full {
   abstract class TimedAssertion(parent: Option[Ctx], name: String) extends Ctx with Block {
     override val scope: InnerScope = parent.map(_.scope).getOrElse(RootScope) + name
 
-    val start: Timepoint = Timepoint(this.id("start"))
-    val end: Timepoint = Timepoint(this.id("end"))
+    val start: LocalVar = Timepoint(this.id("start"))
+    val end: LocalVar = Timepoint(this.id("end"))
 
     override val store: BlockStore[Statement] = new BlockStore[Statement]() +
-      TimepointDeclaration(start) +
-      TimepointDeclaration(end)
+      LocalVarDeclaration(start) +
+      LocalVarDeclaration(end)
   }
   case class TimedEqualAssertion(left: TimedExpr, // TODO: should not restrict this to be symbolic
                                  right: StaticExpr,
@@ -366,10 +314,10 @@ package object full {
         case _                       => None
       }
 
-    def findTimepoint(name: String): Option[Timepoint] =
+    def findTimepoint(name: String): Option[LocalVar] =
       findDeclaration(name).flatMap {
-        case decl: TimepointDeclaration => Some(decl.tp)
-        case _                          => None
+        case LocalVarDeclaration(v @ LocalVar(_, tpe)) if tpe.isSubtypeOf(Type.Time) => Some(v)
+        case _                                                                        => None
       }
 
     def findType(name: String): Option[Type] =

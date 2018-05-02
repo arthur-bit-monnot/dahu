@@ -8,7 +8,14 @@ object FullToCore {
 
   private object ImplicitConversions {
     import scala.language.implicitConversions
-    implicit def absolute2relativeTimepoint(tp: Timepoint): core.TPRef = core.TPRef(tp)
+
+    implicit class ExprOps(private val lhs: Expr) extends AnyVal {
+      def ===(rhs: Expr): Expr = Op2(operators.Eq, lhs, rhs)
+      def <=(rhs: Expr): Expr = Op2(operators.LEQ, lhs, rhs)
+      def <(rhs: Expr): Expr = Op2(operators.LT, lhs, rhs)
+
+      def toStatement: core.Statement = core.StaticBooleanAssertion(lhs)
+    }
   }
   import ImplicitConversions._
 
@@ -41,42 +48,6 @@ object FullToCore {
         } yield variable
     }
   }
-
-  private def f2c(expr: full.IntExpr)(implicit ctx: Context): CoreM[core.IntExpr] =
-    expr match {
-      case full.GenIntExpr(e) =>
-        for {
-          v <- f2c(e)
-        } yield core.IntTerm(v)
-
-      case full.Minus(e) =>
-        for {
-          ce <- f2c(e)
-        } yield core.Minus(ce)
-
-      case full.Add(lhs, rhs) =>
-        for {
-          el <- f2c(lhs)
-          er <- f2c(rhs)
-        } yield core.Add(el, er)
-
-      case full.Mul(lhs, rhs) =>
-        for {
-          el <- f2c(lhs)
-          er <- f2c(rhs)
-        } yield core.Mul(el, er)
-
-      case full.Div(lhs, rhs) =>
-        for {
-          el <- f2c(lhs)
-          er <- f2c(rhs)
-        } yield core.Div(el, er)
-    }
-
-  private def f2c(tp: full.TPRef)(implicit ctx: Context): CoreM[core.TPRef] =
-    for {
-      de <- f2c(tp.delay)
-    } yield core.TPRef(tp.id, de)
 
   private def f2c(exprs: List[full.StaticExpr])(implicit ctx: Context): CoreM[List[Term]] = {
     exprs match {
@@ -135,7 +106,7 @@ object FullToCore {
       } yield ()
 
     case full.TemporallyQualifiedAssertion(qualifier, assertion) =>
-      val startEnd: CoreM[(core.TPRef, core.TPRef)] =
+      val startEnd: CoreM[(Term, Term)] =
         qualifier match {
           case full.Equals(interval)
               if ctx.config.mergeTimepoints && assertion.name.startsWith(reservedPrefix) =>
@@ -149,10 +120,10 @@ object FullToCore {
             for {
               itvStart <- f2c(interval.start)
               itvEnd <- f2c(interval.end)
-              _ <- CoreM.unit(core.TimepointDeclaration(assertion.start),
-                              core.TimepointDeclaration(assertion.end))
-              _ <- CoreM.unit(itvStart === assertion.start: _*)
-              _ <- CoreM.unit(assertion.end === itvEnd: _*)
+              _ <- CoreM.unit(core.LocalVarDeclaration(assertion.start),
+                              core.LocalVarDeclaration(assertion.end))
+              _ <- CoreM.unit(core.StaticBooleanAssertion(itvStart === assertion.start))
+              _ <- CoreM.unit(core.StaticBooleanAssertion(assertion.end === itvEnd))
 
             } yield (assertion.start, assertion.end)
           case full.Contains(interval) =>
@@ -160,10 +131,10 @@ object FullToCore {
               itvStart <- f2c(interval.start)
               itvEnd <- f2c(interval.end)
               _ <- CoreM.unit(
-                core.TimepointDeclaration(assertion.start),
-                core.TimepointDeclaration(assertion.end),
-                itvStart <= assertion.start,
-                assertion.end <= itvEnd
+                core.LocalVarDeclaration(assertion.start),
+                core.LocalVarDeclaration(assertion.end),
+                core.StaticBooleanAssertion(itvStart <= assertion.start),
+                core.StaticBooleanAssertion(assertion.end <= itvEnd)
               )
             } yield (assertion.start, assertion.end)
         }
@@ -175,7 +146,7 @@ object FullToCore {
             coreFluent <- f2c(fluent)
             coreValue <- f2c(value)
             _ <- CoreM.unit(core.TimedEqualAssertion(start, end, coreFluent, coreValue),
-                            start <= end)
+                            core.StaticBooleanAssertion(start <= end))
           } yield ()
 
         case full.TimedAssignmentAssertion(fluent, value, _, _) =>
@@ -185,7 +156,7 @@ object FullToCore {
             coreFluent <- f2c(fluent)
             coreValue <- f2c(value)
             _ <- CoreM.unit(core.TimedAssignmentAssertion(start, end, coreFluent, coreValue),
-                            start <= end)
+                            core.StaticBooleanAssertion(start <= end))
           } yield ()
 
         case full.TimedTransitionAssertion(fluent, fromValue, toValue, _, _) =>
@@ -196,20 +167,10 @@ object FullToCore {
             coreFrom <- f2c(fromValue)
             coreTo <- f2c(toValue)
             _ <- CoreM.unit(core.TimedTransitionAssertion(start, end, coreFluent, coreFrom, coreTo),
-                            start < end)
+                            core.StaticBooleanAssertion(start < end))
           } yield ()
       }
 
-    case full.TBefore(from, to) =>
-      for {
-        f <- f2c(from)
-        t <- f2c(to)
-        _ <- CoreM.unit(
-          core.TBefore(f, t)
-        )
-      } yield ()
-
-    case full.TimepointDeclaration(tp) => CoreM.unit(core.TimepointDeclaration(tp))
     case full.LocalVarDeclaration(v)   => CoreM.unit(core.LocalVarDeclaration(v))
   }
 

@@ -1,6 +1,7 @@
 package copla.lang.model
 
 import copla.lang.model
+import copla.lang.model.common.operators.{BinaryOperator, UnaryOperator}
 
 import scala.annotation.tailrec
 
@@ -9,11 +10,11 @@ package object common {
   case class Id(scope: Scope, name: String) {
     override def toString: String = scope.toScopedString(name)
 
-    def toTPId: Timepoint = new Timepoint(this)
+    def toTPId = Timepoint(this)
   }
 
-  case class Timepoint(id: Id) {
-    override def toString: String = id.toString
+  object Timepoint {
+    def apply(id: Id): LocalVar = LocalVar(id, Type.Time)
   }
 
   sealed trait Scope {
@@ -61,13 +62,15 @@ package object common {
   object Type {
     val Numeric = Type(Id(RootScope, "__numeric__"), None)
     val Integer = Type(Id(RootScope, "integer"), Some(Numeric))
+    val Time = Integer //Type(Id(RootScope, "time"), Some(Integer))
     val Float = Type(Id(RootScope, "float"), Some(Numeric))
     val Boolean = Type(Id(RootScope, "boolean"), None)
   }
-
-  sealed trait Term {
-    def id: Id
+  sealed trait Expr {
     def typ: Type
+  }
+  sealed trait Term extends Expr {
+    def id: Id
   }
   object Term {
     def unapply(v: Term) = Option((v.id, v.typ))
@@ -96,6 +99,22 @@ package object common {
   case class Arg(id: Id, typ: Type) extends Var {
     override def toString: String = id.toString
   }
+
+  case class Op2(op: BinaryOperator, lhs: Expr, rhs: Expr) extends Expr {
+    override def typ: Type = op.tpe(lhs.typ, rhs.typ) match {
+      case Right(t) => t
+      case Left(err) => sys.error(err)
+    }
+  }
+  case class Op1(op: UnaryOperator, lhs: Expr) extends Expr {
+    override def typ: Type = op.tpe(lhs.typ) match {
+      case Right(t) => t
+      case Left(err) => sys.error(err)
+    }
+  }
+
+
+
 
   sealed trait FunctionTemplate {
     def id: Id

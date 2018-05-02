@@ -75,6 +75,7 @@ object InputAnmlModels {
     "constant boolean isTrue(integer x); isTrue(1) := false;",
     "duration == 10 * 4 + 2;",
     "constant integer i; duration == 10 * i + 2;",
+    "constant boolean x; x implies 10 > 4;"
   )
 
   val invalid = Seq(
@@ -99,7 +100,6 @@ object InputAnmlModels {
     "type T; constant boolean f; constant T g; f == g;",
     "type T; constant boolean f(T t); f(true) == true;",
     "start < x;",
-    "timepoint t; start - end < t;",
     "type A; type B; fluent A f(A a); instance A a1; instance B b1; [start,end] f(a1) == b1;",
     "type A; type B; fluent A f(B b); instance A a1; instance B b1; [start,end] id: f(b1) == a2;",
     "type A; type B; fluent A f(B b); instance A a1; instance B b1; [start,end] id: f(b1) == a1 :-> b1;",

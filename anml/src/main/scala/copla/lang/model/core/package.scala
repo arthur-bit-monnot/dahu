@@ -14,12 +14,6 @@ package object core {
   sealed trait Declaration[T] {
     def id: Id
   }
-  final case class TimepointDeclaration(tp: Timepoint)
-      extends Declaration[Timepoint]
-      with Statement {
-    override def id: Id = tp.id
-    override def toString: String = s"timepoint $id"
-  }
 
   final case class TypeDeclaration(typ: Type) extends Declaration[Type] with InModuleBlock {
     override def id: Id = typ.id
@@ -89,9 +83,15 @@ package object core {
   }
 
   sealed trait StaticAssertion extends Statement
+  final case class StaticBooleanAssertion(e: Expr) extends StaticAssertion {
+    require(e.typ.isSubtypeOf(Type.Boolean))
+    override def toString: String = s"assert($e)"
+  }
+  @deprecated
   final case class StaticEqualAssertion(left: Term, right: Term) extends StaticAssertion {
     override def toString: String = s"$left == $right"
   }
+  @deprecated
   final case class StaticDifferentAssertion(left: Term, right: Term) extends StaticAssertion {
     override def toString: String = s"$left != $right"
   }
@@ -104,8 +104,8 @@ package object core {
   }
 
   sealed trait TimedAssertion extends Statement {
-    def start: TPRef
-    def end: TPRef
+    def start: Expr
+    def end: Expr
     def fluent: Fluent
   }
 
@@ -118,19 +118,19 @@ package object core {
     def valueAfterChange: Term
   }
 
-  final case class TimedEqualAssertion(start: TPRef, end: TPRef, fluent: Fluent, value: Term)
+  final case class TimedEqualAssertion(start: Expr, end: Expr, fluent: Fluent, value: Term)
       extends TimedAssertion
       with RequiresSupport {
     override def toString: String = s"[$start, $end] $fluent == $value"
   }
-  final case class TimedAssignmentAssertion(start: TPRef, end: TPRef, fluent: Fluent, value: Term)
+  final case class TimedAssignmentAssertion(start: Expr, end: Expr, fluent: Fluent, value: Term)
       extends TimedAssertion
       with ProvidesChange {
     override def valueAfterChange: Term = value
     override def toString: String = s"[$start,$end] $fluent := $value"
   }
-  final case class TimedTransitionAssertion(start: TPRef,
-                                            end: TPRef,
+  final case class TimedTransitionAssertion(start: Expr,
+                                            end: Expr,
                                             fluent: Fluent,
                                             from: Term,
                                             to: Term)
@@ -141,48 +141,6 @@ package object core {
     override def toString: String = s"[$start, $end] $fluent == $from :-> $to"
   }
 
-  sealed trait IntExpr
-  object IntExpr {
-    def apply(lit: Int): IntExpr = IntTerm(IntLiteral(lit))
-  }
-  final case class IntTerm(e: Term) extends IntExpr {
-    require(e.typ.isSubtypeOf(Type.Integer))
-
-    override def toString: String = e.toString
-  }
-  final case class Minus(e: IntExpr) extends IntExpr
-  final case class Add(lhs: IntExpr, rhs: IntExpr) extends IntExpr
-  final case class Mul(lhs: IntExpr, rhs: IntExpr) extends IntExpr
-  final case class Div(lhs: IntExpr, rhs: IntExpr) extends IntExpr
-
-  /** A timepoint, declared when appearing in the root of a context.*/
-  final case class TPRef(id: Timepoint, delay: IntExpr = IntExpr(0)) {
-
-    override def toString: String =
-      id.toString + (delay match {
-        case IntTerm(IntLiteral(d)) =>
-          if(d == 0) ""
-          else if(d > 0) s"+$d"
-          else s"-${-d}"
-        case x => s"+$x"
-      })
-
-    def +(d: IntExpr): TPRef = TPRef(id, Add(delay, d))
-    def +(d: Int): TPRef = this + IntExpr(d)
-    def -(d: IntExpr): TPRef = TPRef(id, Add(delay, Minus(d)))
-    def -(d: Int): TPRef = this - IntExpr(d)
-
-    def <=(other: TPRef): TBefore = TBefore(this, other)
-    def <(other: TPRef): TBefore = TBefore(this, other - 1)
-    def >=(other: TPRef): TBefore = other <= this
-    def >(other: TPRef): TBefore = other < this
-    def ===(other: TPRef): Seq[TBefore] = Seq(this <= other, this >= other)
-  }
-
-  case class TBefore(from: TPRef, to: TPRef) extends Statement {
-    override def toString: String = s"$from <= $to"
-  }
-
   final case class ActionTemplate(scope: InnerScope, content: Seq[InActionBlock])
       extends InModuleBlock {
     def name: String = scope.name
@@ -191,15 +149,15 @@ package object core {
     override def toString: String =
       s"action $name(${args.map(a => s"${a.typ} ${a.id.name}").mkString(", ")})"
 
-    lazy val start: TPRef = content
+    lazy val start: LocalVar = content
       .collectFirst {
-        case TimepointDeclaration(tp) if tp.id == Id(scope, "start") => TPRef(tp)
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), Type.Time)) => tp
       }
       .getOrElse(sys.error("No start timepoint in this action"))
 
-    lazy val end: TPRef = content
+    lazy val end: LocalVar = content
       .collectFirst {
-        case TimepointDeclaration(tp) if tp.id == Id(scope, "end") => TPRef(tp)
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), Type.Time)) => tp
       }
       .getOrElse(sys.error("No end timepoint in this action"))
 
@@ -212,15 +170,15 @@ package object core {
     def name: String = scope.name
     val args: Seq[Arg] = content.collect { case ArgDeclaration(a) => a }
 
-    lazy val start: TPRef = content
+    lazy val start: LocalVar = content
       .collectFirst {
-        case TimepointDeclaration(tp) if tp.id == Id(scope, "start") => TPRef(tp)
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), Type.Time)) => tp
       }
       .getOrElse(sys.error("No start timepoint in this action"))
 
-    lazy val end: TPRef = content
+    lazy val end: LocalVar = content
       .collectFirst {
-        case TimepointDeclaration(tp) if tp.id == Id(scope, "end") => TPRef(tp)
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), Type.Time)) => tp
       }
       .getOrElse(sys.error("No end timepoint in this action"))
   }
