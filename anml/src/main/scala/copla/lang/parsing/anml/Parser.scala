@@ -9,6 +9,14 @@ import ParserApi.whiteApi._
 import ParserApi.extendedApi._
 import fastparse.core.Parsed.Failure
 import copla.lang.model.common._
+import copla.lang.model.common.operators.{
+  Associativity,
+  BinOperatorGroup,
+  BinaryOperator,
+  OperatorGroup,
+  UnaryOperator,
+  UniOperatorGroup
+}
 import copla.lang.model.full._
 
 import scala.annotation.tailrec
@@ -222,12 +230,13 @@ abstract class AnmlParser(val initialContext: Ctx) {
       }
   }
 
-  val staticExpr: Parser[StaticExpr] = {
+  val staticTerm: Parser[StaticExpr] = {
     val partiallyAppliedConstant = partiallyAppliedFunction
       .namedFilter(_._1.isInstanceOf[ConstantTemplate], "is-constant")
       .map(tup => (tup._1.asInstanceOf[ConstantTemplate], tup._2))
 
-    variable.map(CommonTerm(_)) |
+    int.map(i => CommonTerm(IntLiteral(i))) |
+      variable.map(CommonTerm(_)) |
       (constantFunc ~/ Pass).flatMap(f =>
         f.params.map(param => param.typ) match {
           case Seq() => (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq()))
@@ -243,8 +252,79 @@ abstract class AnmlParser(val initialContext: Ctx) {
               "(" ~/ varList(paramTypes.tail, ",")
                 .map(args => Constant(f, CommonTerm(firstArg) +: args)) ~ ")" ~/ Pass
           }
-      } |
-      int.map(i => CommonTerm(IntLiteral(i)))
+      }
+  }
+
+  val staticExpr: P[StaticExpr] = Tmp.expr
+
+  object Tmp {
+    type E = StaticExpr
+    type PE = Parser[StaticExpr]
+    def term: PE = P(staticTerm ~/ Pass)
+    def expr: PE = P(top)
+    val bottom: PE = P(("(" ~/ expr ~/ ")") | term)
+    val top: PE =
+      operators.layeredOps.foldLeft(bottom) {
+        case (inner, opGroup) => groupParser(opGroup, inner)
+      }
+
+    def binGroupParser(gpe: BinOperatorGroup, inner: PE): PE = {
+      // parser for a single operator in the group
+      val operator: P[BinaryOperator] =
+        StringIn(gpe.ops.map(_.op).toSeq: _*).!
+          .optGet(str => gpe.ops.find(_.op == str))
+          .opaque(gpe.ops.map(a => "\""+a.op+"\"").mkString("(", "|",")"))
+      gpe match {
+        case BinOperatorGroup(ops, _, Associativity.Left) =>
+          (inner ~/ (operator ~/ inner).rep).optGet({
+            case (head, tail) =>
+              tail.foldLeft(Option(head)) {
+                case (acc, (op, rhs)) => acc.flatMap(x => asBinary(op, x, rhs))
+              }
+          }, "well-typed")
+
+        case BinOperatorGroup(ops, _, Associativity.Right) =>
+          (inner ~/ (operator ~/ inner).rep).optGet({
+            case (head, tail) =>
+              def makeRightAssociative[A,B](e1: A, nexts: List[(B, A)]): (List[(A,B)], A) = nexts match {
+                case Nil => (Nil, e1)
+                case (b, e2) :: rest =>
+                  val (prevs, last) = makeRightAssociative(e2, rest)
+                  ((e1, b) :: prevs, last)
+              }
+              val (prevs: List[(StaticExpr, BinaryOperator)], last: StaticExpr) = makeRightAssociative(head, tail.toList)
+              prevs.foldRight(Option(last)) { case ((lhs, op), rhs) => rhs.flatMap(asBinary(op, lhs, _)) }
+          }, "well-typed")
+
+        case BinOperatorGroup(ops, _, Associativity.Non) =>
+          (inner ~/ (operator ~/ inner).?).optGet({
+            case (lhs, None)            => Some(lhs)
+            case (lhs, Some((op, rhs))) => asBinary(op, lhs, rhs)
+          }, "well-typed")
+      }
+    }
+
+    def unaryGroupParser(gpe: UniOperatorGroup, inner: PE): PE = {
+      val operator: P[UnaryOperator] =
+        StringIn(gpe.ops.map(_.op).toSeq: _*).!
+          .optGet(str => gpe.ops.find(_.op == str))
+          .opaque(gpe.ops.map(a => "\""+a.op+"\"").mkString("(", "|",")"))
+      (operator.? ~ inner).sideEffect(println).optGet({
+        case (None, e)     => Some(e)
+        case (Some(op), e) => Try(full.UnaryExprTree(op, e)).toOption
+      }, "well-typed")
+    }
+
+    def groupParser(gpe: OperatorGroup, inner: PE): PE = gpe match {
+      case x: BinOperatorGroup => binGroupParser(x, inner)
+      case x: UniOperatorGroup => unaryGroupParser(x, inner)
+    }
+    def asBinary(op: BinaryOperator, lhs: StaticExpr, rhs: StaticExpr): Option[StaticExpr] = {
+      op.tpe(lhs.typ, rhs.typ) match {
+        case Right(_) => Some(full.BinaryExprTree(op, lhs, rhs))
+        case Left(_) => None
+      }
+    }
   }
 
   object IntOperators {
@@ -252,7 +332,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
 
     def primary: Parser[IntExpr] = P {
       P("(").flatMap(_ => additiveExpr ~ ")") |
-        staticExpr.namedFilter(_.typ == Type.Integers, "of-type-integer").map(full.GenIntExpr) |
+        staticExpr.namedFilter(_.typ == Type.Integer, "of-type-integer").map(full.GenIntExpr) |
         int.map(i => GenIntExpr(ConstantExpr(IntLiteral(i)))) |
         "-" ~/ primary
     }
@@ -345,18 +425,15 @@ abstract class AnmlParser(val initialContext: Ctx) {
   val staticAssertion: Parser[StaticAssertion] = {
     var leftExpr: StaticExpr = null
     (staticExpr.sideEffect(leftExpr = _) ~/
-      (("==" | "!=" | ":=").! ~/
-        staticExpr.namedFilter(_.typ.overlaps(leftExpr.typ), "has-compatible-type")).? ~
+      (":=".! ~/ staticExpr.namedFilter(_.typ.overlaps(leftExpr.typ), "has-compatible-type")).? ~
       ";")
       .namedFilter({
         case (_, Some(_)) => true
-        case (expr, None) => expr.typ.id.name == "boolean"
+        case (expr, None) => expr.typ.isSubtypeOf(Type.Boolean)
       }, "boolean-if-no-right-side")
       .map {
-        case (left, Some(("==", right))) => StaticEqualAssertion(left, right)
-        case (left, Some(("!=", right))) => StaticDifferentAssertion(left, right)
         case (left, Some((":=", right))) => StaticAssignmentAssertion(left, right)
-        case (expr, None)                => StaticEqualAssertion(expr, CommonTerm(ctx.findVariable("true").get))
+        case (expr, None)                => BooleanAssertion(expr)
         case _                           => sys.error("Something is wrong with this parser.")
       }
   }
@@ -452,10 +529,10 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
       instancesDeclaration |
       functionDeclaration.map(Seq(_)) |
       timepointDeclaration.map(Seq(_)) |
-      temporalConstraint |
-      temporallyQualifiedAssertion |
-      staticAssertion.map(Seq(_)) |
-      action.map(Seq(_))
+//      temporalConstraint |
+//      temporallyQualifiedAssertion |
+      staticAssertion.map(Seq(_)) //|
+//      action.map(Seq(_))
 
   def currentModel: Model = ctx match {
     case m: Model => m
@@ -554,20 +631,17 @@ class AnmlTypeParser(val initialModel: Model) extends AnmlParser(initialModel) {
 
 object Parser {
 
-  private val anmlHeader =
-    """|type boolean;
-       |instance boolean true, false;
-       |type integer;
-       |timepoint start;
-       |timepoint end;
-    """.stripMargin
-
   /** ANML model with default definitions already added */
   val baseAnmlModel: Model =
-    parse(anmlHeader, Some(new Model())) match {
-      case ParseSuccess(model) => model
-      case err: ParseFailure   => sys.error("Could not parse the ANML headed:\n" + err.format)
-    }
+    (Model() ++ Seq(
+      TypeDeclaration(Type.Boolean),
+      TypeDeclaration(Type.Numeric),
+      TypeDeclaration(Type.Integer),
+      InstanceDeclaration(Instance(Id(RootScope, "true"), Type.Boolean)),
+      InstanceDeclaration(Instance(Id(RootScope, "false"), Type.Boolean)),
+      TimepointDeclaration(Timepoint(Id(RootScope, "start"))),
+      TimepointDeclaration(Timepoint(Id(RootScope, "end"))),
+    )).getOrElse(sys.error("Could not instantiate base model"))
 
   /** Parses an ANML string. If the previous model parameter is Some(m), then the result
     * of parsing will be appended to m.

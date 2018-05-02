@@ -12,6 +12,8 @@ class AnmlParsingTest extends FunSuite {
           println("AS:\n" + module + "\n\n")
         case x: ParseFailure =>
           fail(s"Could not parse anml string: $anml\n\n${x.format}")
+        case UnidentifiedError(err, _) => err.printStackTrace()
+          fail(s"Exception raised while parsing")
       }
     }
   }
@@ -27,12 +29,20 @@ class AnmlParsingTest extends FunSuite {
     }
   }
 
-  val tmp = "type A with { fluent boolean x; }; type B with { fluent boolean x; };"
+  val tmp = "constant integer i; i == 2 implies (-i + 16) * 2 == -4 implies true;"
 
   test("debug: temporary") {
 
     /** Dummy text to facilitate testing. */
     println(tmp)
-    println(Parser.parse(tmp))
+    Parser.parse(tmp) match {
+        case ParseSuccess(module) =>
+          println("PARSED:\n")
+          println("AS:\n" + module + "\n\n")
+        case x: ParseFailure =>
+          fail(s"Could not parse anml string:\n${x.format}")
+        case UnidentifiedError(err, _) => err.printStackTrace()
+          fail(s"Exception raised while parsing")
+      }
   }
 }

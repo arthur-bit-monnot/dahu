@@ -1,6 +1,7 @@
 package copla.lang.model
 
 import copla.lang.model.common._
+import copla.lang.model.common.operators.{BinaryOperator, UnaryOperator}
 
 package object full {
 
@@ -61,6 +62,25 @@ package object full {
   sealed trait StaticExpr extends Expr
   sealed trait TimedExpr extends Expr
 
+  sealed trait ExprTree extends StaticExpr
+  case class BinaryExprTree(op: BinaryOperator, lhs: StaticExpr, rhs: StaticExpr) extends ExprTree {
+    override val typ: Type = op.tpe(lhs.typ, rhs.typ) match {
+      case Right(tpe) => tpe
+      case Left(err) =>
+        sys.error(err)
+    }
+
+    override def toString: String = s"(${op.op} $lhs $rhs)"
+  }
+  case class UnaryExprTree(op: UnaryOperator, lhs: StaticExpr) extends ExprTree {
+    override val typ: Type = op.tpe(lhs.typ) match {
+      case Right(tpe) => tpe
+      case Left(err) => sys.error(err)
+    }
+
+    override def toString: String = s"(${op.op} $lhs)"
+  }
+
   sealed trait CommonTerm extends StaticExpr
   object CommonTerm {
     def apply(v: Term): CommonTerm = v match {
@@ -71,9 +91,11 @@ package object full {
 
   case class Variable(v: Var) extends CommonTerm {
     override def typ: Type = v.typ
+    override def toString: String = v.toString
   }
   case class ConstantExpr(term: Cst) extends CommonTerm {
     override def typ: Type = term.typ
+    override def toString: String = term.toString
   }
 
   sealed trait IntExpr
@@ -200,9 +222,16 @@ package object full {
   }
 
   trait StaticAssertion extends Statement
+  case class BooleanAssertion(expr: StaticExpr) extends StaticAssertion {
+    require(expr.typ.isSubtypeOf(Type.Boolean))
+
+    override def toString: String = expr.toString
+  }
+  @deprecated
   case class StaticEqualAssertion(left: StaticExpr, right: StaticExpr) extends StaticAssertion {
     override def toString: String = s"$left == $right"
   }
+  @deprecated
   case class StaticDifferentAssertion(left: StaticExpr, right: StaticExpr) extends StaticAssertion {
     override def toString: String = s"$left != $right"
   }

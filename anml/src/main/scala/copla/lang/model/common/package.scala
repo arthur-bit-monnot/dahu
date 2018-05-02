@@ -2,6 +2,8 @@ package copla.lang.model
 
 import copla.lang.model
 
+import scala.annotation.tailrec
+
 package object common {
 
   case class Id(scope: Scope, name: String) {
@@ -38,14 +40,29 @@ package object common {
     def isSubtypeOf(typ: Type): Boolean =
       this == typ || parent.exists(t => t == typ || t.isSubtypeOf(typ))
 
-    def overlaps(typ: Type): Boolean = this.isSubtypeOf(typ) || typ.isSubtypeOf(this)
+    def overlaps(typ: Type): Boolean =
+      this.isSubtypeOf(typ) || typ.isSubtypeOf(this)
+
+    def lowestCommonAncestor(typ: Type): Option[Type] =
+      if(this.isSubtypeOf(typ))
+        Some(typ)
+      else if(typ.isSubtypeOf(this))
+        Some(this)
+      else
+        parent match {
+          case Some(father) => father.lowestCommonAncestor(typ)
+          case None => None
+        }
 
     def asScope: Scope = id.scope + id.name
 
     override def toString: String = id.toString
   }
   object Type {
-    val Integers = Type(Id(RootScope, "integer"), None)
+    val Numeric = Type(Id(RootScope, "__numeric__"), None)
+    val Integer = Type(Id(RootScope, "integer"), Some(Numeric))
+    val Float = Type(Id(RootScope, "float"), Some(Numeric))
+    val Boolean = Type(Id(RootScope, "boolean"), None)
   }
 
   sealed trait Term {
@@ -60,7 +77,7 @@ package object common {
   sealed trait Var extends Term
 
   case class IntLiteral(value: Int) extends Cst {
-    override def typ: Type = Type.Integers
+    override def typ: Type = Type.Integer
     override def id: Id = Id(RootScope + "_integers_", value.toString)
     override def toString: String = value.toString
   }

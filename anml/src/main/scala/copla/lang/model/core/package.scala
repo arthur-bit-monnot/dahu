@@ -146,7 +146,7 @@ package object core {
     def apply(lit: Int): IntExpr = IntTerm(IntLiteral(lit))
   }
   final case class IntTerm(e: Term) extends IntExpr {
-    require(e.typ.isSubtypeOf(Type.Integers))
+    require(e.typ.isSubtypeOf(Type.Integer))
 
     override def toString: String = e.toString
   }

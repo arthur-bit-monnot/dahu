@@ -57,7 +57,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     ie match {
       case IntTerm(IntLiteral(d)) => Cst(d)
       case IntTerm(v: Var) =>
-        assert(v.typ == Type.Integers)
+        assert(v.typ == Type.Integer)
         val variable = encode(v)
         variable.typ match {
           case tpe: BoxedInt[Literal] => variable.unboxed(tpe)
@@ -167,7 +167,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
 
 object ProblemContext {
   def extract(m: Seq[InModuleBlock]): ProblemContext = {
-    val objectTypes = m.collect { case TypeDeclaration(t) if t != Type.Integers => t }
+    val objectTypes = m.collect { case TypeDeclaration(t) if t != Type.Integer => t }
     val objectSubtypes = mutable.LinkedHashMap[Type, mutable.Set[Type]]()
     val instances = m
       .collect { case InstanceDeclaration(i) => i }
@@ -203,7 +203,7 @@ object ProblemContext {
     assert(toIndex.size == fromIndex.size)
 
     def tagOf(t: Type): TagIsoInt[ObjLit] = {
-      assert(t != Type.Integers)
+      assert(t != Type.Integer)
 
       def instancesOf(t: Type): Seq[ObjLit] =
         instances.getOrElse(t, Seq()) ++ objectSubtypes(t).flatMap(instancesOf)
@@ -276,7 +276,7 @@ object ProblemContext {
 
     val memo = mutable.Map[Type, TagIsoInt[ObjLit]]()
     val specializedTag = (t: Type) =>
-      if(t == Type.Integers)
+      if(t == Type.Integer)
         intTag
       else
         memo.getOrElseUpdate(t, tagOf(t))
