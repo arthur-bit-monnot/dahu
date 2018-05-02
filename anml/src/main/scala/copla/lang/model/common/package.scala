@@ -105,12 +105,15 @@ package object common {
       case Right(t) => t
       case Left(err) => sys.error(err)
     }
+
+    override def toString: String = s"(${op.op} $lhs $rhs)"
   }
   case class Op1(op: UnaryOperator, lhs: Expr) extends Expr {
     override def typ: Type = op.tpe(lhs.typ) match {
       case Right(t) => t
       case Left(err) => sys.error(err)
     }
+    override def toString: String = s"(${op.op} $lhs)"
   }
 
 

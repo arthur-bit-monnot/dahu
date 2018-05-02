@@ -13,7 +13,7 @@ class ActionInstantiationTest extends FunSuite {
     lang.parse("""
       |fluent boolean sv;
       |action Template(boolean x, boolean y) {
-      |  duration := 10;
+      |  duration == 10;
       |  [all] sv == true;
       |  [all] contains id: sv == x :-> y;
       |};

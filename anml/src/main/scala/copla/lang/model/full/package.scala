@@ -172,18 +172,10 @@ package object full {
   trait StaticAssertion extends Statement
   case class BooleanAssertion(expr: StaticExpr) extends StaticAssertion {
     require(expr.typ.isSubtypeOf(Type.Boolean))
-
     override def toString: String = expr.toString
   }
-  @deprecated
-  case class StaticEqualAssertion(left: StaticExpr, right: StaticExpr) extends StaticAssertion {
-    override def toString: String = s"$left == $right"
-  }
-  @deprecated
-  case class StaticDifferentAssertion(left: StaticExpr, right: StaticExpr) extends StaticAssertion {
-    override def toString: String = s"$left != $right"
-  }
-  case class StaticAssignmentAssertion(left: StaticExpr, right: StaticExpr)
+
+  case class StaticAssignmentAssertion(left: Constant, right: StaticExpr)
       extends StaticAssertion {
     override def toString: String = s"$left := $right"
   }

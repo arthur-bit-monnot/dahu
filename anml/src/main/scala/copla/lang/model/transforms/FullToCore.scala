@@ -34,7 +34,7 @@ object FullToCore {
     def unit(statements: core.Statement*): CoreM[Unit] = CoreM((), statements)
   }
 
-  private def f2c(expr: full.StaticExpr)(implicit ctx: Context): CoreM[Term] = {
+  private def f2c(expr: full.StaticExpr)(implicit ctx: Context): CoreM[Expr] = {
     expr match {
       case full.ConstantExpr(cst) => CoreM.pure(cst)
       case full.Variable(v)       => CoreM.pure(v)
@@ -46,10 +46,20 @@ object FullToCore {
           _ <- CoreM.unit(core.LocalVarDeclaration(variable))
           _ <- CoreM.unit(core.BindAssertion(cst, variable))
         } yield variable
+      case full.BinaryExprTree(op, lhs, rhs) =>
+        for {
+          l <- f2c(lhs)
+          r <- f2c(rhs)
+        } yield Op2(op, l, r)
+      case full.UnaryExprTree(op, e) =>
+        for  {
+          ec <- f2c(e)
+        } yield Op1(op, ec)
     }
+
   }
 
-  private def f2c(exprs: List[full.StaticExpr])(implicit ctx: Context): CoreM[List[Term]] = {
+  private def f2c(exprs: List[full.StaticExpr])(implicit ctx: Context): CoreM[List[Expr]] = {
     exprs match {
       case Nil => CoreM.pure(Nil)
       case head :: tail =>
@@ -79,6 +89,12 @@ object FullToCore {
   }
 
   private def f2c(block: full.Statement)(implicit ctx: Context): CoreM[Unit] = block match {
+    case full.BooleanAssertion(e) =>
+      for {
+        ec <- f2c(e)
+        _ <- CoreM.unit(core.StaticBooleanAssertion(ec))
+      } yield ()
+
     case full.StaticAssignmentAssertion(lhs: full.Constant, full.ConstantExpr(rhs))
         if lhs.params.forall(_.isInstanceOf[full.ConstantExpr]) =>
       val boundCst =
@@ -91,22 +107,9 @@ object FullToCore {
       throw new UnsupportedOperationException(
         s"Assignment assertions on constant functions are only supported when all parameters are declared instances: $block")
 
-    case x: full.StaticEqualAssertion =>
-      for {
-        lVar <- f2c(x.left)
-        rVar <- f2c(x.right)
-        _ <- CoreM.unit(core.StaticEqualAssertion(lVar, rVar))
-      } yield ()
-
-    case x: full.StaticDifferentAssertion =>
-      for {
-        lVar <- f2c(x.left)
-        rVar <- f2c(x.right)
-        _ <- CoreM.unit(core.StaticDifferentAssertion(lVar, rVar))
-      } yield ()
 
     case full.TemporallyQualifiedAssertion(qualifier, assertion) =>
-      val startEnd: CoreM[(Term, Term)] =
+      val startEnd: CoreM[(Expr, Expr)] =
         qualifier match {
           case full.Equals(interval)
               if ctx.config.mergeTimepoints && assertion.name.startsWith(reservedPrefix) =>

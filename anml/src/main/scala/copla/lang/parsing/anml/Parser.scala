@@ -230,11 +230,30 @@ abstract class AnmlParser(val initialContext: Ctx) {
       }
   }
 
-  val staticTerm: Parser[StaticExpr] = {
+  val constantFuncTerm: Parser[Constant] = P {
     val partiallyAppliedConstant = partiallyAppliedFunction
       .namedFilter(_._1.isInstanceOf[ConstantTemplate], "is-constant")
       .map(tup => (tup._1.asInstanceOf[ConstantTemplate], tup._2))
 
+    (constantFunc ~/ Pass).flatMap(f =>
+      f.params.map(param => param.typ) match {
+        case Seq() => (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq()))
+        case paramTypes =>
+          "(" ~/ varList(paramTypes, ",").map(args => Constant(f, args)) ~ ")" ~/ Pass
+    }) |
+      (partiallyAppliedConstant ~/ Pass).flatMap {
+        case (f, firstArg) =>
+          f.params.map(param => param.typ) match {
+            case Seq(singleParam) =>
+              (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq(CommonTerm(firstArg))))
+            case paramTypes =>
+              "(" ~/ varList(paramTypes.tail, ",")
+                .map(args => Constant(f, CommonTerm(firstArg) +: args)) ~ ")" ~/ Pass
+          }
+      }
+  }
+
+  val staticTerm: Parser[StaticExpr] = {
     (durationKW ~/ Pass)
       .flatMap(_ =>
         (for {
@@ -247,22 +266,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
       .opaque("duration") |
       int.map(i => CommonTerm(IntLiteral(i))) |
       variable.map(CommonTerm(_)) |
-      (constantFunc ~/ Pass).flatMap(f =>
-        f.params.map(param => param.typ) match {
-          case Seq() => (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq()))
-          case paramTypes =>
-            "(" ~/ varList(paramTypes, ",").map(args => Constant(f, args)) ~ ")" ~/ Pass
-      }) |
-      (partiallyAppliedConstant ~/ Pass).flatMap {
-        case (f, firstArg) =>
-          f.params.map(param => param.typ) match {
-            case Seq(singleParam) =>
-              (("(" ~/ ")") | Pass) ~ PassWith(Constant(f, Seq(CommonTerm(firstArg))))
-            case paramTypes =>
-              "(" ~/ varList(paramTypes.tail, ",")
-                .map(args => Constant(f, CommonTerm(firstArg) +: args)) ~ ")" ~/ Pass
-          }
-      }
+      constantFuncTerm
   }
 
   val staticExpr: P[StaticExpr] = Tmp.expr
@@ -410,11 +414,16 @@ abstract class AnmlParser(val initialContext: Ctx) {
       (":=".! ~/ staticExpr.namedFilter(_.typ.overlaps(leftExpr.typ), "has-compatible-type")).? ~
       ";")
       .namedFilter({
+        case (_: Constant, Some(_)) => true
+        case (_, Some(_)) => false
+        case (_, None) => true
+      }, "assignment-to-const-func-only")
+      .namedFilter({
         case (_, Some(_)) => true
         case (expr, None) => expr.typ.isSubtypeOf(Type.Boolean)
-      }, "boolean-if-no-right-side")
+      }, "boolean-if-not-assignment")
       .map {
-        case (left, Some((":=", right))) => StaticAssignmentAssertion(left, right)
+        case (left: Constant, Some((":=", right))) => StaticAssignmentAssertion(left, right)
         case (expr, None)                => BooleanAssertion(expr)
         case _                           => sys.error("Something is wrong with this parser.")
       }

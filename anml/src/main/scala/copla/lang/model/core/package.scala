@@ -60,19 +60,19 @@ package object core {
 
   sealed trait Function {
     def template: FunctionTemplate
-    def params: Seq[Term]
+    def params: Seq[Expr]
     def typ: Type = template.typ
   }
 
-  case class Constant(override val template: ConstantTemplate, override val params: Seq[Term])
+  case class Constant(override val template: ConstantTemplate, override val params: Seq[Expr])
       extends Function {
     require(template.params.size == params.size)
-    override def toString: String = super.toString
+    override def toString: String = s"$template(${params.mkString(", ")})"
   }
   class BoundConstant(override val template: ConstantTemplate, override val params: Seq[Cst])
       extends Constant(template, params)
 
-  final case class Fluent(override val template: FluentTemplate, override val params: Seq[Term])
+  final case class Fluent(override val template: FluentTemplate, override val params: Seq[Expr])
       extends Function {
     require(template.params.size == params.size)
     template.params.zip(params).foreach {
@@ -115,29 +115,29 @@ package object core {
 
   /** Denotes an assertion that changes a fluent */
   sealed trait ProvidesChange { self: TimedAssertion =>
-    def valueAfterChange: Term
+    def valueAfterChange: Expr
   }
 
-  final case class TimedEqualAssertion(start: Expr, end: Expr, fluent: Fluent, value: Term)
+  final case class TimedEqualAssertion(start: Expr, end: Expr, fluent: Fluent, value: Expr)
       extends TimedAssertion
       with RequiresSupport {
     override def toString: String = s"[$start, $end] $fluent == $value"
   }
-  final case class TimedAssignmentAssertion(start: Expr, end: Expr, fluent: Fluent, value: Term)
+  final case class TimedAssignmentAssertion(start: Expr, end: Expr, fluent: Fluent, value: Expr)
       extends TimedAssertion
       with ProvidesChange {
-    override def valueAfterChange: Term = value
+    override def valueAfterChange: Expr = value
     override def toString: String = s"[$start,$end] $fluent := $value"
   }
   final case class TimedTransitionAssertion(start: Expr,
                                             end: Expr,
                                             fluent: Fluent,
-                                            from: Term,
-                                            to: Term)
+                                            from: Expr,
+                                            to: Expr)
       extends TimedAssertion
       with RequiresSupport
       with ProvidesChange {
-    override def valueAfterChange: Term = to
+    override def valueAfterChange: Expr = to
     override def toString: String = s"[$start, $end] $fluent == $from :-> $to"
   }
 
