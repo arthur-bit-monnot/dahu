@@ -599,7 +599,10 @@ class AnmlTypeParser(val initialModel: Model) extends AnmlParser(initialModel) {
     (word | int | CharIn("{}[]();=:<>-+.,!/*")).!.namedFilter(_ != "type", "non-type-token")
   val typeDeclaration: Parser[TypeDeclaration] =
     (typeKW ~/ freeIdent ~ ("<" ~ declaredType).? ~ (";" | withKW)).map {
-      case (name, parentOpt) => new TypeDeclaration(new Type(ctx.id(name), parentOpt))
+      case (name, None)                    => TypeDeclaration(Type.ObjSubType(ctx.id(name), Type.ObjectTop))
+      case (name, Some(t: Type.ObjType))   => TypeDeclaration(Type.ObjSubType(ctx.id(name), t))
+      case (name, Some(t: Type.IIntType))  => TypeDeclaration(Type.IntSubType(ctx.id(name), t))
+      case (name, Some(t: Type.IRealType)) => TypeDeclaration(Type.RealSubType(ctx.id(name), t))
     }
 
   private[this] def currentModel: Model = ctx match {
@@ -623,13 +626,14 @@ object Parser {
   /** ANML model with default definitions already added */
   val baseAnmlModel: Model =
     (Model() ++ Seq(
+      TypeDeclaration(Type.ObjectTop),
       TypeDeclaration(Type.Boolean),
-      TypeDeclaration(Type.Numeric),
-      TypeDeclaration(Type.Integer),
+      TypeDeclaration(Type.Reals),
+      TypeDeclaration(Type.Integers),
       InstanceDeclaration(Type.True),
       InstanceDeclaration(Type.False),
-      TimepointDeclaration(Id(RootScope, "start")),
-      TimepointDeclaration(Id(RootScope, "end")),
+      TimepointDeclaration(Type.Start),
+      TimepointDeclaration(Type.End),
     )).getOrElse(sys.error("Could not instantiate base model"))
 
   /** Parses an ANML string. If the previous model parameter is Some(m), then the result

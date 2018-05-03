@@ -2,6 +2,8 @@ package copla.lang.model
 
 import copla.lang.model
 import copla.lang.model.common.operators.{BinaryOperator, UnaryOperator}
+import spire.math.Real
+import spire.implicits._
 
 package object common {
 
@@ -35,7 +37,10 @@ package object common {
     def toScopedString(name: String): String = s"$this.$name"
   }
 
-  final case class Type(id: Id, parent: Option[Type]) {
+  sealed trait Type {
+    def id: Id
+    def parent: Option[Type]
+
     def isSubtypeOf(typ: Type): Boolean =
       this == typ || parent.exists(t => t == typ || t.isSubtypeOf(typ))
 
@@ -58,26 +63,84 @@ package object common {
     override def toString: String = id.toString
   }
   object Type {
-    val Numeric = Type(Id(RootScope, "__numeric__"), None)
-    val Integer = Type(Id(RootScope, "integer"), Some(Numeric))
-    val Time = Integer //Type(Id(RootScope, "time"), Some(Integer))
-    val Float = Type(Id(RootScope, "float"), Some(Numeric))
-    val Boolean = Type(Id(RootScope, "boolean"), None)
+
+    sealed trait ObjType extends Type {
+      def id: Id
+      def parent: Option[ObjType]
+    }
+
+    object ObjectTop extends ObjType {
+      override def id: Id = Id(RootScope, "__object__")
+      override def parent: Option[Nothing] = None
+    }
+
+    final case class ObjSubType(id: Id, father: ObjType) extends ObjType {
+      def parent: Some[ObjType] = Some(father)
+    }
+
+    sealed trait IRealType extends Type {
+      def min: Option[Real]
+      def max: Option[Real]
+    }
+
+    object Reals extends IRealType {
+      def id: Id = Id(RootScope, "float")
+      override def parent: Option[Nothing] = None
+      override def min: Option[Real] = None
+      override def max: Option[Real] = None
+    }
+
+    final case class RealSubType(id: Id,
+                                 father: IRealType,
+                                 min: Option[Real] = None,
+                                 max: Option[Real] = None)
+        extends IRealType {
+      require(min.forall(m => father.min.forall(_ <= m)))
+      require(max.forall(m => father.max.forall(m >= _)))
+
+      override def parent: Some[IRealType] = Some(father)
+    }
+
+    sealed trait IIntType extends IRealType {
+      def intMin: Option[BigInt]
+      def intMax: Option[BigInt]
+      override def min: Option[Real] = intMin.map(Real(_))
+      override def max: Option[Real] = intMax.map(Real(_))
+    }
+
+    object Integers extends IIntType {
+      override def id: Id = Id(RootScope, "integer")
+      override def parent: Some[Reals.type] = Some(Reals)
+      override def intMin: Option[BigInt] = None
+      override def intMax: Option[BigInt] = None
+    }
+
+    final case class IntSubType(id: Id,
+                                father: IIntType,
+                                intMin: Option[BigInt] = None,
+                                intMax: Option[BigInt] = None)
+        extends IIntType {
+      require(intMin.forall(min => father.intMin.forall(_ <= min)))
+      require(intMax.forall(max => father.intMax.forall(max >= _)))
+
+      override def parent: Some[IIntType] = Some(father)
+    }
+
+    val Time = IntSubType(Id(RootScope, "time"), Integers)
+
+    val Boolean = ObjSubType(Id(RootScope, "boolean"), ObjectTop)
+
+//    val Numeric = Type(Id(RootScope, "__numeric__"), None)
+//    val Integer = Type(Id(RootScope, "integer"), Some(Numeric))
+//    val Time = Integer //Type(Id(RootScope, "time"), Some(Integer))
+//    val Float = Type(Id(RootScope, "float"), Some(Numeric))
+//    val Boolean = Type(Id(RootScope, "boolean"), None)
 
     val True = Instance(Id(RootScope, "true"), Boolean)
     val False = Instance(Id(RootScope, "false"), Boolean)
 
-    sealed trait Top
-    sealed trait Obj extends Top
-    sealed trait Real extends Top
-    sealed trait Int extends Real
-    type Time = Int
-
-    trait Tpe[+T]
-    case class TObj(id: Id, parent: Option[Type]) extends Tpe[Obj]
-//    case class TReal(id: Id, parent: Option[TReal]) extends Tpe[Real]
-    case class TInt(id: Id, parent: Option[TInt], min: Option[Int], max: Option[Int])
-        extends Tpe[Int]
+    val Start = Id(RootScope, "start")
+    val End = Id(RootScope, "end")
   }
   sealed trait Expr {
     def typ: Type
@@ -93,7 +156,7 @@ package object common {
   sealed trait Var extends Term
 
   case class IntLiteral(value: Int) extends Cst {
-    override def typ: Type = Type.Integer
+    override def typ: Type = Type.Integers
     override def id: Id = Id(RootScope + "_integers_", value.toString)
     override def toString: String = value.toString
   }

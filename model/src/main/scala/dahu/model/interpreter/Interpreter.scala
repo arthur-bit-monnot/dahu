@@ -99,9 +99,8 @@ object Interpreter {
       }
     }
   }
-  case class ConstraintViolated(nodes: Seq[Any]) extends Result[Nothing] {
-    override def toString: String = "ConstraintViolated"
-  }
+  case class ConstraintViolated(nodes: Seq[Any]) extends Result[Nothing]
+
   case class Res[T](v: T) extends Result[T]
   case object Empty extends Result[Nothing]
 

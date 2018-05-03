@@ -8,8 +8,6 @@ import dahu.model.types._
 
 import scala.reflect.ClassTag
 
-final case class ConstraintViolated(constraint: Tentative[Boolean])
-
 /** Evaluation yields an Either[ConstraintViolated, T] */
 sealed trait Tentative[T] {
   def typ: Tag[T]

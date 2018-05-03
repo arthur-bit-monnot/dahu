@@ -71,6 +71,7 @@ lazy val anml = project
       "com.lihaoyi" %% "fastparse" % "1.0.0",
       "com.github.scopt" %% "scopt" % "3.7.0",
       "com.chuusai" %% "shapeless" % "2.3.3",
+      "org.typelevel" %% "spire" % "0.14.1",
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
     ))
 

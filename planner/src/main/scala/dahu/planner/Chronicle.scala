@@ -70,11 +70,20 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   def encode(v: common.Term)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
     v match {
       case IntLiteral(i) => IntLit(i).asConstant(intTag)
-      case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integer) =>
-        assert(tpe == Type.Integer)
+      case lv @ LocalVar(id, tpe) if tpe.isSubtypeOf(Type.Time) =>
+        assert(tpe == Type.Time)
+        val e: Tentative[Int] = id match {
+          case Type.Start => temporalOrigin
+          case Type.End   => temporalHorizon
+          case _ =>
+            Input[Int](Ident(lv)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
+        }
+        intBox(intTag, e)
+      case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integers) =>
+        assert(tpe == Type.Integers)
         Input[Literal](Ident(lv))(intTag)
       case lv @ LocalVar(_, tpe) =>
-        assert(!tpe.isSubtypeOf(Type.Numeric))
+        assert(!tpe.isSubtypeOf(Type.Reals))
         Input[Literal](Ident(lv))(specializedTags(tpe))
       case i @ Instance(_, tpe) => ObjLit(i).asConstant(specializedTags(tpe))
       case a: Arg               => argRewrite(a)
@@ -88,7 +97,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     }
   def encodeAsInt(e: common.Expr)(
       implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] = {
-    assert(e.typ.isSubtypeOf(Type.Integer))
+    assert(e.typ.isSubtypeOf(Type.Integers))
     intUnbox(encode(e))
   }
   def applyOperator(op: BinaryOperator,
@@ -250,9 +259,10 @@ case class ProblemContext(intTag: BoxedInt[Literal],
 }
 
 object ProblemContext {
+  import Type._
   def extract(m: Seq[InModuleBlock]): ProblemContext = {
-    val objectTypes = m.collect { case TypeDeclaration(t) if t != Type.Integer => t }
-    val objectSubtypes = mutable.LinkedHashMap[Type, mutable.Set[Type]]()
+    val objectTypes = m.collect { case TypeDeclaration(t: ObjType) => t }
+    val objectSubtypes = mutable.LinkedHashMap[ObjType, mutable.Set[ObjType]]()
     val instances = m
       .collect { case InstanceDeclaration(i) => i }
       .map { case i @ Instance(_, t) => (t, i) }
@@ -268,15 +278,14 @@ object ProblemContext {
         case None =>
       }
     }
-    val x = mutable.ArrayBuffer[Type]()
-    val roots = objectTypes.collect { case t @ Type(_, None) => t }.toList
+    val x = mutable.ArrayBuffer[ObjType]()
 
-    def process(t: Type): Unit = {
+    def process(t: ObjType): Unit = {
       assert(!x.contains(t))
       x += t
       objectSubtypes(t).foreach(process)
     }
-    roots.foreach(process)
+    process(ObjectTop)
 
     val tmp: List[(ObjLit, Int)] =
       x.toList
@@ -286,10 +295,8 @@ object ProblemContext {
     val toIndex = tmp.toMap
     assert(toIndex.size == fromIndex.size)
 
-    def tagOf(t: Type): TagIsoInt[ObjLit] = {
-      assert(t != Type.Integer)
-
-      def instancesOf(t: Type): Seq[ObjLit] =
+    def tagOf(t: ObjType): TagIsoInt[ObjLit] = {
+      def instancesOf(t: ObjType): Seq[ObjLit] =
         instances.getOrElse(t, Seq()) ++ objectSubtypes(t).flatMap(instancesOf)
       def continuousMinMax(is: Seq[ObjLit]): (Int, Int) = {
         val sorted = is.sortBy(t => toIndex(t)).toList
@@ -359,11 +366,10 @@ object ProblemContext {
     }
 
     val memo = mutable.Map[Type, TagIsoInt[ObjLit]]()
-    val specializedTag = (t: Type) =>
-      if(t == Type.Integer)
-        intTag
-      else
-        memo.getOrElseUpdate(t, tagOf(t))
+    val specializedTag: Type => TagIsoInt[_] = {
+      case _: IIntType => intTag
+      case t: ObjType  => memo.getOrElseUpdate(t, tagOf(t))
+    }
 
     ProblemContext(intTag.asInstanceOf[BoxedInt[Literal]],
                    topTag.asInstanceOf[TagIsoInt[Literal]],

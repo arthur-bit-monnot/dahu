@@ -12,9 +12,9 @@ object operators {
   }
 
   private implicit class TypeOps(private val tpe: Type) extends AnyVal {
-    def isNum: Boolean = tpe.isSubtypeOf(Type.Numeric)
-    def isInt: Boolean = tpe.isSubtypeOf(Type.Integer)
-    def isFloat: Boolean = tpe.isSubtypeOf(Type.Float)
+    def isNum: Boolean = tpe.isSubtypeOf(Type.Reals)
+    def isInt: Boolean = tpe.isSubtypeOf(Type.Integers)
+    def isFloat: Boolean = isNum && !isInt
   }
 
   sealed trait Operator {
@@ -46,12 +46,10 @@ object operators {
       extends BinaryOperator(op, precedence, Associativity.Left) {
     override def tpe(lhs: Type, rhs: Type): TypingResult = {
       lhs.lowestCommonAncestor(rhs) match {
-        case None if !lhs.isNum => Left(s"Left hand side is not a numeric type but: $lhs")
-        case None if !rhs.isNum => Left(s"Right hand side is not a numeric type but: $rhs")
-        case Some(Type.Numeric) =>
-          Left(s"Left and right hand side have incompatible numeric types : ($lhs, $rhs)")
-        case Some(tpe) if tpe.isInt   => Right(Type.Integer)
-        case Some(tpe) if tpe.isFloat => Right(Type.Float)
+        case None if !lhs.isNum       => Left(s"Left hand side is not a numeric type but: $lhs")
+        case None if !rhs.isNum       => Left(s"Right hand side is not a numeric type but: $rhs")
+        case Some(tpe) if tpe.isInt   => Right(Type.Integers)
+        case Some(tpe) if tpe.isFloat => Right(Type.Reals)
         case x                        => sys.error(s"Unhandled case: $x")
 
       }
@@ -62,12 +60,10 @@ object operators {
       extends BinaryOperator(op, precedence, Associativity.Non) {
     override def tpe(lhs: Type, rhs: Type): TypingResult = {
       lhs.lowestCommonAncestor(rhs) match {
-        case None if !lhs.isNum => Left(s"Left hand side is not a numeric type but: $lhs")
-        case None if !rhs.isNum => Left(s"Right hand side is not a numeric type but: $rhs")
-        case Some(Type.Numeric) =>
-          Left(s"Left and right hand side have incompatible numeric types : ($lhs, $rhs)")
-        case Some(tpe) if tpe.isInt || tpe.isFloat => Right(Type.Boolean)
-        case x                                     => sys.error(s"Unhandled case: $x")
+        case None if !lhs.isNum     => Left(s"Left hand side is not a numeric type but: $lhs")
+        case None if !rhs.isNum     => Left(s"Right hand side is not a numeric type but: $rhs")
+        case Some(tpe) if tpe.isNum => Right(Type.Boolean)
+        case x                      => sys.error(s"Unhandled case: $x")
       }
     }
   }

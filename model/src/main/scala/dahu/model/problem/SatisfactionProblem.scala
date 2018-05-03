@@ -2,6 +2,7 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
+import dahu.model.compiler.Algebras
 import dahu.model.functions.Reversible
 import dahu.utils._
 import dahu.model.ir._
@@ -44,11 +45,11 @@ object SatisfactionProblem {
     object ElimReversible extends Optimizer {
       override def optim(retrieve: ID => Total[ID],
                          record: Total[ID] => ID): Total[ID] => Total[ID] = {
-        case ComputationF(f: Reversible[_, _], Vec1(arg), _) =>
+        case orig @ ComputationF(f: Reversible[_, _], Vec1(arg), _) =>
           retrieve(arg) match {
             case ComputationF(f2: Reversible[_, _], Vec1(arg2), _) if f2 == f.reverse =>
               retrieve(arg2)
-            case x => x
+            case _ => orig
           }
         case x => x
       }
@@ -172,10 +173,11 @@ object SatisfactionProblem {
       ElimEmptyAndSingletonMonoid,
       FlattenMonoids,
       ElimDuplicationsIdempotentMonoids,
+      ElimTautologies,
       ConstantFolding,
       OrderArgs,
     )
-    val optimizer: Optimizer = optimizers.foldLeft[Optimizer](NoOpOptimizer) {
+    val optimizer: Optimizer = (optimizers ++ optimizers).foldLeft[Optimizer](NoOpOptimizer) {
       case (acc, next) => acc.andThen(next)
     }
   }
@@ -267,51 +269,16 @@ object SatisfactionProblem {
     val TRUE: ID = rec(CstF(Value(true), Tag.ofBoolean))
     val FALSE: ID = rec(CstF(Value(false), Tag.ofBoolean))
 
-    def and(conjuncts: ID*): ID = {
-      if(conjuncts.contains(FALSE)) {
-        FALSE
-      } else {
-        val reduced = conjuncts.distinct.filter(_ != TRUE).sorted
-        if(reduced.isEmpty)
-          TRUE
-        else if(reduced.size == 1)
-          reduced.head
-        else
-          rec(ComputationF(bool.And, reduced, Tag.ofBoolean))
-      }
-    }
-    def and(conjuncts: Vec[ID]): ID = {
-      if(conjuncts.contains(FALSE)) {
-        FALSE
-      } else {
-        val reduced = conjuncts.distinct.filter(_ != TRUE).sorted
-        if(reduced.isEmpty)
-          TRUE
-        else if(reduced.size == 1)
-          reduced(0)
-        else
-          rec(ComputationF(bool.And, reduced, Tag.ofBoolean))
-      }
-    }
-    def or(disjuncts: ID*): ID = {
-      if(disjuncts.contains(TRUE)) {
-        TRUE
-      } else {
-        val reduced = disjuncts.distinct.filter(_ != FALSE).sorted
-        if(reduced.isEmpty)
-          FALSE
-        else if(reduced.size == 1)
-          reduced.head
-        else
-          rec(ComputationF(bool.Or, reduced, Tag.ofBoolean))
-      }
-    }
-    def not(e: ID): ID = {
+    def and(conjuncts: ID*): ID = and(Vec.unsafe(conjuncts.toArray))
+    def and(conjuncts: Vec[ID]): ID = rec(ComputationF(bool.And, conjuncts, Tag.ofBoolean))
+    def or(disjuncts: ID*): ID =
+      rec(ComputationF(bool.Or, Vec.unsafe(disjuncts.toArray), Tag.ofBoolean))
+    def not(e: ID): ID =
       rec(ComputationF(bool.Not, Seq(e), Tag.ofBoolean))
-    }
-    def implies(cond: ID, eff: ID): ID = {
+
+    def implies(cond: ID, eff: ID): ID =
       or(not(cond), eff)
-    }
+
   }
 
   class LazyTreeSpec[@specialized(Int) K](f: K => ExprF[K], g: Context => ExprF[IR[ID]] => IR[ID]) {
@@ -421,7 +388,6 @@ object SatisfactionProblem {
                                   coalgebra: FCoalgebra[ExprF, X],
                                   optimize: Boolean = true): RootedLazyTree[X, Total, cats.Id] = {
     val lt = new LazyTreeSpec[X](coalgebra, compiler)
-    val x = lt.get(root)
 
     val totalTrees = new ILazyTree[X, Total, cats.Id] {
       override def getExt(k: X): Total[ID] = lt.get(lt.get(k).value)
