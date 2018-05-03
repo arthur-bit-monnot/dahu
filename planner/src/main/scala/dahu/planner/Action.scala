@@ -25,10 +25,12 @@ object Action {
       case (c, s) => c.extended(s)(argsRewrite)
     }
 
-    Action(act.template.name,
-           ctx.encode(act.start)(argsRewrite),
-           ctx.encode(act.end)(argsRewrite),
-           act.args.toList.map(argsRewrite),
-           chronicle)
+    Action(
+      act.template.name,
+      ctx.intUnbox(ctx.encode(act.start)(argsRewrite)),
+      ctx.intUnbox(ctx.encode(act.end)(argsRewrite)),
+      act.args.toList.map(argsRewrite),
+      chronicle
+    )
   }
 }

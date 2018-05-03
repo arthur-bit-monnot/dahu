@@ -66,6 +66,8 @@ class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Partia
               case t: TagIsoInt[_] => Some(t.toValue(i.getInt))
               case _               => unexpected
             }
+          case i: IntExpr =>
+            None
           case b: BoolExpr =>
             b.getBoolValue match {
               case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))

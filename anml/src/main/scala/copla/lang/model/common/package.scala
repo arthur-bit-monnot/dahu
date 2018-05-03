@@ -50,7 +50,7 @@ package object common {
       else
         parent match {
           case Some(father) => father.lowestCommonAncestor(typ)
-          case None => None
+          case None         => None
         }
 
     def asScope: Scope = id.scope + id.name
@@ -63,6 +63,21 @@ package object common {
     val Time = Integer //Type(Id(RootScope, "time"), Some(Integer))
     val Float = Type(Id(RootScope, "float"), Some(Numeric))
     val Boolean = Type(Id(RootScope, "boolean"), None)
+
+    val True = Instance(Id(RootScope, "true"), Boolean)
+    val False = Instance(Id(RootScope, "false"), Boolean)
+
+    sealed trait Top
+    sealed trait Obj extends Top
+    sealed trait Real extends Top
+    sealed trait Int extends Real
+    type Time = Int
+
+    trait Tpe[+T]
+    case class TObj(id: Id, parent: Option[Type]) extends Tpe[Obj]
+//    case class TReal(id: Id, parent: Option[TReal]) extends Tpe[Real]
+    case class TInt(id: Id, parent: Option[TInt], min: Option[Int], max: Option[Int])
+        extends Tpe[Int]
   }
   sealed trait Expr {
     def typ: Type
@@ -100,7 +115,7 @@ package object common {
 
   case class Op2(op: BinaryOperator, lhs: Expr, rhs: Expr) extends Expr {
     override def typ: Type = op.tpe(lhs.typ, rhs.typ) match {
-      case Right(t) => t
+      case Right(t)  => t
       case Left(err) => sys.error(err)
     }
 
@@ -108,14 +123,11 @@ package object common {
   }
   case class Op1(op: UnaryOperator, lhs: Expr) extends Expr {
     override def typ: Type = op.tpe(lhs.typ) match {
-      case Right(t) => t
+      case Right(t)  => t
       case Left(err) => sys.error(err)
     }
     override def toString: String = s"(${op.op} $lhs)"
   }
-
-
-
 
   sealed trait FunctionTemplate {
     def id: Id

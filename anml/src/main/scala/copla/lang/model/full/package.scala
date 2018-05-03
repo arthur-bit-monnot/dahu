@@ -175,8 +175,7 @@ package object full {
     override def toString: String = expr.toString
   }
 
-  case class StaticAssignmentAssertion(left: Constant, right: StaticExpr)
-      extends StaticAssertion {
+  case class StaticAssignmentAssertion(left: Constant, right: StaticExpr) extends StaticAssertion {
     override def toString: String = s"$left := $right"
   }
 
@@ -309,7 +308,7 @@ package object full {
     def findTimepoint(name: String): Option[LocalVar] =
       findDeclaration(name).flatMap {
         case LocalVarDeclaration(v @ LocalVar(_, tpe)) if tpe.isSubtypeOf(Type.Time) => Some(v)
-        case _                                                                        => None
+        case _                                                                       => None
       }
 
     def findType(name: String): Option[Type] =

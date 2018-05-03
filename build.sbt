@@ -36,7 +36,8 @@ lazy val commonSettings = Seq(
     // experimental option to speed up the build	
     "-Ycache-plugin-class-loader:last-modified",
     "-Ycache-macro-class-loader:last-modified",
-    "-Ybackend-parallelism", "3"
+    "-Ybackend-parallelism",
+    "3"
 //    "-opt:simplify-jumps",
 //    "-opt:compact-locals",
 //    "-opt:copy-propagation",
@@ -65,12 +66,13 @@ lazy val anml = project
   .in(file("anml"))
   .settings(name := "dahu-anml")
   .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    "com.lihaoyi" %% "fastparse" % "1.0.0",
-    "com.github.scopt" %% "scopt" % "3.7.0",
-    "com.chuusai" %% "shapeless" % "2.3.3",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
-  ))
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "fastparse" % "1.0.0",
+      "com.github.scopt" %% "scopt" % "3.7.0",
+      "com.chuusai" %% "shapeless" % "2.3.3",
+      "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    ))
 
 lazy val utils = project
   .in(file("utils"))

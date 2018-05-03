@@ -253,6 +253,12 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     builder.result()
   }
 
+  def count(f: A => Boolean): Int = {
+    var cnt = 0
+    foreach(x => if(f(x)) cnt += 1)
+    cnt
+  }
+
   /**
     * Find the minimum value in this buffer.
     *
@@ -301,6 +307,14 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     val out = elems.clone()
     QuickSort.qsort(out, 0, length - 1)
     new Vec(out)
+  }
+
+  def isSorted(implicit o: Order[A]): Boolean = {
+    cfor(1)(_ < length, _ + 1) { i =>
+      if(o.gt(this(i - 1), this(i)))
+        return false
+    }
+    true
   }
 
   def sortedBy[B](f: A => B)(implicit order: Order[B]): Vec[A] =

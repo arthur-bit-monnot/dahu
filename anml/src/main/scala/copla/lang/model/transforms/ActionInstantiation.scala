@@ -8,6 +8,7 @@ object ActionInstantiation {
   private[this] object implicits {
 
     trait IdRewrite[T] {
+
       /** Transforms a type T, recursively replacing any id: Id in it with f(id) */
       def map(a: T, f: Id => Id): T
     }
@@ -36,13 +37,13 @@ object ActionInstantiation {
     implicit object ofConstantTemplate extends IdRewrite[ConstantTemplate] {
       override def map(a: ConstantTemplate, f: Id => Id): ConstantTemplate = a match {
         case ConstantTemplate(id, tpe, params) =>
-          ConstantTemplate(f(id), tpe, params.map { case Arg(id, tpe) => Arg(f(id), tpe)} )
+          ConstantTemplate(f(id), tpe, params.map { case Arg(id, tpe) => Arg(f(id), tpe) })
       }
     }
     implicit object ofFluentTemplate extends IdRewrite[FluentTemplate] {
       override def map(a: FluentTemplate, f: Id => Id): FluentTemplate = a match {
         case FluentTemplate(id, tpe, params) =>
-          FluentTemplate(f(id), tpe, params.map { case Arg(id, tpe) => Arg(f(id), tpe)} )
+          FluentTemplate(f(id), tpe, params.map { case Arg(id, tpe) => Arg(f(id), tpe) })
       }
     }
     implicit object ofFluent extends IdRewrite[Fluent] {

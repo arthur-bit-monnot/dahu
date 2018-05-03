@@ -145,6 +145,14 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       }
 
       def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
+      def isUnbox(f: Fun[_]): Boolean = f match {
+        case fun: Fun1[_, _] =>
+          fun.inType match {
+            case t: TagIsoInt[_] => t.unbox == fun
+            case _               => false
+          }
+        case _ => false
+      }
 
       node match {
         case x @ CstF(v, Tag.ofBoolean) => SupportedConstant(x)
@@ -155,6 +163,9 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
         case x @ ComputationF(f, args, t: TagIsoInt[_])
             if supportedFunctions.contains(f) && args.forall(x => sup(prev(x))) =>
           IntermediateExpression(ComputationF(f, args, t))
+        case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
+            if isUnbox(f) && sup(prev(arg)) => //TODO double check
+          prev(arg)
         case x @ ComputationF(wf: WrappedFunction, args, t: TagIsoInt[_])
             if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
           TRANS(rec)(prev)(ComputationF(wf.f, args, t)) // unwrap and retry
@@ -163,6 +174,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
           prev(arg) // unbox operation, use the previous cell
 
         case x =>
+          dahu.utils.debug.warning(s"unsupported: $x")
           x.typ match {
             case Tag.ofBoolean =>
               SupportedInput(InputF(Anonymous(), Tag.ofBoolean))

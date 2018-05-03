@@ -1,7 +1,8 @@
 package dahu.model.math
 
-import dahu.model.functions.{Fun1, Fun2, Fun3, FunN}
+import dahu.model.functions._
 import dahu.model.input.Cst
+import dahu.model.ir.CstF
 import dahu.model.types.{BoxedInt, Tag}
 
 object obj {
@@ -71,9 +72,10 @@ object int {
     override val identity: Int = 0
   }
 
-  object Negate extends Fun1[Int, Int] {
+  object Negate extends Reversible[Int, Int] {
     override def name: String = "neg"
     override def of(in: Int): Int = -in
+    override def reverse: Reversible[Int, Int] = this
   }
 
   object Min extends Fun2[Int, Int, Int] {
@@ -93,13 +95,13 @@ object int {
 
 object bool {
 
-  object And extends CommutativeMonoid[Boolean] {
+  object And extends CommutativeMonoid[Boolean] with IdempotentMonoid[Boolean] {
     override def tpe: Tag[Boolean] = Tag.ofBoolean
     override def name: String = "and"
     override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs && rhs
     override val identity: Boolean = true
   }
-  object Or extends CommutativeMonoid[Boolean] {
+  object Or extends CommutativeMonoid[Boolean] with IdempotentMonoid[Boolean] {
     override def tpe: Tag[Boolean] = Tag.ofBoolean
     override def name: String = "or"
     override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs || rhs
@@ -110,12 +112,15 @@ object bool {
     override def name: String = "xor"
   }
 
-  object Not extends Fun1[Boolean, Boolean] {
+  object Not extends Reversible[Boolean, Boolean] {
     override def name: String = "not"
     override def of(in: Boolean): Boolean = !in
+    override def reverse: Reversible[Boolean, Boolean] = this
   }
 
   val True: Cst[Boolean] = Cst(true)
+  val TrueF: CstF[Any] = CstF(dahu.model.types.Value(true), Tag[Boolean])
   val False: Cst[Boolean] = Cst(false)
+  val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
 
 }

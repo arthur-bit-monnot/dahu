@@ -62,15 +62,17 @@ package object analysis {
   }
 
   /** Returns a set of fluent templates on which the given action has an effect. */
-  def affectedBy(a: ActionTemplate): Set[FluentTemplate] = { ???
+  def affectedBy(a: ActionTemplate): Set[FluentTemplate] = {
+    ???
     //  val extractor = landscaper.pattern {
     //    case x: TimedAssertion with ProvidesChange => Seq(x.fluent.template)
     //  }
-     // landscaper.extract(extractor, a).toSet
+    // landscaper.extract(extractor, a).toSet
   }
 
   /** Returns a set of fluent templates on which the given action has a condition. */
-  def conditionedBy(a: ActionTemplate): Set[FluentTemplate] = { ???
+  def conditionedBy(a: ActionTemplate): Set[FluentTemplate] = {
+    ???
     //    val extractor = landscaper.pattern {
     //      case x: TimedAssertion with RequiresSupport => Seq(x.fluent.template)
     //    }

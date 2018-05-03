@@ -15,7 +15,7 @@ class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver
   def defaultDomain(k: ast.VID): Stream[Value] = ast.variables(k) match {
     case InputF(_, t: TagIsoInt[_]) =>
       assert(t.min <= t.max, "empty default domain")
-      (t.min to t.max).toStream.map(i => t.toValue(i))
+      (t.min to t.max).toStream.map(i => t.toValue(i)) //TODO
     case _ => ???
   }
 

@@ -1,6 +1,7 @@
 package dahu.model.types
 
 import cats.Id
+import dahu.model.functions.{Fun1, Reversible}
 import dahu.utils._
 import dahu.model.input.{ProductExpr, Tentative}
 
@@ -11,84 +12,6 @@ trait Tag[+T] {
 
   def typ: Tag.Type
 
-}
-
-/** A type for which an isomophism to a subset of integers is known. */
-trait TagIsoInt[T] extends Tag[T] {
-
-  def fromInt(i: Int): T
-  def toValue(i: Int): Value = Value(fromInt(i))
-  def toInt(t: T): Int
-  def toIntUnsafe(t: Any): Int = toInt(t.asInstanceOf[T])
-
-  val min: Int
-  val max: Int
-  def numInstances: Int = max - min + 1
-}
-
-object TagIsoInt {
-
-  def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
-
-  import scala.reflect.runtime.universe
-  def fromEnum[T: universe.WeakTypeTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
-    override def toInt(t: T): Int = values.indexOf(t)
-    override def fromInt(i: Int): T = values(i)
-
-    override val min: Int = 0
-    override val max: Int = values.size - 1
-
-    override def typ: Tag.Type = Tag.typeOf[T]
-
-    assert(numInstances == max - min + 1)
-  }
-}
-
-/** Marker trait for a type that is a simple container of Int. */
-trait BoxedInt[T] extends TagIsoInt[T]
-
-trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
-  def exprProd: ProductExpr[P, Tentative]
-  def idProd: ProductExpr[P, cats.Id]
-}
-object ProductTag {
-
-  import scala.reflect.runtime.universe
-
-  implicit def ofProd[P[_[_]]](implicit pe1: ProductExpr[P, Tentative],
-                               pe2: ProductExpr[P, cats.Id],
-                               tt: universe.WeakTypeTag[P[cats.Id]]): ProductTag[P] =
-    new ProductTag[P] {
-
-      override def exprProd: ProductExpr[P, Tentative] = pe1
-      override def idProd: ProductExpr[P, Id] = pe2
-
-      override def typ: Tag.Type = tt.tpe
-    }
-
-  type Sequence[F[_], A] = Seq[F[A]]
-
-  implicit def ofSeq[A](
-      implicit tt: universe.WeakTypeTag[Seq[cats.Id[A]]]): ProductTag[Sequence[?[_], A]] =
-    new ProductTag[Sequence[?[_], A]] {
-      override def exprProd: ProductExpr[Sequence[?[_], A], Tentative] =
-        new ProductExpr[Sequence[?[_], A], Tentative] {
-          override def extractTerms(prod: Sequence[Tentative, A])(
-              implicit ct: ClassTag[Tentative[Any]]): Vec[Tentative[Any]] =
-            Vec.fromSeq(prod.map(_.asInstanceOf[Tentative[Any]]))
-          override def buildFromTerms(terms: Vec[Tentative[Any]]): Sequence[Tentative, A] =
-            terms.map(_.asInstanceOf[Tentative[A]]).toSeq
-        }
-      override def idProd: ProductExpr[Sequence[?[_], A], Id] =
-        new ProductExpr[Sequence[?[_], A], Id] {
-          override def extractTerms(prod: Sequence[Id, A])(
-              implicit ct: ClassTag[Id[Any]]): Vec[Id[Any]] = Vec.fromSeq(prod)
-          override def buildFromTerms(terms: Vec[Id[Any]]): Sequence[Id, A] =
-            terms.asInstanceOf[Vec[Id[A]]].toSeq
-        }
-
-      override def typ: Tag.Type = tt.tpe
-    }
 }
 
 object Tag {
@@ -138,4 +61,95 @@ object Tag {
   def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
     override def typ: Type = typeOf[T]
   }
+}
+
+/** A type for which an isomophism to a subset of integers is known. */
+trait TagIsoInt[T] extends Tag[T] {
+
+  def fromInt(i: Int): T
+  def toValue(i: Int): Value = Value(fromInt(i))
+  def toInt(t: T): Int
+  def toIntUnsafe(t: Any): Int = toInt(t.asInstanceOf[T])
+
+  val min: Int
+  val max: Int
+  def numInstances: Int = max - min + 1
+
+  private implicit def selfTag: TagIsoInt[T] = this
+
+  val box: Reversible[Int, T] = new Reversible[Int, T] { self =>
+    override val reverse: Reversible[T, Int] = new Reversible[T, Int] {
+      override def reverse: Reversible[Int, T] = self
+      override def of(in: T): Int = toInt(in)
+      override def name: String = "unbox"
+    }
+    override def of(in: Int): T = fromInt(in)
+    override def name: String = "box"
+  }
+  val unbox: Reversible[T, Int] = box.reverse
+}
+
+object TagIsoInt {
+
+  def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
+
+  import scala.reflect.runtime.universe
+  def fromEnum[T: universe.WeakTypeTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
+    override def toInt(t: T): Int = values.indexOf(t)
+    override def fromInt(i: Int): T = values(i)
+
+    override val min: Int = 0
+    override val max: Int = values.size - 1
+
+    override def typ: Tag.Type = Tag.typeOf[T]
+
+    assert(numInstances == max - min + 1)
+  }
+}
+
+/** Marker trait for a type that is a simple container of Int. */
+trait BoxedInt[T] extends TagIsoInt[T] {}
+
+trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
+  def exprProd: ProductExpr[P, Tentative]
+  def idProd: ProductExpr[P, cats.Id]
+}
+object ProductTag {
+
+  import scala.reflect.runtime.universe
+
+  implicit def ofProd[P[_[_]]](implicit pe1: ProductExpr[P, Tentative],
+                               pe2: ProductExpr[P, cats.Id],
+                               tt: universe.WeakTypeTag[P[cats.Id]]): ProductTag[P] =
+    new ProductTag[P] {
+
+      override def exprProd: ProductExpr[P, Tentative] = pe1
+      override def idProd: ProductExpr[P, Id] = pe2
+
+      override def typ: Tag.Type = tt.tpe
+    }
+
+  type Sequence[F[_], A] = Seq[F[A]]
+
+  implicit def ofSeq[A](
+      implicit tt: universe.WeakTypeTag[Seq[cats.Id[A]]]): ProductTag[Sequence[?[_], A]] =
+    new ProductTag[Sequence[?[_], A]] {
+      override def exprProd: ProductExpr[Sequence[?[_], A], Tentative] =
+        new ProductExpr[Sequence[?[_], A], Tentative] {
+          override def extractTerms(prod: Sequence[Tentative, A])(
+              implicit ct: ClassTag[Tentative[Any]]): Vec[Tentative[Any]] =
+            Vec.fromSeq(prod.map(_.asInstanceOf[Tentative[Any]]))
+          override def buildFromTerms(terms: Vec[Tentative[Any]]): Sequence[Tentative, A] =
+            terms.map(_.asInstanceOf[Tentative[A]]).toSeq
+        }
+      override def idProd: ProductExpr[Sequence[?[_], A], Id] =
+        new ProductExpr[Sequence[?[_], A], Id] {
+          override def extractTerms(prod: Sequence[Id, A])(
+              implicit ct: ClassTag[Id[Any]]): Vec[Id[Any]] = Vec.fromSeq(prod)
+          override def buildFromTerms(terms: Vec[Id[Any]]): Sequence[Id, A] =
+            terms.asInstanceOf[Vec[Id[A]]].toSeq
+        }
+
+      override def typ: Tag.Type = tt.tpe
+    }
 }

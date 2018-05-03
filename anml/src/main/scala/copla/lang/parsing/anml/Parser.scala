@@ -415,8 +415,8 @@ abstract class AnmlParser(val initialContext: Ctx) {
       ";")
       .namedFilter({
         case (_: Constant, Some(_)) => true
-        case (_, Some(_)) => false
-        case (_, None) => true
+        case (_, Some(_))           => false
+        case (_, None)              => true
       }, "assignment-to-const-func-only")
       .namedFilter({
         case (_, Some(_)) => true
@@ -424,8 +424,8 @@ abstract class AnmlParser(val initialContext: Ctx) {
       }, "boolean-if-not-assignment")
       .map {
         case (left: Constant, Some((":=", right))) => StaticAssignmentAssertion(left, right)
-        case (expr, None)                => BooleanAssertion(expr)
-        case _                           => sys.error("Something is wrong with this parser.")
+        case (expr, None)                          => BooleanAssertion(expr)
+        case _                                     => sys.error("Something is wrong with this parser.")
       }
   }
 }
@@ -626,8 +626,8 @@ object Parser {
       TypeDeclaration(Type.Boolean),
       TypeDeclaration(Type.Numeric),
       TypeDeclaration(Type.Integer),
-      InstanceDeclaration(Instance(Id(RootScope, "true"), Type.Boolean)),
-      InstanceDeclaration(Instance(Id(RootScope, "false"), Type.Boolean)),
+      InstanceDeclaration(Type.True),
+      InstanceDeclaration(Type.False),
       TimepointDeclaration(Id(RootScope, "start")),
       TimepointDeclaration(Id(RootScope, "end")),
     )).getOrElse(sys.error("Could not instantiate base model"))

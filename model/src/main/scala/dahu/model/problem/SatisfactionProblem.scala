@@ -2,13 +2,16 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-
+import dahu.model.functions.Reversible
 import dahu.utils._
 import dahu.model.ir._
-import dahu.model.math.bool
+import dahu.model.math._
 import dahu.model.types._
 import dahu.recursion._
 import dahu.utils.SFunctor
+import dahu.utils.Vec._
+import dahu.utils.errors._
+import spire.syntax.cfor._
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -18,8 +21,164 @@ object SatisfactionProblem {
   def satisfactionSubAST(ast: AST[_]): RootedLazyTree[ast.ID, Total, cats.Id] = {
     encode(ast.root, ast.tree.asFunction)
   }
-
   type ID = Int
+  object Optimizations {
+    trait Optimizer {
+      self =>
+      def optim(retrieve: ID => Total[ID], record: Total[ID] => ID): Total[ID] => Total[ID]
+
+      def andThen(next: Optimizer): Optimizer = new Optimizer {
+        override def optim(retrieve: ID => Total[ID],
+                           record: Total[ID] => ID): Total[ID] => Total[ID] =
+          self.optim(retrieve, record) andThen next.optim(retrieve, record)
+
+        override def toString: String = s"self >> next"
+      }
+    }
+
+    object NoOpOptimizer extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = identity[Total[ID]]
+    }
+
+    object ElimReversible extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case ComputationF(f: Reversible[_, _], Vec1(arg), _) =>
+          retrieve(arg) match {
+            case ComputationF(f2: Reversible[_, _], Vec1(arg2), _) if f2 == f.reverse =>
+              retrieve(arg2)
+            case x => x
+          }
+        case x => x
+      }
+    }
+
+    object ElimTautologies extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case ComputationF(int.EQ, Vec2(a1, a2), _) if a1 == a2  => bool.TrueF
+        case ComputationF(int.LEQ, Vec2(a1, a2), _) if a1 == a2 => bool.TrueF
+        case x                                                  => x
+      }
+
+    }
+
+    object ElimIdentity extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case x @ ComputationF(f: Monoid[_], args, tpe) =>
+          val identity = record(f.liftedIdentity)
+          if(args.contains(identity))
+            ComputationF(f, args.filter(_ != identity), tpe)
+          else
+            x
+        case x => x
+      }
+    }
+
+    object ElimEmptyAndSingletonMonoid extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case x @ ComputationF(f: Monoid[_], args, _) if args.isEmpty => f.liftedIdentity
+        case x @ ComputationF(_: Monoid[_], Vec1(arg), _)            => retrieve(arg)
+        case x                                                       => x
+      }
+    }
+
+    object ElimDuplicationsIdempotentMonoids extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case ComputationF(f: IdempotentMonoid[_], args, tpe)
+            if f.isInstanceOf[CommutativeMonoid[_]] =>
+          ComputationF(f, args.distinct, tpe)
+        case x => x
+      }
+    }
+
+    object FlattenMonoids extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case x @ ComputationF(f: Monoid[_], args, tpe) =>
+          val buff = debox.Buffer[ID]()
+          cfor(0)(_ < args.length, _ + 1) { i =>
+            retrieve(args(i)) match {
+              case ComputationF(f2: Monoid[_], args2, _) if f2 == f =>
+                args2.foreach(buff += _)
+              case _ =>
+                buff += args(i)
+            }
+          }
+          if(buff.length != args.size)
+            ComputationF[ID](f, Vec.unsafe(buff.toArray()), tpe)
+          else
+            x
+        case x => x
+      }
+    }
+
+    object ConstantFolding extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = o => {
+        val TRUE: ID = record(bool.TrueF)
+        val FALSE: ID = record(bool.FalseF)
+
+        o match {
+          case ComputationF(bool.And, args, _) if args.contains(FALSE) => retrieve(FALSE)
+          case ComputationF(bool.Or, args, _) if args.contains(TRUE)   => retrieve(TRUE)
+          // commutative monoid, evaluate the combination of all constants args
+
+          // any function, evaluate if all args are constant
+          case ComputationF(f, args, t) if args.forall(retrieve(_).isInstanceOf[CstF[_]]) =>
+            val params = args.map(i =>
+              retrieve(i) match {
+                case CstF(value, _) => value
+                case _              => unexpected
+            })
+            CstF(Value(f.compute(params)), t)
+
+          case ComputationF(f: CommutativeMonoid[_], args, tpe)
+              if args.count(retrieve(_).isInstanceOf[CstF[_]]) >= 2 =>
+            val buff = debox.Buffer[ID]()
+            var acc: Value = Value(f.identity)
+            cfor(0)(_ < args.length, _ + 1) { i =>
+              retrieve(args(i)) match {
+                case CstF(value, _) => acc = f.combineUnsafe(acc, value)
+                case _              => buff += args(i)
+              }
+            }
+            buff += record(CstF(acc, f.outType))
+            ComputationF(f, Vec.unsafe(buff.toArray()), tpe)
+
+          case x => x
+        }
+      }
+    }
+
+    object OrderArgs extends Optimizer {
+      override def optim(retrieve: ID => Total[ID],
+                         record: Total[ID] => ID): Total[ID] => Total[ID] = {
+        case x @ ComputationF(f: CommutativeMonoid[_], args, tpe) =>
+          if(args.isSorted)
+            x
+          else
+            ComputationF(f, args.sorted, tpe)
+        case x => x
+      }
+    }
+    private val optimizers = List(
+      ElimReversible,
+      ElimIdentity,
+      ElimEmptyAndSingletonMonoid,
+      FlattenMonoids,
+      ElimDuplicationsIdempotentMonoids,
+      ConstantFolding,
+      OrderArgs,
+    )
+    val optimizer: Optimizer = optimizers.foldLeft[Optimizer](NoOpOptimizer) {
+      case (acc, next) => acc.andThen(next)
+    }
+  }
 
   trait TreeNode[N[_]] {
     def children[K](n: N[K]): Iterable[K]
@@ -101,7 +260,10 @@ object SatisfactionProblem {
     def fullTree(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = tree.build(root)
   }
 
-  final class Context(val rec: Total[ID] => ID) {
+  final class Context(val directRec: Total[ID] => ID, retrieve: ID => Total[ID]) {
+    def rec(expr: Total[ID]): ID =
+      directRec(Optimizations.optimizer.optim(retrieve, directRec)(expr))
+
     val TRUE: ID = rec(CstF(Value(true), Tag.ofBoolean))
     val FALSE: ID = rec(CstF(Value(false), Tag.ofBoolean))
 
@@ -170,7 +332,7 @@ object SatisfactionProblem {
         id
       }
     }
-    private val ctx: Context = new Context(getID)
+    private val ctx: Context = new Context(getID, get)
 
     private val g2: ExprF[IR[ID]] => IR[ID] = g(ctx)
 

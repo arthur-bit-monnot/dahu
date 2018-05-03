@@ -52,7 +52,7 @@ object FullToCore {
           r <- f2c(rhs)
         } yield Op2(op, l, r)
       case full.UnaryExprTree(op, e) =>
-        for  {
+        for {
           ec <- f2c(e)
         } yield Op1(op, ec)
     }
@@ -106,7 +106,6 @@ object FullToCore {
     case full.StaticAssignmentAssertion(_, _) =>
       throw new UnsupportedOperationException(
         s"Assignment assertions on constant functions are only supported when all parameters are declared instances: $block")
-
 
     case full.TemporallyQualifiedAssertion(qualifier, assertion) =>
       val startEnd: CoreM[(Expr, Expr)] =
@@ -174,7 +173,7 @@ object FullToCore {
           } yield ()
       }
 
-    case full.LocalVarDeclaration(v)   => CoreM.unit(core.LocalVarDeclaration(v))
+    case full.LocalVarDeclaration(v) => CoreM.unit(core.LocalVarDeclaration(v))
   }
 
   def trans(model: full.Model, config: Config = Config()): Seq[core.InModuleBlock] = {

@@ -8,6 +8,8 @@ trait Monoid[T] extends FunN[T, T] {
   def tpe: Tag[T]
 
   def combine(lhs: T, rhs: T): T
+  def combineUnsafe(lhs: Value, rhs: Value): Value =
+    Value(combine(lhs.asInstanceOf[T], rhs.asInstanceOf[T]))
   val identity: T
   final lazy val liftedIdentity: CstF[T] = CstF(Value(identity), tpe)
 
@@ -16,3 +18,5 @@ trait Monoid[T] extends FunN[T, T] {
 }
 
 trait CommutativeMonoid[T] extends Monoid[T]
+
+trait IdempotentMonoid[T] extends Monoid[T]

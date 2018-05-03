@@ -23,6 +23,11 @@ abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] {
 
   def of(in: I): O
 }
+
+abstract class Reversible[A: Tag, B: Tag] extends Fun1[A, B] {
+  def reverse: Reversible[B, A]
+}
+
 object Fun1 {
   def embed[A: Tag, B: Tag](f: A => B): Fun1[A, B] = new Fun1[A, B] {
     override def of(in: A): B = f(in)
