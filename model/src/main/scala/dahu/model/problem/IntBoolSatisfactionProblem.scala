@@ -7,7 +7,6 @@ import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
-import dahu.model.math.obj.Unboxed
 import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree, TreeNode}
 import dahu.model.types._
 import dahu.utils.SFunctor
@@ -166,12 +165,6 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
         case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
             if isUnbox(f) && sup(prev(arg)) => //TODO double check
           prev(arg)
-        case x @ ComputationF(wf: WrappedFunction, args, t: TagIsoInt[_])
-            if supportedFunctions.contains(wf.f) && args.forall(x => sup(prev(x))) =>
-          TRANS(rec)(prev)(ComputationF(wf.f, args, t)) // unwrap and retry
-
-        case x @ ComputationF(f: Unboxed[_], Vec1(arg), t) =>
-          prev(arg) // unbox operation, use the previous cell
 
         case x =>
           dahu.utils.debug.warning(s"unsupported: $x")

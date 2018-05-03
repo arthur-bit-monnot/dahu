@@ -5,7 +5,7 @@ import copla.lang.model.common.operators.BinaryOperator
 import copla.lang.model.common.{Cst => _, _}
 import copla.lang.model.core._
 import copla.lang.model.core
-import dahu.model.functions.{Fun2, FunN, Reversible, WrappedFunction}
+import dahu.model.functions.{Fun2, FunN, Reversible}
 import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
@@ -180,8 +180,6 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
 
-  private val ObjEquality = WrappedFunction.wrap(int.EQ)(topTag, implicitly[TagIsoInt[Boolean]])
-  private val IntEquality = WrappedFunction.wrap(int.EQ)(intTag, implicitly[TagIsoInt[Boolean]])
   private def isInt(e: Tentative[Literal]): Boolean = e.typ match {
     case t: BoxedInt[_] =>
       assert(t == intTag)
@@ -197,13 +195,10 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       case (Cst(x), Cst(y)) if x == y => bool.True
       case (Cst(x), Cst(y)) if x != y => bool.False
       case _ =>
-        if(isInt(lhs) && isInt(rhs))
-          Computation(IntEquality, lhs, rhs)
-        else if(isInt(lhs) || isInt(rhs))
+        if(isInt(lhs) != isInt(rhs))
           bool.False
-        else {
-          Computation(ObjEquality, lhs, rhs)
-        }
+        else
+          int.EQ(intUnbox(lhs), intUnbox(rhs))
     }
 
   def neq(lhs: common.Term, rhs: common.Term)(

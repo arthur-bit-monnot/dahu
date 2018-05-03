@@ -5,15 +5,6 @@ import dahu.model.input.Cst
 import dahu.model.ir.CstF
 import dahu.model.types.{BoxedInt, Tag}
 
-object obj {
-
-  /** Transforms a boxed int into an int. */
-  class Unboxed[A](implicit tag: BoxedInt[A]) extends Fun1[A, Int] {
-    override def of(in: A): Int = tag.toInt(in)
-    override def name: String = "unbox"
-  }
-}
-
 object double {
 
   object Times extends CommutativeMonoid[Double] {

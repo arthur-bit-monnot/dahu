@@ -3,7 +3,7 @@ package dahu.model.problem
 import cats.Functor
 import cats.implicits._
 import dahu.model.compiler.Algebras
-import dahu.model.functions.Reversible
+import dahu.model.functions.{Box, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
@@ -12,6 +12,7 @@ import dahu.recursion._
 import dahu.utils.SFunctor
 import dahu.utils.Vec._
 import dahu.utils.errors._
+import spire.math.Interval
 import spire.syntax.cfor._
 
 import scala.collection.mutable
@@ -49,6 +50,10 @@ object SatisfactionProblem {
           retrieve(arg) match {
             case ComputationF(f2: Reversible[_, _], Vec1(arg2), _) if f2 == f.reverse =>
               retrieve(arg2)
+            case ComputationF(f2: Box[_], _, _) =>
+              println(f)
+              println(f2)
+              ???
             case _ => orig
           }
         case x => x
@@ -56,11 +61,33 @@ object SatisfactionProblem {
     }
 
     object ElimTautologies extends Optimizer {
+      def dom(t: Tag[_]): Interval[Int] = t match {
+        case t: TagIsoInt[_] => Interval(t.min, t.max)
+        case _               => Interval.all
+      }
+      def dom(e: Total[ID]): Interval[Int] = e match {
+        case ComputationF(f: Unbox[_], _, _) =>
+          dom(f.inType) intersect dom(f.outType)
+        case CstF(v: Int, _) =>
+          Interval.point(v)
+        case x =>
+          dom(x.typ)
+      }
       override def optim(retrieve: ID => Total[ID],
                          record: Total[ID] => ID): Total[ID] => Total[ID] = {
         case ComputationF(int.EQ, Vec2(a1, a2), _) if a1 == a2  => bool.TrueF
         case ComputationF(int.LEQ, Vec2(a1, a2), _) if a1 == a2 => bool.TrueF
-        case x                                                  => x
+        case x @ ComputationF(int.EQ, Vec2(a1, a2), _) =>
+          val dom1 = dom(retrieve(a1))
+          val dom2 = dom(retrieve(a2))
+          if(!(dom1 intersects dom1))
+            bool.FalseF
+          else if(dom1.isPoint && dom1 == dom2)
+            bool.TrueF
+          else
+            x
+
+        case x => x
       }
 
     }
@@ -395,6 +422,9 @@ object SatisfactionProblem {
       override def getInternalID(k: X): ID = lt.get(k).value
     }
     val satRoot = lt.get(root).valid
+    val str = RootedLazyTree(satRoot, totalTrees).fullTree.toString
+    println(str)
+    println(str.size)
     RootedLazyTree(satRoot, totalTrees)
   }
 

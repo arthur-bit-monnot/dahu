@@ -1,7 +1,7 @@
 package dahu.model.types
 
 import cats.Id
-import dahu.model.functions.{Fun1, Reversible}
+import dahu.model.functions.{Box, Fun1, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.input.{ProductExpr, Tentative}
 
@@ -77,16 +77,8 @@ trait TagIsoInt[T] extends Tag[T] {
 
   private implicit def selfTag: TagIsoInt[T] = this
 
-  val box: Reversible[Int, T] = new Reversible[Int, T] { self =>
-    override val reverse: Reversible[T, Int] = new Reversible[T, Int] {
-      override def reverse: Reversible[Int, T] = self
-      override def of(in: T): Int = toInt(in)
-      override def name: String = "unbox"
-    }
-    override def of(in: Int): T = fromInt(in)
-    override def name: String = "box"
-  }
-  val unbox: Reversible[T, Int] = box.reverse
+  val unbox: Unbox[T] = new Unbox[T]()(this)
+  val box: Box[T] = unbox.reverse
 }
 
 object TagIsoInt {

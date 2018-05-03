@@ -1,16 +1,19 @@
 package dahu.model.input
 
 import dahu.model.functions.{Fun, Fun1, Fun2}
-import dahu.model.ir.Total
 import dahu.model.math.BooleanLike.BooleanOps
 import dahu.model.math.Numeric.{NumericBase, NumericOps}
 import dahu.model.math._
-import dahu.model.math.obj.Unboxed
-import dahu.model.types.{BoxedInt, Tag}
+import dahu.model.types.{BoxedInt, Tag, TagIsoInt}
+import shapeless.=:!=
 
 import scala.language.implicitConversions
 
 object dsl {
+
+  implicit class Fun1Ops[I, O](private val lhs: Fun1[I, O]) extends AnyVal {
+    def apply(arg: Tentative[I]): Tentative[O] = Computation1(lhs, arg)
+  }
 
   implicit class Fun2Ops[I1, I2, O: Tag](f: Fun2[I1, I2, O]) {
     def apply(i1: Tentative[I1], i2: Tentative[I2]): Computation2[I1, I2, O] =
@@ -37,6 +40,14 @@ object dsl {
                                                       tag: Tag[T]) =
     new NumericOps[T, Tentative](lhs)
 
+  implicit class TentativeOrderOps[T: TagIsoInt](lhs: Tentative[T])(implicit ev: T =:!= Int,
+                                                                    ev2: T =:!= Double) {
+    def ===(rhs: Tentative[T]): Tentative[Boolean] =
+      int.EQ(TagIsoInt[T].unbox(lhs), TagIsoInt[T].unbox(rhs))
+    def =!=(rhs: Tentative[T]): Tentative[Boolean] =
+      bool.Not(new TentativeOrderOps(lhs) === rhs)
+  }
+
   implicit def tentative2boolOps(lhs: Tentative[Boolean])(
       implicit bool: BooleanLike[Boolean, Tentative]) =
     new BooleanOps[Boolean, Tentative](lhs)(bool)
@@ -50,8 +61,8 @@ object dsl {
   }
 
   implicit class UnboxOps[A](private val lhs: Tentative[A]) extends AnyVal {
-    def unboxed(implicit tag: BoxedInt[A]): Tentative[Int] =
-      Computation(new Unboxed[A], lhs)
+    def unboxed(implicit tag: TagIsoInt[A]): Tentative[Int] =
+      Computation(tag.unbox, lhs)
   }
 
   implicit class ProductOps[T[_[_]]](private val lhs: Product[T]) extends AnyVal {

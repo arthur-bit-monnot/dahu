@@ -27,6 +27,19 @@ abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] {
 abstract class Reversible[A: Tag, B: Tag] extends Fun1[A, B] {
   def reverse: Reversible[B, A]
 }
+sealed abstract class Box[T: TagIsoInt] extends Reversible[Int, T] {
+  def reverse: Unbox[T]
+}
+final class Unbox[T: TagIsoInt] extends Reversible[T, Int] { self =>
+  val tag: TagIsoInt[T] = TagIsoInt[T]
+  override val reverse: Box[T] = new Box[T] {
+    override def reverse: Unbox[T] = self
+    override def of(in: Int): T = tag.fromInt(in)
+    override def name: String = "box"
+  }
+  override def of(in: T): Int = tag.toInt(in)
+  override def name: String = "unbox"
+}
 
 object Fun1 {
   def embed[A: Tag, B: Tag](f: A => B): Fun1[A, B] = new Fun1[A, B] {
@@ -84,21 +97,4 @@ abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
     of(args.toSeq.asInstanceOf[Seq[I]]) //TODO: avoid conversion
 
   def of(args: Seq[I]): O //TODO
-}
-
-trait WrappedFunction {
-  def f: Fun[_]
-}
-
-object WrappedFunction {
-  def wrap[T, O](f: Fun2[Int, Int, O])(implicit tag: TagIsoInt[T],
-                                       outTag: TagIsoInt[O]): Fun2[T, T, O] =
-    new WrappedFun2[T, T, O](f)
-}
-
-final case class WrappedFun2[I1: TagIsoInt, I2: TagIsoInt, O: TagIsoInt](f: Fun2[Int, Int, O])
-    extends Fun2[I1, I2, O]
-    with WrappedFunction {
-  override def of(in1: I1, in2: I2): O = f.of(TagIsoInt[I1].toInt(in1), TagIsoInt[I2].toInt(in2))
-  override def name: String = s"wrapped-${f.name}"
 }

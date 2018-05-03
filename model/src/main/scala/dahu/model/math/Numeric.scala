@@ -22,9 +22,12 @@ object Numeric {
 
   def apply[T, F[_]](implicit ev: Numeric[T, F]): Numeric[T, F] = ev
 
-  trait NumericBase[T] {
+  trait OrderBase[T] {
     def leq: Fun2[T, T, Boolean]
     def eqv: Fun2[T, T, Boolean]
+  }
+
+  trait NumericBase[T] extends OrderBase[T] {
     def neg: Fun1[T, T]
     def add: Monoid[T]
     def times: Monoid[T]
@@ -48,15 +51,6 @@ object Numeric {
     override def times: Monoid[Double] = double.Times
     override def epsilonOrLesserThan: Either[Double, Fun2[Double, Double, Boolean]] =
       Right(double.LT)
-  }
-  implicit def isoIntNumeric[T](implicit tag: TagIsoInt[T]): NumericBase[T] = new NumericBase[T] {
-    override def leq: Fun2[T, T, Boolean] = WrappedFunction.wrap(int.LEQ)
-    override def eqv: Fun2[T, T, Boolean] = WrappedFunction.wrap(int.EQ)
-    override def neg: Fun1[T, T] = ???
-    override def add: Monoid[T] = ???
-    override def times: Monoid[T] = ???
-    override def epsilonOrLesserThan: Either[T, Fun2[T, T, Boolean]] = ???
-
   }
 
   implicit def exprNumeric[T: Tag, F[_]](implicit ev: NumericBase[T],
