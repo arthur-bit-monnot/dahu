@@ -179,7 +179,7 @@ package object full {
     override def toString: String = s"$left := $right"
   }
 
-  class Fluent(val template: FluentTemplate, val params: Seq[StaticExpr]) extends TimedExpr {
+  case class Fluent(template: FluentTemplate, params: Seq[StaticExpr]) extends TimedExpr {
     require(template.params.size == params.size)
     template.params.zip(params).foreach {
       case (tpl, v) =>
@@ -238,9 +238,6 @@ package object full {
     def ++(blocks: Seq[InModuleBlock]): Option[Model] = {
       blocks.foldLeft(Option(this))((m, block) => m.flatMap(_ + block))
     }
-//
-//    def asCore(opt: transforms.Config = transforms.Config()): core.CoreModel =
-//      FullToCore.trans(this)
 
     override def toString: String =
       "module:\n" +

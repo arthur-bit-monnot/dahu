@@ -19,6 +19,7 @@ lazy val commonSettings = Seq(
                           url("https://github.com/arthur-bit-monnot")),
   licenses += ("BSD-2-Clause", url("https://opensource.org/licenses/BSD-2-Clause")),
   pomIncludeRepository := (_ => false),
+  resolvers += Resolver.mavenLocal,
   scalacOptions ++= Seq(
     "-target:jvm-1.8",
     "-encoding",
@@ -82,6 +83,15 @@ lazy val anml = project
     "com.github.scopt" %% "scopt" % "3.7.0",
     "com.chuusai" %% "shapeless" % "2.3.3",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+  ))
+
+lazy val pddl = project
+  .in(file("planning/pddl"))
+  .settings(name := "dahu-pddl")
+  .dependsOn(planningModel, utils)
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "fr.uga" % "pddl4j" % "3.6.0"
   ))
 
 lazy val utils = project
