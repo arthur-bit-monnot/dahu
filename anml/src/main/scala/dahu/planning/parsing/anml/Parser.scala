@@ -350,7 +350,8 @@ abstract class AnmlParser(val initialContext: Ctx) {
   val expr: Parser[full.Expr] =
     timedSymExpr | staticExpr
 
-  val timepoint: P[StaticExpr] = staticExpr.filter(_.typ.isSubtypeOf(Type.Time))
+  val timepoint: P[StaticExpr] =
+    staticExpr.namedFilter(_.typ.isSubtypeOf(Type.Integers), "of-type-integer")
 
   val interval: Parser[Interval] =
     ("[" ~/

@@ -100,8 +100,8 @@ package object full {
   }
 
   case class Interval(start: StaticExpr, end: StaticExpr) {
-    require(start.typ.isSubtypeOf(Type.Time))
-    require(end.typ.isSubtypeOf(Type.Time))
+    require(start.typ.isSubtypeOf(Type.Integers))
+    require(end.typ.isSubtypeOf(Type.Integers))
     override def toString: String = s"[$start, $end]"
   }
 
