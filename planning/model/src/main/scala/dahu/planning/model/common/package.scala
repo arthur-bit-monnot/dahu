@@ -2,6 +2,7 @@ package dahu.planning.model
 
 import dahu.planning.model
 import dahu.planning.model.common.operators.{BinaryOperator, UnaryOperator}
+import dahu.planning.model.full.Model
 import spire.math.Real
 import spire.implicits._
 
@@ -9,17 +10,16 @@ package object common {
 
   final case class Id(scope: Scope, name: String) {
     override def toString: String = scope.toScopedString(name)
-
-    def toTPId = Timepoint(this)
   }
 
   object Timepoint {
-    def apply(id: Id): LocalVar = LocalVar(id, Type.Time)
+    def apply(id: Id)(implicit predef: Predef): LocalVar = LocalVar(id, predef.Time)
   }
 
   sealed trait Scope {
 
     def +(nestedScope: String): InnerScope = InnerScope(this, nestedScope)
+    def /(name: String): Id = Id(this, name)
 
     def makeNewId(): Id = Id(this, model.defaultId())
     def toScopedString(name: String): String
@@ -43,6 +43,8 @@ package object common {
 
     def isSubtypeOf(typ: Type): Boolean =
       this == typ || parent.exists(t => t == typ || t.isSubtypeOf(typ))
+
+    def isBoolean: Boolean = this.isInstanceOf[Type.BooleanType]
 
     def overlaps(typ: Type): Boolean =
       this.isSubtypeOf(typ) || typ.isSubtypeOf(this)
@@ -76,6 +78,9 @@ package object common {
 
     final case class ObjSubType(id: Id, father: ObjType) extends ObjType {
       def parent: Some[ObjType] = Some(father)
+    }
+    final case class BooleanType(id: Id) extends ObjType {
+      override def parent: Option[ObjType] = Some(ObjectTop)
     }
 
     sealed trait IRealType extends Type {
@@ -126,22 +131,23 @@ package object common {
       override def parent: Some[IIntType] = Some(father)
     }
 
-    val Time = IntSubType(Id(RootScope, "time"), Integers)
-
-    val Boolean = ObjSubType(Id(RootScope, "boolean"), ObjectTop)
-
-//    val Numeric = Type(Id(RootScope, "__numeric__"), None)
-//    val Integer = Type(Id(RootScope, "integer"), Some(Numeric))
-//    val Time = Integer //Type(Id(RootScope, "time"), Some(Integer))
-//    val Float = Type(Id(RootScope, "float"), Some(Numeric))
-//    val Boolean = Type(Id(RootScope, "boolean"), None)
-
-    val True = Instance(Id(RootScope, "true"), Boolean)
-    val False = Instance(Id(RootScope, "false"), Boolean)
-
-    val Start = Id(RootScope, "start")
-    val End = Id(RootScope, "end")
   }
+
+  trait Predef {
+    import Type._
+    val Time: IRealType
+
+    val Boolean: BooleanType
+
+    val True: Instance
+    val False: Instance
+
+    val Start: Var
+    val End: Var
+
+    def baseModel: Model
+  }
+
   sealed trait Expr {
     def typ: Type
   }
@@ -176,7 +182,7 @@ package object common {
     override def toString: String = id.toString
   }
 
-  case class Op2(op: BinaryOperator, lhs: Expr, rhs: Expr) extends Expr {
+  case class Op2(op: BinaryOperator, lhs: Expr, rhs: Expr)(implicit predef: Predef) extends Expr {
     override def typ: Type = op.tpe(lhs.typ, rhs.typ) match {
       case Right(t)  => t
       case Left(err) => sys.error(err)

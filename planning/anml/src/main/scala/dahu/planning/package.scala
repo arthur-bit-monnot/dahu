@@ -2,12 +2,16 @@ package dahu
 
 import java.io.File
 
+import dahu.planning.model.common.Predef
 import dahu.planning.model.core.CoreModel
 import dahu.planning.model.transforms.FullToCore
 import dahu.planning.model.{core, full}
 import dahu.planning.parsing.anml
+import dahu.planning.parsing.anml.AnmlPredef
 
 package object planning {
+
+  implicit val predef = AnmlPredef
 
   sealed trait Result[+T] {
     def map[B](f: T => B): Result[B]

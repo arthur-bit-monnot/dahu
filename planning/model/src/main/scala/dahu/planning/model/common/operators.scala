@@ -29,22 +29,23 @@ object operators {
                                        val precedence: Int,
                                        val associativity: Associativity)
       extends Operator {
-    def tpe(lhs: Type, rhs: Type): TypingResult
+    def tpe(lhs: Type, rhs: Type)(implicit predef: Predef): TypingResult
   }
 
   sealed abstract class BooleanBinaryOperator(op: String,
                                               precedence: Int,
                                               associativity: Associativity)
       extends BinaryOperator(op, precedence, associativity) {
-    override def tpe(lhs: Type, rhs: Type): TypingResult = (lhs, rhs) match {
-      case (Type.Boolean, Type.Boolean) => Right(Type.Boolean)
-      case _                            => Left("On of the subexpression does not have the boolean type.")
-    }
+    override def tpe(lhs: Type, rhs: Type)(implicit predef: Predef): TypingResult =
+      (lhs, rhs) match {
+        case (predef.Boolean, predef.Boolean) => Right(predef.Boolean)
+        case _                                => Left("On of the subexpression does not have the boolean type.")
+      }
   }
 
   sealed abstract class NumericBinaryOperator(op: String, precedence: Int)
       extends BinaryOperator(op, precedence, Associativity.Left) {
-    override def tpe(lhs: Type, rhs: Type): TypingResult = {
+    override def tpe(lhs: Type, rhs: Type)(implicit predef: Predef): TypingResult = {
       lhs.lowestCommonAncestor(rhs) match {
         case None if !lhs.isNum       => Left(s"Left hand side is not a numeric type but: $lhs")
         case None if !rhs.isNum       => Left(s"Right hand side is not a numeric type but: $rhs")
@@ -58,11 +59,11 @@ object operators {
 
   sealed abstract class NumericComparison(op: String, precedence: Int)
       extends BinaryOperator(op, precedence, Associativity.Non) {
-    override def tpe(lhs: Type, rhs: Type): TypingResult = {
+    override def tpe(lhs: Type, rhs: Type)(implicit predef: Predef): TypingResult = {
       lhs.lowestCommonAncestor(rhs) match {
         case None if !lhs.isNum     => Left(s"Left hand side is not a numeric type but: $lhs")
         case None if !rhs.isNum     => Left(s"Right hand side is not a numeric type but: $rhs")
-        case Some(tpe) if tpe.isNum => Right(Type.Boolean)
+        case Some(tpe) if tpe.isNum => Right(predef.Boolean)
         case x                      => sys.error(s"Unhandled case: $x")
       }
     }
@@ -70,11 +71,11 @@ object operators {
 
   sealed abstract class EqualityOperator(op: String, precedence: Int)
       extends BinaryOperator(op, precedence, Associativity.Non) {
-    override def tpe(lhs: Type, rhs: Type): TypingResult = {
+    override def tpe(lhs: Type, rhs: Type)(implicit predef: Predef): TypingResult = {
       if(!lhs.overlaps(rhs))
         Left(s"Comparing unrelated types: $lhs $rhs")
       else
-        Right(Type.Boolean)
+        Right(predef.Boolean)
     }
   }
 

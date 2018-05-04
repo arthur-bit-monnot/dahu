@@ -8,6 +8,7 @@ import dahu.utils.errors._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.language.implicitConversions
 
 object Main extends App {
 
@@ -28,16 +29,37 @@ object Main extends App {
   println(dom)
 //  println(pb)
 
+  object PddlPredef extends Predef {
+    import common.Type._
+    private val scope = RootScope + "_predef_"
+    override val Time: IRealType = IntSubType(scope / "time", Integers)
+
+    override val Boolean: BooleanType = BooleanType(scope / "boolean")
+
+    override val True: Instance = Instance(scope / "true", Boolean)
+    override val False: Instance = Instance(scope / "false", Boolean)
+
+    override val Start = LocalVar(scope / "start", Time)
+    override val End = LocalVar(scope / "end", Time)
+
+    override def baseModel: full.Model =
+      (Model() ++ Seq(
+        TypeDeclaration(ObjectTop),
+        TypeDeclaration(Boolean),
+        TypeDeclaration(Reals),
+        TypeDeclaration(Integers),
+        TypeDeclaration(Time),
+        InstanceDeclaration(True),
+        InstanceDeclaration(False),
+        LocalVarDeclaration(Start),
+        LocalVarDeclaration(End),
+      )).getOrElse(sys.error("Could not instantiate base model"))
+  }
+  implicit val predef = PddlPredef
+  implicit def term2FullModel(v: Term): CommonTerm = CommonTerm(v)
+
   object Factory {
-    var model = Model()
-    rec(TypeDeclaration(Type.Boolean))
-    rec(TypeDeclaration(Type.Reals))
-    rec(TypeDeclaration(Type.Integers))
-    rec(TypeDeclaration(Type.Time))
-    rec(InstanceDeclaration(Instance(id("true"), Type.Boolean)))
-    rec(InstanceDeclaration(Instance(id("false"), Type.Boolean)))
-    rec(LocalVarDeclaration(LocalVar(Type.Start, Type.Time)))
-    rec(LocalVarDeclaration(LocalVar(Type.End, Type.Time)))
+    var model = PddlPredef.baseModel
 
     implicit val ctx = new Ctx {
       override def id(name: String): Id = Id(common.RootScope, name)
@@ -88,10 +110,10 @@ object Main extends App {
     def recordInitialState(e: Exp): Unit = {
       val ReadFluent(name, args) = e
       val assertion = TemporallyQualifiedAssertion(
-        Equals(Interval(ctx.variable("start"), ctx.variable("start"))),
+        Equals(Interval(predef.Start, predef.Start)),
         TimedAssignmentAssertion(
           Fluent(getTranslator(name).model, args.map(ctx.variable)),
-          ctx.variable("true"),
+          predef.True,
           None,
           dahu.planning.model.reservedPrefix + next()
         )
@@ -104,10 +126,10 @@ object Main extends App {
         goals.foreach {
           case ReadFluent(name, args) =>
             val assertion = TemporallyQualifiedAssertion(
-              Equals(Interval(ctx.variable("end"), ctx.variable("end"))),
+              Equals(Interval(predef.End, predef.End)),
               TimedEqualAssertion(
                 Fluent(getTranslator(name).model, args.map(ctx.variable)),
-                ctx.variable("true"),
+                predef.True,
                 None,
                 dahu.planning.model.reservedPrefix + next()
               )
@@ -219,7 +241,7 @@ object Main extends App {
   class DefaultPredicate(pddf: NamedTypedList)(implicit ctx: Ctx) extends PredicateTranslator {
     override val name: String = pddf.getName.getImage
     override val model =
-      FluentTemplate(id(name), typeOf("boolean"), pddf.getArguments.asScala.map {
+      FluentTemplate(id(name), predef.Boolean, pddf.getArguments.asScala.map {
         case ReadTypedSymbol(name, tpe) => common.Arg(id(name), typeOf(tpe))
       })
   }

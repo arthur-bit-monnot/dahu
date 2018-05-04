@@ -39,7 +39,7 @@ case class ObjLit(value: Instance) extends Literal {
 
 case class ProblemContext(intTag: BoxedInt[Literal],
                           topTag: TagIsoInt[Literal],
-                          specializedTags: Type => TagIsoInt[Literal]) {
+                          specializedTags: Type => TagIsoInt[Literal])(implicit predef: Predef) {
 
   def intBox(tpe: TagIsoInt[Literal], i: Tentative[Int]): Tentative[Literal] =
     Computation(tpe.box, i)
@@ -49,19 +49,19 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       case _                     => unexpected
     }
   }
-  private val booleanTag = specializedTags(Type.Boolean)
+  private val booleanTag = specializedTags(predef.Boolean)
   val boolBoxing = new Reversible[Boolean, Literal]()(Tag[Boolean], booleanTag) { self =>
     override def reverse: Reversible[Literal, Boolean] =
       new Reversible[Literal, Boolean]()(booleanTag, Tag[Boolean]) {
         override def reverse: Reversible[Boolean, Literal] = self
         override def of(in: Literal): Boolean = in match {
-          case ObjLit(Type.True)  => true
-          case ObjLit(Type.False) => false
-          case _                  => unexpected
+          case ObjLit(predef.True)  => true
+          case ObjLit(predef.False) => false
+          case _                    => unexpected
         }
         override def name: String = "unbox"
       }
-    override def of(in: Boolean): Literal = if(in) ObjLit(Type.True) else ObjLit(Type.False)
+    override def of(in: Boolean): Literal = if(in) ObjLit(predef.True) else ObjLit(predef.False)
     override def name: String = "box"
   }
   def boolUnbox(i: Tentative[Literal]): Tentative[Boolean] = Computation(boolBoxing.reverse, i)
@@ -70,11 +70,11 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   def encode(v: common.Term)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
     v match {
       case IntLiteral(i) => IntLit(i).asConstant(intTag)
-      case lv @ LocalVar(id, tpe) if tpe.isSubtypeOf(Type.Time) =>
-        assert(tpe == Type.Time)
-        val e: Tentative[Int] = id match {
-          case Type.Start => temporalOrigin
-          case Type.End   => temporalHorizon
+      case lv @ LocalVar(id, tpe) if tpe.isSubtypeOf(predef.Time) =>
+        assert(tpe == predef.Time)
+        val e: Tentative[Int] = lv match {
+          case predef.Start => temporalOrigin
+          case predef.End   => temporalHorizon
           case _ =>
             Input[Int](Ident(lv)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
         }

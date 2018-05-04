@@ -84,7 +84,7 @@ package object core {
 
   sealed trait StaticAssertion extends Statement
   final case class StaticBooleanAssertion(e: Expr) extends StaticAssertion {
-    require(e.typ.isSubtypeOf(Type.Boolean))
+    require(e.typ.isBoolean)
     override def toString: String = s"assert($e)"
   }
   final case class StaticAssignmentAssertion(left: BoundConstant, right: Cst)
@@ -133,7 +133,8 @@ package object core {
     override def toString: String = s"[$start, $end] $fluent == $from :-> $to"
   }
 
-  final case class ActionTemplate(scope: InnerScope, content: Seq[InActionBlock])
+  final case class ActionTemplate(scope: InnerScope, content: Seq[InActionBlock])(
+      implicit predef: Predef)
       extends InModuleBlock {
     def name: String = scope.name
     lazy val args: Seq[Arg] = content.collect { case ArgDeclaration(a) => a }
@@ -143,34 +144,33 @@ package object core {
 
     lazy val start: LocalVar = content
       .collectFirst {
-        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), Type.Time)) => tp
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), predef.Time)) => tp
       }
       .getOrElse(sys.error("No start timepoint in this action"))
 
     lazy val end: LocalVar = content
       .collectFirst {
-        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), Type.Time)) => tp
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), predef.Time)) => tp
       }
       .getOrElse(sys.error("No end timepoint in this action"))
 
   }
 
   /** Instance of an action template */
-  final case class Action(scope: InnerScope,
-                          content: Seq[InActionBlock],
-                          template: ActionTemplate) {
+  final case class Action(scope: InnerScope, content: Seq[InActionBlock], template: ActionTemplate)(
+      implicit predef: Predef) {
     def name: String = scope.name
     val args: Seq[Arg] = content.collect { case ArgDeclaration(a) => a }
 
     lazy val start: LocalVar = content
       .collectFirst {
-        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), Type.Time)) => tp
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), predef.Time)) => tp
       }
       .getOrElse(sys.error("No start timepoint in this action"))
 
     lazy val end: LocalVar = content
       .collectFirst {
-        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), Type.Time)) => tp
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), predef.Time)) => tp
       }
       .getOrElse(sys.error("No end timepoint in this action"))
   }

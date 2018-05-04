@@ -1,5 +1,6 @@
 package dahu.planning.model
 
+import dahu.planning.model.common.Type.BooleanType
 import dahu.planning.model.common._
 import dahu.planning.model.common.operators.{BinaryOperator, UnaryOperator}
 
@@ -12,11 +13,6 @@ package object full {
 
   sealed trait Declaration[T] {
     def id: Id
-  }
-
-  object TimepointDeclaration {
-    def apply(id: Id): LocalVarDeclaration =
-      LocalVarDeclaration(LocalVar(id, Type.Time))
   }
 
   case class TypeDeclaration(typ: Type) extends Declaration[Type] with InModuleBlock {
@@ -64,7 +60,9 @@ package object full {
   sealed trait TimedExpr extends Expr
 
   sealed trait ExprTree extends StaticExpr
-  case class BinaryExprTree(op: BinaryOperator, lhs: StaticExpr, rhs: StaticExpr) extends ExprTree {
+  case class BinaryExprTree(op: BinaryOperator, lhs: StaticExpr, rhs: StaticExpr)(
+      implicit predef: Predef)
+      extends ExprTree {
     override val typ: Type = op.tpe(lhs.typ, rhs.typ) match {
       case Right(tpe) => tpe
       case Left(err) =>
@@ -110,7 +108,9 @@ package object full {
     def wrapped: Seq[Block]
   }
 
-  abstract class TimedAssertion(parent: Option[Ctx], name: String) extends Ctx with Block {
+  abstract class TimedAssertion(parent: Option[Ctx], name: String)(implicit predef: Predef)
+      extends Ctx
+      with Block {
     override val scope: InnerScope = parent.map(_.scope).getOrElse(RootScope) + name
 
     val start: LocalVar = Timepoint(this.id("start"))
@@ -123,7 +123,7 @@ package object full {
   case class TimedEqualAssertion(left: TimedExpr, // TODO: should not restrict this to be symbolic
                                  right: StaticExpr,
                                  parent: Option[Ctx],
-                                 name: String)
+                                 name: String)(implicit predef: Predef)
       extends TimedAssertion(parent, name) {
     if(name == "__296")
       println(name)
@@ -136,7 +136,7 @@ package object full {
                                       from: StaticExpr,
                                       to: StaticExpr,
                                       parent: Option[Ctx],
-                                      name: String)
+                                      name: String)(implicit predef: Predef)
       extends TimedAssertion(parent, name) {
     override def toString: String =
       if(name.startsWith(reservedPrefix)) s"$fluent == $from :-> $to"
@@ -146,7 +146,7 @@ package object full {
   case class TimedAssignmentAssertion(fluent: TimedExpr,
                                       to: StaticExpr,
                                       parent: Option[Ctx],
-                                      name: String)
+                                      name: String)(implicit predef: Predef)
       extends TimedAssertion(parent, name) {
     override def toString: String =
       if(name.startsWith(reservedPrefix)) s"$fluent := $to"
@@ -171,7 +171,7 @@ package object full {
 
   trait StaticAssertion extends Statement
   case class BooleanAssertion(expr: StaticExpr) extends StaticAssertion {
-    require(expr.typ.isSubtypeOf(Type.Boolean))
+    require(expr.typ.isInstanceOf[BooleanType])
     override def toString: String = expr.toString
   }
 
@@ -302,10 +302,10 @@ package object full {
         case _                       => None
       }
 
-    def findTimepoint(name: String): Option[LocalVar] =
+    def findTimepoint(name: String)(implicit predef: Predef): Option[LocalVar] =
       findDeclaration(name).flatMap {
-        case LocalVarDeclaration(v @ LocalVar(_, tpe)) if tpe.isSubtypeOf(Type.Time) => Some(v)
-        case _                                                                       => None
+        case LocalVarDeclaration(v @ LocalVar(_, tpe)) if tpe.isSubtypeOf(predef.Time) => Some(v)
+        case _                                                                         => None
       }
 
     def findType(name: String): Option[Type] =

@@ -22,7 +22,7 @@ import dahu.planning.model.full._
 import scala.annotation.tailrec
 import scala.util.Try
 
-abstract class AnmlParser(val initialContext: Ctx) {
+abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
 
   /** Denotes the current context of this AnmlParser.
     * It is used by many suparsers to find the variable/fluent/type associated to an identifier.
@@ -73,7 +73,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
 
   val timepointDeclaration: Parser[LocalVarDeclaration] =
     timepointKW ~/
-      freeIdent.map(name => TimepointDeclaration(ctx.id(name))) ~
+      freeIdent.map(name => LocalVarDeclaration(Timepoint(ctx.id(name)))) ~
       ";"
 
   protected val definedTP: Parser[LocalVar] =
@@ -421,7 +421,7 @@ abstract class AnmlParser(val initialContext: Ctx) {
       }, "assignment-to-const-func-only")
       .namedFilter({
         case (_, Some(_)) => true
-        case (expr, None) => expr.typ.isSubtypeOf(Type.Boolean)
+        case (expr, None) => expr.typ.isSubtypeOf(predef.Boolean)
       }, "boolean-if-not-assignment")
       .map {
         case (left: Constant, Some((":=", right))) => StaticAssignmentAssertion(left, right)
@@ -501,7 +501,7 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
         case (_, _, None) => Seq()
         case (t, _, Some(funcDecl)) =>
           funcDecl.map(fd => {
-            val id = new Id(t.asScope, fd.id.name)
+            val id = Id(t.asScope, fd.id.name)
             val functionScope = t.asScope + id.name
             val selfArg = new Arg(new Id(functionScope, "self"), t)
             val params = selfArg +: fd.func.params.map(arg =>
@@ -541,7 +541,8 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
   }
 }
 
-class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superParser.currentModel) {
+class AnmlActionParser(superParser: AnmlModuleParser)(implicit predef: Predef)
+    extends AnmlParser(superParser.currentModel) {
 
   private def currentAction: ActionTemplate = ctx match {
     case a: ActionTemplate => a
@@ -556,8 +557,8 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
     }
     val emptyAct = new ActionTemplate(actionName, container)
     emptyAct +
-      TimepointDeclaration(Id(emptyAct.scope, "start")) +
-      TimepointDeclaration(Id(emptyAct.scope, "end"))
+      LocalVarDeclaration(Timepoint(Id(emptyAct.scope, "start"))) +
+      LocalVarDeclaration(Timepoint(Id(emptyAct.scope, "end")))
   }
 
   /** FIXME: this interprets a "constant" as a local variable. This is is compatible with FAPE but not with official ANML. */
@@ -594,7 +595,8 @@ class AnmlActionParser(superParser: AnmlModuleParser) extends AnmlParser(superPa
 }
 
 /** First phase parser used to extract all type declarations from a given ANML string. */
-class AnmlTypeParser(val initialModel: Model) extends AnmlParser(initialModel) {
+class AnmlTypeParser(val initialModel: Model)(implicit predef: Predef)
+    extends AnmlParser(initialModel) {
 
   val nonTypeToken: Parser[String] =
     (word | int | CharIn("{}[]();=:<>-+.,!/*")).!.namedFilter(_ != "type", "non-type-token")
@@ -625,17 +627,7 @@ class AnmlTypeParser(val initialModel: Model) extends AnmlParser(initialModel) {
 object Parser {
 
   /** ANML model with default definitions already added */
-  val baseAnmlModel: Model =
-    (Model() ++ Seq(
-      TypeDeclaration(Type.ObjectTop),
-      TypeDeclaration(Type.Boolean),
-      TypeDeclaration(Type.Reals),
-      TypeDeclaration(Type.Integers),
-      InstanceDeclaration(Type.True),
-      InstanceDeclaration(Type.False),
-      TimepointDeclaration(Type.Start),
-      TimepointDeclaration(Type.End),
-    )).getOrElse(sys.error("Could not instantiate base model"))
+  def baseAnmlModel(implicit predef: Predef): Model = predef.baseModel
 
   /** Parses an ANML string. If the previous model parameter is Some(m), then the result
     * of parsing will be appended to m.

@@ -9,17 +9,19 @@ object FullToCore {
   private object ImplicitConversions {
     import scala.language.implicitConversions
 
+    implicit def extractPredef(implicit ctx: Context): Predef = ctx.predef
+
     implicit class ExprOps(private val lhs: Expr) extends AnyVal {
-      def ===(rhs: Expr): Expr = Op2(operators.Eq, lhs, rhs)
-      def <=(rhs: Expr): Expr = Op2(operators.LEQ, lhs, rhs)
-      def <(rhs: Expr): Expr = Op2(operators.LT, lhs, rhs)
+      def ===(rhs: Expr)(implicit predef: Predef): Expr = Op2(operators.Eq, lhs, rhs)
+      def <=(rhs: Expr)(implicit predef: Predef): Expr = Op2(operators.LEQ, lhs, rhs)
+      def <(rhs: Expr)(implicit predef: Predef): Expr = Op2(operators.LT, lhs, rhs)
 
       def toStatement: core.Statement = core.StaticBooleanAssertion(lhs)
     }
   }
   import ImplicitConversions._
 
-  case class Context(scope: Scope, config: Config = Config())
+  case class Context(predef: Predef, scope: Scope, config: Config = Config())
 
   /** Monad that represent an expression of type A that is subject to the associated statements to restrict its values. */
   private case class CoreM[+A](value: A, statements: Seq[core.Statement]) {
@@ -85,7 +87,7 @@ object FullToCore {
       case full.ArgDeclaration(arg) => Seq(core.ArgDeclaration(arg))
       case x: full.Statement        => f2c(x)(actionContext).statements
     }
-    core.ActionTemplate(act.scope, statements)
+    core.ActionTemplate(act.scope, statements)(actionContext.predef)
   }
 
   private def f2c(block: full.Statement)(implicit ctx: Context): CoreM[Unit] = block match {
@@ -176,13 +178,14 @@ object FullToCore {
     case full.LocalVarDeclaration(v) => CoreM.unit(core.LocalVarDeclaration(v))
   }
 
-  def trans(model: full.Model, config: Config = Config()): Seq[core.InModuleBlock] = {
+  def trans(model: full.Model, config: Config = Config())(
+      implicit predef: Predef): Seq[core.InModuleBlock] = {
     model.store.blocks.flatMap {
       case full.FunctionDeclaration(x) => Seq(core.FunctionDeclaration(x))
       case full.InstanceDeclaration(x) => Seq(core.InstanceDeclaration(x))
       case full.TypeDeclaration(x)     => Seq(core.TypeDeclaration(x))
-      case x: full.Statement           => f2c(x)(Context(model.scope, config)).statements
-      case x: full.ActionTemplate      => Seq(f2c(x)(Context(model.scope, config)))
+      case x: full.Statement           => f2c(x)(Context(predef, model.scope, config)).statements
+      case x: full.ActionTemplate      => Seq(f2c(x)(Context(predef, model.scope, config)))
     }
   }
 
