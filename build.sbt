@@ -1,8 +1,10 @@
 name := "dahu"
 
+scalafixSettings
+
 lazy val commonSettings = Seq(
   organization := "com.github.arthur-bit-monnot",
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.4",
   crossPaths := true,
   // To sync with Maven central
   publishMavenStyle := true,
@@ -33,11 +35,10 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:higherKinds",
     "-language:existentials",
-    // experimental option to speed up the build	
-    "-Ycache-plugin-class-loader:last-modified",
-    "-Ycache-macro-class-loader:last-modified",
-    "-Ybackend-parallelism",
-    "3"
+    // experimental option to speed up the build require 2.12.5
+    // "-Ycache-plugin-class-loader:last-modified",
+    // "-Ycache-macro-class-loader:last-modified",
+    // "-Ybackend-parallelism", "3"
 //    "-opt:simplify-jumps",
 //    "-opt:compact-locals",
 //    "-opt:copy-propagation",
@@ -57,7 +58,7 @@ lazy val root = project
   .in(file("."))
   .aggregate(utils, recursion, model, solvers, benchmarks, anml)
   .settings(
-    scalaVersion := "2.12.6",
+    scalaVersion := "2.12.4",
     publish := {},
     publishLocal := {}
   )
