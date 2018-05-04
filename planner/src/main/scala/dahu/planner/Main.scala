@@ -1,11 +1,10 @@
 package dahu.planner
 
-import copla.lang
-import copla.lang.model.core.{ActionTemplate, Statement}
+import dahu.planning.model.core.{ActionTemplate, Statement}
 import dahu.utils.errors._
 import java.io.{File, FileWriter}
 
-import copla.lang.model.core
+import dahu.planning.model.core
 import dahu.model.input.Tentative
 import monix.eval.{MVar, Task}
 
@@ -110,14 +109,14 @@ object Main extends App {
 
   def solve(problemFile: File, deadline: Long)(implicit cfg: Config): Option[String] = {
     info("Parsing...")
-    lang.parse(problemFile) match {
-      case lang.Success(model) =>
+    dahu.planning.parse(problemFile) match {
+      case dahu.planning.Success(model) =>
         solveIncremental(model, cfg.maxInstances, deadline)
-      case lang.ParseError(fail) =>
+      case dahu.planning.ParseError(fail) =>
         println("Parsing failed:")
         println(fail.format)
         sys.exit(1)
-      case lang.Crash(msg, err) =>
+      case dahu.planning.Crash(msg, err) =>
         println(s"Parser crashed: $msg")
         err.foreach(_.printStackTrace())
         sys.exit(1)

@@ -63,15 +63,24 @@ lazy val root = project
     publishLocal := {}
   )
 
+lazy val planningModel = project
+  .in(file("planning/model"))
+  .settings(name := "dahu-planning-model")
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "com.chuusai" %% "shapeless" % "2.3.3",
+    "org.typelevel" %% "spire" % "0.14.1"
+  ))
+
 lazy val anml = project
-  .in(file("anml"))
+  .in(file("planning/anml"))
   .settings(name := "dahu-anml")
+  .dependsOn(planningModel)
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= Seq(
     "com.lihaoyi" %% "fastparse" % "1.0.0",
     "com.github.scopt" %% "scopt" % "3.7.0",
     "com.chuusai" %% "shapeless" % "2.3.3",
-    "org.typelevel" %% "spire" % "0.14.1",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ))
 

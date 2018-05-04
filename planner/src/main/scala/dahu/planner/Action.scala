@@ -1,8 +1,9 @@
 package dahu.planner
 
-import copla.lang.model.common._
-import copla.lang.model.core._
-import copla.lang.model.transforms.ActionInstantiation
+import dahu.planning.model.common._
+import dahu.planning.model.core._
+import dahu.planning.model.transforms.ActionInstantiation
+
 import dahu.model.input.{Ident, Input, Tentative}
 
 case class Action[F[_]](name: String,

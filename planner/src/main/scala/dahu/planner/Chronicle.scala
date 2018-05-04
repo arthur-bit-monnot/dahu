@@ -1,10 +1,10 @@
 package dahu.planner
 
-import copla.lang.model.common
-import copla.lang.model.common.operators.BinaryOperator
-import copla.lang.model.common.{Cst => _, _}
-import copla.lang.model.core._
-import copla.lang.model.core
+import dahu.planning.model.common
+import dahu.planning.model.common.operators.BinaryOperator
+import dahu.planning.model.common.{Cst => _, _}
+import dahu.planning.model.core._
+import dahu.planning.model.core
 import dahu.model.functions.{Fun2, FunN, Reversible}
 import dahu.model.input._
 import dahu.model.input.dsl._

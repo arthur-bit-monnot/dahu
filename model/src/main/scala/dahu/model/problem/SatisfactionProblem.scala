@@ -422,9 +422,6 @@ object SatisfactionProblem {
       override def getInternalID(k: X): ID = lt.get(k).value
     }
     val satRoot = lt.get(root).valid
-    val str = RootedLazyTree(satRoot, totalTrees).fullTree.toString
-    println(str)
-    println(str.size)
     RootedLazyTree(satRoot, totalTrees)
   }
 
