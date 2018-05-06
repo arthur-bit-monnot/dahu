@@ -272,7 +272,7 @@ package object full {
   trait Ctx {
     def scope: Scope
 
-    def id(name: String): Id = new Id(scope, name)
+    def id(name: String): Id = Id(scope, name)
 
     def parent: Option[Ctx]
     def name: String
