@@ -42,6 +42,11 @@ object Main extends App {
     override val Start = LocalVar(scope / "start", Time)
     override val End = LocalVar(scope / "end", Time)
 
+    val Number = IntSubType(RootScope / "number", Integers)
+
+    val discretization = 1000
+    def discretize(d: Double): Int = (d * discretization).toInt
+
     override def baseModel: full.Model =
       (Model() ++ Seq(
         TypeDeclaration(ObjectTop),
@@ -49,6 +54,7 @@ object Main extends App {
         TypeDeclaration(Reals),
         TypeDeclaration(Integers),
         TypeDeclaration(Time),
+        TypeDeclaration(Number),
         InstanceDeclaration(True),
         InstanceDeclaration(False),
         LocalVarDeclaration(Start),
@@ -72,10 +78,10 @@ object Main extends App {
       }
     }
 
-    val translators = mutable.HashMap[String, PredicateTranslator]()
-    def getTranslator(name: String): PredicateTranslator = translators(name)
+    val translators = mutable.HashMap[String, FunctionCompat]()
+    def getTranslator(name: String): FunctionCompat = translators(name)
     def recordFunction(pddlPred: NamedTypedList): Unit = {
-      val t = new DefaultPredicate(pddlPred)
+      val t = FunctionCompat(pddlPred)
       translators += ((t.name, t))
       rec(FunctionDeclaration(t.model))
     }
@@ -106,46 +112,64 @@ object Main extends App {
     def recordInstance(name: String, tpe: String): Unit = {
       rec(InstanceDeclaration(Instance(id(name), typeOf(tpe))))
     }
+    private def asFluent(name: String, args: Seq[String]): Fluent =
+      Fluent(getTranslator(name).model, args.map(ctx.variable))
 
     def recordInitialState(e: Exp): Unit = {
-      val ReadFluent(name, args) = e
-      val assertion = TemporallyQualifiedAssertion(
-        Equals(Interval(predef.Start, predef.Start)),
-        TimedAssignmentAssertion(
-          Fluent(getTranslator(name).model, args.map(ctx.variable)),
-          predef.True,
-          None,
-          dahu.planning.model.reservedPrefix + next()
-        )
-      )
-      rec(assertion)
+      val assertion = e match {
+        case ReadAssertionOnFunction(funcName) =>
+          getTranslator(funcName).effect(e)
+      }
+      rec(TemporallyQualifiedAssertion(Equals(Interval(predef.Start, predef.Start)), assertion))
     }
 
     def recordGoal(e: Exp): Unit = e match {
       case ReadAnd(goals) =>
-        goals.foreach {
-          case ReadFluent(name, args) =>
-            val assertion = TemporallyQualifiedAssertion(
-              Equals(Interval(predef.End, predef.End)),
-              TimedEqualAssertion(
-                Fluent(getTranslator(name).model, args.map(ctx.variable)),
-                predef.True,
-                None,
-                dahu.planning.model.reservedPrefix + next()
-              )
-            )
-            rec(assertion)
-        }
+        goals.foreach(recordGoal)
+      case ReadAssertionOnFunction(name) =>
+        val assertion = getTranslator(name).condition(e)
+        rec(
+          TemporallyQualifiedAssertion(
+            Equals(Interval(predef.End, predef.End)),
+            assertion
+          ))
     }
 
     def hasType(name: String): Boolean = model.findType(name).nonEmpty
   }
+  object ReadAssertionOnFunction {
+    def unapply(e: Exp): Option[String] = e match {
+      case ReadFluent(name, _)            => Some(name)
+      case ReadEq(ReadFluent(name, _), _) => Some(name)
+      case _                              => None
+    }
+  }
   object ReadFluent {
     def unapply(exp: Exp): Option[(String, List[String])] = {
-      if(exp.getConnective == Connective.ATOM) {
+      if(exp.getConnective == Connective.ATOM || exp.getConnective == Connective.FN_HEAD) {
         exp.getAtom.asScala.toList.map(_.getImage) match {
           case head :: tail => Some((head, tail))
           case _            => None
+        }
+      } else {
+        None
+      }
+    }
+  }
+  object ReadCst {
+    def unapply(e: Exp): Option[Cst] = {
+      if(e.getConnective == Connective.NUMBER)
+        Some(IntLiteral(PddlPredef.discretize(e.getValue)))
+      else
+        None
+    }
+  }
+  object ReadEq {
+    def unapply(e: Exp): Option[(Exp, Exp)] = {
+      if(e.getConnective == Connective.FN_ATOM) {
+        e.getChildren.asScala.toList match {
+          case lhs :: rhs :: Nil => Some((lhs, rhs))
+          case _                 => unexpected
         }
       } else {
         None
@@ -169,9 +193,9 @@ object Main extends App {
       } else {
         None
       }
-
     }
   }
+
   object Read {
     def unapply(e: TypedSymbol): Option[Tpe] =
       if(e.getKind.name() == "TYPE") {
@@ -234,16 +258,89 @@ object Main extends App {
   def typeOf(name: String)(implicit ctx: Ctx): Type = ctx.typeOf(name)
   def id(name: String)(implicit ctx: Ctx): Id = ctx.id(name)
 
-  abstract class PredicateTranslator() {
+  abstract class FunctionCompat() {
     def name: String
     def model: FluentTemplate
+
+    def condition(e: Exp): TimedEqualAssertion
+    def effect(e: Exp): TimedAssignmentAssertion
   }
-  class DefaultPredicate(pddf: NamedTypedList)(implicit ctx: Ctx) extends PredicateTranslator {
-    override val name: String = pddf.getName.getImage
+  object FunctionCompat {
+    def apply(pddl: NamedTypedList)(implicit ctx: Ctx): FunctionCompat = {
+      pddl.getTypes.asScala match {
+        case Seq()    => new DefaultPredicate(pddl)
+        case Seq(tpe) => new DefaultFunction(pddl)
+        case _        => unexpected
+      }
+    }
+  }
+  class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionCompat {
+    override val name: String = pddl.getName.getImage
+    private val tpe = pddl.getTypes.asScala match {
+      case Seq() => predef.Boolean
+      case _     => unexpected
+    }
     override val model =
-      FluentTemplate(id(name), predef.Boolean, pddf.getArguments.asScala.map {
-        case ReadTypedSymbol(name, tpe) => common.Arg(id(name), typeOf(tpe))
+      FluentTemplate(id(name), tpe, pddl.getArguments.asScala.map {
+        case ReadTypedSymbol(argName, argType) => common.Arg(id(argName), typeOf(argType))
       })
+
+    override def condition(e: Exp): TimedEqualAssertion = e match {
+      case ReadFluent(fun, args) if fun == name =>
+        TimedEqualAssertion(
+          Fluent(model, args.map(ctx.variable)),
+          predef.True,
+          None, //TODO
+          dahu.planning.model.reservedPrefix + next()
+        )
+      case _ => unexpected
+    }
+
+    override def effect(e: Exp): TimedAssignmentAssertion = e match {
+      case ReadFluent(fun, args) if fun == name =>
+        TimedAssignmentAssertion(
+          Fluent(model, args.map(ctx.variable)),
+          predef.True,
+          None, //TODO
+          dahu.planning.model.reservedPrefix + next()
+        )
+      case _ => unexpected
+    }
+  }
+
+  class DefaultFunction(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionCompat {
+
+    override val name: String = pddl.getName.getImage
+    private val tpe = pddl.getTypes.asScala match {
+      case Seq(t) => typeOf(t.getImage)
+      case _      => unexpected
+    }
+    override val model =
+      FluentTemplate(id(name), tpe, pddl.getArguments.asScala.map {
+        case ReadTypedSymbol(argName, argType) => common.Arg(id(argName), typeOf(argType))
+      })
+
+    override def condition(e: Exp): TimedEqualAssertion = e match {
+      case ReadEq(ReadFluent(funName, args), ReadCst(rhs)) if funName == name =>
+        TimedEqualAssertion(
+          Fluent(model, args.map(ctx.variable)),
+          rhs,
+          None, //TODO
+          dahu.planning.model.reservedPrefix + next()
+        )
+      case _ => unexpected
+    }
+
+    override def effect(e: Exp): TimedAssignmentAssertion = e match {
+      case ReadEq(ReadFluent(funName, args), ReadCst(rhs)) if funName == name =>
+        TimedAssignmentAssertion(
+          Fluent(model, args.map(ctx.variable)),
+          rhs,
+          None, //TODO
+          dahu.planning.model.reservedPrefix + next()
+        )
+      case _ => unexpected
+    }
   }
 
 }
