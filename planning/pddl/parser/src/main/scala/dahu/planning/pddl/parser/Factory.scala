@@ -94,7 +94,7 @@ class ModelFactory(val predef: PddlPredef) extends Factory {
       case ast.AssertionOnFunction(funcName) =>
         getTranslator(funcName).effect(e, resolver)
     }
-    rec(TemporallyQualifiedAssertion(Equals(Interval(predef.Start, predef.Start)), assertion))
+    rec(TemporallyQualifiedAssertion(Equals(ClosedInterval(predef.Start, predef.Start)), assertion))
   }
 
   private def recordGoal(e: Exp): Unit = e match {
@@ -104,7 +104,7 @@ class ModelFactory(val predef: PddlPredef) extends Factory {
       val assertion = getTranslator(name).condition(e, resolver)
       rec(
         TemporallyQualifiedAssertion(
-          Equals(Interval(predef.End, predef.End)),
+          Equals(ClosedInterval(predef.End, predef.End)),
           assertion
         ))
   }

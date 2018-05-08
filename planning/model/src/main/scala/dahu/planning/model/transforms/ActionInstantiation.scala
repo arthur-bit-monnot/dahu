@@ -33,6 +33,15 @@ object ActionInstantiation {
         case Op2(op, lhs, rhs) => Op2(op, map(lhs, f), map(rhs, f))
       }
     }
+    implicit object ofInterval extends IdRewrite[Interval[Expr]] {
+      override def map(a: Interval[Expr], f: Id => Id)(implicit predef: Predef): Interval[Expr] =
+        a match {
+          case ClosedInterval(l, r)    => ClosedInterval(l.rw(f), r.rw(f))
+          case LeftOpenInterval(l, r)  => LeftOpenInterval(l.rw(f), r.rw(f))
+          case RightOpenInterval(l, r) => RightOpenInterval(l.rw(f), r.rw(f))
+          case OpenInterval(l, r)      => OpenInterval(l.rw(f), r.rw(f))
+        }
+    }
 
     implicit object ofConstantTemplate extends IdRewrite[ConstantTemplate] {
       override def map(a: ConstantTemplate, f: Id => Id)(
@@ -63,12 +72,12 @@ object ActionInstantiation {
           case StaticAssignmentAssertion(x: BoundConstant, cst) =>
             StaticAssignmentAssertion(new BoundConstant(x.template, x.params.map(_.rw(f))),
                                       cst.rw(f))
-          case TimedAssignmentAssertion(st, ed, fl, value) =>
-            TimedAssignmentAssertion(st.rw(f), ed.rw(f), fl.rw(f), value.rw(f))
-          case TimedEqualAssertion(st, ed, fl, value) =>
-            TimedEqualAssertion(st.rw(f), ed.rw(f), fl.rw(f), value.rw(f))
-          case TimedTransitionAssertion(st, ed, fl, from, to) =>
-            TimedTransitionAssertion(st.rw(f), ed.rw(f), fl.rw(f), from.rw(f), to.rw(f))
+          case TimedAssignmentAssertion(itv, fl, value) =>
+            TimedAssignmentAssertion(itv.rw(f), fl.rw(f), value.rw(f))
+          case TimedEqualAssertion(itv, fl, value) =>
+            TimedEqualAssertion(itv.rw(f), fl.rw(f), value.rw(f))
+          case TimedTransitionAssertion(itv, fl, from, to) =>
+            TimedTransitionAssertion(itv.rw(f), fl.rw(f), from.rw(f), to.rw(f))
           case BindAssertion(Constant(template, params), LocalVar(id, tpe)) =>
             BindAssertion(Constant(template.rw(f), params.map(_.rw(f))), LocalVar(f(id), tpe))
         }

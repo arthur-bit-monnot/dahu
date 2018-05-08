@@ -1,6 +1,6 @@
 package dahu.planning.pddl.parser
 
-import dahu.planning.model.common.{operators, Arg, LocalVar}
+import dahu.planning.model.common._
 import dahu.planning.model.full._
 import Utils._
 import dahu.utils.errors._
@@ -57,7 +57,7 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
           val assertion = resolver.getTranslator(funcName).condition(e, resolver)
           rec(
             TemporallyQualifiedAssertion(
-              Equals(Interval(start, start)),
+              Equals(ClosedInterval(start, start)),
               assertion
             )
           )
@@ -68,7 +68,18 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
           val assertion = resolver.getTranslator(funcName).condition(e, resolver)
           rec(
             TemporallyQualifiedAssertion(
-              Equals(Interval(end, end)),
+              Equals(ClosedInterval(end, end)),
+              assertion
+            )
+          )
+      }
+    case ast.OverAll(e) =>
+      e match {
+        case ast.AssertionOnFunction(funcName) =>
+          val assertion = resolver.getTranslator(funcName).condition(e, resolver)
+          rec(
+            TemporallyQualifiedAssertion(
+              Equals(ClosedInterval(start, end)),
               assertion
             )
           )
@@ -84,7 +95,7 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
           val assertion = resolver.getTranslator(funcName).effect(e, resolver)
           rec(
             TemporallyQualifiedAssertion(
-              Equals(Interval(start, start)),
+              Equals(LeftOpenInterval(start, BinaryExprTree(operators.Add, start, predef.Epsilon))),
               assertion
             )
           )
@@ -95,7 +106,7 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
           val assertion = resolver.getTranslator(funcName).effect(e, resolver)
           rec(
             TemporallyQualifiedAssertion(
-              Equals(Interval(end, end)),
+              Equals(LeftOpenInterval(end, BinaryExprTree(operators.Add, end, predef.Epsilon))),
               assertion
             )
           )

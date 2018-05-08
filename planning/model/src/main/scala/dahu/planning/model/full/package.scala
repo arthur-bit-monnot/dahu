@@ -97,12 +97,6 @@ package object full {
     override def toString: String = term.toString
   }
 
-  case class Interval(start: StaticExpr, end: StaticExpr) {
-    require(start.typ.isSubtypeOf(Type.Integers))
-    require(end.typ.isSubtypeOf(Type.Integers))
-    override def toString: String = s"[$start, $end]"
-  }
-
   /** A block wrapping other blocks pertaining to the same scope. */
   sealed trait Wrapper extends Block {
     def wrapped: Seq[Block]
@@ -154,10 +148,14 @@ package object full {
   }
 
   trait TemporalQualifier
-  case class Equals(interval: Interval) extends TemporalQualifier {
+  case class Equals(interval: Interval[StaticExpr]) extends TemporalQualifier {
+    require(interval.start.typ.isSubtypeOf(Type.Integers))
+    require(interval.end.typ.isSubtypeOf(Type.Integers))
     override def toString: String = interval.toString
   }
-  case class Contains(interval: Interval) extends TemporalQualifier {
+  case class Contains(interval: Interval[StaticExpr]) extends TemporalQualifier {
+    require(interval.start.typ.isSubtypeOf(Type.Integers))
+    require(interval.end.typ.isSubtypeOf(Type.Integers))
     override def toString: String = s"$interval contains"
   }
 

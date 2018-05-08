@@ -10,18 +10,17 @@ import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
 import dahu.planning.model.{common, core}
 import dahu.utils.errors._
+import dahu.planning.planner.syntax._
+import dahu.planning.planner.syntax.Ordered._
 
 import scala.collection.mutable
 
 case class Fluent(template: FunctionTemplate, args: Seq[Tentative[Literal]])
 case class Constant(template: ConstantTemplate, args: Seq[Tentative[Literal]])
 
-case class ConditionToken(start: Tentative[Int],
-                          end: Tentative[Int],
-                          fluent: Fluent,
-                          value: Tentative[Literal])
-case class EffectToken(changeStart: Tentative[Int],
-                       changeEnd: Tentative[Int],
+case class ConditionToken(itv: Interval[Tentative[Int]], fluent: Fluent, value: Tentative[Literal])
+
+case class EffectToken(changeItv: Interval[Tentative[Int]],
                        persistenceEnd: Tentative[Int],
                        fluent: Fluent,
                        value: Tentative[Literal])
@@ -98,6 +97,10 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] = {
     assert(e.typ.isSubtypeOf(Type.Integers))
     intUnbox(encode(e))
+  }
+  def encodeAsInts(e: common.Interval[common.Expr])(
+      implicit argRewrite: Arg => Tentative[Literal]): Interval[Tentative[Int]] = {
+    e.map(encodeAsInt)
   }
   def applyOperator(op: BinaryOperator,
                     lhs: Tentative[Literal],
@@ -361,8 +364,7 @@ case class Chronicle(ctx: ProblemContext,
       case _: ArgDeclaration      => this
       case BindAssertion(c, v) =>
         val cond = ConditionToken(
-          start = ctx.temporalOrigin,
-          end = ctx.temporalHorizon,
+          itv = ClosedInterval(ctx.temporalOrigin, ctx.temporalHorizon),
           fluent = encode(c),
           value = encode(v)
         )
@@ -370,37 +372,32 @@ case class Chronicle(ctx: ProblemContext,
           conditions = cond :: conditions
         )
 
-      case TimedAssignmentAssertion(start, end, fluent, value) =>
-        val changeStart = encodeAsInt(start)
-        val changeEnd = encodeAsInt(end).subjectTo(changeStart <= _)
-        val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
+      case TimedAssignmentAssertion(itv, fluent, value) =>
+        val changeItv = itv.map(encodeAsInt)
+        val persistenceEnd = anonymousTp().subjectTo(changeItv.end <= _)
         val token = EffectToken(
-          changeStart = changeStart,
-          changeEnd = changeEnd,
+          changeItv,
           persistenceEnd = persistenceEnd,
           fluent = encode(fluent),
           value = encode(value)
         )
         copy(effects = token :: effects)
 
-      case TimedEqualAssertion(s, e, f, v) =>
-        val start = encodeAsInt(s)
-        val end = encodeAsInt(e)
+      case TimedEqualAssertion(itv, f, v) =>
         val token = ConditionToken(
-          start = start,
-          end = end,
+          itv = itv.map(encodeAsInt),
           fluent = encode(f),
           value = encode(v)
         )
         copy(conditions = token :: conditions)
 
-      case TimedTransitionAssertion(s, e, f, v1, v2) =>
+      case TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
         val start = encodeAsInt(s)
-        val changeStart = start + 1
-        val changeEnd = encodeAsInt(e).subjectTo(changeStart <= _)
+        val changeEnd = encodeAsInt(e)
         val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
-        val cond = ConditionToken(start, start, encode(f), encode(v1))
-        val eff = EffectToken(changeStart, changeEnd, persistenceEnd, encode(f), encode(v2))
+        val cond = ConditionToken(ClosedInterval(start, start), encode(f), encode(v1))
+        val eff =
+          EffectToken(LeftOpenInterval(start, changeEnd), persistenceEnd, encode(f), encode(v2))
         copy(
           conditions = cond :: conditions,
           effects = eff :: effects
@@ -408,8 +405,7 @@ case class Chronicle(ctx: ProblemContext,
 
       case StaticAssignmentAssertion(lhs, rhs) =>
         val eff = EffectToken(
-          changeStart = ctx.temporalOrigin,
-          changeEnd = ctx.temporalOrigin,
+          changeItv = ClosedInterval(ctx.temporalOrigin, ctx.temporalOrigin),
           persistenceEnd = ctx.temporalHorizon,
           fluent = encode(lhs),
           value = encode(rhs)
@@ -451,22 +447,23 @@ case class Chronicle(ctx: ProblemContext,
       for(e1 <- effs; e2 <- effs if e1 != e2) yield {
         count += 1
         (e1, e2) match {
-          case (Opt(EffectToken(start1, _, end1, fluent1, _), p1),
-                Opt(EffectToken(start2, _, end2, fluent2, _), p2)) =>
-            implies(and(p1, p2, sameFluent(fluent1, fluent2)), end1 < start2 || end2 < start1)
+          case (Opt(EffectToken(changeItv1, end1, fluent1, _), p1),
+                Opt(EffectToken(changeItv2, end2, fluent2, _), p2)) =>
+            implies(and(p1, p2, sameFluent(fluent1, fluent2)),
+                    Interval.point(end1) :< changeItv2 || Interval.point(end2) :< changeItv1)
         }
       }
 
     val supportConstraints =
       conds.map {
-        case Opt(ConditionToken(sc, ec, fc, vc), pc) =>
+        case Opt(ConditionToken(persItv, fc, vc), pc) =>
           val disjuncts = effs.map {
-            case Opt(EffectToken(_, persistenceStart, persistenceEnd, fe, ve), pe) =>
+            case Opt(EffectToken(changeItv, persistenceEnd, fe, ve), pe) =>
               and(pe,
                   sameFluent(fc, fe),
                   ctx.eqv(vc, ve),
-                  persistenceStart <= sc,
-                  ec <= persistenceEnd)
+                  changeItv <= persItv,
+                  persItv <= Interval.point(persistenceEnd))
           }
           implies(pc, or(disjuncts: _*))
       }

@@ -140,3 +140,16 @@ object AtEnd {
     }
   }
 }
+
+object OverAll {
+  def unapply(e: Exp): Option[Exp] = {
+    if(e.getConnective == Connective.OVER_ALL) {
+      e.getChildren.asScala match {
+        case Seq(sub) => Some(sub)
+        case _        => unexpected
+      }
+    } else {
+      None
+    }
+  }
+}

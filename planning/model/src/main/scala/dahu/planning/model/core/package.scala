@@ -96,8 +96,7 @@ package object core {
   }
 
   sealed trait TimedAssertion extends Statement {
-    def start: Expr
-    def end: Expr
+    def itv: Interval[Expr]
     def fluent: Fluent
   }
 
@@ -110,19 +109,18 @@ package object core {
     def valueAfterChange: Expr
   }
 
-  final case class TimedEqualAssertion(start: Expr, end: Expr, fluent: Fluent, value: Expr)
+  final case class TimedEqualAssertion(itv: Interval[Expr], fluent: Fluent, value: Expr)
       extends TimedAssertion
       with RequiresSupport {
-    override def toString: String = s"[$start, $end] $fluent == $value"
+    override def toString: String = s"$itv $fluent == $value"
   }
-  final case class TimedAssignmentAssertion(start: Expr, end: Expr, fluent: Fluent, value: Expr)
+  final case class TimedAssignmentAssertion(itv: Interval[Expr], fluent: Fluent, value: Expr)
       extends TimedAssertion
       with ProvidesChange {
     override def valueAfterChange: Expr = value
-    override def toString: String = s"[$start,$end] $fluent := $value"
+    override def toString: String = s"$itv $fluent := $value"
   }
-  final case class TimedTransitionAssertion(start: Expr,
-                                            end: Expr,
+  final case class TimedTransitionAssertion(itv: Interval[Expr],
                                             fluent: Fluent,
                                             from: Expr,
                                             to: Expr)
@@ -130,7 +128,7 @@ package object core {
       with RequiresSupport
       with ProvidesChange {
     override def valueAfterChange: Expr = to
-    override def toString: String = s"[$start, $end] $fluent == $from :-> $to"
+    override def toString: String = s"$itv $fluent == $from :-> $to"
   }
 
   final case class ActionTemplate(scope: InnerScope, content: Seq[InActionBlock])(

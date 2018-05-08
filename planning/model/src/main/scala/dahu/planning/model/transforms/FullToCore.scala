@@ -110,7 +110,13 @@ object FullToCore {
         s"Assignment assertions on constant functions are only supported when all parameters are declared instances: $block")
 
     case full.TemporallyQualifiedAssertion(qualifier, assertion) =>
-      val startEnd: CoreM[(Expr, Expr)] =
+      def consistency(itv: Interval[Expr]) = itv match {
+        case ClosedInterval(s, e)    => s <= e
+        case LeftOpenInterval(s, e)  => s < e
+        case RightOpenInterval(s, e) => s < e
+        case OpenInterval(s, e)      => s < e
+      }
+      val startEnd: CoreM[Interval[Expr]] =
         qualifier match {
           case full.Equals(interval)
               if ctx.config.mergeTimepoints && assertion.name.startsWith(reservedPrefix) =>
@@ -119,7 +125,7 @@ object FullToCore {
             for {
               start <- f2c(interval.start)
               end <- f2c(interval.end)
-            } yield (start, end)
+            } yield interval.substituteWith(start, end)
           case full.Equals(interval) =>
             for {
               itvStart <- f2c(interval.start)
@@ -129,7 +135,7 @@ object FullToCore {
               _ <- CoreM.unit(core.StaticBooleanAssertion(itvStart === assertion.start))
               _ <- CoreM.unit(core.StaticBooleanAssertion(assertion.end === itvEnd))
 
-            } yield (assertion.start, assertion.end)
+            } yield interval.substituteWith(assertion.start, assertion.end)
           case full.Contains(interval) =>
             for {
               itvStart <- f2c(interval.start)
@@ -137,41 +143,44 @@ object FullToCore {
               _ <- CoreM.unit(
                 core.LocalVarDeclaration(assertion.start),
                 core.LocalVarDeclaration(assertion.end),
-                core.StaticBooleanAssertion(itvStart <= assertion.start),
-                core.StaticBooleanAssertion(assertion.end <= itvEnd)
+                if(interval.isLeftOpen)
+                  core.StaticBooleanAssertion(itvStart < assertion.start)
+                else
+                  core.StaticBooleanAssertion(itvStart <= assertion.start),
+                if(interval.isRightOpen)
+                  core.StaticBooleanAssertion(assertion.end < itvEnd)
+                else
+                  core.StaticBooleanAssertion(assertion.end <= itvEnd)
               )
-            } yield (assertion.start, assertion.end)
+            } yield ClosedInterval(assertion.start, assertion.end)
         }
       assertion match {
         case full.TimedEqualAssertion(fluent, value, _, _) =>
           for {
-            se <- startEnd
-            (start, end) = se
+            itv <- startEnd
             coreFluent <- f2c(fluent)
             coreValue <- f2c(value)
-            _ <- CoreM.unit(core.TimedEqualAssertion(start, end, coreFluent, coreValue),
-                            core.StaticBooleanAssertion(start <= end))
+            _ <- CoreM.unit(core.TimedEqualAssertion(itv, coreFluent, coreValue),
+                            core.StaticBooleanAssertion(consistency(itv)))
           } yield ()
 
         case full.TimedAssignmentAssertion(fluent, value, _, _) =>
           for {
-            se <- startEnd
-            (start, end) = se
+            itv <- startEnd
             coreFluent <- f2c(fluent)
             coreValue <- f2c(value)
-            _ <- CoreM.unit(core.TimedAssignmentAssertion(start, end, coreFluent, coreValue),
-                            core.StaticBooleanAssertion(start <= end))
+            _ <- CoreM.unit(core.TimedAssignmentAssertion(itv, coreFluent, coreValue),
+                            core.StaticBooleanAssertion(consistency(itv)))
           } yield ()
 
         case full.TimedTransitionAssertion(fluent, fromValue, toValue, _, _) =>
           for {
-            se <- startEnd
-            (start, end) = se
+            itv <- startEnd
             coreFluent <- f2c(fluent)
             coreFrom <- f2c(fromValue)
             coreTo <- f2c(toValue)
-            _ <- CoreM.unit(core.TimedTransitionAssertion(start, end, coreFluent, coreFrom, coreTo),
-                            core.StaticBooleanAssertion(start < end))
+            _ <- CoreM.unit(core.TimedTransitionAssertion(itv, coreFluent, coreFrom, coreTo),
+                            core.StaticBooleanAssertion(itv.start < itv.end))
           } yield ()
       }
 

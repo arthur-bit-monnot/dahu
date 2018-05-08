@@ -353,7 +353,7 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
   val timepoint: P[StaticExpr] =
     staticExpr.namedFilter(_.typ.isSubtypeOf(Type.Integers), "of-type-integer")
 
-  val interval: Parser[Interval] =
+  val interval: Parser[ClosedInterval[StaticExpr]] =
     ("[" ~/
       ((timepoint ~/ ("," ~/ timepoint).?).map {
         case (tp, None)       => (tp, tp) // "[end]" becomes "[end, end]"
@@ -366,7 +366,7 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
           }
         })) ~
       "]").map {
-      case (tp1, tp2) => Interval(tp1, tp2)
+      case (tp1, tp2) => ClosedInterval(tp1, tp2)
     }
 
   val timedAssertion: Parser[TimedAssertion] = {

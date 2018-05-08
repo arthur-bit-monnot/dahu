@@ -3,13 +3,15 @@ package dahu.model.math
 import dahu.model.functions._
 import dahu.model.types.{Tag, TagIsoInt}
 
-trait Numeric[T, F[_]] {
-
+trait Ordered[T, F[_]] {
   def leq(lhs: F[T], rhs: F[T]): F[Boolean]
   def eqv(lhs: F[T], rhs: F[T]): F[Boolean]
   def geq(lhs: F[T], rhs: F[T]): F[Boolean] = leq(rhs, lhs)
   def lt(lhs: F[T], rhs: F[T]): F[Boolean]
   def gt(lhs: F[T], rhs: F[T]): F[Boolean] = lt(rhs, lhs)
+}
+
+trait Numeric[T, F[_]] extends Ordered[T, F] {
 
   def add(lhs: F[T], rhs: F[T]): F[T]
   def negate(term: F[T]): F[T]

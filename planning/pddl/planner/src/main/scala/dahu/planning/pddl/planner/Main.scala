@@ -70,7 +70,12 @@ object Main extends App {
 
     parser.parse(domain, problem) match {
       case Success(model) =>
-        Planner.solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime)
+        Planner.solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
+          case Some(sol) =>
+            println(sol)
+          case None =>
+            println("\nFAIL")
+        }
       case Failure(err) =>
         err.printStackTrace()
         sys.exit(1)

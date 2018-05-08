@@ -25,6 +25,8 @@ case class PddlPredef(discretization: Int) extends Predef {
 
   val Number = IntSubType(RootScope / "number", Integers)
 
+  val Epsilon = IntLiteral(1)
+
   def discretize(d: Double): Int = (d * discretization).toInt
 
   override def baseModel: Model =
