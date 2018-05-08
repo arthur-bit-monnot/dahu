@@ -3,9 +3,11 @@ package dahu.planner
 import dahu.planning.model.core.{ActionTemplate, Statement}
 import dahu.utils.errors._
 import java.io.{File, FileWriter}
+import dahu.planning.anml.parser._
 
 import dahu.planning.model.core
 import dahu.model.input.Tentative
+import dahu.planning.model.common.Predef
 import monix.eval.{MVar, Task}
 
 import scala.concurrent.duration._
@@ -109,22 +111,23 @@ object Main extends App {
 
   def solve(problemFile: File, deadline: Long)(implicit cfg: Config): Option[String] = {
     info("Parsing...")
-    dahu.planning.parse(problemFile) match {
-      case dahu.planning.Success(model) =>
+    parse(problemFile) match {
+      case ParseSuccess(model) =>
         solveIncremental(model, cfg.maxInstances, deadline)
-      case dahu.planning.ParseError(fail) =>
+      case fail: ParseFailure =>
         println("Parsing failed:")
         println(fail.format)
         sys.exit(1)
-      case dahu.planning.Crash(msg, err) =>
-        println(s"Parser crashed: $msg")
-        err.foreach(_.printStackTrace())
+      case ParserCrash(err, _) =>
+        println(s"Parser crashed.")
+        err.printStackTrace()
         sys.exit(1)
     }
   }
 
   def solveIncremental(model: core.CoreModel, maxSteps: Int, deadline: Long)(
-      implicit cfg: Config): Option[String] = {
+      implicit cfg: Config,
+      predef: Predef): Option[String] = {
     val q = new java.util.concurrent.ConcurrentLinkedQueue[Integer]()
     for(i <- cfg.minInstances to cfg.maxInstances)
       q.add(i)
@@ -161,7 +164,8 @@ object Main extends App {
   }
 
   def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Long)(
-      implicit cfg: Config): Option[String] = {
+      implicit cfg: Config,
+      predef: Predef): Option[String] = {
     if(System.currentTimeMillis() >= deadline)
       return None
 

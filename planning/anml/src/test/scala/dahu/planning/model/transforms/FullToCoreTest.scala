@@ -1,10 +1,14 @@
 package dahu.planning.model.transforms
 
+import dahu.planning.anml.parser.{AnmlPredef, InputAnmlModels}
+import dahu.planning.model.common.Predef
 import dahu.planning.model.core._
-import dahu.planning.parsing.anml.{InputAnmlModels, ParseFailure, ParseSuccess, Parser}
+import dahu.planning.anml.parser._
 import org.scalatest.FunSuite
 
 class FullToCoreTest extends FunSuite {
+
+  implicit val predef: Predef = AnmlPredef
 
   def asCore(anml: String): Either[String, CoreModel] = {
     Parser.parse(anml) match {
@@ -20,7 +24,7 @@ class FullToCoreTest extends FunSuite {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>
           println(FullToCore.trans(module).mkString("\n"))
-        case x: ParseFailure =>
+        case x: ParserFailure =>
         // ignore, this should be caught by the ANML parsing tests
       }
     }

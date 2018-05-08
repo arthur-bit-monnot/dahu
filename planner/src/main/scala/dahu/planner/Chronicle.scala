@@ -255,7 +255,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
 
 object ProblemContext {
   import Type._
-  def extract(m: Seq[InModuleBlock]): ProblemContext = {
+  def extract(m: Seq[InModuleBlock])(implicit predef: Predef): ProblemContext = {
     val objectTypes = m.collect { case TypeDeclaration(t: ObjType) => t }
     val objectSubtypes = mutable.LinkedHashMap[ObjType, mutable.Set[ObjType]]()
     val instances = m

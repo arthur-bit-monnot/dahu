@@ -1,7 +1,8 @@
-package dahu.planning
+package dahu.planning.anml.parser
 
 import java.io.File
 
+import dahu.planning._
 import dahu.planning.analysis.{AbstractionHierarchyType, DetailedKnoblock, Knoblock}
 import dahu.planning.model.format.Formatter
 import dahu.planning.model.{core, full}
@@ -49,15 +50,16 @@ object ParserApp {
       )
   }
 
-  def handleResult[T](res: Result[T], handler: T => Unit): Unit = {
+  def handleResult[T](res: ParseResult[T], handler: T => Unit): Unit = {
     res match {
-      case Success(model) =>
+      case ParseSuccess(model) =>
         handler(model)
-      case ParseError(failure) =>
-        println(failure.format)
-      case x: Failure =>
-        println(s"Crash: $x")
-        sys.exit(1)
+      case ParserCrash(e, _) =>
+        System.err.println(s"Crash: $e")
+        throw e
+      case failure: ParseFailure =>
+        System.err.println(failure.format)
+        throw new Exception(failure.toString)
     }
   }
 

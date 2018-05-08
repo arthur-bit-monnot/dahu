@@ -1,4 +1,4 @@
-package dahu.planning.parsing.anml
+package dahu.planning.anml.parser
 
 object InputAnmlModels {
 

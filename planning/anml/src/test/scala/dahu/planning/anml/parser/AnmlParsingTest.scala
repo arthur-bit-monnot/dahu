@@ -1,4 +1,4 @@
-package dahu.planning.parsing.anml
+package dahu.planning.anml.parser
 
 import org.scalatest.FunSuite
 
@@ -10,11 +10,12 @@ class AnmlParsingTest extends FunSuite {
         case ParseSuccess(module) =>
           println("PARSED:\n" + anml + "\n")
           println("AS:\n" + module + "\n\n")
-        case x: ParseFailure =>
+        case x: ParserFailure =>
           fail(s"Could not parse anml string: $anml\n\n${x.format}")
-        case UnidentifiedError(err, _) =>
+        case ParserCrash(err, _) =>
           err.printStackTrace()
           fail(s"Exception raised while parsing")
+        case x: FileAccessError => ???
       }
     }
   }
@@ -24,8 +25,9 @@ class AnmlParsingTest extends FunSuite {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>
           fail(s"Following anml string should be invalid:\n$anml\n\nParsed to:\n $module")
-        case x: ParseFailure =>
+        case x: ParserFailure =>
           println(s"Detected invalid ANML:\n${x.format}")
+        case x => fail(s"Unexpected output: $x")
       }
     }
   }
@@ -40,11 +42,12 @@ class AnmlParsingTest extends FunSuite {
       case ParseSuccess(module) =>
         println("PARSED:\n")
         println("AS:\n" + module + "\n\n")
-      case x: ParseFailure =>
+      case x: ParserFailure =>
         fail(s"Could not parse anml string:\n${x.format}")
-      case UnidentifiedError(err, _) =>
+      case ParserCrash(err, _) =>
         err.printStackTrace()
         fail(s"Exception raised while parsing")
+      case _ => ???
     }
   }
 }

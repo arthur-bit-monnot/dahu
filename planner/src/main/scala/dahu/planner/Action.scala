@@ -15,7 +15,8 @@ case class Action[F[_]](name: String,
 object Action {
   var counter = 0
 
-  def instance(template: ActionTemplate, ctx: ProblemContext): Action[Tentative] = {
+  def instance(template: ActionTemplate, ctx: ProblemContext)(
+      implicit predef: Predef): Action[Tentative] = {
     counter += 1
     val act = ActionInstantiation.instance(template, s"${template.name}_$counter")
     val argsRewrite: Arg => Tentative[Literal] = {

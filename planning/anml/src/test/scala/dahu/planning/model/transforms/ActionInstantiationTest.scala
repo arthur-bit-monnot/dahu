@@ -1,15 +1,18 @@
 package dahu.planning.model.transforms
 
+import dahu.planning.anml.parser
+import dahu.planning.anml.parser.{AnmlPredef, ParseSuccess}
+import dahu.planning.model.common.Predef
 import org.scalatest.FunSuite
-import dahu.planning
 
 class ActionInstantiationTest extends FunSuite {
 
+  implicit val predef: Predef = AnmlPredef
+
   import dahu.planning.model.core._
 
-
   test("action instantiation") {
-    planning.parse("""
+    parser.parse("""
       |fluent boolean sv;
       |action Template(boolean x, boolean y) {
       |  duration == 10;
@@ -17,7 +20,7 @@ class ActionInstantiationTest extends FunSuite {
       |  [all] contains id: sv == x :-> y;
       |};
     """.stripMargin) match {
-      case planning.Success(model) =>
+      case ParseSuccess(model) =>
         model.collectFirst { case x: ActionTemplate => x } match {
           case Some(act) =>
             val name = "myInstance"

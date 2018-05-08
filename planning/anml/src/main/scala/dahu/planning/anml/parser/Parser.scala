@@ -1,4 +1,4 @@
-package dahu.planning.parsing.anml
+package dahu.planning.anml.parser
 
 import java.io.{File, IOException}
 
@@ -503,14 +503,14 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
           funcDecl.map(fd => {
             val id = Id(t.asScope, fd.id.name)
             val functionScope = t.asScope + id.name
-            val selfArg = new Arg(new Id(functionScope, "self"), t)
+            val selfArg = Arg(Id(functionScope, "self"), t)
             val params = selfArg +: fd.func.params.map(arg =>
-              new Arg(new Id(functionScope, arg.id.name), arg.typ))
+              Arg(Id(functionScope, arg.id.name), arg.typ))
             val template = fd.func match {
-              case _: FluentTemplate   => new FluentTemplate(id, fd.func.typ, params)
-              case _: ConstantTemplate => new ConstantTemplate(id, fd.func.typ, params)
+              case _: FluentTemplate   => FluentTemplate(id, fd.func.typ, params)
+              case _: ConstantTemplate => ConstantTemplate(id, fd.func.typ, params)
             }
-            new FunctionDeclaration(template)
+            FunctionDeclaration(template)
           })
       }
 
@@ -632,8 +632,8 @@ object Parser {
   /** Parses an ANML string. If the previous model parameter is Some(m), then the result
     * of parsing will be appended to m.
     **/
-  def parse(input: String, previousModel: Option[Model] = None): ParseResult = {
-    def formatFailure(failure: Failure[Char, String]): ParseFailure = {
+  def parse(input: String, previousModel: Option[Model] = None): ParseResult[Model] = {
+    def formatFailure(failure: Failure[Char, String]): ParserFailure = {
       def toLineAndColumn(lines: Seq[String], index: Int, lineNumber: Int = 0): (String, Int, Int) =
         lines match {
           case Seq(head, _*) if index <= head.length =>
@@ -646,7 +646,7 @@ object Parser {
 
       val (faultyLine, faultyLineNumber, faultyColumnNumber) =
         toLineAndColumn(input.split('\n'), failure.index)
-      ParseFailure(faultyLine, faultyLineNumber, faultyColumnNumber, failure.lastParser, None)
+      ParserFailure(faultyLine, faultyLineNumber, faultyColumnNumber, failure.lastParser, None)
     }
 
     Try {
@@ -660,24 +660,24 @@ object Parser {
       }
     } match {
       case scala.util.Success(x) => x
-      case scala.util.Failure(e) => UnidentifiedError(e, None)
+      case scala.util.Failure(e) => ParserCrash(e, None)
     }
   }
 
-  private def parseFromFile(file: File, previousModel: Option[Model] = None): ParseResult = {
+  private def parseFromFile(file: File, previousModel: Option[Model] = None): ParseResult[Model] = {
     Try {
       val source = scala.io.Source.fromFile(file)
       val input: String = source.getLines.mkString("\n")
       source.close()
       parse(input, previousModel) match {
-        case x: ParseSuccess => x
-        case x: ParseFailure => x.copy(file = Some(file))
+        case x: ParserFailure => x.copy(file = Some(file))
+        case x                => x
       }
     } match {
       case scala.util.Success(x) => x
       case scala.util.Failure(e: IOException) =>
         FileAccessError(file, e)
-      case scala.util.Failure(e) => UnidentifiedError(e, Some(file))
+      case scala.util.Failure(e) => ParserCrash(e, Some(file))
 
     }
   }
@@ -686,7 +686,7 @@ object Parser {
     * If the file name is formated as "XXXX.YYY.pb.anml", the file "XXXX.dom.anml" will be parsed
     * first and its content prepended to the model.
     **/
-  def parse(file: File): ParseResult = {
+  def parse(file: File): ParseResult[Model] = {
     file.getName.split('.') match {
       case Array(domId, pbId, "pb", "anml") =>
         // file name formated as domainID.pbID.pb.anml, load domainID.dom.anml first
@@ -698,38 +698,5 @@ object Parser {
         // not a problem file, load the file standalone
         Parser.parseFromFile(file)
     }
-  }
-}
-
-trait ParseResult {
-  def flatMap(f: Model => ParseResult): ParseResult
-}
-case class ParseSuccess(model: Model) extends ParseResult {
-  override def flatMap(f: Model => ParseResult): ParseResult = f(model)
-}
-trait GenFailure extends ParseResult {
-  def format: String
-  override def flatMap(f: Model => ParseResult): ParseResult = this
-}
-case class FileAccessError(file: File, throwable: Throwable) extends GenFailure {
-  override def format: String =
-    s"Error while trying to read: $file:\n" + throwable.getLocalizedMessage
-}
-case class UnidentifiedError(throwable: Throwable, file: Option[File]) extends GenFailure {
-  def format: String =
-    s"Error while processing ANML input${file.map(" [" + _ + "]").getOrElse("")}:\n" + throwable.getLocalizedMessage
-}
-case class ParseFailure(faultyLine: String,
-                        lineIndex: Int,
-                        columnIndex: Int,
-                        lastParser: Parser[Any],
-                        file: Option[File])
-    extends GenFailure {
-
-  override def format: String = {
-    s"Could not parse anml string at (${lineIndex + 1}:${columnIndex + 1}) ${file.map("[" + _.toString + "]").getOrElse("")}:\n" +
-      faultyLine + "\n" +
-      " " * columnIndex + "^\n" +
-      s"Expected: $lastParser"
   }
 }

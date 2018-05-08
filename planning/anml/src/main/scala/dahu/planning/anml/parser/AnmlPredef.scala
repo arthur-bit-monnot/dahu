@@ -1,4 +1,4 @@
-package dahu.planning.parsing.anml
+package dahu.planning.anml.parser
 
 import dahu.planning.model.common._
 import dahu.planning.model.common.Type._
