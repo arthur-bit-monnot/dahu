@@ -20,7 +20,7 @@ object Main extends App {
   println(dom)
 //  println(pb)
 
-  val factory = new ModelFactory()
+  val factory = new ModelFactory(PddlPredef)
   factory.loadDomain(dom)
   factory.loadProblem(pb)
 

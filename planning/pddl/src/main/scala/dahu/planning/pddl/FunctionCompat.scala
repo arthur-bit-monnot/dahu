@@ -4,7 +4,7 @@ import dahu.planning.model.common
 import dahu.planning.model.common._
 import dahu.planning.model.full._
 import dahu.planning.pddl.Utils._
-import dahu.planning.pddl.Ctx._
+import dahu.planning.pddl.Resolver._
 
 import dahu.utils.errors._
 import fr.uga.pddl4j.parser._
@@ -20,7 +20,7 @@ abstract class FunctionCompat() {
 }
 
 object FunctionCompat {
-  def apply(pddl: NamedTypedList)(implicit ctx: Ctx): FunctionCompat = {
+  def apply(pddl: NamedTypedList)(implicit ctx: Resolver): FunctionCompat = {
     pddl.getTypes.asScala match {
       case Seq()    => new DefaultPredicate(pddl)
       case Seq(tpe) => new DefaultFunction(pddl)
@@ -29,7 +29,7 @@ object FunctionCompat {
   }
 }
 
-class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionCompat {
+class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Resolver) extends FunctionCompat {
   override val name: String = pddl.getName.getImage
   private val tpe = pddl.getTypes.asScala match {
     case Seq() => PddlPredef.Boolean
@@ -63,7 +63,7 @@ class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Ctx) extends Function
   }
 }
 
-class DefaultFunction(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionCompat {
+class DefaultFunction(pddl: NamedTypedList)(implicit ctx: Resolver) extends FunctionCompat {
 
   override val name: String = pddl.getName.getImage
   private val tpe = pddl.getTypes.asScala match {
