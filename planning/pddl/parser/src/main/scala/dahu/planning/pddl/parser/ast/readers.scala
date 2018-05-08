@@ -1,7 +1,7 @@
-package dahu.planning.pddl.ast
+package dahu.planning.pddl.parser.ast
 
 import dahu.planning.model.common.{Cst, IntLiteral}
-import dahu.planning.pddl.PddlPredef
+import dahu.planning.pddl.parser.PddlPredef
 import fr.uga.pddl4j.parser._
 import dahu.utils.errors._
 

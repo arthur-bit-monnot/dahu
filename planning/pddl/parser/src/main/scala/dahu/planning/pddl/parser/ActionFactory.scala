@@ -1,7 +1,8 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
+
 import dahu.planning.model.common.{operators, Arg, LocalVar}
 import dahu.planning.model.full._
-import dahu.planning.pddl.Utils._
+import Utils._
 import dahu.utils.errors._
 import fr.uga.pddl4j.parser.{Exp, Op}
 

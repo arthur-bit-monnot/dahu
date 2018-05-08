@@ -1,4 +1,4 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
 
 import dahu.planning.model.common.{Id, Scope, Type}
 import dahu.planning.model.full.{Ctx, StaticExpr}

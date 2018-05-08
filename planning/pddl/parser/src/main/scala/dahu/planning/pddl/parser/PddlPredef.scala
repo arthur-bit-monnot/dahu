@@ -1,7 +1,7 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
 
-import dahu.planning.model.common._
 import dahu.planning.model.common.Type._
+import dahu.planning.model.common._
 import dahu.planning.model.full._
 
 case class PddlPredef(discretization: Int) extends Predef {

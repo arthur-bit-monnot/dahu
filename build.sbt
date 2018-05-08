@@ -57,7 +57,7 @@ lazy val utestSettings = Seq(
 
 lazy val root = project
   .in(file("."))
-  .aggregate(utils, recursion, model, solvers, benchmarks, anml)
+  .aggregate(utils, recursion, model, solvers, benchmarks, anmlParser)
   .settings(
     scalaVersion := "2.12.4",
     publish := {},
@@ -73,8 +73,8 @@ lazy val planningModel = project
     "org.typelevel" %% "spire" % "0.14.1"
   ))
 
-lazy val anml = project
-  .in(file("planning/anml"))
+lazy val anmlParser = project
+  .in(file("planning/anml/parser"))
   .settings(name := "dahu-anml")
   .dependsOn(planningModel)
   .settings(commonSettings: _*)
@@ -85,8 +85,8 @@ lazy val anml = project
     "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ))
 
-lazy val pddl = project
-  .in(file("planning/pddl"))
+lazy val pddlParser = project
+  .in(file("planning/pddl/parser"))
   .settings(name := "dahu-pddl")
   .dependsOn(planningModel, utils)
   .settings(commonSettings: _*)
@@ -148,7 +148,7 @@ lazy val benchmarks = project
 
 lazy val planner = project
   .in(file("planner"))
-  .dependsOn(anml, solvers, z3)
+  .dependsOn(anmlParser, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
     mainClass in assembly := Some("dahu.planner.Main"),

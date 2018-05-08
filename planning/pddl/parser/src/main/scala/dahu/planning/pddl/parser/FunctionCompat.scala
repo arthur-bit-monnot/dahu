@@ -1,10 +1,9 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
 
 import dahu.planning.model.common
 import dahu.planning.model.common._
 import dahu.planning.model.full._
-import dahu.planning.pddl.Utils._
-import dahu.planning.pddl.Resolver._
+import Utils._
 
 import dahu.utils.errors._
 import fr.uga.pddl4j.parser._

@@ -1,6 +1,6 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
 
-import dahu.planning.model.common.{Predef, Term}
+import dahu.planning.model.common.Term
 import dahu.planning.model.full.CommonTerm
 
 import scala.language.implicitConversions

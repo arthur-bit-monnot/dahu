@@ -1,4 +1,4 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
 
 import java.io.File
 

@@ -1,12 +1,11 @@
-package dahu.planning.pddl
+package dahu.planning.pddl.parser
 
 import fr.uga.pddl4j.parser._
 import dahu.planning.model.common._
 import dahu.planning.model.{common, full}
 import dahu.planning.model.full._
 import dahu.utils.errors._
-import dahu.planning.pddl.Utils._
-import dahu.planning.pddl.Resolver._
+import Utils._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -87,7 +86,7 @@ class ModelFactory(val predef: PddlPredef) extends Factory {
   }
 
   private def recordInstance(name: String, tpe: String): Unit = {
-    rec(InstanceDeclaration(Instance(id(name), typeOf(tpe))))
+    rec(InstanceDeclaration(Instance(id(name), resolver.typeOf(tpe))))
   }
 
   private def recordInitialState(e: Exp): Unit = {
