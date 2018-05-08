@@ -1,15 +1,14 @@
-package dahu.planner
+package dahu.planning.planner
 
-import dahu.planning.model.common
-import dahu.planning.model.common.operators.BinaryOperator
-import dahu.planning.model.common.{Cst => _, _}
-import dahu.planning.model.core._
-import dahu.planning.model.core
 import dahu.model.functions.{Fun2, FunN, Reversible}
 import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
 import dahu.model.types.{BoxedInt, Tag, TagIsoInt}
+import dahu.planning.model.common.operators.BinaryOperator
+import dahu.planning.model.common.{Cst => _, _}
+import dahu.planning.model.core._
+import dahu.planning.model.{common, core}
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -146,30 +145,6 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   def anonymousTp(): Tentative[Int] =
     Input[Int]().subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
 
-//  def encode(ie: IntExpr)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] =
-//    ie match {
-//      case IntTerm(IntLiteral(d)) => Cst(d)
-//      case IntTerm(v: Var) =>
-//        assert(v.typ == Type.Integer)
-//        val variable = encode(v)
-//        variable.typ match {
-//          case tpe: BoxedInt[Literal] => variable.unboxed(tpe)
-//          case _                      => unexpected
-//        }
-//      case Add(lhs, rhs) => encode(lhs) + encode(rhs)
-//      case Minus(x)      => -encode(x)
-//      case x             => unexpected(s"Unsupported int expression: $x")
-//    }
-//
-//  def encode(tp: TPRef)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] = tp match {
-//    case TPRef(id, IntTerm(IntLiteral(0))) if id.toString == "start" =>
-//      temporalOrigin // TODO: match by string....
-//    case TPRef(id, IntTerm(IntLiteral(0))) if id.toString == "end" =>
-//      temporalHorizon // TODO: match by string....
-//    case TPRef(id, IntTerm(IntLiteral(0))) =>
-//      Input[Int](Ident(id)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
-//    case TPRef(id, delay) => encode(TPRef(id)) + encode(delay)
-//  }
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
     Fluent(orig.template, orig.params.map(encode(_)))
 
@@ -459,7 +434,7 @@ case class Chronicle(ctx: ProblemContext,
     }
   }
 
-  def toSatProblem(implicit cfg: Config) = {
+  def toSatProblem = {
     var count = 0
     val acts: Seq[Opt[Action[Tentative]]] = actions
     val effs: Seq[Opt[EffectToken]] =
@@ -493,10 +468,7 @@ case class Chronicle(ctx: ProblemContext,
                   persistenceStart <= sc,
                   ec <= persistenceEnd)
           }
-          if(cfg.useXorForSupport)
-            implies(pc, xor(disjuncts: _*))
-          else
-            implies(pc, or(disjuncts: _*))
+          implies(pc, or(disjuncts: _*))
       }
 
     val allConstraints = consts ++ nonOverlappingEffectsConstraints ++ supportConstraints

@@ -1,10 +1,9 @@
-package dahu.planner
+package dahu.planning.planner
 
+import dahu.model.input.{Ident, Input, Tentative}
 import dahu.planning.model.common._
 import dahu.planning.model.core._
 import dahu.planning.model.transforms.ActionInstantiation
-
-import dahu.model.input.{Ident, Input, Tentative}
 
 case class Action[F[_]](name: String,
                         start: F[Int],

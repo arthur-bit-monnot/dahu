@@ -1,21 +1,21 @@
-package dahu.planner
+package dahu.planning.anml.planner
 
+import java.io.File
+
+import dahu.model.input.Tentative
+import dahu.planning.anml.parser._
+import dahu.planning.model.common.Predef
+import dahu.planning.model.core
 import dahu.planning.model.core.{ActionTemplate, Statement}
 import dahu.utils.errors._
-import java.io.{File, FileWriter}
-import dahu.planning.anml.parser._
-
-import dahu.planning.model.core
-import dahu.model.input.Tentative
-import dahu.planning.model.common.Predef
-import monix.eval.{MVar, Task}
-
-import scala.concurrent.duration._
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 
-import scala.concurrent.{Await, Promise, TimeoutException}
+import dahu.planning.planner._
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, TimeoutException}
 import scala.util.{Failure, Success, Try}
-import dahu.utils.debug._
 
 case class Config(problemFile: File = null,
                   minInstances: Int = 0,
@@ -31,8 +31,8 @@ object Main extends App {
   val parser = new scopt.OptionParser[Config]("dahu") {
     head("dahu", "0.x")
 
-//    opt[Int]("num-threads")
-//      .action((n, c) => c.copy(numThreads = n))
+    //    opt[Int]("num-threads")
+    //      .action((n, c) => c.copy(numThreads = n))
 
     opt[Int]("warmup")
       .action((t, c) => c.copy(warmupTimeSec = t))
@@ -46,11 +46,11 @@ object Main extends App {
     opt[Int]("timeout")
       .action((t, c) => c.copy(maxRuntime = t))
 
-//    opt[Boolean]("use-xor")
-//      .action((b, c) => c.copy(useXorForSupport = b))
-//
-//    opt[Boolean]("sym-break")
-//      .action((b, c) => c.copy(symBreak = b))
+    //    opt[Boolean]("use-xor")
+    //      .action((b, c) => c.copy(useXorForSupport = b))
+    //
+    //    opt[Boolean]("sym-break")
+    //      .action((b, c) => c.copy(symBreak = b))
 
     arg[File]("XXXX.pb.anml").action((f, c) => c.copy(problemFile = f))
   }
@@ -201,9 +201,9 @@ object Main extends App {
         chronicle.copy(actions = chronicle.actions ++ actionInstances)
       case (chronicle, _) => chronicle
     }
-//        println(result)
+    //        println(result)
     val solution = Planner.solve(result, deadline)
-//        println(solution)
+    //        println(solution)
     solution
   }
 

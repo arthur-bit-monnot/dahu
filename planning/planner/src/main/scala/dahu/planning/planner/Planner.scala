@@ -1,21 +1,20 @@
-package dahu.planner
+package dahu.planning.planner
 
+import cats.implicits._
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
 import dahu.model.types.Value
 import dahu.solvers.MetaSolver
-import dahu.z3.Z3PartialSolver
-import dahu.utils.errors._
 import dahu.utils.debug._
-
-import cats.implicits._
+import dahu.utils.errors._
+import dahu.z3.Z3PartialSolver
 
 object Planner {
 
   val backend = Z3PartialSolver.builder
 
-  def solve(chronicle: Chronicle, deadline: Long)(implicit cfg: Config): Option[String] = {
+  def solve(chronicle: Chronicle, deadline: Long): Option[String] = {
     if(System.currentTimeMillis() > deadline)
       return None
     val sat = chronicle.toSatProblem

@@ -147,12 +147,17 @@ lazy val benchmarks = project
   .settings(commonSettings ++ utestSettings: _*)
 
 lazy val planner = project
-  .in(file("planner"))
+  .in(file("planning/planner"))
   .dependsOn(anmlParser, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
+
+lazy val anmlPlanner = project
+  .in(file("planning/anml/planner"))
+  .dependsOn(anmlParser, planner)
+  .settings(commonSettings ++ utestSettings: _*)
   .settings(
-    mainClass in assembly := Some("dahu.planner.Main"),
-    assemblyJarName in assembly := "dahu-planner.jar"
+    mainClass in assembly := Some("dahu.planning.anml.planner.Main"),
+    assemblyJarName in assembly := "dahu-anml-planner.jar"
   )
   .settings(
     libraryDependencies ++= Seq(

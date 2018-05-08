@@ -1,4 +1,4 @@
-package dahu.planner
+package dahu.planning.planner
 
 object Problems {
 

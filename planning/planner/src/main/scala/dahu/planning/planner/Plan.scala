@@ -1,4 +1,4 @@
-package dahu.planner
+package dahu.planning.planner
 
 case class Operator[F[_]](name: F[String],
                           args: F[Seq[Literal]],
