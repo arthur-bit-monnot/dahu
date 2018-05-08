@@ -3,11 +3,12 @@ package dahu.planning.anml.planner
 import java.io.File
 
 import dahu.model.input.Tentative
-import dahu.planning.anml.parser._
+import dahu.planning.anml.parser.{Config => _, _}
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
 import dahu.planning.model.core.{ActionTemplate, Statement}
 import dahu.utils.errors._
+import dahu.utils.debug._
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 
@@ -28,7 +29,7 @@ case class Config(problemFile: File = null,
 
 object Main extends App {
 
-  val parser = new scopt.OptionParser[Config]("dahu") {
+  val optionsParser = new scopt.OptionParser[Config]("dahu") {
     head("dahu", "0.x")
 
     //    opt[Int]("num-threads")
@@ -55,9 +56,7 @@ object Main extends App {
     arg[File]("XXXX.pb.anml").action((f, c) => c.copy(problemFile = f))
   }
 
-  import dahu.utils.debug._
-
-  parser.parse(args, Config()) match {
+  optionsParser.parse(args, Config()) match {
     case Some(cfg) =>
       implicit val cfgImpl = cfg
 
