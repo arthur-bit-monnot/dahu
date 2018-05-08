@@ -14,11 +14,11 @@ import scala.language.implicitConversions
 
 object Main extends App {
 
-  //  val domFile = "/home/arthur/work/fape/planning/domains/blocks_ipc2/pddl/blocks_ipc2.dom.pddl"
-  //  val pbFile = "/home/arthur/work/fape/planning/domains/blocks_ipc2/pddl/blocks_ipc2.p04-0.pb.pddl"
-  val domFile =
-    "/home/arthur/work/ext/rcll/temporal_1_robot/rcll_domain_production_durations_nors.pddl"
-  val pbFile = "/home/arthur/work/ext/rcll/temporal_1_robot/problem-001-r1-o1-durations.pddl"
+  val domFile = "/home/arthur/work/fape/planning/domains/blocks_ipc2/pddl/blocks_ipc2.dom.pddl"
+  val pbFile = "/home/arthur/work/fape/planning/domains/blocks_ipc2/pddl/blocks_ipc2.p04-0.pb.pddl"
+//  val domFile =
+//    "/home/arthur/work/ext/rcll/temporal_1_robot/rcll_domain_production_durations_nors.pddl"
+//  val pbFile = "/home/arthur/work/ext/rcll/temporal_1_robot/problem-001-r1-o1-durations.pddl"
   val parser = new Parser()
   parser.parse(domFile, pbFile)
 
@@ -56,8 +56,8 @@ object Main extends App {
 
     def id(name: String): Id = Id(common.RootScope, name)
 
-    def recordType(tpe: AST.Tpe): Unit = {
-      val AST.Tpe(name, parent) = tpe
+    def recordType(tpe: ast.Tpe): Unit = {
+      val ast.Tpe(name, parent) = tpe
       assert(!hasType(name), s"type already recorded: $name")
       assert(parent.forall(hasType), s"parent not recorded: $parent")
       val pt = parent match {
@@ -72,6 +72,7 @@ object Main extends App {
       (name, pt) match {
         case ("object", None)      => rec(TypeDeclaration(Type.ObjSubType(id("object"), Type.ObjectTop)))
         case (other, Some(father)) => rec(TypeDeclaration(Type.ObjSubType(id(other), father)))
+        case _                     => unexpected
       }
     }
 
@@ -83,16 +84,16 @@ object Main extends App {
 
     def recordInitialState(e: Exp): Unit = {
       val assertion = e match {
-        case AST.AssertionOnFunction(funcName) =>
+        case ast.AssertionOnFunction(funcName) =>
           getTranslator(funcName).effect(e)
       }
       rec(TemporallyQualifiedAssertion(Equals(Interval(predef.Start, predef.Start)), assertion))
     }
 
     def recordGoal(e: Exp): Unit = e match {
-      case AST.And(goals) =>
+      case ast.And(goals) =>
         goals.foreach(recordGoal)
-      case AST.AssertionOnFunction(name) =>
+      case ast.AssertionOnFunction(name) =>
         val assertion = getTranslator(name).condition(e)
         rec(
           TemporallyQualifiedAssertion(
@@ -105,12 +106,12 @@ object Main extends App {
   }
 
   val types = dom.getTypes.asScala.map {
-    case AST.ReadTpe(tpe: AST.Tpe) => tpe
+    case ast.ReadTpe(tpe: ast.Tpe) => tpe
   }
   val queue = mutable.Queue(types: _*)
   while(queue.nonEmpty) {
     queue.dequeue() match {
-      case x @ AST.Tpe(name, parentOpt) if !Factory.hasType(name) =>
+      case x @ ast.Tpe(name, parentOpt) if !Factory.hasType(name) =>
         parentOpt match {
           case None                                     => Factory.recordType(x)
           case Some(parent) if !Factory.hasType(parent) => queue.enqueue(x)
@@ -125,13 +126,13 @@ object Main extends App {
   // make sure we fail if part of the domain is not supported
   Option(dom.getConstraints).foreach(_ => ???)
   dom.getConstants.asScala.foreach {
-    case AST.TypedSymbol(name, tpe) => Factory.recordInstance(name, tpe)
+    case ast.TypedSymbol(name, tpe) => Factory.recordInstance(name, tpe)
   }
 
   dom.getDerivesPredicates.asScala.foreach(_ => ???)
 
   pb.getObjects.asScala.foreach {
-    case AST.TypedSymbol(name, tpe) => Factory.recordInstance(name, tpe)
+    case ast.TypedSymbol(name, tpe) => Factory.recordInstance(name, tpe)
   }
   pb.getInit.asScala.foreach(Factory.recordInitialState)
   Factory.recordGoal(pb.getGoal)

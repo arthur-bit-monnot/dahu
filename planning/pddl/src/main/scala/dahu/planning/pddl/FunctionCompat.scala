@@ -15,9 +15,10 @@ abstract class FunctionCompat() {
   def name: String
   def model: FluentTemplate
 
-  def condition(e: Exp): TimedEqualAssertion
+  def condition(e: Exp): TimedEqualAssertion // TODO: should probably take a context
   def effect(e: Exp): TimedAssignmentAssertion
 }
+
 object FunctionCompat {
   def apply(pddl: NamedTypedList)(implicit ctx: Ctx): FunctionCompat = {
     pddl.getTypes.asScala match {
@@ -27,6 +28,7 @@ object FunctionCompat {
     }
   }
 }
+
 class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionCompat {
   override val name: String = pddl.getName.getImage
   private val tpe = pddl.getTypes.asScala match {
@@ -35,11 +37,11 @@ class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Ctx) extends Function
   }
   override val model =
     FluentTemplate(ctx.id(name), tpe, pddl.getArguments.asScala.map {
-      case AST.TypedSymbol(argName, argType) => common.Arg(ctx.id(argName), ctx.typeOf(argType))
+      case ast.TypedSymbol(argName, argType) => common.Arg(ctx.id(argName), ctx.typeOf(argType))
     })
 
   override def condition(e: Exp): TimedEqualAssertion = e match {
-    case AST.Fluent(fun, args) if fun == name =>
+    case ast.Fluent(fun, args) if fun == name =>
       TimedEqualAssertion(
         Fluent(model, args.map(ctx.variable)),
         PddlPredef.True,
@@ -50,7 +52,7 @@ class DefaultPredicate(pddl: NamedTypedList)(implicit ctx: Ctx) extends Function
   }
 
   override def effect(e: Exp): TimedAssignmentAssertion = e match {
-    case AST.Fluent(fun, args) if fun == name =>
+    case ast.Fluent(fun, args) if fun == name =>
       TimedAssignmentAssertion(
         Fluent(model, args.map(ctx.variable)),
         predef.True,
@@ -70,11 +72,11 @@ class DefaultFunction(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionC
   }
   override val model =
     FluentTemplate(id(name), tpe, pddl.getArguments.asScala.map {
-      case AST.TypedSymbol(argName, argType) => common.Arg(id(argName), typeOf(argType))
+      case ast.TypedSymbol(argName, argType) => common.Arg(id(argName), typeOf(argType))
     })
 
   override def condition(e: Exp): TimedEqualAssertion = e match {
-    case AST.Eq(AST.Fluent(funName, args), AST.Cst(rhs)) if funName == name =>
+    case ast.Eq(ast.Fluent(funName, args), ast.Cst(rhs)) if funName == name =>
       TimedEqualAssertion(
         Fluent(model, args.map(ctx.variable)),
         rhs,
@@ -85,7 +87,7 @@ class DefaultFunction(pddl: NamedTypedList)(implicit ctx: Ctx) extends FunctionC
   }
 
   override def effect(e: Exp): TimedAssignmentAssertion = e match {
-    case AST.Eq(AST.Fluent(funName, args), AST.Cst(rhs)) if funName == name =>
+    case ast.Eq(ast.Fluent(funName, args), ast.Cst(rhs)) if funName == name =>
       TimedAssignmentAssertion(
         Fluent(model, args.map(ctx.variable)),
         rhs,
