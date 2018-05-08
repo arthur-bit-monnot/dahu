@@ -6,15 +6,23 @@ import dahu.planning.model.full
 import dahu.planning.model.full._
 
 object AnmlPredef extends dahu.planning.model.common.Predef {
-  override val Time: IRealType = IntSubType(Id(RootScope, "time"), Integers)
 
-  override val Boolean: BooleanType = BooleanType(Id(RootScope, "boolean"))
+  val StartSym = "start"
+  val EndSym = "end"
+  val TrueSym = "true"
+  val FalseSym = "false"
+  val TimeSym = "time"
+  val BooleanSym = "boolean"
 
-  override val True: Instance = Instance(Id(RootScope, "true"), Boolean)
-  override val False: Instance = Instance(Id(RootScope, "false"), Boolean)
+  override val Time: IRealType = IntSubType(RootScope / TimeSym, Integers)
 
-  override val Start = LocalVar(Id(RootScope, "start"), Time)
-  override val End = LocalVar(Id(RootScope, "end"), Time)
+  override val Boolean: BooleanType = BooleanType(RootScope / BooleanSym)
+
+  override val True: Instance = Instance(RootScope / TrueSym, Boolean)
+  override val False: Instance = Instance(RootScope / FalseSym, Boolean)
+
+  override val Start = LocalVar(RootScope / StartSym, Time)
+  override val End = LocalVar(RootScope / EndSym, Time)
 
   override def baseModel: full.Model =
     (Model() ++ Seq(

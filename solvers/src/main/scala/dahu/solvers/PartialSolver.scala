@@ -6,11 +6,13 @@ import dahu.model.problem.SatisfactionProblem.RootedLazyTree
 import dahu.model.types.Value
 import dahu.solvers.problem.IntCSP
 
+import scala.concurrent.duration.Deadline
+
 abstract class PartialSolver[X](final val ast: RootedLazyTree[X, Total, cats.Id]) {
 
   type K <: X
 
-  def nextSatisfyingAssignment(deadlineMs: Long = -1): Option[X => Option[Value]]
+  def nextSatisfyingAssignment(deadlineMs: Option[Deadline]): Option[X => Option[Value]]
 }
 
 object PartialSolver {

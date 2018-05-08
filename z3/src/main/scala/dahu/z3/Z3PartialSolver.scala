@@ -10,6 +10,7 @@ import dahu.utils.SFunctor
 import dahu.utils.errors._
 
 import scala.collection.mutable
+import scala.concurrent.duration.Deadline
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -98,21 +99,14 @@ class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Partia
   solver.add(satProblem)
   var model: Model = null
 
-  override def nextSatisfyingAssignment(deadline: Long = -1): Option[X => Option[Value]] = {
+  override def nextSatisfyingAssignment(deadline: Option[Deadline]): Option[X => Option[Value]] = {
     assert(model == null, "Z3 only support extraction of a single solution")
-    val timeout =
-      if(deadline < 0)
-        None
-      else if(deadline >= System.currentTimeMillis())
-        Some((deadline - System.currentTimeMillis()).toInt)
-      else
-        Some(0)
 
-    timeout match {
-      case Some(0) => return None // deadline passed, to not attempt to solve
+    deadline match {
+      case Some(dl) if dl.isOverdue => return None // deadline passed, to not attempt to solve
       case Some(t) =>
         val params = ctx.mkParams()
-        params.add("timeout", t)
+        params.add("timeout", t.timeLeft.toMillis.toInt)
         solver.setParameters(params)
       case None =>
     }

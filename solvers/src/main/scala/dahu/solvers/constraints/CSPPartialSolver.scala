@@ -9,6 +9,8 @@ import dahu.solvers.PartialSolver
 import dahu.solvers.problem.IntCSP
 import dahu.utils.errors._
 
+import scala.concurrent.duration.Deadline
+
 class CSPPartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends PartialSolver[X](_ast) {
 
   val intBoolPb = new IntBoolSatisfactionProblem[X](ast)
@@ -16,7 +18,8 @@ class CSPPartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Parti
   private val intPB = ??? //IntCSP.intProblem(intBoolPb)
   private val csp = ??? // intPB.getSolver
 
-  override def nextSatisfyingAssignment(deadlineMs: Long = -1): Option[X => Option[Value]] = {
+  override def nextSatisfyingAssignment(
+      deadlineMs: Option[Deadline]): Option[X => Option[Value]] = {
     ???
 //    if(deadlineMs != -1)
 //      dahu.utils.debug.warning("CSP Partial solver does not support deadlines yet.")

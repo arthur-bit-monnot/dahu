@@ -145,6 +145,13 @@ package object common {
     val Start: Var
     val End: Var
 
+    val StartSym: String
+    val EndSym: String
+    val TrueSym: String
+    val FalseSym: String
+    val TimeSym: String
+    val BooleanSym: String
+
     def baseModel: Model
   }
 

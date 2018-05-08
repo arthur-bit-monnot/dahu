@@ -164,13 +164,13 @@ package object core {
 
     lazy val start: LocalVar = content
       .collectFirst {
-        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "start"), predef.Time)) => tp
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, predef.StartSym), predef.Time)) => tp
       }
       .getOrElse(sys.error("No start timepoint in this action"))
 
     lazy val end: LocalVar = content
       .collectFirst {
-        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), predef.Time)) => tp
+        case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, predef.EndSym), predef.Time)) => tp
       }
       .getOrElse(sys.error("No end timepoint in this action"))
   }

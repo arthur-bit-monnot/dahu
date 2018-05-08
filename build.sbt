@@ -150,6 +150,9 @@ lazy val planner = project
   .in(file("planning/planner"))
   .dependsOn(anmlParser, solvers, z3)
   .settings(commonSettings ++ utestSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+  ))
 
 lazy val anmlPlanner = project
   .in(file("planning/anml/planner"))
@@ -162,7 +165,20 @@ lazy val anmlPlanner = project
   .settings(
     libraryDependencies ++= Seq(
       "com.github.scopt" %% "scopt" % "3.7.0",
-      "io.monix" %% "monix" % "3.0.0-RC1"
+      "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+    ))
+
+lazy val pddlPlanner = project
+  .in(file("planning/pddl/planner"))
+  .dependsOn(pddlParser, planner)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    mainClass in assembly := Some("dahu.planning.pddl.planner.Main"),
+    assemblyJarName in assembly := "dahu-pddl-planner.jar"
+  )
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.scopt" %% "scopt" % "3.7.0"
     ))
 
 resolvers += Resolver.sonatypeRepo("releases")

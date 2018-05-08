@@ -10,7 +10,7 @@ import scala.util.Try
 
 class Parser(opt: Options) {
 
-  implicit private val predef: PddlPredef = PddlPredef(opt.discretization)
+  implicit val predef: PddlPredef = PddlPredef(opt.discretization)
 
   def parseToFull(domain: File, problem: File): Try[Model] = Try {
     val parser = new fr.uga.pddl4j.parser.Parser()

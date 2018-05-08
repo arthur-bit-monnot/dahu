@@ -6,6 +6,8 @@ import dahu.model.problem.SatisfactionProblem
 import dahu.model.types.{TagIsoInt, Value}
 import dahu.solvers.constraints.CSPPartialSolver
 
+import scala.concurrent.duration.{Deadline, FiniteDuration}
+
 class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver.Builder) {
   val sat = SatisfactionProblem.satisfactionSubAST(ast)
   val solver = builder(sat)
@@ -19,7 +21,7 @@ class MetaSolver[K <: SubInt](val ast: AST.Aux[_, K], val builder: PartialSolver
     case _ => ???
   }
 
-  def nextSolution(deadline: Long = -1): Option[ast.Assignment] =
+  def nextSolution(deadline: Option[Deadline] = None): Option[ast.Assignment] =
     solver.nextSatisfyingAssignment(deadline) match {
       case Some(assignment) =>
         val total: ast.Assignment = (x: ast.VID) => assignment(x).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
