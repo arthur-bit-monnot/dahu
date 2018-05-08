@@ -12,23 +12,31 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.language.implicitConversions
 
-abstract class Factory {
+abstract class Factory { self =>
 
   def context: Ctx
+  def predef: PddlPredef
 
   implicit val resolver: Resolver = new Resolver {
-    def scope: Scope = context.scope
+    def ctx: Ctx = context
 
-    override def id(name: String): Id = Id(common.RootScope, name)
+    override def id(name: String): Id = Id(scope, name)
     override def typeOf(name: String): Type =
       context.findType(name).getOrElse(unexpected(s"unknown type: $name"))
 
     override def variable(name: String): StaticExpr = context.findDeclaration(name) match {
       case Some(v: VarDeclaration[_]) => CommonTerm(v.variable)
-      case _                          => unexpected(s"unknown variable: $name")
+      case err =>
+        println(context)
+        println(err)
+        unexpected(s"unknown variable: $name")
     }
 
     override def nextId(): String = dahu.planning.model.reservedPrefix + next().toString
+
+    def getTranslator(name: String): FunctionCompat = self.getTranslator(name)
+
+    override def predef: PddlPredef = self.predef
   }
 
   def getTranslator(name: String): FunctionCompat
@@ -42,7 +50,7 @@ abstract class Factory {
 
 }
 
-class ModelFactory(predef: PddlPredef.type) extends Factory {
+class ModelFactory(val predef: PddlPredef) extends Factory {
   private var model = predef.baseModel
 
   override def context: Model = model
@@ -85,7 +93,7 @@ class ModelFactory(predef: PddlPredef.type) extends Factory {
   private def recordInitialState(e: Exp): Unit = {
     val assertion = e match {
       case ast.AssertionOnFunction(funcName) =>
-        getTranslator(funcName).effect(e)
+        getTranslator(funcName).effect(e, resolver)
     }
     rec(TemporallyQualifiedAssertion(Equals(Interval(predef.Start, predef.Start)), assertion))
   }
@@ -94,7 +102,7 @@ class ModelFactory(predef: PddlPredef.type) extends Factory {
     case ast.And(goals) =>
       goals.foreach(recordGoal)
     case ast.AssertionOnFunction(name) =>
-      val assertion = getTranslator(name).condition(e)
+      val assertion = getTranslator(name).condition(e, resolver)
       rec(
         TemporallyQualifiedAssertion(
           Equals(Interval(predef.End, predef.End)),
@@ -128,6 +136,11 @@ class ModelFactory(predef: PddlPredef.type) extends Factory {
     }
 
     dom.getDerivesPredicates.asScala.foreach(_ => ???)
+    dom.getOperators.asScala.foreach { op =>
+      val fact = new ActionFactory(op.getName.getImage, resolver, model)
+      fact.loadOp(op)
+      rec(fact.result)
+    }
   }
 
   def loadProblem(pb: Problem): Unit = {

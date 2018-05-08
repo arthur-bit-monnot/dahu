@@ -4,21 +4,27 @@ import dahu.planning.model.common._
 import dahu.planning.model.common.Type._
 import dahu.planning.model.full._
 
-object PddlPredef extends Predef {
-  private val scope = RootScope + "_predef_"
-  override val Time: IRealType = IntSubType(scope / "time", Integers)
+case class PddlPredef(discretization: Int) extends Predef {
 
-  override val Boolean: BooleanType = BooleanType(scope / "boolean")
+  val StartSym = "⊢"
+  val EndSym = "⊣"
+  val TrueSym = "⊤"
+  val FalseSym = "⊥"
+  val TimeSym = "𝓣𝓲𝓶𝓮"
+  val BooleanSym = "𝓑𝓸𝓸𝓵"
 
-  override val True: Instance = Instance(scope / "true", Boolean)
-  override val False: Instance = Instance(scope / "false", Boolean)
+  override val Time: IRealType = IntSubType(RootScope / TimeSym, Integers)
 
-  override val Start = LocalVar(scope / "start", Time)
-  override val End = LocalVar(scope / "end", Time)
+  override val Boolean: BooleanType = BooleanType(RootScope / BooleanSym)
+
+  override val True: Instance = Instance(RootScope / TrueSym, Boolean)
+  override val False: Instance = Instance(RootScope / FalseSym, Boolean)
+
+  override val Start = LocalVar(RootScope / StartSym, Time)
+  override val End = LocalVar(RootScope / EndSym, Time)
 
   val Number = IntSubType(RootScope / "number", Integers)
 
-  val discretization = 1000
   def discretize(d: Double): Int = (d * discretization).toInt
 
   override def baseModel: Model =

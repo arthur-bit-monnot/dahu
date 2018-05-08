@@ -9,9 +9,10 @@ import scala.collection.JavaConverters._
 
 object AssertionOnFunction {
   def unapply(e: Exp): Option[String] = e match {
-    case Fluent(name, _)        => Some(name)
-    case Eq(Fluent(name, _), _) => Some(name)
-    case _                      => None
+    case Fluent(name, _)                => Some(name)
+    case Eq(Fluent(name, _), _)         => Some(name)
+    case Not(AssertionOnFunction(name)) => Some(name)
+    case _                              => None
   }
 }
 
@@ -29,9 +30,9 @@ object Fluent {
 }
 
 object Cst {
-  def unapply(e: Exp): Option[Cst] = {
+  def unapply(e: Exp)(implicit predef: PddlPredef): Option[Cst] = {
     if(e.getConnective == Connective.NUMBER)
-      Some(IntLiteral(PddlPredef.discretize(e.getValue)))
+      Some(IntLiteral(predef.discretize(e.getValue)))
     else
       None
   }
@@ -39,10 +40,23 @@ object Cst {
 
 object Eq {
   def unapply(e: Exp): Option[(Exp, Exp)] = {
-    if(e.getConnective == Connective.FN_ATOM) {
+    if(e.getConnective == Connective.FN_ATOM || e.getConnective == Connective.EQUAL) {
       e.getChildren.asScala.toList match {
         case lhs :: rhs :: Nil => Some((lhs, rhs))
         case _                 => unexpected
+      }
+    } else {
+      None
+    }
+  }
+}
+
+object Not {
+  def unapply(e: Exp): Option[Exp] = {
+    if(e.getConnective == Connective.NOT) {
+      e.getChildren.asScala match {
+        case Seq(neg) => Some(neg)
+        case _        => unexpected
       }
     } else {
       None
@@ -77,14 +91,49 @@ object And {
 object TypedSymbol {
   def unapply(e: TypedSymbol): Option[(String, String)] = {
     if(e.getKind == Symbol.Kind.VARIABLE || e.getKind == Symbol.Kind.CONSTANT) {
-      val name =
-        if(e.getImage.startsWith("?"))
-          e.getImage.drop(1)
-        else
-          e.getImage
+      val name = e.getImage
+//        if(e.getImage.startsWith("?"))
+//          e.getImage.drop(1)
+//        else
+//          e.getImage
       e.getTypes.asScala.toList match {
         case tpe :: Nil => Some((name, tpe.getImage))
         case _          => None
+      }
+    } else {
+      None
+    }
+  }
+}
+
+object Duration {
+  def unapply(e: Exp): Option[Unit] = {
+    if(e.getConnective == Connective.TIME_VAR && e.getVariable.getImage == "?duration")
+      Some(())
+    else
+      None
+  }
+}
+
+object AtStart {
+  def unapply(e: Exp): Option[Exp] = {
+    if(e.getConnective == Connective.AT_START) {
+      e.getChildren.asScala match {
+        case Seq(sub) => Some(sub)
+        case _        => unexpected
+      }
+    } else {
+      None
+    }
+  }
+}
+
+object AtEnd {
+  def unapply(e: Exp): Option[Exp] = {
+    if(e.getConnective == Connective.AT_END) {
+      e.getChildren.asScala match {
+        case Seq(sub) => Some(sub)
+        case _        => unexpected
       }
     } else {
       None

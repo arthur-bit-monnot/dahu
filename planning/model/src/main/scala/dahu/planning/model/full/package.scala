@@ -203,9 +203,9 @@ package object full {
     override def toString: String = s"$template(${params.mkString(", ")})"
   }
 
-  class ActionTemplate(override val name: String,
-                       val containingModel: Model,
-                       override val store: BlockStore[InActionBlock] = new BlockStore())
+  final case class ActionTemplate(override val name: String,
+                                  containingModel: Model,
+                                  override val store: BlockStore[InActionBlock] = new BlockStore())
       extends Ctx
       with InModuleBlock {
     override val parent: Some[Ctx] = Some(containingModel)
@@ -288,7 +288,7 @@ package object full {
           store.declarations.get(id(single))
         case subScopeName :: name :: Nil =>
           store.declarations
-            .get(new Id(scope + subScopeName, name))
+            .get(Id(scope + subScopeName, name))
         case Nil =>
           sys.error("Invalid name: " + localID)
         case _ =>
