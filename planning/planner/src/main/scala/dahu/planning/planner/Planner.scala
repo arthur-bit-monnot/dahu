@@ -25,12 +25,12 @@ object Planner {
 
   def solveIncremental(model: core.CoreModel, maxSteps: Int, deadline: Deadline)(
       implicit cfg: PlannerConfig,
-      predef: Predef): Option[String] = {
+      predef: Predef): Option[Plan] = {
     val q = new java.util.concurrent.ConcurrentLinkedQueue[Integer]()
     for(i <- cfg.minInstances to cfg.maxInstances)
       q.add(i)
 
-    val task: IO[Option[String]] = IO {
+    val task: IO[Option[Plan]] = IO {
       while(deadline.hasTimeLeft) {
         val step: Integer = q.poll()
         if(step == null)
@@ -49,20 +49,11 @@ object Planner {
     }
 
     task.unsafeRunTimed(deadline.timeLeft).flatten
-
-//    Try {
-//      Await.result(future, (deadline - System.currentTimeMillis()).millis)
-//    } match {
-//      case Success(solution) =>
-//        solution
-//      case Failure(to: TimeoutException) => None
-//      case Failure(e)                    => throw e
-//    }
   }
 
   def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Deadline)(
       implicit cfg: PlannerConfig,
-      predef: Predef): Option[String] = {
+      predef: Predef): Option[Plan] = {
     if(deadline.isOverdue())
       return None
 
@@ -104,7 +95,7 @@ object Planner {
     solution
   }
 
-  def solve(chronicle: Chronicle, deadline: Deadline): Option[String] = {
+  def solve(chronicle: Chronicle, deadline: Deadline): Option[Plan] = {
     if(deadline.isOverdue)
       return None
     val sat = chronicle.toSatProblem
@@ -119,15 +110,12 @@ object Planner {
         evaluatedSolution(ass) match {
           case Res(operators) =>
             Some(
-              operators
-                .asInstanceOf[Seq[Operator[cats.Id]]]
-                .filter(_.present)
-                .sortBy(_.start)
-                .map {
-                  case Operator(name, args, s, e, _) => s"[$s, $e] $name(${args.mkString(",")})"
-                }
-                .mkString("\n")
-            )
+              Plan(
+                operators
+                  .asInstanceOf[Seq[Operator[cats.Id]]]
+                  .filter(_.present)
+                  .sortBy(_.start)
+              ))
           case x => unexpected(x.toString)
         }
       case None => None

@@ -82,14 +82,14 @@ object Main extends App {
     case None =>
   }
 
-  def solveTask(problemFile: File, deadline: Deadline)(implicit cfg: Config): IO[Option[Any]] = {
+  def solveTask(problemFile: File, deadline: Deadline)(implicit cfg: Config): IO[Option[Plan]] = {
     IO {
       info(problemFile.getName)
       solve(problemFile, deadline)
     }
   }
 
-  def solve(problemFile: File, deadline: Deadline)(implicit cfg: Config): Option[String] = {
+  def solve(problemFile: File, deadline: Deadline)(implicit cfg: Config): Option[Plan] = {
     implicit val plannerConf: PlannerConfig =
       PlannerConfig(minInstances = cfg.minInstances, maxInstances = cfg.maxInstances)
     info("Parsing...")

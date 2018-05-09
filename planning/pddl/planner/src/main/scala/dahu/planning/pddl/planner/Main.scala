@@ -3,13 +3,11 @@ package dahu.planning.pddl.planner
 import java.io.File
 
 import dahu.planning.pddl.parser._
-import dahu.planning.model.common.Predef
-
 import dahu.planning.planner._
+import dahu.utils.Vec
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, TimeoutException}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 case class Config(problemFile: File = null,
                   domainFile: Option[File] = None,
@@ -69,13 +67,17 @@ object Main extends App {
 
     implicit val plannerConfig: PlannerConfig =
       PlannerConfig(config.minInstances, config.maxInstances)
-    implicit val predef: Predef = parser.predef
+    implicit val predef: PddlPredef = parser.predef
 
     parser.parse(domain, problem) match {
       case Success(model) =>
         Planner.solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
-          case Some(sol) =>
-            println(sol)
+          case Some(Plan(operators)) =>
+            println("\n== Solution ==")
+            operators
+              .map(PddlOperator(_))
+              .sortBy(_.start)
+              .foreach(println)
           case None =>
             println("\nFAIL")
         }
@@ -84,5 +86,23 @@ object Main extends App {
         sys.exit(1)
     }
     None
+  }
+}
+
+case class PddlOperator(name: String, args: Vec[String], start: Double, duration: Double) {
+  override def toString: String = s"$start: ($name ${args.mkString(", ")}) [$duration]"
+}
+
+object PddlOperator {
+
+  def toPddlTime(t: Int)(implicit predef: PddlPredef): Double = t.toDouble / predef.discretization.toDouble
+
+  def apply(gen: Operator[cats.Id])(implicit predef: PddlPredef): PddlOperator = gen match {
+    case Operator(name, args, start, end, true) =>
+      new PddlOperator(
+        name,
+        Vec(args.map(_.toString): _*),
+        toPddlTime(start),
+        toPddlTime(end - start))
   }
 }
