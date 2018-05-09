@@ -64,9 +64,19 @@ lazy val root = project
     publishLocal := {}
   )
 
+lazy val algebra = project
+  .in(file("core/algebra"))
+  .settings(name := "dahu-core-algebra")
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+     "org.typelevel" %% "cats-core" % "1.1.0",
+    "org.typelevel" %% "spire" % "0.14.1"
+  ))
+
 lazy val planningModel = project
   .in(file("planning/model"))
   .settings(name := "dahu-planning-model")
+  .dependsOn(algebra)
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= Seq(
     "com.chuusai" %% "shapeless" % "2.3.3",
@@ -117,7 +127,7 @@ lazy val recursion = project
 
 lazy val model = project
   .in(file("model"))
-  .dependsOn(utils, recursion)
+  .dependsOn(utils, recursion, algebra)
   .settings(name := "dahu-model")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(

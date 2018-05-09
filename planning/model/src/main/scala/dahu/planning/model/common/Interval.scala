@@ -1,5 +1,7 @@
 package dahu.planning.model.common
 
+import dahu.core.algebra.{BoolLike, Orderable}
+
 sealed abstract class Interval[A] {
   val start: A
   val end: A
@@ -23,6 +25,20 @@ sealed abstract class Interval[A] {
 }
 object Interval {
   def point[A](pt: A): Interval[A] = ClosedInterval(pt, pt)
+
+  implicit def orderedInstance[A](implicit O: Orderable[A]): Orderable.Aux[Interval[A], O.Bool] =
+    new Orderable[Interval[A]] {
+      type Bool = O.Bool
+      override def BL: BoolLike[Bool] = O.BL
+      override def leq(a: Interval[A], b: Interval[A]): Bool =
+        O.leq(a.end, b.start)
+
+      override def lt(a: Interval[A], b: Interval[A]): Bool =
+        if(a.isRightOpen || b.isLeftOpen)
+          O.leq(a.end, b.start)
+        else
+          O.lt(a.end, b.start)
+    }
 }
 
 case class ClosedInterval[A](start: A, end: A) extends Interval[A] {

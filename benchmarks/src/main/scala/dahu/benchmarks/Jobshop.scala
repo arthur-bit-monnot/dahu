@@ -8,7 +8,7 @@ object Jobshop extends Family("jobshop") {
   val START = Cst(1)
   val END = Input[Int]("makespan").subjectTo(START <= _)
 
-  def input(): Input[Int] = Input()
+  def input(): Tentative[Int] = Input()
   def tp()= input().subjectTo(x => START <= x && x <= END)
 
   case class Job(jobNumber: Int,

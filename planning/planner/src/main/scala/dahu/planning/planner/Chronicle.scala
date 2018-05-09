@@ -10,8 +10,6 @@ import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
 import dahu.planning.model.{common, core}
 import dahu.utils.errors._
-import dahu.planning.planner.syntax._
-import dahu.planning.planner.syntax.Ordered._
 
 import scala.collection.mutable
 
@@ -26,7 +24,7 @@ case class EffectToken(changeItv: Interval[Tentative[Int]],
                        value: Tentative[Literal])
 
 sealed trait Literal {
-  def asConstant(tag: TagIsoInt[Literal]): Cst[Literal] = Cst(this)(tag)
+  def asConstant(tag: TagIsoInt[Literal]): Tentative[Literal] = Cst(this)(tag)
 }
 case class IntLit(value: Int) extends Literal {
   override def toString: String = value.toString
@@ -450,7 +448,7 @@ case class Chronicle(ctx: ProblemContext,
           case (Opt(EffectToken(changeItv1, end1, fluent1, _), p1),
                 Opt(EffectToken(changeItv2, end2, fluent2, _), p2)) =>
             implies(and(p1, p2, sameFluent(fluent1, fluent2)),
-                    Interval.point(end1) :< changeItv2 || Interval.point(end2) :< changeItv1)
+                    Interval.point(end1) < changeItv2 || Interval.point(end2) < changeItv1)
         }
       }
 

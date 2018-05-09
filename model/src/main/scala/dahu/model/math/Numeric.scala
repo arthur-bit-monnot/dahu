@@ -1,5 +1,6 @@
 package dahu.model.math
 
+import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
 import dahu.model.functions._
 import dahu.model.types.{Tag, TagIsoInt}
 
@@ -80,18 +81,19 @@ object Numeric {
         F.mapN(lhs, rhs)(ev.times)
     }
 
-  implicit class NumericOps[T, F[_]](val lhs: F[T])(implicit num: Numeric[T, F],
-                                                    bool: BooleanLike[Boolean, F]) {
-    def <=(rhs: F[T]): F[Boolean] = num.leq(lhs, rhs)
-    def <(rhs: F[T]): F[Boolean] = num.lt(lhs, rhs)
-    def >=(rhs: F[T]): F[Boolean] = num.geq(lhs, rhs)
-    def >(rhs: F[T]): F[Boolean] = num.gt(lhs, rhs)
-    def ===(rhs: F[T]): F[Boolean] = num.eqv(lhs, rhs)
-    def =!=(rhs: F[T]): F[Boolean] = bool.not(lhs === rhs)
+  def toNumberLike[T, F[_]](implicit num: Numeric[T, F],
+                            bool: BoolLike[F[Boolean]]): NumberLike.Aux[F[T], F[Boolean], F[T]] =
+    new NumberLike[F[T]] {
+      override type Bool = F[Boolean]
+      override type Num = F[T]
+      override def BL: BoolLike[Bool] = bool
+      override def leq(a: F[T], b: F[T]): Bool = num.leq(a, b)
+      override def lt(a: F[T], b: F[T]): Bool = num.lt(a, b)
+      override def eqv(a: F[T], b: F[T]): Bool = num.eqv(a, b)
 
-    def *(rhs: F[T]): F[T] = num.times(lhs, rhs)
-    def +(rhs: F[T]): F[T] = num.add(lhs, rhs)
-    def unary_-(): F[T] = num.negate(lhs)
-    def -(rhs: F[T]): F[T] = num.add(lhs, -rhs)
-  }
+      override def times(a: F[T], b: F[T]): F[T] = num.times(a, b)
+      override def add(a: F[T], b: F[T]): F[T] = num.add(a, b)
+      override def sub(a: F[T], b: F[T]): F[T] = num.substract(a, b)
+      override def negate(a: F[T]): F[T] = num.negate(a)
+    }
 }

@@ -1,11 +1,11 @@
 package dahu.model.input
 
-import dahu.model.functions.{Fun, Fun1, Fun2}
-import dahu.model.math.BooleanLike.BooleanOps
-import dahu.model.math.Numeric.{NumericBase, NumericOps}
+import dahu.core
+import dahu.core.algebra
+import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
+import dahu.model.functions.{Fun1, Fun2}
 import dahu.model.math._
-import dahu.model.types.{BoxedInt, Tag, TagIsoInt}
-import shapeless.=:!=
+import dahu.model.types.{Tag, TagIsoInt}
 
 import scala.language.implicitConversions
 
@@ -23,34 +23,42 @@ object dsl {
   def ITE[T](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
     new ITE[T](cond, t, f)
 
-  implicit def double2Cst(value: Double): Cst[Double] = Cst(value)
-  implicit def int2Cst(value: Int): Cst[Int] = Cst(value)
+  implicit def double2Cst(value: Double): Tentative[Double] = Cst(value)
+  implicit def int2Cst(value: Int): Tentative[Int] = Cst(value)
 
   implicit class InputHelper(val sc: StringContext) extends AnyVal {
-    def d(args: Any*): Input[Double] = Input[Double](sc.s(args: _*))
+    def d(args: Any*): Tentative[Double] = Input[Double](sc.s(args: _*))
   }
 
-  // todo: check is this is actually needed
-  implicit def input2Expr[T](input: Input[T]): Tentative[T] = input
-  implicit def cst2Expr[T](cst: Cst[T]): Tentative[T] = cst
-  implicit def value2Expr[T: NumericBase: Tag](value: T): Tentative[T] = Cst(value)
-
-  implicit def tentative2numOps[T](lhs: Tentative[T])(implicit num: Numeric[T, Tentative],
-                                                      bool: BooleanLike[Boolean, Tentative],
-                                                      tag: Tag[T]) =
-    new NumericOps[T, Tentative](lhs)
-
-  implicit class TentativeOrderOps[T: TagIsoInt](lhs: Tentative[T])(implicit ev: T =:!= Int,
-                                                                    ev2: T =:!= Double) {
-    def ===(rhs: Tentative[T]): Tentative[Boolean] =
-      int.EQ(TagIsoInt[T].unbox(lhs), TagIsoInt[T].unbox(rhs))
-    def =!=(rhs: Tentative[T]): Tentative[Boolean] =
-      bool.Not(new TentativeOrderOps(lhs) === rhs)
+  implicit val boolLike: BoolLike[Tentative[Boolean]] = new BoolLike[Tentative[Boolean]] {
+    override def and(a: Tentative[Boolean], b: Tentative[Boolean]): Tentative[Boolean] =
+      Computation(bool.And, Seq(a, b))
+    override def or(a: Tentative[Boolean], b: Tentative[Boolean]): Tentative[Boolean] =
+      Computation(bool.Or, Seq(a, b))
+    override def not(a: Tentative[Boolean]): Tentative[Boolean] =
+      Computation(bool.Not, a)
   }
 
-  implicit def tentative2boolOps(lhs: Tentative[Boolean])(
-      implicit bool: BooleanLike[Boolean, Tentative]) =
-    new BooleanOps[Boolean, Tentative](lhs)(bool)
+  implicit val intsNumber: NumberLike.Aux[Tentative[Int], Tentative[Boolean], Tentative[Int]] =
+    Numeric.toNumberLike[Int, Tentative]
+
+  implicit val numbersDouble
+    : NumberLike.Aux[Tentative[Double], Tentative[Boolean], Tentative[Double]] =
+    Numeric.toNumberLike[Double, Tentative]
+
+  implicit def orderableIsoInt[T: TagIsoInt]: Orderable.Aux[Tentative[T], Tentative[Boolean]] =
+    new Orderable[Tentative[T]] {
+      override type Bool = Tentative[Boolean]
+      override def BL: BoolLike[Tentative[Boolean]] = boolLike
+      override def leq(a: Tentative[T], b: Tentative[T]): Bool =
+        intsNumber.leq(TagIsoInt[T].unbox(a), TagIsoInt[T].unbox(b))
+      override def lt(a: Tentative[T], b: Tentative[T]): Bool =
+        intsNumber.lt(TagIsoInt[T].unbox(a), TagIsoInt[T].unbox(b))
+    }
+
+  implicit def toNumberLikeOps[A: NumberLike](a: A) = new algebra.NumberLike.NumberLikeOps(a)
+  implicit def toOrderableLikeOps[A: Orderable](a: A) = new core.algebra.Orderable.OrderableOps(a)
+  implicit def toBoolLikeOps[A: BoolLike](a: A) = new core.algebra.BoolLike.BoolLikeOps(a)
 
   implicit final class ToSubjectToOps[F[_], T](private val lhs: F[T])(
       implicit ev: F[T] <:< Tentative[T]) {

@@ -5,7 +5,6 @@ import java.io.File
 import dahu.planning.model.core.CoreModel
 import dahu.planning.model.transforms.FullToCore
 import dahu.planning.model.{core, full}
-import dahu.planning.parsing.anml
 
 package object parser {
 

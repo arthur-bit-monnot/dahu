@@ -19,10 +19,10 @@ object GraphColoring extends Family("graph-coloring") {
 
     implicit val tag: TagIsoInt[Color] = TagIsoInt.fromEnum(Array(Red, Green, Blue))
   }
-  def color(name: String): Input[Color] = Input(name)
+  def color(name: String): Tentative[Color] = Input(name)
 
   import Color._
-  implicit def color2Cst(color: Color): Cst[Color] = Cst(color)
+  implicit def color2Cst(color: Color): Tentative[Color] = Cst(color)
 
   instances("simple-graph") {
     val A = color("A")

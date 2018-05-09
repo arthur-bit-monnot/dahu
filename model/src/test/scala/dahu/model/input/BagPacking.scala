@@ -3,7 +3,6 @@ package dahu.model.input
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
-import dahu.model.problem.SatisfactionProblem
 import dahu.model.types._
 import utest._
 
@@ -34,11 +33,11 @@ object BagPacking extends TestSuite {
       val ast = Algebras.parse(valid)
       "all-true" - {
         val satisfied = Interpreter.eval(ast)(_ => Value(true))
-        assert(satisfied == Some(false))
+        satisfied ==> Some(false)
       }
       "all-false" - {
         val satisfied = Interpreter.eval(ast)(_ => Value(false))
-        assert(satisfied == Some(true))
+        satisfied ==> Some(true)
       }
 
       "predefined-results" - {
