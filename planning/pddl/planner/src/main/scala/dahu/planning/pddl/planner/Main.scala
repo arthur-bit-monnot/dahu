@@ -20,7 +20,7 @@ case class Config(problemFile: File = null,
                   numThreads: Int = 1,
                   maxRuntime: FiniteDuration = 1800.seconds,
                   warmupTimeSec: Int = 0,
-                  discretization: Int = 1)
+                  discretization: Int = 1000)
 
 object Main extends App {
   val optionsParser = new scopt.OptionParser[Config]("dahu") {
@@ -35,9 +35,12 @@ object Main extends App {
     opt[Int]("timeout")
       .action((t, c) => c.copy(maxRuntime = t.seconds))
 
-    arg[Seq[File]]("[XXX.dom.pddl] XXXX.YY.pb.pddl").action {
-      case (Seq(pb), cfg)      => cfg.copy(problemFile = pb)
-      case (Seq(dom, pb), cfg) => cfg.copy(domainFile = Some(dom), problemFile = pb)
+    arg[File]("XXX.dom.pddl").optional().action {
+      case (f, c) => c.copy(domainFile = Some(f))
+    }
+
+    arg[File]("XXXX.YY.pb.pddl").action {
+      case (f, cfg)      => cfg.copy(problemFile = f)
     }
   }
 

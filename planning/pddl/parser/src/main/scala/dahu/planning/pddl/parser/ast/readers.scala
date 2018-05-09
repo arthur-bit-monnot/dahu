@@ -23,6 +23,11 @@ object Fluent {
         case head :: tail => Some((head, tail))
         case _            => None
       }
+    } else if(exp.getConnective == Connective.F_EXP) {
+      exp.getChildren.asScala match {
+        case Seq(e) => Fluent.unapply(e)
+        case _      => unexpected
+      }
     } else {
       None
     }

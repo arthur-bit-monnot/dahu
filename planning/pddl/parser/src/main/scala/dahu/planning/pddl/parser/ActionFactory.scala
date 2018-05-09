@@ -41,7 +41,15 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
         rec(
           BooleanAssertion(BinaryExprTree(operators.Eq, duration, cst))
         )
-      case x => unexpected(x.toString)
+      case Some(ast.Eq(ast.Duration(_), e @ ast.Fluent(f, args))) =>
+        rec(
+          TemporallyQualifiedAssertion(
+            Equals(ClosedInterval(start, start)),
+            TimedEqualAssertion(resolver.getTranslator(f).fluent(f, args, resolver), duration, Some(context), resolver.nextId())
+          )
+        )
+      case x =>
+        unexpected(x.toString)
     }
 
     recPrecondition(op.getPreconditions)

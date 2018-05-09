@@ -14,6 +14,7 @@ abstract class FunctionCompat() {
   def name: String
   def model: FluentTemplate
 
+  def fluent(name: String, args: Seq[String], res: Resolver): Fluent
   def condition(e: Exp, res: Resolver): TimedEqualAssertion // TODO: should probably take a context
   def effect(e: Exp, res: Resolver): TimedAssignmentAssertion
 }
@@ -40,6 +41,9 @@ class DefaultPredicate(pddl: NamedTypedList, top: Resolver) extends FunctionComp
       case ast.TypedSymbol(argName, argType) => common.Arg(top.id(argName), top.typeOf(argType))
     })
 
+  override def fluent(name: String, args: Seq[String], res: Resolver): Fluent =
+    Fluent(model, args.map(res.variable))
+
   override def condition(e: Exp, local: Resolver): TimedEqualAssertion = e match {
     case ast.Fluent(fun, args) if fun == name =>
       TimedEqualAssertion(
@@ -54,14 +58,14 @@ class DefaultPredicate(pddl: NamedTypedList, top: Resolver) extends FunctionComp
   override def effect(e: Exp, local: Resolver): TimedAssignmentAssertion = e match {
     case ast.Fluent(fun, args) if fun == name =>
       TimedAssignmentAssertion(
-        Fluent(model, args.map(local.variable)),
+        fluent(fun, args, local),
         local.predef.True,
         Some(local.ctx),
         local.nextId()
       )
     case ast.Not(ast.Fluent(fun, args)) =>
       TimedAssignmentAssertion(
-        Fluent(model, args.map(local.variable)),
+        fluent(fun, args, local),
         predef.False,
         Some(local.ctx),
         local.nextId()
@@ -83,10 +87,13 @@ class DefaultFunction(pddl: NamedTypedList, top: Resolver) extends FunctionCompa
       case ast.TypedSymbol(argName, argType) => common.Arg(top.id(argName), top.typeOf(argType))
     })
 
+  override def fluent(name: String, args: Seq[String], res: Resolver): Fluent =
+    Fluent(model, args.map(res.variable))
+
   override def condition(e: Exp, local: Resolver): TimedEqualAssertion = e match {
     case ast.Eq(ast.Fluent(funName, args), ast.Cst(rhs)) if funName == name =>
       TimedEqualAssertion(
-        Fluent(model, args.map(local.variable)),
+        fluent(funName, args, local),
         rhs,
         Some(local.ctx),
         local.nextId()
@@ -97,7 +104,7 @@ class DefaultFunction(pddl: NamedTypedList, top: Resolver) extends FunctionCompa
   override def effect(e: Exp, local: Resolver): TimedAssignmentAssertion = e match {
     case ast.Eq(ast.Fluent(funName, args), ast.Cst(rhs)) if funName == name =>
       TimedAssignmentAssertion(
-        Fluent(model, args.map(local.variable)),
+        fluent(funName, args, local),
         rhs,
         Some(local.ctx),
         local.nextId()
