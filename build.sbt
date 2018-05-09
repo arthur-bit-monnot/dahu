@@ -126,7 +126,7 @@ lazy val recursion = project
     ))
 
 lazy val model = project
-  .in(file("model"))
+  .in(file("core/model"))
   .dependsOn(utils, recursion, algebra)
   .settings(name := "dahu-model")
   .settings(commonSettings ++ utestSettings: _*)
@@ -136,7 +136,7 @@ lazy val model = project
     ))
 
 lazy val solvers = project
-  .in(file("solvers"))
+  .in(file("core/solvers"))
   .dependsOn(utils, model)
   .settings(name := "dahu-solvers")
   .settings(commonSettings ++ utestSettings: _*)
@@ -146,7 +146,7 @@ lazy val solvers = project
     ))
 
 lazy val z3 = project
-  .in(file("z3"))
+  .in(file("core/solvers/z3"))
   .dependsOn(utils, model, solvers)
   .settings(name := "dahu-z3")
   .settings(commonSettings ++ utestSettings: _*)
