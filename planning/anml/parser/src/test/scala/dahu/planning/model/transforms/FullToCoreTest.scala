@@ -44,7 +44,7 @@ class FullToCoreTest extends FunSuite {
 
   def checkInvariantsInCore(m: CoreModel): Unit = {
     val declarations = m.collect { case x: Declaration[_] => x }
-    assert(declarations.distinct.size == declarations.size,
-           "\nDuplicate declarations in: \n" + declarations.mkString("\n"))
+    Predef.assert(declarations.distinct.size == declarations.size,
+      "\nDuplicate declarations in: \n" + declarations.mkString("\n"))
   }
 }

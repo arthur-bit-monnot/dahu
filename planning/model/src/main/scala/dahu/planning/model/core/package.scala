@@ -1,6 +1,6 @@
 package dahu.planning.model
 
-import dahu.planning.model.common._
+import dahu.planning.model.common.{Id, _}
 
 package object core {
 
@@ -151,7 +151,6 @@ package object core {
         case LocalVarDeclaration(tp @ LocalVar(Id(`scope`, "end"), predef.Time)) => tp
       }
       .getOrElse(sys.error("No end timepoint in this action"))
-
   }
 
   /** Instance of an action template */

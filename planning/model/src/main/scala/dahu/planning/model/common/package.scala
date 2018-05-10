@@ -8,8 +8,32 @@ import spire.implicits._
 
 package object common {
 
-  final case class Id(scope: Scope, name: String) {
+  sealed trait Id {
+    def scope: Scope
+    def name: String
+    def isAnonymous: Boolean
+  }
+  object Id {
+    def apply(scope: Scope, name: String): Named = Named(scope, name)
+    def apply(scope: Scope): Anonymous = new Anonymous(scope)
+    def unapply(id: Id): Option[(Scope, String)] = id match {
+      case Named(s, n) => Some((s, n))
+      case _ => None
+    }
+  }
+  final case class Named(scope: Scope, name: String) extends Id {
     override def toString: String = scope.toScopedString(name)
+    override def isAnonymous: Boolean = false
+  }
+  final class Anonymous(val scope: Scope) extends Id {
+    val name: String = Anonymous.defaultId()
+    override def toString: String = scope.toScopedString(name)
+    override def isAnonymous: Boolean = true
+  }
+  object Anonymous {
+    private val reservedPrefix = "__"
+    private[this] var nextID = 0
+    private def defaultId(): String = reservedPrefix + { nextID += 1; nextID - 1 }
   }
 
   object Timepoint {
@@ -21,7 +45,7 @@ package object common {
     def +(nestedScope: String): InnerScope = InnerScope(this, nestedScope)
     def /(name: String): Id = Id(this, name)
 
-    def makeNewId(): Id = Id(this, model.defaultId())
+    def makeNewId(): Anonymous = Id(this)
     def toScopedString(name: String): String
   }
   object RootScope extends Scope {

@@ -14,8 +14,6 @@ trait Resolver {
   def variable(name: String): StaticExpr
 
   def getTranslator(name: String): FunctionCompat
-
-  def nextId(): String
 }
 
 object Resolver {

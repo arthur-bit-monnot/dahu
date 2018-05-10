@@ -119,7 +119,7 @@ object FullToCore {
       val startEnd: CoreM[Interval[Expr]] =
         qualifier match {
           case full.Equals(interval)
-              if ctx.config.mergeTimepoints && assertion.name.startsWith(reservedPrefix) =>
+              if ctx.config.mergeTimepoints && assertion.id.isAnonymous =>
             // we are asked to merge timepoints and assertion was not given a name
             // use the timepoints from the interval instead of the one of the assertion
             for {

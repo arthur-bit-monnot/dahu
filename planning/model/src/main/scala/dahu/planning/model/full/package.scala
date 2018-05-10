@@ -1,5 +1,6 @@
 package dahu.planning.model
 
+import cats.Functor
 import dahu.planning.model.common.Type.BooleanType
 import dahu.planning.model.common._
 import dahu.planning.model.common.operators.{BinaryOperator, UnaryOperator}
@@ -102,10 +103,12 @@ package object full {
     def wrapped: Seq[Block]
   }
 
-  abstract class TimedAssertion(parent: Option[Ctx], name: String)(implicit predef: Predef)
+  sealed abstract class TimedAssertion(parent: Option[Ctx], id: Id)(implicit predef: Predef)
       extends Ctx
       with Block {
-    override val scope: InnerScope = parent.map(_.scope).getOrElse(RootScope) + name
+    def fluent: TimedExpr
+
+    override val scope: InnerScope = parent.map(_.scope).getOrElse(RootScope) + id.name
 
     val start: LocalVar = Timepoint(this.id("start"))
     val end: LocalVar = Timepoint(this.id("end"))
@@ -114,37 +117,37 @@ package object full {
       LocalVarDeclaration(start) +
       LocalVarDeclaration(end)
   }
-  case class TimedEqualAssertion(left: TimedExpr, // TODO: should not restrict this to be symbolic
-                                 right: StaticExpr,
-                                 parent: Option[Ctx],
-                                 name: String)(implicit predef: Predef)
-      extends TimedAssertion(parent, name) {
-    if(name == "__296")
-      println(name)
-    override def toString: String =
-      if(name.startsWith(reservedPrefix)) s"$left == $right"
-      else s"$name: $left == $right"
+  case class TimedEqualAssertion(fluent: TimedExpr, right: StaticExpr, parent: Option[Ctx], id: Id)(
+      implicit predef: Predef)
+      extends TimedAssertion(parent, id) {
+    override def toString: String = id match {
+      case Id(_, name) => s"$name: $fluent == $right"
+      case _           => s"$fluent == $right"
+    }
   }
 
   case class TimedTransitionAssertion(fluent: TimedExpr,
                                       from: StaticExpr,
                                       to: StaticExpr,
                                       parent: Option[Ctx],
-                                      name: String)(implicit predef: Predef)
-      extends TimedAssertion(parent, name) {
-    override def toString: String =
-      if(name.startsWith(reservedPrefix)) s"$fluent == $from :-> $to"
-      else s"$name: $fluent == $from :-> $to"
+                                      id: Id)(implicit predef: Predef)
+      extends TimedAssertion(parent, id) {
+    override def toString: String = id match {
+      case Id(_, name) => s"$name: $fluent == $from :-> $to"
+      case _           => s"$fluent == $from :-> $to"
+    }
   }
 
   case class TimedAssignmentAssertion(fluent: TimedExpr,
                                       to: StaticExpr,
                                       parent: Option[Ctx],
-                                      name: String)(implicit predef: Predef)
-      extends TimedAssertion(parent, name) {
-    override def toString: String =
-      if(name.startsWith(reservedPrefix)) s"$fluent := $to"
-      else s"$name: $fluent := $to"
+                                      id: Id)(implicit predef: Predef)
+      extends TimedAssertion(parent, id) {
+     override def toString: String = id match {
+      case Id(_, name) => s"$name: $fluent := $to"
+      case _           => s"$fluent := $to"
+    }
+
   }
 
   trait TemporalQualifier
@@ -201,7 +204,7 @@ package object full {
     override def toString: String = s"$template(${params.mkString(", ")})"
   }
 
-  final case class ActionTemplate(override val name: String,
+  final case class ActionTemplate(id: Id,
                                   containingModel: Model,
                                   override val store: BlockStore[InActionBlock] = new BlockStore())
       extends Ctx
@@ -210,11 +213,14 @@ package object full {
     override val scope: InnerScope = parent.get.scope + name
 
     def +(block: InActionBlock): ActionTemplate =
-      new ActionTemplate(name, containingModel, store + block)
+      ActionTemplate(id, containingModel, store + block)
     def ++(newBlocks: Seq[InActionBlock]): ActionTemplate = newBlocks.headOption match {
       case Some(first) => (this + first) ++ newBlocks.tail
       case None        => this
     }
+
+    def map(f: InActionBlock => InActionBlock): ActionTemplate =
+      ActionTemplate(id, containingModel, store.map(f))
 
     override def toString: String =
       s"action $name(${store.blocks
@@ -224,10 +230,10 @@ package object full {
         "  };"
   }
 
-  case class Model(store: BlockStore[InModuleBlock] = new BlockStore()) extends Ctx {
+  final case class Model(store: BlockStore[InModuleBlock] = new BlockStore()) extends Ctx {
     override def parent = None
-    override def name = "_module_"
     override val scope: Scope = RootScope
+    override val id: Id = scope.makeNewId()
 
     def +(block: InModuleBlock): Option[Model] = {
       Some(Model(store + block))
@@ -237,6 +243,10 @@ package object full {
       blocks.foldLeft(Option(this))((m, block) => m.flatMap(_ + block))
     }
 
+    def map(f: InModuleBlock => InModuleBlock): Model = {
+      Model(store.map(f))
+    }
+
     override def toString: String =
       "module:\n" +
         store.blocks
@@ -244,8 +254,8 @@ package object full {
           .mkString("\n")
   }
 
-  class BlockStore[+T <: Block] private (val blocks: Vector[T],
-                                         val declarations: Map[Id, Declaration[_]]) {
+  final class BlockStore[+T <: Block] private (val blocks: Vector[T],
+                                               val declarations: Map[Id, Declaration[_]]) {
 
     def this() = this(Vector(), Map())
 
@@ -265,15 +275,20 @@ package object full {
 
       new BlockStore[B](newBlocks, newDeclarations)
     }
+
+    def map[B <: Block](f: T => B): BlockStore[B] = {
+      blocks.foldLeft(new BlockStore[B]())((store, b) => store + f(b))
+    }
   }
 
   trait Ctx {
     def scope: Scope
+    def id: Id
 
     def id(name: String): Id = Id(scope, name)
 
     def parent: Option[Ctx]
-    def name: String
+    final def name: String = id.name
     def root: Ctx = parent match {
       case Some(p) => p.root
       case None    => this

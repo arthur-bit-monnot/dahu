@@ -371,7 +371,7 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
 
   val timedAssertion: Parser[TimedAssertion] = {
     // variable that hold the first two parsed token to facilitate type checking logic
-    var id: String = null
+    var id: Id = null
     var fluent: TimedExpr = null
 
     def compatibleTypes(t1: Type, t2: Type): Boolean = t1.isSubtypeOf(t2) || t2.isSubtypeOf(t1)
@@ -381,10 +381,10 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
       staticExpr.namedFilter(expr => compatibleTypes(fluent.typ, expr.typ), "has-compatible-type")
 
     /** Reads an identifier or construct a default one otherwise */
-    val assertionId: Parser[String] =
+    val assertionId: Parser[Id] =
       (freeIdent ~ ":" ~/ Pass).?.map {
-        case Some(id) => id
-        case None     => defaultId()
+        case Some(id) => Id(ctx.scope, id)
+        case None     => ctx.scope.makeNewId()
       }
 
     assertionId.sideEffect(id = _).silent ~
@@ -449,9 +449,9 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
 
     (instanceKW ~/ declaredType ~/ distinctFreeIdents(Nil, ",", ";"))
       .map {
-        case (typ, instanceNames) => instanceNames.map(name => new Instance(ctx.id(name), typ))
+        case (typ, instanceNames) => instanceNames.map(name => Instance(ctx.id(name), typ))
       }
-  }.map(instances => instances.map(new InstanceDeclaration(_)))
+  }.map(instances => instances.map(InstanceDeclaration))
 
   /** Parser that to read the kind and type of a function declaration. For instance:
     * "fluent T", "constant T", "function T", "variable T", "predicate" where T is a type already declared.
@@ -475,16 +475,16 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
     (functionKindAndType ~ freeIdent ~ argList ~ ";")
       .map {
         case ("fluent", typ, svName, args) =>
-          new FluentTemplate(ctx.id(svName), typ, args.map {
-            case (name, argType) => new Arg(new Id(ctx.scope + svName, name), argType)
+          FluentTemplate(ctx.id(svName), typ, args.map {
+            case (name, argType) => Arg(Id(ctx.scope + svName, name), argType)
           })
         case ("constant", typ, svName, args) =>
-          new ConstantTemplate(ctx.id(svName), typ, args.map {
-            case (name, argType) => new Arg(new Id(ctx.scope + svName, name), argType)
+          ConstantTemplate(ctx.id(svName), typ, args.map {
+            case (name, argType) => Arg(Id(ctx.scope + svName, name), argType)
           })
         case _ => sys.error("Match failed")
       }
-      .map(new FunctionDeclaration(_))
+      .map(FunctionDeclaration(_))
   }
 
   /** Extract the functions declared in a type. This consumes the whole type declaration.
@@ -555,7 +555,7 @@ class AnmlActionParser(superParser: AnmlModuleParser)(implicit predef: Predef)
       case m: Model => m
       case _        => sys.error("Starting to parse an action while the context is not a model.")
     }
-    val emptyAct = new ActionTemplate(actionName, container)
+    val emptyAct = ActionTemplate(ctx.scope / actionName, container)
     emptyAct +
       LocalVarDeclaration(Timepoint(Id(emptyAct.scope, "start"))) +
       LocalVarDeclaration(Timepoint(Id(emptyAct.scope, "end")))

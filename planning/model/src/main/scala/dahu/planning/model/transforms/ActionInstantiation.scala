@@ -95,7 +95,10 @@ object ActionInstantiation {
         case RootScope                => RootScope
         case InnerScope(s, name)      => transScope(s) + name
       }
-      x match { case Id(s, name) => Id(transScope(s), name) }
+      x match {
+        case Id(s, name) => Id(transScope(s), name)
+        case x: Anonymous => new Anonymous(transScope(x.scope))
+      }
     }
 
     val instanceContent = template.content.map(s => implicits.ofBlock.map(s, trans))

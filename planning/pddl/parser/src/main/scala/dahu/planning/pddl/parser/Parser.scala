@@ -5,6 +5,7 @@ import java.io.File
 import dahu.planning.model.core.CoreModel
 import dahu.planning.model.full.Model
 import dahu.planning.model.transforms.FullToCore
+import dahu.planning.pddl.parser.optim.ActionRewrite
 
 import scala.util.Try
 
@@ -24,7 +25,10 @@ class Parser(opt: Options) {
 
   def parse(domain: File, problem: File): Try[CoreModel] = {
     parseToFull(domain, problem).flatMap { m =>
-      Try(FullToCore.trans(m))
+      Try {
+        val opt = ActionRewrite.optimize(m)
+        FullToCore.trans(opt)
+      }
     }
   }
 

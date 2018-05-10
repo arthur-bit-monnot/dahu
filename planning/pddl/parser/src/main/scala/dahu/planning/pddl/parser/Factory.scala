@@ -31,8 +31,6 @@ abstract class Factory { self =>
         unexpected(s"unknown variable: $name")
     }
 
-    override def nextId(): String = dahu.planning.model.reservedPrefix + next().toString
-
     def getTranslator(name: String): FunctionCompat = self.getTranslator(name)
 
     override def predef: PddlPredef = self.predef
@@ -136,9 +134,7 @@ class ModelFactory(val predef: PddlPredef) extends Factory {
 
     dom.getDerivesPredicates.asScala.foreach(_ => ???)
     dom.getOperators.asScala.foreach { op =>
-      val fact = new ActionFactory(op.getName.getImage, resolver, model)
-      fact.loadOp(op)
-      rec(fact.result)
+      rec(ActionFactory.build(op, resolver, model))
     }
   }
 

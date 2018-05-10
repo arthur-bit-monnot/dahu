@@ -50,7 +50,7 @@ class DefaultPredicate(pddl: NamedTypedList, top: Resolver) extends FunctionComp
         Fluent(model, args.map(local.variable)),
         local.predef.True,
         Some(local.ctx),
-        local.nextId()
+        local.scope.makeNewId()
       )
     case _ => unexpected
   }
@@ -61,14 +61,14 @@ class DefaultPredicate(pddl: NamedTypedList, top: Resolver) extends FunctionComp
         fluent(fun, args, local),
         local.predef.True,
         Some(local.ctx),
-        local.nextId()
+        local.scope.makeNewId()
       )
     case ast.Not(ast.Fluent(fun, args)) =>
       TimedAssignmentAssertion(
         fluent(fun, args, local),
         predef.False,
         Some(local.ctx),
-        local.nextId()
+        local.scope.makeNewId()
       )
     case _ => unexpected
   }
@@ -96,7 +96,7 @@ class DefaultFunction(pddl: NamedTypedList, top: Resolver) extends FunctionCompa
         fluent(funName, args, local),
         rhs,
         Some(local.ctx),
-        local.nextId()
+        local.scope.makeNewId()
       )
     case _ => unexpected
   }
@@ -107,7 +107,7 @@ class DefaultFunction(pddl: NamedTypedList, top: Resolver) extends FunctionCompa
         fluent(funName, args, local),
         rhs,
         Some(local.ctx),
-        local.nextId()
+        local.scope.makeNewId()
       )
     case _ => unexpected
   }
