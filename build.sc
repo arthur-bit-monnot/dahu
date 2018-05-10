@@ -61,6 +61,7 @@ object deps {
   val scopt = ivy"com.github.scopt::scopt:3.7.0"
   val debox = ivy"org.spire-math::debox:0.8.0"
   val pddl4j = ivy"fr.uga:pddl4j:3.6.0"
+  val ammoniteOps = ivy"com.lihaoyi::ammonite-ops:1.1.0"
 
   val utest = ivy"com.lihaoyi::utest:0.6.4"
   val scalatest = ivy"org.scalatest::scalatest:3.0.5"
@@ -113,7 +114,7 @@ object planning extends EmptyModule {
     }
     object planner extends Module {
       def moduleDeps = Seq(planning.pddl.parser, planning.planner)
-      def ivyDeps = Agg(scopt)
+      def ivyDeps = Agg(scopt, ammoniteOps)
       def mainClass = Some("dahu.planning.pddl.planner.Main")
     }
   }

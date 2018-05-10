@@ -188,7 +188,8 @@ lazy val pddlPlanner = project
   )
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.scopt" %% "scopt" % "3.7.0"
+      "com.github.scopt" %% "scopt" % "3.7.0",
+      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
     ))
 
 resolvers += Resolver.sonatypeRepo("releases")
