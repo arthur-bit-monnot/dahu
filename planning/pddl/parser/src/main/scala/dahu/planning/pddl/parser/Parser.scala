@@ -2,12 +2,13 @@ package dahu.planning.pddl.parser
 
 import java.io.File
 
+import com.sun.net.httpserver.Authenticator.Failure
 import dahu.planning.model.core.CoreModel
 import dahu.planning.model.full.Model
 import dahu.planning.model.transforms.FullToCore
 import dahu.planning.pddl.parser.optim.ActionRewrite
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class Parser(opt: Options) {
 
@@ -25,11 +26,10 @@ class Parser(opt: Options) {
 
   def parse(domain: File, problem: File): Try[CoreModel] = {
     parseToFull(domain, problem).flatMap { m =>
-      Try {
-        val opt = ActionRewrite.optimize(m)
-        FullToCore.trans(opt)
-      }
+      if(opt.optimize)
+        new ActionRewrite(opt).optimize(m).map(FullToCore.trans(_))
+      else
+        Try(FullToCore.trans(m))
     }
   }
-
 }

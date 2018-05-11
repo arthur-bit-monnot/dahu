@@ -9,7 +9,14 @@ import dahu.utils.Vec
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-case class Config(problemFile: File = null,
+sealed trait Mode
+object Mode {
+  case object Planner extends Mode
+  case object Linter extends Mode
+
+}
+case class Config(mode: Mode = Mode.Planner,
+                  problemFile: File = null,
                   domainFile: Option[File] = None,
                   minInstances: Int = 0,
                   maxInstances: Int = 500,
@@ -36,13 +43,15 @@ object Main extends App {
     opt[Int]("discretization")
       .action((i, c) => c.copy(discretization = i))
 
-    arg[File]("XXX.dom.pddl").optional().action {
-      case (f, c) => c.copy(domainFile = Some(f))
+    arg[File]("[XXX.dom.pddl] XXX.YY.pb.pddl").minOccurs(1).maxOccurs(2).action {
+      case (f, cfg) if cfg.problemFile == null => cfg.copy(problemFile = f)
+      case (f, cfg)                            => cfg.copy(domainFile = Some(cfg.problemFile), problemFile = f)
     }
 
-    arg[File]("XXXX.YY.pb.pddl").action {
-      case (f, cfg)      => cfg.copy(problemFile = f)
-    }
+    cmd("lint")
+      .text("Analyzes the domain and problem for common problems and possible optimizations.")
+      .action((_, cfg) => cfg.copy(mode = Mode.Linter))
+
   }
 
   optionsParser.parse(args, Config()) match {
@@ -59,8 +68,20 @@ object Main extends App {
               sys.exit(1)
           }
       }
-      solve(dom, pb, cfg)
+      cfg.mode match {
+        case Mode.Planner => solve(dom, pb, cfg)
+        case Mode.Linter  => lint(dom, pb, cfg)
+      }
+
     case None => sys.exit(1)
+  }
+
+  def lint(domain: File, problem: File, cfg: Config): Unit = {
+    val pddlOptions = Options(discretization = cfg.discretization, lint = true)
+    val parser = new Parser(pddlOptions)
+    implicit val predef: PddlPredef = parser.predef
+
+    parser.parse(domain, problem)
   }
 
   type Plan = String

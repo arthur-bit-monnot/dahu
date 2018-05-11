@@ -47,7 +47,10 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
         rec(
           TemporallyQualifiedAssertion(
             Equals(ClosedInterval(start, start)),
-            TimedEqualAssertion(resolver.getTranslator(f).fluent(f, args, resolver), duration, Some(context), model.scope.makeNewId())
+            TimedEqualAssertion(resolver.getTranslator(f).fluent(f, args, resolver),
+                                duration,
+                                Some(context),
+                                model.scope.makeNewId())
           )
         )
       case x =>
@@ -67,15 +70,15 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
   }
   def assertions(conds: Exp, effs: Exp): Seq[Ass] = {
     def getPre(pre: Exp): Seq[Ass] = pre match {
-      case ast.And(subs) => subs.flatMap(getPre)
+      case ast.And(subs)  => subs.flatMap(getPre)
       case ast.AtStart(e) => Ass(TQual.Start, asCondAss(e)) :: Nil
-      case ast.AtEnd(e) => Ass(TQual.End, asCondAss(e)) :: Nil
+      case ast.AtEnd(e)   => Ass(TQual.End, asCondAss(e)) :: Nil
       case ast.OverAll(e) => Ass(TQual.All, asCondAss(e)) :: Nil
     }
     def getEff(pre: Exp): Seq[Ass] = pre match {
-      case ast.And(subs) => subs.flatMap(getEff)
+      case ast.And(subs)  => subs.flatMap(getEff)
       case ast.AtStart(e) => Ass(TQual.Start, asEffectAss(e)) :: Nil
-      case ast.AtEnd(e) => Ass(TQual.End, asEffectAss(e)) :: Nil
+      case ast.AtEnd(e)   => Ass(TQual.End, asEffectAss(e)) :: Nil
       case ast.OverAll(e) => Ass(TQual.All, asEffectAss(e)) :: Nil
     }
     getPre(conds) ++ getEff(effs)
@@ -87,9 +90,7 @@ object ActionFactory {
   def build(op: Op, resolver: Resolver, model: Model): ActionTemplate = {
     implicit val predef: PddlPredef = resolver.predef
     val pre = preProcess(op, resolver, model)
-    val optimizedAssertions = linter(pre.assertions)
-
-    postProcess(pre.copy(assertions = optimizedAssertions))
+    postProcess(pre)
   }
 
   def preProcess(op: Op, resolver: Resolver, model: Model): IntermediateAction = {
@@ -114,7 +115,8 @@ object ActionFactory {
       case Ass(All, e: TimedEqualAssertion) =>
         add(Equals(ClosedInterval(start, end)), e)
       case Ass(Start, e: TimedAssignmentAssertion) =>
-        add(Equals(LeftOpenInterval(start, BinaryExprTree(operators.Add, start, predef.Epsilon))), e)
+        add(Equals(LeftOpenInterval(start, BinaryExprTree(operators.Add, start, predef.Epsilon))),
+            e)
       case Ass(End, e: TimedAssignmentAssertion) =>
         add(Equals(LeftOpenInterval(end, BinaryExprTree(operators.Add, end, predef.Epsilon))), e)
       case _ => unexpected
@@ -126,20 +128,6 @@ object ActionFactory {
   case class Val(t: TQual, v: StaticExpr)
   case class Reqs(fluent: TimedExpr, cond: Seq[Val], effs: Seq[Val]) {
     override def toString: String = s"$fluent\n  ${cond.mkString("  ")}\n  ${effs.mkString("  ")}"
-  }
-  val linter: PASS = asss => {
-    val reqs = asss.groupBy(_.ass.fluent).map {
-      case (fluent, s) =>
-        val (conds, effs) = s.foldLeft((List[Val](), List[Val]())) {
-          case ((cs, es), Ass(t, TimedEqualAssertion(_, v, _, _))) => (Val(t, v) :: cs, es)
-          case ((cs, es), Ass(t, TimedAssignmentAssertion(_, v, _, _))) => (cs, Val(t, v) :: es)
-          case _ => unexpected
-        }
-        Reqs(fluent, conds, effs)
-    }
-    println(    )
-    reqs.foreach(println)
-    asss
   }
 
 }
@@ -153,5 +141,7 @@ object TQual {
 
 case class Ass(qual: TQual, ass: TimedAssertion)
 
-
-case class IntermediateAction(base: ActionTemplate, start: LocalVar, end: LocalVar, assertions: Seq[Ass])
+case class IntermediateAction(base: ActionTemplate,
+                              start: LocalVar,
+                              end: LocalVar,
+                              assertions: Seq[Ass])

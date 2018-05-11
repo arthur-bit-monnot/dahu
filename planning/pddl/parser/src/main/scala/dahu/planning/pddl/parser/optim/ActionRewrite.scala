@@ -1,19 +1,18 @@
 package dahu.planning.pddl.parser.optim
 
+import dahu.planning.model.common.Interval.OpenOnRight
 import dahu.planning.model.common._
 import dahu.planning.model.full._
-import dahu.planning.pddl.parser.PddlPredef
+import dahu.planning.pddl.parser.{Options, PddlPredef}
 import spire.syntax.cfor
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.util.Try
 
-trait ModelOptimizer {
-  def optimize(model: Model): Model
-}
-
-object ActionRewrite extends ModelOptimizer {
-  override def optimize(model: Model): Model = {
+class ActionRewrite(options: Options) {
+  def optimize(model: Model)(implicit predef: Predef): Try[Model] = Try {
+    implicit val ctx: Ctx = model
     val f: InModuleBlock => InModuleBlock = {
       case e: ActionTemplate => opt(e)
       case x                 => x
@@ -21,43 +20,84 @@ object ActionRewrite extends ModelOptimizer {
     model.map(f)
   }
 
-  def opt(a: ActionTemplate): ActionTemplate = {
-    def println(str: Any): Unit = Predef.println(str.toString.replaceAll(a.name + ".", ""))
-    println(a)
+  def opt(a: ActionTemplate)(implicit predef: Predef, ctx: Ctx): ActionTemplate = {
+    def println(str: Any): Unit = Predef.println(str.toString.replaceAll(a.name + "\\.", ""))
     val timelines = a.store.blocks
       .collect { case x: TemporallyQualifiedAssertion => x }
       .map(assertionToTimeline)
       .sortBy(_.toString)
 
-    val regrouped = regroup(timelines).sortBy(_.toString)
-    timelines.foreach(println)
-    println("  ============  ")
-    regrouped.foreach(println)
-    println("")
+    if(options.lint) {
+      val regrouped = regroup(timelines).sortBy(_.toString)
+//      timelines.foreach(println)
+//      println("  ============  ")
+      regrouped.foreach(println)
+      println("")
+      regrouped.map(encode).foreach(x => println(x.mkString("     ------     ")))
+      println("")
+    }
 //    println(xx)
     a
   }
-  private def tqa(itv: Interval[StaticExpr], assertion: TimedAssertion): TemporallyQualifiedAssertion =
+
+  def removeDiscontinuitiesUnsafe(timelines: Seq[Timeline],
+                                  start: StaticExpr,
+                                  end: StaticExpr): Seq[Timeline] = {
+    val ordering: (StaticExpr, StaticExpr) => PartialOrdering = {
+      case (l, r) if l == start && r == end => After
+      case (l, r) if r == start && l == end => Before
+      case _                                => Unordered
+    }
+    timelines.groupBy(_.fluent).values.toSeq.map {
+      case Seq(tl) => tl
+      case Seq(tl1, tl2) =>
+        tl1.order(tl2, ordering) match {
+          case After     => ???
+          case Before    => ???
+          case Unordered => ???
+        }
+    }
+  }
+
+  private def tqa(itv: Interval[StaticExpr],
+                  assertion: TimedAssertion): TemporallyQualifiedAssertion =
     TemporallyQualifiedAssertion(Equals(itv), assertion)
 
-  def encode(tl: Timeline)(implicit predef: Predef): Seq[TemporallyQualifiedAssertion] = {
+  def encode(tl: Timeline)(implicit predef: Predef, ctx: Ctx): Seq[TemporallyQualifiedAssertion] = {
     val fluent = tl.fluent
-    def go(toks: List[TToken]): List[TemporallyQualifiedAssertion] = toks match {
-      case TToken(itv, Is(v)) :: rest =>
-        tqa(itv, TimedEqualAssertion(tl.fluent, v, null, null)) :: go(rest)
+    def id(): Id = ctx.scope.makeNewId()
+    def go(toks: List[Token]): List[TemporallyQualifiedAssertion] = toks match {
+
+      case Is(Point(a), from) :: Undef(_) :: Becomes(b, to) :: rest =>
+        tqa(
+          ClosedInterval(a, b),
+          TimedTransitionAssertion(fluent, from, to, Some(ctx), id())
+        ) :: go(rest)
+
+      case Undef(itv) :: Becomes(a, v) :: rest =>
+        if(itv.isLeftOpen)
+          tqa(LeftOpenInterval(itv.start, a),
+              TimedAssignmentAssertion(tl.fluent, v, Some(ctx), id())) :: go(rest)
+        else
+          tqa(ClosedInterval(itv.start, a), TimedAssignmentAssertion(tl.fluent, v, Some(ctx), id())) :: go(
+            rest)
+      case Becomes(a, v) :: rest =>
+        tqa(Point(a), TimedAssignmentAssertion(tl.fluent, v, Some(ctx), id())) :: go(rest)
+      case Is(itv, v) :: rest =>
+        tqa(itv, TimedEqualAssertion(tl.fluent, v, Some(ctx), id())) :: go(rest)
+      case Nil => Nil
     }
     go(tl.toks.toList)
   }
 
-  @tailrec def regroup(timelines: Seq[Timeline]): Seq[Timeline] = {
+  @tailrec private def regroup(timelines: Seq[Timeline]): Seq[Timeline] = {
     val processed = mutable.Set[Timeline]()
     val res = mutable.ArrayBuffer[Timeline]()
     for(tl <- timelines; cand <- timelines) {
-      if(tl == cand || processed(tl) || processed(cand)) {
-
-      } else {
+      if(tl == cand || processed(tl) || processed(cand)) {} else {
         tl.tryMerge(cand) match {
-          case Some(combined) => res += combined
+          case Some(combined) =>
+            res += combined
             processed += tl
             processed += cand
           case None =>
@@ -74,25 +114,28 @@ object ActionRewrite extends ModelOptimizer {
 
   def assertionToTimeline(e: TemporallyQualifiedAssertion): Timeline = e match {
     case TemporallyQualifiedAssertion(Equals(itv), TimedEqualAssertion(f, v, _, _)) =>
-      Timeline(f, TToken(itv, Is(v)))
+      Timeline(f, Is(itv, v))
 
     case TemporallyQualifiedAssertion(Equals(itv), TimedAssignmentAssertion(f, v, _, _)) =>
       itv match {
-        case Point(t) => Timeline(f, TToken(Point(t), Becomes(v)))
-        case ClosedInterval(s, e) => Timeline(f, TToken(RightOpenInterval(s,e), Undef), TToken(Point(e), Becomes(v)))
-        case LeftOpenInterval(s, e) => Timeline(f, TToken(OpenInterval(s,e), Undef), TToken(Point(e), Becomes(v)))
+        case Point(t) => Timeline(f, Becomes(t, v))
+        case ClosedInterval(s, e) =>
+          Timeline(f, Undef(RightOpenInterval(s, e)), Becomes(e, v))
+        case LeftOpenInterval(s, e) =>
+          Timeline(f, Undef(OpenInterval(s, e)), Becomes(e, v))
         case _ => ???
       }
 
     case TemporallyQualifiedAssertion(Equals(itv), TimedTransitionAssertion(f, from, to, _, _)) =>
       itv match {
         case Point(_) => ???
-        case ClosedInterval(s, e) => Timeline(
-          f,
-          TToken(Point(s), Is(from)),
-          TToken(OpenInterval(s, e), Undef),
-          TToken(Point(e), Becomes(to))
-        )
+        case ClosedInterval(s, e) =>
+          Timeline(
+            f,
+            Is(Point(s), from),
+            Undef(OpenInterval(s, e)),
+            Becomes(e, to)
+          )
         case _ => ???
       }
 
@@ -100,28 +143,30 @@ object ActionRewrite extends ModelOptimizer {
 }
 
 object Point {
-  def apply[A](a: A): Interval[A] = ClosedInterval(a,a)
+  def apply[A](a: A): Interval[A] = ClosedInterval(a, a)
   def unapply[A](arg: Interval[A]): Option[A] = arg match {
     case ClosedInterval(a, b) if a == b => Some(a)
-    case _ => None
+    case _                              => None
   }
 }
 
-sealed trait Token
-case object Undef extends Token
-case class Becomes(v: StaticExpr) extends Token
-case class Is(v: StaticExpr) extends Token
+sealed trait AfterIs
+sealed trait Token {
+  def itv: Interval[StaticExpr]
+  def rightBefore(next: Token): Boolean =
+    itv.end == next.itv.start && itv.isRightOpen != next.itv.isLeftOpen
 
-case class TToken(itv: Interval[StaticExpr], tok: Token) {
-  def rightBefore(next: TToken): Boolean = itv.end == next.itv.start && itv.isRightOpen != next.itv.isLeftOpen
-
-  override def toString: String = s"$itv $tok"
 }
+case class Undef(itv: Interval[StaticExpr] with OpenOnRight) extends Token with AfterIs
+case class Becomes(at: StaticExpr, v: StaticExpr) extends Token with AfterIs {
+  def itv: Interval[StaticExpr] = Point(at)
+}
+case class Is(itv: Interval[StaticExpr], v: StaticExpr) extends Token
 
-class Timeline(val fluent: TimedExpr, val toks: Seq[TToken]) {
+class Timeline(val fluent: TimedExpr, val toks: Seq[Token]) {
   // timeline must be continuous
   require(toks.nonEmpty)
-  require((1 until toks.size).forall(i => toks(i-1).rightBefore(toks(i))))
+  require((1 until toks.size).forall(i => toks(i - 1).rightBefore(toks(i))))
 
   override def toString: String = s"$fluent:    ${toks.mkString("  --  ")}"
 
@@ -151,8 +196,8 @@ class Timeline(val fluent: TimedExpr, val toks: Seq[TToken]) {
   }
 }
 object Timeline {
-  def apply(fluent: TimedExpr, toks: TToken*): Timeline = new Timeline(fluent, toks.toVector)
-  def unapply(tl: Timeline): Option[(TimedExpr, Seq[TToken])] = Some((tl.fluent, tl.toks))
+  def apply(fluent: TimedExpr, toks: Token*): Timeline = new Timeline(fluent, toks.toVector)
+  def unapply(tl: Timeline): Option[(TimedExpr, Seq[Token])] = Some((tl.fluent, tl.toks))
 }
 
 sealed trait PartialOrdering
@@ -161,4 +206,3 @@ case object RightBefore extends PartialOrdering
 case object Unordered extends PartialOrdering
 case object After extends PartialOrdering
 case object Before extends PartialOrdering
-
