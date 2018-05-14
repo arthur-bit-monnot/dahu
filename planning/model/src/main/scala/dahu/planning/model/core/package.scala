@@ -7,8 +7,8 @@ package object core {
   type CoreModel = Seq[InModuleBlock]
 
   sealed trait Block
-  sealed trait InModuleBlock
-  sealed trait InActionBlock
+  sealed trait InModuleBlock extends Block
+  sealed trait InActionBlock extends Block
   sealed trait Statement extends InModuleBlock with InActionBlock
 
   sealed trait Declaration[T] {
