@@ -2,6 +2,7 @@ package dahu.planning.pddl.planner
 
 import java.io.File
 
+import dahu.planning.model.core.ActionTemplate
 import dahu.planning.pddl.parser._
 import dahu.planning.planner._
 import dahu.utils.Vec
@@ -81,7 +82,17 @@ object Main extends App {
     val parser = new Parser(pddlOptions)
     implicit val predef: PddlPredef = parser.predef
 
-    parser.parse(domain, problem)
+    parser.parse(domain, problem) match {
+      case Success(x) =>
+        x.foreach {
+          case a @ ActionTemplate(_, content) =>
+            println()
+            println(a)
+            content.distinct.foreach(x => println("  " + x))
+          case _ =>
+        }
+      case Failure(e) => throw e
+    }
   }
 
   type Plan = String

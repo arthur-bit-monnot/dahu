@@ -103,7 +103,7 @@ class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Partia
     assert(model == null, "Z3 only support extraction of a single solution")
 
     deadline match {
-      case Some(dl) if dl.isOverdue => return None // deadline passed, to not attempt to solve
+      case Some(dl) if dl.isOverdue => return None // deadline passed, do not attempt to solve
       case Some(t) =>
         val params = ctx.mkParams()
         params.add("timeout", t.timeLeft.toMillis.toInt)

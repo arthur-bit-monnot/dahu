@@ -26,10 +26,11 @@ class Parser(opt: Options) {
 
   def parse(domain: File, problem: File): Try[CoreModel] = {
     parseToFull(domain, problem).flatMap { m =>
+      val coreM = FullToCore.trans(m)
       if(opt.optimize)
-        new ActionRewrite(opt).optimize(m).map(FullToCore.trans(_))
+        new ActionRewrite(opt).optimize(coreM)
       else
-        Try(FullToCore.trans(m))
+        Success(coreM)
     }
   }
 }

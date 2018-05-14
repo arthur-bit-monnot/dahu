@@ -67,6 +67,7 @@ object debug {
 
   }
 
+  @inline final def error(msg: => String): Unit = println("error: " + msg)
   @inline final def warning(msg: => String): Unit = if(LOG_LEVEL >= 1) println("warning: " + msg)
   @inline final def info(msg: => String): Unit =
     if(LOG_LEVEL >= 3) {

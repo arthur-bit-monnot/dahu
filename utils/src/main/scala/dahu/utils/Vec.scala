@@ -155,7 +155,7 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     val n = j - i
     val arr = new Array[A](n)
     System.arraycopy(elems, i, arr, 0, n)
-    new Vec(arr)
+    Vec.unsafe(arr)
   }
 
   /**
@@ -173,7 +173,7 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
       i += 1
       j -= 1
     }
-    new Vec(arr)
+    Vec.unsafe(arr)
   }
 
   /**

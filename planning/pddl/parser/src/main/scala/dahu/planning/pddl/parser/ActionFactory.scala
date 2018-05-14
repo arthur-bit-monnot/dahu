@@ -105,21 +105,49 @@ object ActionFactory {
     def add(t: TemporalQualifier, e: TimedAssertion): Unit = {
       mod = mod + TemporallyQualifiedAssertion(t, e)
     }
+    def regroup(qual: TQual, cond: TimedEqualAssertion, eff: TimedAssignmentAssertion): Ass = {
+      assert(cond.fluent == eff.fluent)
+      Ass(qual,
+          TimedTransitionAssertion(cond.fluent,
+                                   cond.right,
+                                   eff.to,
+                                   Some(act.base),
+                                   act.base.scope.makeNewId()))
+    }
+
+    val merged: Iterable[Ass] = act.assertions
+      .groupBy(a => (a.qual, a.ass.fluent))
+      .values
+      .map(_.toList)
+      .map({
+        case e :: Nil => e
+        case Ass(t, cond: TimedEqualAssertion) :: Ass(t2, eff: TimedAssignmentAssertion) :: Nil =>
+          assert(t == t2 && cond.fluent == eff.fluent)
+          regroup(t, cond, eff)
+        case Ass(t2, eff: TimedAssignmentAssertion) :: Ass(t, cond: TimedEqualAssertion) :: Nil =>
+          assert(t == t2 && cond.fluent == eff.fluent)
+          regroup(t, cond, eff)
+      })
+
+    val afterStart = BinaryExprTree(operators.Add, start, predef.Epsilon)
+    val afterEnd = BinaryExprTree(operators.Add, end, predef.Epsilon)
 
     import TQual._
-    for(ass <- act.assertions) ass match {
+    for(ass <- merged) ass match {
       case Ass(Start, e: TimedEqualAssertion) =>
-        add(Equals(ClosedInterval(start, start)), e)
+        add(Equals(ClosedInterval(start, afterStart)), e)
       case Ass(End, e: TimedEqualAssertion) =>
-        add(Equals(ClosedInterval(end, end)), e)
+        add(Equals(ClosedInterval(end, afterEnd)), e)
       case Ass(All, e: TimedEqualAssertion) =>
-        add(Equals(ClosedInterval(start, end)), e)
+        add(Equals(ClosedInterval(start, end)), e) //TODO: probably does not match pddl semantics
       case Ass(Start, e: TimedAssignmentAssertion) =>
-        add(Equals(LeftOpenInterval(start, BinaryExprTree(operators.Add, start, predef.Epsilon))),
-            e)
+        add(Equals(LeftOpenInterval(start, afterStart)), e)
       case Ass(End, e: TimedAssignmentAssertion) =>
-        add(Equals(LeftOpenInterval(end, BinaryExprTree(operators.Add, end, predef.Epsilon))), e)
-      case _ => unexpected
+        add(Equals(LeftOpenInterval(end, afterEnd)), e)
+      case Ass(Start, e: TimedTransitionAssertion) =>
+        add(Equals(ClosedInterval(start, afterStart)), e)
+      case Ass(End, e: TimedTransitionAssertion) =>
+        add(Equals(ClosedInterval(end, afterEnd)), e)
     }
     mod
   }
