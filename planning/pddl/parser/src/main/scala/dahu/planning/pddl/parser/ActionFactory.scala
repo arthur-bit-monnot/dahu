@@ -3,12 +3,9 @@ package dahu.planning.pddl.parser
 import dahu.planning.model.common._
 import dahu.planning.model.full._
 import Utils._
-import dahu.planning.pddl.parser.TQual.Start
-import dahu.utils.errors._
 import fr.uga.pddl4j.parser.{Exp, Op}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 class ActionFactory(actionName: String, parent: Resolver, model: Model) extends Factory {
   implicit def predef = parent.predef
@@ -53,10 +50,19 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
                                 model.scope.makeNewId())
           )
         )
-      case x =>
-        unexpected(x.toString)
+      case None =>
+        rec(
+          BooleanAssertion(BinaryExprTree(operators.Eq, duration, IntLiteral(0)))
+        )
     }
-    val ass = assertions(op.getPreconditions, op.getEffects)
+    val ass =
+      Option(op.getDuration) match {
+        case Some(_) =>
+          assertionsInDurative(op.getPreconditions, op.getEffects)
+        case None =>
+          assertionsInInstantaneous(op.getPreconditions, op.getEffects)
+      }
+
     IntermediateAction(context, start, end, ass)
   }
 
@@ -68,7 +74,7 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
     case ast.AssertionOnFunction(funcName) =>
       resolver.getTranslator(funcName).condition(e, resolver)
   }
-  def assertions(conds: Exp, effs: Exp): Seq[Ass] = {
+  def assertionsInDurative(conds: Exp, effs: Exp): Seq[Ass] = {
     def getPre(pre: Exp): Seq[Ass] = pre match {
       case ast.And(subs)  => subs.flatMap(getPre)
       case ast.AtStart(e) => Ass(TQual.Start, asCondAss(e)) :: Nil
@@ -80,6 +86,17 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
       case ast.AtStart(e) => Ass(TQual.Start, asEffectAss(e)) :: Nil
       case ast.AtEnd(e)   => Ass(TQual.End, asEffectAss(e)) :: Nil
       case ast.OverAll(e) => Ass(TQual.All, asEffectAss(e)) :: Nil
+    }
+    getPre(conds) ++ getEff(effs)
+  }
+  def assertionsInInstantaneous(conds: Exp, effs: Exp): Seq[Ass] = {
+    def getPre(pre: Exp): Seq[Ass] = pre match {
+      case ast.And(subs) => subs.flatMap(getPre)
+      case e             => Ass(TQual.Start, asCondAss(e)) :: Nil
+    }
+    def getEff(pre: Exp): Seq[Ass] = pre match {
+      case ast.And(subs) => subs.flatMap(getEff)
+      case e             => Ass(TQual.Start, asEffectAss(e)) :: Nil
     }
     getPre(conds) ++ getEff(effs)
   }
