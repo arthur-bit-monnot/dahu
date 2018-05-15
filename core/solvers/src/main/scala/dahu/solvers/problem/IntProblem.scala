@@ -5,7 +5,7 @@ import dahu.constraints.domains.{IntDomain, IntervalDomain}
 import dahu.constraints._
 import dahu.model.types._
 import dahu.constraints.domains._
-import dahu.maps.{ArrayMap, IMapBuilder, SubInt, SubSubInt}
+import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.ir._
 import dahu.utils.errors._

@@ -3,7 +3,7 @@ package dahu.z3
 import com.microsoft.z3._
 import dahu.model.ir._
 import dahu.model.problem.{IntBoolSatisfactionProblem, TreeNode}
-import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree}
+import dahu.model.problem.{IlazyForest, LazyTree}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.SFunctor
@@ -15,7 +15,7 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G] => G)(
+class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: IlazyForest[X, F, Opt], f: F[G] => G)(
     implicit F: SFunctor[F],
     T: TreeNode[F]) {
   private val memo = mutable.HashMap[t.ID, G]()
@@ -29,7 +29,7 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G]
     push(k)
     while(stack.nonEmpty) {
       val a = stack.pop()
-      val fa = t.getInt(a)
+      val fa = t.internalCoalgebra(a)
       if(T.children(fa).forall(memo.contains)) {
         val g = f(F.smap(fa)(memo))
         memo += ((a, g))
@@ -42,7 +42,7 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: ILazyTree[X, F, Opt], f: F[G]
   }
 }
 
-class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends PartialSolver[X](_ast) {
+class Z3PartialSolver[X](_ast: LazyTree[X, Total, cats.Id]) extends PartialSolver[X](_ast) {
   trait Tag
 
   val intBoolPb = new IntBoolSatisfactionProblem[X](ast)
@@ -56,7 +56,7 @@ class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Partia
 
   // Total
   def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
-    tree.getInternalID(id).map(internalID => treeBuilder.build(internalID))
+    tree.getTreeRoot(id).map(internalID => treeBuilder.build(internalID))
   }
   def eval(id: X, model: com.microsoft.z3.Model): Option[Value] = {
     asExpr(id) match {
@@ -126,7 +126,7 @@ class Z3PartialSolver[X](_ast: RootedLazyTree[X, Total, cats.Id]) extends Partia
 object Z3PartialSolver {
 
   object builder extends PartialSolver.Builder {
-    override def apply[X](ast: RootedLazyTree[X, Total, cats.Id]): Z3PartialSolver[X] =
+    override def apply[X](ast: LazyTree[X, Total, cats.Id]): Z3PartialSolver[X] =
       new Z3PartialSolver[X](ast)
   }
 }

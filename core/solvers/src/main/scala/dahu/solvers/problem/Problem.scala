@@ -1,6 +1,6 @@
 package dahu.solvers.problem
 
-import dahu.maps.SubInt
+import dahu.utils._
 import dahu.solvers.Domain
 import dahu.utils.debug._
 

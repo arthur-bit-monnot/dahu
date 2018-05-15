@@ -20,10 +20,10 @@ import scala.reflect.ClassTag
 
 object SatisfactionProblem {
 
-  def satisfactionSubAST(ast: AST[_]): RootedLazyTree[ast.ID, Total, cats.Id] = {
+  def satisfactionSubAST(ast: AST[_]): LazyTree[ast.ID, Total, cats.Id] = {
     encode(ast.root, ast.tree.asFunction)
   }
-  type ID = Int
+
   object Optimizations {
     trait Optimizer {
       self =>
@@ -209,61 +209,6 @@ object SatisfactionProblem {
     }
   }
 
-  trait ILazyTree[K, F[_], Opt[_]] {
-    type ID = Int
-    def getExt(k: K): Opt[F[ID]]
-    def getInternalID(k: K): Opt[ID]
-    def getInt(i: ID): F[ID]
-
-    def map[G[_]](f: F[Int] => G[Int])(implicit fOpt: Functor[Opt]): ILazyTree[K, G, Opt] =
-      new MappedLazyTree(f, this)
-
-    def build(id: ID)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = {
-      Recursion.ana(i => getInt(i))(id)
-    }
-  }
-
-  class MappedLazyTree[K, F[_], G[_], Opt[_]: Functor](f: F[Int] => G[Int],
-                                                       mapped: ILazyTree[K, F, Opt])
-      extends ILazyTree[K, G, Opt] {
-    private val memo = mutable.HashMap[ID, G[ID]]()
-
-    override def getExt(k: K): Opt[G[ID]] = {
-      getInternalID(k).map(getInt)
-    }
-
-    override def getInternalID(k: K): Opt[ID] = mapped.getInternalID(k)
-
-    override def getInt(i: ID): G[ID] = memo.getOrElseUpdate(i, f(mapped.getInt(i)))
-  }
-
-  case class RootedLazyTree[K, F[_], Opt[_]: Functor](root: Int, tree: ILazyTree[K, F, Opt]) {
-    def map[G[_]](f: F[Int] => G[Int]): RootedLazyTree[K, G, Opt] =
-      RootedLazyTree(root, tree.map(f))
-
-    def nodes(implicit tn: TreeNode[F]): Seq[(tree.ID, F[tree.ID])] = {
-      val queue = mutable.Stack[tree.ID]()
-      val visited = mutable.HashSet[tree.ID]()
-      val result = mutable.ArrayBuffer[(tree.ID, F[tree.ID])]()
-      queue.push(root)
-
-      while(queue.nonEmpty) {
-        val cur = queue.pop()
-        val fcur = tree.getInt(cur)
-        if(tn.children(fcur).forall(visited)) {
-          visited += cur
-          result += ((cur, fcur))
-        } else {
-          queue.push(cur)
-          queue.pushAll(tn.children(fcur))
-        }
-      }
-      result.toList
-    }
-
-    def fullTree(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = tree.build(root)
-  }
-
   final class Context(val directRec: Total[ID] => ID, retrieve: ID => Total[ID]) {
     def rec(expr: Total[ID]): ID =
       directRec(Optimizations.optimizer.optim(retrieve, directRec)(expr))
@@ -295,7 +240,7 @@ object SatisfactionProblem {
       if(memo.contains(e))
         memo(e)
       else {
-        val id = repMap.size
+        val id = repMap.size.asInstanceOf[ID]
         repMap += e
         memo += ((e, id))
         id
@@ -386,18 +331,17 @@ object SatisfactionProblem {
     ir
   }
 
-  def encode[@specialized(Int) X](root: X,
-                                  coalgebra: FCoalgebra[ExprF, X],
-                                  optimize: Boolean = true): RootedLazyTree[X, Total, cats.Id] = {
+  def encode[X <: Int](root: X,
+                       coalgebra: FCoalgebra[ExprF, X],
+                       optimize: Boolean = true): LazyTree[X, Total, cats.Id] = {
     val lt = new LazyTreeSpec[X](coalgebra, compiler)
 
-    val totalTrees = new ILazyTree[X, Total, cats.Id] {
-      override def getExt(k: X): Total[ID] = lt.get(lt.get(k).value)
-      override def getInt(i: ID): Total[ID] = lt.get(i)
-      override def getInternalID(k: X): ID = lt.get(k).value
+    val totalTrees = new IlazyForest[X, Total, cats.Id] {
+      override def internalCoalgebra(i: ID): Total[ID] = lt.get(i)
+      override def getTreeRoot(k: X): ID = lt.get(k).value
     }
     val satRoot = lt.get(root).valid
-    RootedLazyTree(satRoot, totalTrees)
+    LazyTree(satRoot, totalTrees)
   }
 
 }

@@ -1,6 +1,6 @@
 package dahu.solvers
 
-import dahu.maps.SubInt
+import dahu.utils._
 import dahu.model.ir.{AST, InputF}
 import dahu.model.problem.SatisfactionProblem
 import dahu.model.types.{TagIsoInt, Value}

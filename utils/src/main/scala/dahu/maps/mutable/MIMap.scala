@@ -1,6 +1,7 @@
 package dahu.maps.mutable
 
 import dahu.maps._
+import dahu.utils._
 import dahu.utils.structures.Default
 
 final class MIMap[@sp V: ClassTag] private[maps] (

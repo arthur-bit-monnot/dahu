@@ -1,6 +1,7 @@
 package dahu.maps.growable
 
-import dahu.maps.{ArrayMap, ClassTag, SharedIMap, SubInt}
+import dahu.utils._
+import dahu.maps.{ArrayMap, ClassTag, SharedIMap}
 
 import scala.{specialized => sp}
 

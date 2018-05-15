@@ -1,5 +1,6 @@
 package dahu.maps
 
+import dahu.utils._
 import dahu.utils.structures._
 
 /** Trait that is shared between mutable and immutable instances. */

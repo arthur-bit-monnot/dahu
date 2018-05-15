@@ -1,5 +1,6 @@
 package dahu.maps
 
+import dahu.utils._
 import dahu.maps.mutable.MArrayMap
 import dahu.utils.structures._
 

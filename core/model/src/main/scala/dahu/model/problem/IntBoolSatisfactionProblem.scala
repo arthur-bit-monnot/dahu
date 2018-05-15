@@ -7,7 +7,6 @@ import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
-import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree}
 import dahu.model.types._
 import dahu.utils.SFunctor
 import dahu.utils.Vec.Vec1
@@ -16,7 +15,7 @@ import dahu.utils.errors._
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) {
+class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
 
   /** Methods and variables in Internal are public so that there is no escape of private types.
     * However they are meant for internal use only are are subject to change. */
@@ -60,8 +59,8 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
                                                  bool.Not)
 
     abstract class LazyTree[K, F[_]: TreeNode: SFunctor, G[_], Opt[_]: Functor](
-        orig: ILazyTree[K, F, Opt])
-        extends ILazyTree[K, G, Opt] {
+        orig: IlazyForest[K, F, Opt])
+        extends IlazyForest[K, G, Opt] {
 
       def g(rec: G[ID] => ID)(prev: ID => G[ID])(node: F[ID]): G[ID]
 
@@ -72,7 +71,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       private val repMap = mutable.ArrayBuffer[G[ID]]() // ID => G[ID]
 
       def rec(ga: G[ID]): ID = {
-        val id = repMap.size
+        val id = repMap.size.asInstanceOf[ID]
         repMap += ga
         id
       }
@@ -88,7 +87,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       }
 
       def get(k: K): Opt[G[ID]] = {
-        orig.getInternalID(k).map(getFromOrigID)
+        orig.getTreeRoot(k).map(getFromOrigID)
       }
 
       def getFromOrigID(origID: orig.ID): G[ID] = {
@@ -102,7 +101,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
         while(queue.nonEmpty) {
           val cur = queue.pop()
           if(!processed(cur)) {
-            val fk = orig.getInt(cur)
+            val fk = orig.internalCoalgebra(cur)
             if(treeNode.children(fk).forall(processed)) {
               val fg: F[ID] = functor.smap(fk)(id => idsMap(id))
               val g: G[ID] = g2(fg)
@@ -117,11 +116,9 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
         repMap(idsMap(origID))
       }
 
-      override def getExt(k: K): Opt[G[ID]] = get(k)
+      override def internalCoalgebra(i: ID): G[ID] = repMap(i)
 
-      override def getInt(i: ID): G[ID] = repMap(i)
-
-      override def getInternalID(k: K): Opt[ID] = getExt(k).map(rec)
+      override def getTreeRoot(k: K): Opt[ID] = getExt(k).map(rec)
     }
 
     private def sup[X](e: CellOpt[X]) = e match {
@@ -203,7 +200,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
       while(stack.nonEmpty) {
         val cur = stack.pop()
         visited += cur
-        lt.getInt(cur) match {
+        lt.internalCoalgebra(cur) match {
           case i @ CompatibleInput(_, tpe) =>
             cs += lt.rec(leq(cst(tpe.min), i))
             cs += lt.rec(leq(i, cst(tpe.max)))
@@ -228,7 +225,7 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
 
     type OptTotal[T] = Option[Total[T]]
 
-    val partialTree = new ILazyTree[X, Total, Option] {
+    val partialTree = new IlazyForest[X, Total, Option] {
       val t = lt.map[OptTotal]({
         case IntermediateExpression(e) => Some(e)
         case CompatibleInput(v, _)     => Some(v)
@@ -237,20 +234,19 @@ class IntBoolSatisfactionProblem[X](val ast: RootedLazyTree[X, Total, cats.Id]) 
         case SupportedConstant(v)      => Some(v)
         case x if x == Unsupported     => None
       })
-      override def getExt(k: X): Option[Total[ID]] = t.getExt(k)
 
-      override def getInternalID(k: X): Option[ID] = getExt(k).map(_ => t.getInternalID(k))
+      override def getTreeRoot(k: X): Option[ID] = getExt(k).map(_ => t.getTreeRoot(k))
 
-      override def getInt(i: ID): Total[ID] = t.getInt(i) match {
+      override def internalCoalgebra(i: ID): Total[ID] = t.internalCoalgebra(i) match {
         case Some(e) => e
         case None    => unexpected
       }
     }
 
-    val tree = RootedLazyTree(root, partialTree)
+    val tree = LazyTree(root, partialTree)
   }
 
-  val tree: RootedLazyTree[X, Total, Option] = Internal.tree
+  val tree: LazyTree[X, Total, Option] = Internal.tree
 //
 //    val coalg: K => Option[Total[K]] = k => {
 //      val res = builder(k) match {

@@ -1,5 +1,6 @@
 package dahu.maps
 
+import dahu.utils._
 import dahu.utils.structures._
 
 class IMapBuilder[@sp A: ClassTag]() {

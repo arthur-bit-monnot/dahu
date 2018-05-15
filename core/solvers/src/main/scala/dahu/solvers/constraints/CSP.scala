@@ -9,7 +9,8 @@ import spire.math.Trilean
 import dahu.utils.structures._
 import dahu.constraints.interval._
 import dahu.maps.mutable.MArrayMap
-import dahu.maps.{ArrayMap, SubInt}
+import dahu.utils._
+import dahu.maps.ArrayMap
 import dahu.model.ir.AST
 import dahu.model.problem.SatisfactionProblem
 import dahu.solvers.problem.{IntCSP, IntProblem}

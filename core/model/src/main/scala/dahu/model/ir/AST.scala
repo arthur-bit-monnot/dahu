@@ -1,6 +1,7 @@
 package dahu.model.ir
 
-import dahu.maps.{ArrayMap, SInt, SubInt, SubSubInt}
+import dahu.utils._
+import dahu.maps.ArrayMap
 import dahu.model.types.Value
 
 trait GenAST[F[_]] {
