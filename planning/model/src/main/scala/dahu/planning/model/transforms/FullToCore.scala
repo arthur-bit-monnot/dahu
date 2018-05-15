@@ -43,11 +43,7 @@ object FullToCore {
       case full.Constant(template, params) =>
         for {
           params <- f2c(params.toList)
-          cst = core.Constant(template, params)
-          variable = LocalVar(ctx.scope.makeNewId(), cst.typ)
-          _ <- CoreM.unit(core.LocalVarDeclaration(variable))
-          _ <- CoreM.unit(core.BindAssertion(cst, variable))
-        } yield variable
+        } yield Constant(template, params)
       case full.BinaryExprTree(op, lhs, rhs) =>
         for {
           l <- f2c(lhs)
@@ -118,8 +114,7 @@ object FullToCore {
       }
       val startEnd: CoreM[Interval[Expr]] =
         qualifier match {
-          case full.Equals(interval)
-              if ctx.config.mergeTimepoints && assertion.id.isAnonymous =>
+          case full.Equals(interval) if ctx.config.mergeTimepoints && assertion.id.isAnonymous =>
             // we are asked to merge timepoints and assertion was not given a name
             // use the timepoints from the interval instead of the one of the assertion
             for {

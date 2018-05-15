@@ -64,11 +64,6 @@ package object core {
     def typ: Type = template.typ
   }
 
-  case class Constant(override val template: ConstantTemplate, override val params: Seq[Expr])
-      extends Function {
-    require(template.params.size == params.size)
-    override def toString: String = s"$template(${params.mkString(", ")})"
-  }
   class BoundConstant(override val template: ConstantTemplate, override val params: Seq[Cst])
       extends Constant(template, params)
 
@@ -90,9 +85,6 @@ package object core {
   final case class StaticAssignmentAssertion(left: BoundConstant, right: Cst)
       extends StaticAssertion {
     override def toString: String = s"$left := $right"
-  }
-  final case class BindAssertion(constant: Constant, variable: LocalVar) extends StaticAssertion {
-    override def toString: String = s"$constant == $variable"
   }
 
   sealed trait TimedAssertion extends Statement {

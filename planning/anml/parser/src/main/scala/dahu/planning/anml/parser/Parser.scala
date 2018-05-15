@@ -8,7 +8,7 @@ import ParserApi.baseApi.Parsed.Success
 import ParserApi.whiteApi._
 import ParserApi.extendedApi._
 import fastparse.core.Parsed.Failure
-import dahu.planning.model.common._
+import dahu.planning.model.common.{Constant => _, _}
 import dahu.planning.model.common.operators.{
   Associativity,
   BinOperatorGroup,

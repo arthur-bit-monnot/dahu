@@ -355,8 +355,8 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     *
     * Creating the Iterable[A] instance is an O(1) operation.
     */
-  def toIterable: Iterable[A] =
-    new Iterable[A] {
+  def toIterable: scala.collection.immutable.Iterable[A] =
+    new scala.collection.immutable.Iterable[A] {
       override def size: Int = lhs.length
       def iterator: Iterator[A] = lhs.iterator
       override def foreach[U](f: A => U): Unit = lhs.foreach(a => f(a))

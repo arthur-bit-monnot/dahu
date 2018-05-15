@@ -1,9 +1,22 @@
 package dahu.core.algebra
 
-trait BoolLike[A] {
+trait GenBoolLike[In, Out] {
+  def and(a: In, B: In): Out
+  def or(a: In, b: In): Out
+  def not(a: In): Out
+  def False: Out
+  def True: Out
+}
+
+trait BoolLike[A] extends GenBoolLike[A, A] {
   def and(a: A, b: A): A
   def or(a: A, b: A): A
   def not(a: A): A
+  def implies(a: A, b: A): A = or(not(a), b)
+  def False: A
+  def True: A
+  def andN(as: A*): A = as.foldLeft(True)((acc, cur) => and(acc, cur))
+  def orN(as: A*): A = as.foldLeft(False)((acc, cur) => or(acc, cur))
 }
 
 object BoolLike {

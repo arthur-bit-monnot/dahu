@@ -81,7 +81,7 @@ object Main extends App {
 
   def lint(domain: File, problem: File, cfg: Config): Unit = {
     val pddlOptions = Options(discretization = cfg.discretization, lint = true)
-    val parser = new Parser(pddlOptions)
+    val parser = new Parser()(pddlOptions)
     implicit val predef: PddlPredef = parser.predef
 
     parser.parse(domain, problem) match {
@@ -104,7 +104,7 @@ object Main extends App {
   type Plan = String
   def solve(domain: File, problem: File, config: Config): Option[Plan] = {
     val pddlOptions = Options(discretization = config.discretization)
-    val parser = new Parser(pddlOptions)
+    val parser = new Parser()(pddlOptions)
 
     implicit val plannerConfig: PlannerConfig =
       PlannerConfig(config.minInstances, config.maxInstances)

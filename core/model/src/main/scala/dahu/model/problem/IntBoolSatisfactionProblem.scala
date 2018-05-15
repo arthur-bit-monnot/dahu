@@ -7,7 +7,7 @@ import dahu.model.functions._
 import dahu.model.input.Anonymous
 import dahu.model.ir._
 import dahu.model.math._
-import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree, TreeNode}
+import dahu.model.problem.SatisfactionProblem.{ILazyTree, RootedLazyTree}
 import dahu.model.types._
 import dahu.utils.SFunctor
 import dahu.utils.Vec.Vec1

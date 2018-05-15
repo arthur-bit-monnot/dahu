@@ -5,6 +5,7 @@ sealed trait Ident
 object Ident {
 
   def apply(ref: AnyRef): Ident = Provided(ref)
+  def anonymous(): Ident = Anonymous.apply()
 
   implicit object ordering extends Ordering[Ident] {
     override def compare(x: Ident, y: Ident): Int = (x, y) match {

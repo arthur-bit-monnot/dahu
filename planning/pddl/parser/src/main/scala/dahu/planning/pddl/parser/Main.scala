@@ -14,7 +14,7 @@ object Main extends App {
 //  val domFile =
 //    "/home/arthur/work/ext/rcll/temporal_1_robot/rcll_domain_production_durations_nors.pddl"
 //  val pbFile = "/home/arthur/work/ext/rcll/temporal_1_robot/problem-001-r1-o1-durations.pddl"
-  new Parser(Options()).parseToFull(domFile, pbFile) match {
+  new Parser()(Options()).parseToFull(domFile, pbFile) match {
     case Success(model) => println(model)
     case Failure(e) =>
       e.printStackTrace()

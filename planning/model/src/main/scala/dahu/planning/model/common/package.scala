@@ -18,7 +18,7 @@ package object common {
     def apply(scope: Scope): Anonymous = new Anonymous(scope)
     def unapply(id: Id): Option[(Scope, String)] = id match {
       case Named(s, n) => Some((s, n))
-      case _ => None
+      case _           => None
     }
   }
   final case class Named(scope: Scope, name: String) extends Id {
@@ -227,6 +227,13 @@ package object common {
       case Left(err) => sys.error(err)
     }
     override def toString: String = s"(${op.op} $lhs)"
+  }
+
+  case class Constant(template: ConstantTemplate, params: Seq[Expr]) extends Expr {
+    require(template.params.size == params.size)
+    override def toString: String = s"$template(${params.mkString(", ")})"
+
+    override def typ: Type = template.typ
   }
 
   sealed trait FunctionTemplate {

@@ -209,31 +209,6 @@ object SatisfactionProblem {
     }
   }
 
-  trait TreeNode[N[_]] {
-    def children[K](n: N[K]): Iterable[K]
-  }
-  object TreeNode {
-    implicit val totalInstance: TreeNode[Total] = new TreeNode[Total] {
-      override def children[A](fa: Total[A]): Iterable[A] = fa match {
-        case ComputationF(_, args, _) => args.toSeq
-        case _: CstF[A]               => Nil
-        case _: InputF[A]             => Nil
-        case ITEF(c, t, f, _)         => Seq(c, t, f)
-        case ProductF(as, _)          => as.toSeq
-      }
-    }
-
-    implicit val exprInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
-      override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
-        case Partial(value, condition, typ) => Seq(value, condition)
-        case OptionalF(value, present, typ) => Seq(value, present)
-        case PresentF(v)                    => Seq(v)
-        case ValidF(v)                      => Seq(v)
-        case x: Total[A]                    => totalInstance.children(x)
-      }
-    }
-  }
-
   trait ILazyTree[K, F[_], Opt[_]] {
     type ID = Int
     def getExt(k: K): Opt[F[ID]]

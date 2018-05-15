@@ -6,11 +6,11 @@ import com.sun.net.httpserver.Authenticator.Failure
 import dahu.planning.model.core.CoreModel
 import dahu.planning.model.full.Model
 import dahu.planning.model.transforms.FullToCore
-import dahu.planning.pddl.parser.optim.ActionRewrite
+import dahu.planning.pddl.parser.optim.{ActionRewrite, InvariantInference}
 
 import scala.util.{Failure, Success, Try}
 
-class Parser(opt: Options) {
+class Parser(implicit opt: Options) {
 
   implicit val predef: PddlPredef = PddlPredef(opt.discretization)
 
@@ -27,10 +27,12 @@ class Parser(opt: Options) {
   def parse(domain: File, problem: File): Try[CoreModel] = {
     parseToFull(domain, problem).flatMap { m =>
       val coreM = FullToCore.trans(m)
-      if(opt.optimize)
-        new ActionRewrite(opt).optimize(coreM)
-      else
-        Success(coreM)
+      val result =
+        if(opt.optimize)
+          optim.all(coreM)
+        else
+          Success(coreM)
+      result
     }
   }
 }

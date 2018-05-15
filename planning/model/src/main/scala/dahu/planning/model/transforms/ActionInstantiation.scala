@@ -31,6 +31,8 @@ object ActionInstantiation {
         case LocalVar(id, tpe) => LocalVar(f(id), tpe)
         case Op1(op, e)        => Op1(op, map(e, f))
         case Op2(op, lhs, rhs) => Op2(op, map(lhs, f), map(rhs, f))
+        case Constant(template, params) =>
+          Constant(ofConstantTemplate.map(template, f), params.map(x => map(x, f)))
       }
     }
     implicit object ofInterval extends IdRewrite[Interval[Expr]] {
@@ -78,8 +80,6 @@ object ActionInstantiation {
             TimedEqualAssertion(itv.rw(f), fl.rw(f), value.rw(f))
           case TimedTransitionAssertion(itv, fl, from, to) =>
             TimedTransitionAssertion(itv.rw(f), fl.rw(f), from.rw(f), to.rw(f))
-          case BindAssertion(Constant(template, params), LocalVar(id, tpe)) =>
-            BindAssertion(Constant(template.rw(f), params.map(_.rw(f))), LocalVar(f(id), tpe))
         }
     }
   }
@@ -96,7 +96,7 @@ object ActionInstantiation {
         case InnerScope(s, name)      => transScope(s) + name
       }
       x match {
-        case Id(s, name) => Id(transScope(s), name)
+        case Id(s, name)  => Id(transScope(s), name)
         case x: Anonymous => new Anonymous(transScope(x.scope))
       }
     }

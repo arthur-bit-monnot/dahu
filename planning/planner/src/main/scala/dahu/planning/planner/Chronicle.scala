@@ -149,8 +149,10 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
     Fluent(orig.template, orig.params.map(encode(_)))
 
-  def encode(orig: core.Constant)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
-    Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
+  def encode(orig: common.Constant)(
+      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
+    ??? //TODO
+//    Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
 
   def eqv(lhs: common.Term, rhs: common.Term)(
       implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
@@ -360,15 +362,15 @@ case class Chronicle(ctx: ProblemContext,
     e match {
       case _: LocalVarDeclaration => this
       case _: ArgDeclaration      => this
-      case BindAssertion(c, v) =>
-        val cond = ConditionToken(
-          itv = ClosedInterval(ctx.temporalOrigin, ctx.temporalHorizon),
-          fluent = encode(c),
-          value = encode(v)
-        )
-        copy(
-          conditions = cond :: conditions
-        )
+//      case BindAssertion(c, v) => //TODO
+//        val cond = ConditionToken(
+//          itv = ClosedInterval(ctx.temporalOrigin, ctx.temporalHorizon),
+//          fluent = encode(c),
+//          value = encode(v)
+//        )
+//        copy(
+//          conditions = cond :: conditions
+//        )
 
       case TimedAssignmentAssertion(itv, fluent, value) =>
         val changeItv = itv.map(encodeAsInt)
@@ -401,16 +403,16 @@ case class Chronicle(ctx: ProblemContext,
           effects = eff :: effects
         )
 
-      case StaticAssignmentAssertion(lhs, rhs) =>
-        val eff = EffectToken(
-          changeItv = ClosedInterval(ctx.temporalOrigin, ctx.temporalOrigin),
-          persistenceEnd = ctx.temporalHorizon,
-          fluent = encode(lhs),
-          value = encode(rhs)
-        )
-        copy(
-          effects = eff :: effects
-        )
+      case StaticAssignmentAssertion(lhs, rhs) => ???
+//        val eff = EffectToken(
+//          changeItv = ClosedInterval(ctx.temporalOrigin, ctx.temporalOrigin),
+//          persistenceEnd = ctx.temporalHorizon,
+//          fluent = encode(lhs),
+//          value = encode(rhs)
+//        )
+//        copy(
+//          effects = eff :: effects
+//        )
       case StaticBooleanAssertion(e) =>
         val c = ctx.boolUnbox(ctx.encode(e))
         copy(

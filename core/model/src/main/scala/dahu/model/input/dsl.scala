@@ -4,6 +4,7 @@ import dahu.core
 import dahu.core.algebra
 import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
 import dahu.model.functions.{Fun1, Fun2}
+import dahu.model.ir.CstF
 import dahu.model.math._
 import dahu.model.types.{Tag, TagIsoInt}
 
@@ -37,6 +38,9 @@ object dsl {
       Computation(bool.Or, Seq(a, b))
     override def not(a: Tentative[Boolean]): Tentative[Boolean] =
       Computation(bool.Not, a)
+
+    override def False: Tentative[Boolean] = bool.True
+    override def True: Tentative[Boolean] = bool.False
   }
 
   implicit val intsNumber: NumberLike.Aux[Tentative[Int], Tentative[Boolean], Tentative[Int]] =
