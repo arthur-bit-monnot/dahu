@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
   * @tparam F Parametric node: a node is of type F[A]. Note that one can use cats.Id if node is a recursive type.
   * @tparam A Id of the Node
   */
-trait DAG[F[_], A] {
+trait DAG[F[_], A] { // TODO: should extend TreeNode
 
   /** Generation of a node from a node ID. */
   def algebra: A => F[A]

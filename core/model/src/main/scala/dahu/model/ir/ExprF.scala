@@ -2,10 +2,10 @@ package dahu.model.ir
 
 import dahu.utils._
 import dahu.model.functions.Fun
-import dahu.model.input.Ident
+import dahu.model.input.{DynamicInstantiator, Ident}
 import dahu.model.types.{ProductTag, Tag, Type, Value}
-import scala.{specialized => sp}
 
+import scala.{specialized => sp}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
@@ -51,7 +51,7 @@ object ExprF {
           OptionalF(f(value), f(present), typ)
         case PresentF(v)                 => PresentF(f(v))
         case ValidF(v)                   => ValidF(f(v))
-        case DynamicF(params, inst, typ) => DynamicF(params.map(f), inst, typ)
+        case DynamicF(params, inst, typ) => DynamicF(f(params), inst, typ)
         case DynamicProviderF(e, p, typ) => DynamicProviderF(f(e), f(p), typ)
       }
   }
@@ -161,8 +161,8 @@ final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
   override def toString: String = s"$value? (constraint: $condition)"
 }
 
-final case class DynamicF[@sp(Int) F](params: Vec[F],
-                                      dynamicInstantiator: DynamicInstantiator,
+final case class DynamicF[@sp(Int) F](params: F,
+                                      dynamicInstantiator: DynamicInstantiatorF,
                                       typ: Type)
     extends ExprF[F]
 
@@ -170,7 +170,7 @@ object DynamicF {
 
   implicit val functorInstance: SFunctor[DynamicF] = new SFunctor[DynamicF] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: DynamicF[A])(f: A => B): DynamicF[B] =
-      DynamicF(fa.params.map(f), fa.dynamicInstantiator, fa.typ)
+      DynamicF(f(fa.params), fa.dynamicInstantiator, fa.typ)
   }
 }
 
@@ -185,6 +185,12 @@ object DynamicProviderF {
   }
 }
 
-trait DynamicInstantiator {
-  def closeWorld[F](params: Vec[F], witness: Vec[ExprF[F]]): StaticF[F]
+trait DynamicInstantiatorF {
+  def closeWorld[F](params: ExprF[F], witness: Vec[ExprF[F]]): StaticF[F]
+}
+object DynamicInstantiatorF {
+  def apply(e: DynamicInstantiator[_, _]): DynamicInstantiatorF = new DynamicInstantiatorF {
+    override def closeWorld[F](params: ExprF[F], witness: Vec[ExprF[F]]): StaticF[F] = ???
+    override def toString: String = e.toString
+  }
 }

@@ -3,7 +3,7 @@ package dahu.model.input
 import dahu.core
 import dahu.core.algebra
 import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
-import dahu.model.functions.{Fun1, Fun2}
+import dahu.model.functions.{Fun, Fun1, Fun2, FunN}
 import dahu.model.ir.CstF
 import dahu.model.math._
 import dahu.model.types.{Tag, TagIsoInt}

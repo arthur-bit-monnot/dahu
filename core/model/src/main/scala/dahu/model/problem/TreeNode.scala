@@ -25,7 +25,7 @@ object TreeNode {
       case OptionalF(value, present, typ)   => Iterable(value, present)
       case PresentF(v)                      => Iterable(v)
       case ValidF(v)                        => Iterable(v)
-      case DynamicF(params, _, _)           => params.toIterable
+      case DynamicF(params, _, _)           => Iterable(params)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
       case x: Total[A]                      => totalInstance.children(x)
     }

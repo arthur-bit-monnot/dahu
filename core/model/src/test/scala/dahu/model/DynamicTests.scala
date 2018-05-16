@@ -1,31 +1,44 @@
 package dahu.model
 
-import dahu.model.input.{Ident, SubjectTo}
+import dahu.model.compiler.Algebras
+import dahu.model.input._
 import dahu.model.ir._
 import dahu.model.math.bool
+import dahu.model.problem.{LazyTree, StaticProblem}
 import dahu.model.types._
 import dahu.recursion._
 import dahu.utils.Vec
 import utest._
 
 object DynamicTests extends TestSuite {
+  import dsl._
 
   type E = Fix[ExprF]
   implicit def unfix2fix(e: ExprF[Fix[ExprF]]): Fix[ExprF] = e
 
-  val True: E = CstF[E](Value(true), typeOf[Boolean])
-  val x: E = CstF[E](Value(1), typeOf[Int])
-  val y: E = CstF[E](Value(2), typeOf[Int])
-  val dec: E = InputF[E](Ident("decision"), typeOf[Int])
+  val inst = new DynamicInstantiator[Int, Boolean] {
+    override def typ: Tag[Boolean] = Tag[Boolean]
 
-  val xProvider: E = DynamicProviderF(True, x, typeOf[Boolean])
-  val yProvider: E = DynamicProviderF(True, y, typeOf[Boolean])
-  val inProvided: E = DynamicF(Vec(dec), null, typeOf[Boolean])
+    override def toString: String = "has-support"
+  }
 
-  val result: E =
-    Partial(dec,
-            ComputationF(bool.And, Vec(inProvided, xProvider, yProvider), typeOf[Boolean]): E,
-            typeOf[Int])
+  val True = Cst(true)
+  val x = Cst(1)
+  val y = Cst(2)
+  val dec = Input[Int]("decision")
+
+  val xProvider = DynamicProvider(True, x)
+  val yProvider = DynamicProvider(True, y)
+  val inProvided = Dynamic(dec, inst)
+
+  val result =
+    SubjectTo(dec, Computation(bool.And, Seq(inProvided, xProvider, yProvider)))
+
+  val forest = LazyTree.parse(result, Algebras.coalgebra)
+  val root = forest.getTreeRoot(result)
+//  println(forest.build(root))
+  val staticTree = StaticProblem.underClosedWorld(root, forest.internalCoalgebra)
+  println(staticTree.fullTree)
 
   def collectProvided[F](e: F, coalg: F => ExprF[F]): Set[ExprF[F]] = ???
   def closeWorld[F](e: ExprF[F], coalg: F => ExprF[F]): (F, F => StaticF[F]) = {

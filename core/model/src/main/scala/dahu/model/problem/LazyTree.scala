@@ -19,6 +19,8 @@ trait IlazyForest[K, F[_], Opt[_]] {
   def mapInternal[G[_]](f: F[ID] => G[ID]): IlazyForest[K, G, Opt] =
     new InternalMappedLazyForest(f, this)
 
+  def mapInternalGenerative[G[_]](f: Context[G] => F[ID] => G[ID]): IlazyForest[K, G, Opt] = ???
+
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2] =
     new ExternalMappedLazyForest(f, this)
 

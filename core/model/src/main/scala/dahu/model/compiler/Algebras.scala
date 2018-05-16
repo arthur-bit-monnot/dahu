@@ -22,6 +22,8 @@ object Algebras {
     case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
     case Present(partial)               => PresentF(partial)
     case Valid(partial)                 => ValidF(partial)
+    case x @ Dynamic(params, dynInst)   => DynamicF(params, DynamicInstantiatorF(dynInst), x.typ)
+    case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
@@ -34,6 +36,8 @@ object Algebras {
     case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
     case PresentF(partial)              => s"present($partial)"
     case ValidF(partial)                => s"valid($partial)"
+    case DynamicF(params, inst, _)      => s"$inst($params)"
+    case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
   }
 
   def format(e: Fix[Total]): String = cata(printAlgebraMultiLine)(e)

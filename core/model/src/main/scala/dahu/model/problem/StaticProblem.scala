@@ -28,10 +28,16 @@ object StaticProblem {
     val dynamics = lt.getTreeRoot(root).dynamics
     val ofValues = lt.mapExternal[cats.Id](_.value)
     val dynamicsErased = ofValues.mapInternal[StaticF] {
-      case x @ InputF(Ident.Provided(dyn: DynamicF[_]), _) =>
+      case x @ InputF(Ident.Provided(DynamicF(param, dyn, _)), _) =>
+        param
         println(x)
         x
-      case x => x
+      case x: InputF[_] =>
+        println(x)
+        x
+      case x =>
+        println(x)
+        x
     }
     LazyTree(dynamicsErased.getTreeRoot(root), dynamicsErased)
   }
@@ -43,20 +49,23 @@ object StaticProblem {
         IR(f(fa.value), fa.provided.map(f), fa.dynamics.map(f))
     }
   }
-  def childrenFlatten[A](e: ExprF[Bag[A]]): Bag[A] = ???
-  def getProvided(e: ExprF[IR[ID]]): Bag[ID] = childrenFlatten(e.smap(_.provided))
-  def getDynamics(e: ExprF[IR[ID]]): Bag[ID] = childrenFlatten(e.smap(_.dynamics))
+
+  def getProvided(e: ExprF[IR[ID]]): Bag[ID] =
+    Bag.fromIterables(TreeNode[ExprF].children(e).map(_.provided))
+  def getDynamics(e: ExprF[IR[ID]]): Bag[ID] =
+    Bag.fromIterables(TreeNode[ExprF].children(e).map(_.dynamics))
 
   def algebra(ctx: Context[StaticF]): ExprF[IR[ID]] => IR[ID] = {
     case x: InputF[_] => IR(ctx.rec(x), Bag.empty, Bag.empty)
     case x: CstF[_]   => IR(ctx.rec(x), Bag.empty, Bag.empty)
     case x @ DynamicF(params, instantiator, tpe) =>
       val id = ctx.rec(InputF(Ident(x.smap(_.value)), tpe))
-      IR(
+      val ir = IR(
         value = id,
         provided = getProvided(x),
         dynamics = getDynamics(x) + id
       )
+      ir
     case x @ DynamicProviderF(v, provided, _) =>
       IR(
         value = v.value,

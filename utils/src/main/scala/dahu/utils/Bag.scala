@@ -56,6 +56,8 @@ sealed trait Bag[+A] extends Iterable[A] {
 object Bag {
   def apply[A](x: Iterable[A]): Bag[A] = Cons(x, Nil)
   def apply[A](a: A, as: A*): Bag[A] = ConsA(a, Cons(as.to, Nil))
+  def fromIterables[A](its: Iterable[Iterable[A]]): Bag[A] =
+    its.foldLeft[Bag[A]](empty)((acc, cur) => Cons(cur, acc))
 
   def empty: Bag[Nothing] = Nil
 

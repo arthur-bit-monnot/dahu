@@ -4,7 +4,9 @@ import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.functions._
+import dahu.model.ir.DynamicProviderF
 import dahu.model.types._
+import spire.sp
 
 import scala.reflect.ClassTag
 
@@ -26,6 +28,8 @@ object Tentative {
       case x: Computation[_]           => x.args.toSet
       case Optional(value, present)    => Set(value, present)
       case ITE(cond, onTrue, onFalse)  => Set(cond, onTrue, onFalse)
+      case Dynamic(p, _)               => Set(p)
+      case DynamicProvider(e, prov)    => Set(e, prov)
     }
   }
 }
@@ -223,4 +227,19 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
                                                  in4: Tentative[I4])
     extends Computation[O] {
   override val args: Seq[Tentative[Any]] = Seq(in, in2, in3, in4).asInstanceOf[Seq[Tentative[Any]]]
+}
+
+trait DynamicInstantiator[Params, Out] {
+  def typ: Tag[Out]
+}
+
+final case class Dynamic[Params, Out](params: Tentative[Params],
+                                      dynamicInstantiator: DynamicInstantiator[Params, Out])
+    extends Tentative[Out] {
+  override def typ: Tag[Out] = dynamicInstantiator.typ
+}
+
+final case class DynamicProvider[A, Provided](e: Tentative[A], provided: Tentative[Provided])
+    extends Tentative[A] {
+  override def typ: Tag[A] = e.typ
 }
