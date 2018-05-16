@@ -2,9 +2,8 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu._
 import dahu.model.functions._
-import dahu.model.input.Anonymous
+import dahu.model.input.Ident
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._
@@ -167,9 +166,9 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
           dahu.utils.debug.warning(s"unsupported: $x")
           x.typ match {
             case Tag.ofBoolean =>
-              SupportedInput(InputF(Anonymous(), Tag.ofBoolean))
+              SupportedInput(InputF(Ident.anonymous(), Tag.ofBoolean))
             case t: TagIsoInt[_] =>
-              CompatibleInput(InputF(Anonymous(), Tag.ofInt), t)
+              CompatibleInput(InputF(Ident.anonymous(), Tag.ofInt), t)
             case _ =>
               unsupported()
           }
@@ -226,7 +225,7 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
     type OptTotal[T] = Option[Total[T]]
 
     val partialTree = new IlazyForest[X, Total, Option] {
-      val t = lt.map[OptTotal]({
+      val t = lt.mapInternal[OptTotal]({
         case IntermediateExpression(e) => Some(e)
         case CompatibleInput(v, _)     => Some(v)
         case SupportedInput(v)         => Some(v)

@@ -2,10 +2,7 @@ package dahu.solvers
 
 import dahu.constraints.domains.IntervalDomain
 import dahu.constraints.interval.Interval
-import dahu.maps.{ArrayMap, SubInt}
-import dahu.model.types._
 import dahu.utils.errors._
-import spire.math.Trilean
 
 trait Domain[V] {
   def iterable: Iterable[V] = ???

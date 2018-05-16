@@ -1,7 +1,8 @@
 package dahu.model.problem
 
 import cats._
-import dahu.recursion.{Fix, Recursion}
+import dahu.model.ir.{AST, ExprF}
+import dahu.recursion.{EnvT, FAlgebra, FCoalgebra, Fix, Recursion}
 import dahu.utils.SFunctor
 import shapeless.the
 
@@ -15,15 +16,19 @@ trait IlazyForest[K, F[_], Opt[_]] {
   def getTreeRoot(k: K): Opt[ID]
   def internalCoalgebra(i: ID): F[ID]
 
-  def map[G[_]](f: F[ID] => G[ID]): IlazyForest[K, G, Opt] =
-    new MappedLazyForest(f, this)
+  def mapInternal[G[_]](f: F[ID] => G[ID]): IlazyForest[K, G, Opt] =
+    new InternalMappedLazyForest(f, this)
+
+  def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2] =
+    new ExternalMappedLazyForest(f, this)
 
   def build(id: ID)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = {
     Recursion.ana(i => internalCoalgebra(i))(id)
   }
 }
 
-class MappedLazyForest[K, F[_], G[_], Opt[_]](f: F[ID] => G[ID], mapped: IlazyForest[K, F, Opt])
+class InternalMappedLazyForest[K, F[_], G[_], Opt[_]](f: F[ID] => G[ID],
+                                                      mapped: IlazyForest[K, F, Opt])
     extends IlazyForest[K, G, Opt] {
   private val memo = mutable.HashMap[ID, G[ID]]()
 
@@ -33,9 +38,20 @@ class MappedLazyForest[K, F[_], G[_], Opt[_]](f: F[ID] => G[ID], mapped: IlazyFo
     memo.getOrElseUpdate(i, f(mapped.internalCoalgebra(i)))
 }
 
+class ExternalMappedLazyForest[K, F[_], Opt[_], NewOpt[_]](f: Opt[ID] => NewOpt[ID],
+                                                           mapped: IlazyForest[K, F, Opt])
+    extends IlazyForest[K, F, NewOpt] {
+  private val memo = mutable.HashMap[K, NewOpt[ID]]()
+
+  override def getTreeRoot(k: K): NewOpt[ID] = memo.getOrElseUpdate(k, f(mapped.getTreeRoot(k)))
+
+  override def internalCoalgebra(i: ID): F[ID] =
+    mapped.internalCoalgebra(i)
+}
+
 case class LazyTree[K, F[_], Opt[_]](root: ID, tree: IlazyForest[K, F, Opt]) {
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt] =
-    LazyTree(root, tree.map(f))
+    LazyTree(root, tree.mapInternal(f))
 
   def nodes(implicit tn: TreeNode[F]): Seq[(tree.ID, F[tree.ID])] = {
     val queue = mutable.Stack[tree.ID]()
@@ -60,21 +76,32 @@ case class LazyTree[K, F[_], Opt[_]](root: ID, tree: IlazyForest[K, F, Opt]) {
   def fullTree(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = tree.build(root)
 }
 
+object LazyTree {
+
+  def parse[K, F[_]: SFunctor: TreeNode](t: K, coalgebra: K => F[K]): IlazyForest[K, F, cats.Id] = {
+    def algebra(ctx: Context[F]): F[ID] => ID = ctx.rec
+    new LazyForestGenerator[K, F, F, cats.Id](coalgebra, algebra)
+  }
+  def parse[K, FIn[_]: SFunctor: TreeNode, FOut[_]](
+      t: K,
+      coalgebra: K => FIn[K],
+      algebra: Context[FOut] => FIn[ID] => ID): IlazyForest[K, FOut, cats.Id] = {
+    new LazyForestGenerator[K, FIn, FOut, cats.Id](coalgebra, algebra)
+  }
+}
+
 final class Context[M[_]](val rec: M[ID] => ID, val retrieve: ID => M[ID])
 
-/**
-  *
-  */
-class LazyForestGenerator[K, F[_]: TreeNode: SFunctor, G[_], H[_]](
-    coalgebra: K => F[K],
-    algebraGenerator: Context[H] => F[G[ID]] => G[ID])(implicit ct: ClassTag[G[ID]])
-    extends IlazyForest[K, H, G] {
+class LazyForestGenerator[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](
+    coalgebra: K => FIn[K],
+    algebraGenerator: Context[FOut] => FIn[Opt[ID]] => Opt[ID])(implicit ct: ClassTag[Opt[ID]])
+    extends IlazyForest[K, FOut, Opt] {
 
-  private val idsMap = mutable.HashMap[K, G[ID]]()
-  private val repMap = mutable.ArrayBuffer[H[ID]]() // ID => H[ID]
-  private val memo = mutable.HashMap[H[ID], ID]()
+  private val idsMap = mutable.HashMap[K, Opt[ID]]()
+  private val repMap = mutable.ArrayBuffer[FOut[ID]]() // ID => H[ID]
+  private val memo = mutable.HashMap[FOut[ID], ID]()
 
-  private def record(e: H[ID]): ID = {
+  private def record(e: FOut[ID]): ID = {
     if(memo.contains(e))
       memo(e)
     else {
@@ -84,28 +111,28 @@ class LazyForestGenerator[K, F[_]: TreeNode: SFunctor, G[_], H[_]](
       id
     }
   }
-  private val ctx: Context[H] = new Context(record, internalCoalgebra)
+  private val ctx: Context[FOut] = new Context(record, internalCoalgebra)
 
-  private val algebra: F[G[ID]] => G[ID] = algebraGenerator(ctx)
+  private val algebra: FIn[Opt[ID]] => Opt[ID] = algebraGenerator(ctx)
 
   @inline private def processed(k: K): Boolean = idsMap.contains(k)
 
-  override def internalCoalgebra(i: ID): H[ID] = repMap(i)
+  override def internalCoalgebra(i: ID): FOut[ID] = repMap(i)
 
-  override def getTreeRoot(key: K): G[ID] = {
+  override def getTreeRoot(key: K): Opt[ID] = {
     val queue = mutable.Stack[K]()
     queue.push(key)
 
     while(queue.nonEmpty) {
       val cur = queue.pop()
       val fk = coalgebra(cur)
-      if(the[TreeNode[F]].children(fk).forall(processed)) {
-        val fg = the[SFunctor[F]].smap(fk)(idsMap)
-        val g: G[ID] = algebra(fg)
+      if(the[TreeNode[FIn]].children(fk).forall(processed)) {
+        val fg = the[SFunctor[FIn]].smap(fk)(idsMap)
+        val g: Opt[ID] = algebra(fg)
         idsMap += ((cur, g))
       } else {
         queue.push(cur)
-        queue.pushAll(the[TreeNode[F]].children(fk))
+        queue.pushAll(the[TreeNode[FIn]].children(fk))
       }
     }
     idsMap(key)

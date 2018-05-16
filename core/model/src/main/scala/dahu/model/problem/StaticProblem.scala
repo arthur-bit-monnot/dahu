@@ -18,24 +18,22 @@ import scala.reflect.ClassTag
 
 object StaticProblem {
 
-  def underClosedWorld[X <: Int](root: X,
-                                 coalgebra: X => ExprF[X]): LazyTree[X, StaticF, cats.Id] = {
-    encode(root, coalgebra)
-  }
-
-  def encode[X <: Int](root: X, coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id] = {
-    val lt: IlazyForest[X, StaticF, IR] = new LazyForestGenerator(coalgebra, algebra)
-
-    // TODO: erase the dynamics
-//
-//    val totalTrees = new ILazyTree[X, Total, cats.Id] {
-//      override def getExt(k: X): Total[ID] = lt.get(lt.get(k).value)
-//      override def getInt(i: ID): Total[ID] = lt.get(i)
-//      override def getInternalID(k: X): ID = lt.get(k).value
-//    }
-//    val satRoot = lt.get(root).valid
-//    RootedLazyTree(satRoot, totalTrees)
+  private def trans(provided: Iterable[ID])(ctx: Context[StaticF]): DynamicF[ID] => StaticF[ID] =
     ???
+
+  def underClosedWorld[X](root: X,
+                          coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id] = {
+    val lt: IlazyForest[X, StaticF, IR] = new LazyForestGenerator(coalgebra, algebra)
+    val provided = lt.getTreeRoot(root).provided
+    val dynamics = lt.getTreeRoot(root).dynamics
+    val ofValues = lt.mapExternal[cats.Id](_.value)
+    val dynamicsErased = ofValues.mapInternal[StaticF] {
+      case x @ InputF(Ident.Provided(dyn: DynamicF[_]), _) =>
+        println(x)
+        x
+      case x => x
+    }
+    LazyTree(dynamicsErased.getTreeRoot(root), dynamicsErased)
   }
 
   case class IR[@specialized(Int) A](value: A, provided: Bag[A], dynamics: Bag[A])

@@ -11,7 +11,7 @@ object StructureTests extends TestSuite {
     "debox-buffer" - {
       "indices" - {
         assert(Buffer(1, 2, 3).indices == Seq(0, 1, 2))
-        assert(Buffer().indices == Seq())
+        assert(Buffer[Int]().indices == Seq())
         assert(Buffer(10).indices == Seq(0))
       }
 

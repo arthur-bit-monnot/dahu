@@ -48,8 +48,8 @@ final case class Input[T: Tag](id: Ident) extends Term[T] {
   override def typ: Tag[T] = Tag[T]
 }
 object Input {
-  def apply[T: Tag](name: String): Tentative[T] = new Input[T](Provided(name))
-  def apply[T: Tag](): Tentative[T] = new Input[T](Anonymous())
+  def apply[T: Tag](name: String): Tentative[T] = new Input[T](Ident(name))
+  def apply[T: Tag](): Tentative[T] = new Input[T](Ident.anonymous())
 }
 
 /** Evaluation returns a Right[T](value) */
