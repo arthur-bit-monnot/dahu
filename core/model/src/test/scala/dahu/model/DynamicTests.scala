@@ -32,6 +32,7 @@ object DynamicTests extends TestSuite {
   val inProvided = Dynamic(dec, inst)
 
   val result =
+//    Computation(bool.And, Seq(inProvided, xProvider, yProvider))
     SubjectTo(dec, Computation(bool.And, Seq(inProvided, xProvider, yProvider)))
 
   sealed trait Marker

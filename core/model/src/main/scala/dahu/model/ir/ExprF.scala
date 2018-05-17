@@ -16,7 +16,14 @@ sealed trait ExprF[@sp(Int) F] {
   override final lazy val hashCode: Int = ExprF.hash(this)
 }
 
-sealed trait StaticF[@sp(Int) F] { self: ExprF[F] =>
+sealed trait NoProviderF[@sp(Int) F] { self: ExprF[F] =>
+  def typ: Type
+}
+object NoProviderF {
+  implicit val functor: SFunctor[NoProviderF] = ExprF.functor.asInstanceOf[SFunctor[NoProviderF]]
+}
+
+sealed trait StaticF[@sp(Int) F] extends NoProviderF[F] { self: ExprF[F] =>
   def typ: Type
 }
 object StaticF {
@@ -165,6 +172,7 @@ final case class DynamicF[@sp(Int) F](params: F,
                                       dynamicInstantiator: DynamicInstantiatorF,
                                       typ: Type)
     extends ExprF[F]
+    with NoProviderF[F]
 
 object DynamicF {
 
