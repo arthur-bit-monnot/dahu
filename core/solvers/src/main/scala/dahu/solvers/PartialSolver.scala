@@ -8,7 +8,7 @@ import dahu.solvers.problem.IntCSP
 
 import scala.concurrent.duration.Deadline
 
-abstract class PartialSolver[X](final val ast: LazyTree[X, Total, cats.Id]) {
+abstract class PartialSolver[X](final val ast: LazyTree[X, Total, cats.Id, _]) {
 
   type K <: X
 
@@ -18,7 +18,7 @@ abstract class PartialSolver[X](final val ast: LazyTree[X, Total, cats.Id]) {
 object PartialSolver {
 
   trait Builder {
-    def apply[X](ast: LazyTree[X, Total, cats.Id]): PartialSolver[X]
+    def apply[X](ast: LazyTree[X, Total, cats.Id, _]): PartialSolver[X]
   }
 
 }

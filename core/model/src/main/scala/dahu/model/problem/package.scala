@@ -8,7 +8,7 @@ import scala.reflect.ClassTag
 package object problem {
 
   trait Mark
-  type ID = SInt[Mark]
-  implicit val ct: ClassTag[ID] = ClassTag.Int.asInstanceOf[ClassTag[ID]]
+  type IDTop = SInt[Mark]
+  implicit val ct: ClassTag[IDTop] = ClassTag.Int.asInstanceOf[ClassTag[IDTop]]
 
 }

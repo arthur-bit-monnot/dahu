@@ -6,15 +6,17 @@ import dahu.model.functions._
 import dahu.model.input.Ident
 import dahu.model.ir._
 import dahu.model.math._
+import dahu.model.problem
 import dahu.model.types._
-import dahu.utils.SFunctor
+import dahu.utils.{SFunctor, SubSubInt}
 import dahu.utils.Vec.Vec1
 import dahu.utils.errors._
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
+class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
+  val ast = _ast.fixID
 
   /** Methods and variables in Internal are public so that there is no escape of private types.
     * However they are meant for internal use only are are subject to change. */
@@ -57,69 +59,6 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
                                                  bool.XOr,
                                                  bool.Not)
 
-    abstract class LazyTree[K, F[_]: TreeNode: SFunctor, G[_], Opt[_]: Functor](
-        orig: IlazyForest[K, F, Opt])
-        extends IlazyForest[K, G, Opt] {
-
-      def g(rec: G[ID] => ID)(prev: ID => G[ID])(node: F[ID]): G[ID]
-
-      private val treeNode = implicitly[TreeNode[F]]
-      private val functor = implicitly[SFunctor[F]]
-
-      private val idsMap = mutable.HashMap[orig.ID, ID]()
-      private val repMap = mutable.ArrayBuffer[G[ID]]() // ID => G[ID]
-
-      def rec(ga: G[ID]): ID = {
-        val id = repMap.size.asInstanceOf[ID]
-        repMap += ga
-        id
-      }
-
-      private val g2: F[ID] => G[ID] = {
-        val prev: ID => G[ID] = repMap(_)
-        g(rec)(prev)
-      }
-
-      @inline private def processed(k: orig.ID): Boolean = {
-        assert(!idsMap.contains(k) || repMap.size > idsMap(k))
-        idsMap.contains(k)
-      }
-
-      def get(k: K): Opt[G[ID]] = {
-        orig.getTreeRoot(k).map(getFromOrigID)
-      }
-
-      def getFromOrigID(origID: orig.ID): G[ID] = {
-        val queue = mutable.Stack[orig.ID]()
-        def push(origID: orig.ID): Unit = {
-          if(!processed(origID)) {
-            queue.push(origID)
-          }
-        }
-        push(origID)
-        while(queue.nonEmpty) {
-          val cur = queue.pop()
-          if(!processed(cur)) {
-            val fk = orig.internalCoalgebra(cur)
-            if(treeNode.children(fk).forall(processed)) {
-              val fg: F[ID] = functor.smap(fk)(id => idsMap(id))
-              val g: G[ID] = g2(fg)
-              val id = rec(g)
-              idsMap += ((cur, id))
-            } else {
-              push(cur)
-              treeNode.children(fk).foreach(push)
-            }
-          }
-        }
-        repMap(idsMap(origID))
-      }
-
-      override def internalCoalgebra(i: ID): G[ID] = repMap(i)
-
-      override def getTreeRoot(k: K): Opt[ID] = getExt(k).map(rec)
-    }
-
     private def sup[X](e: CellOpt[X]) = e match {
       case Unsupported => false
       case _           => true
@@ -140,6 +79,7 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
       }
 
       def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
+
       def isUnbox(f: Fun[_]): Boolean = f match {
         case fun: Fun1[_, _] =>
           fun.inType match {
@@ -174,16 +114,20 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
           }
       }
     }
-
-    val lt = new LazyTree[X, Total, CellOpt, cats.Id](ast.tree) {
-      override def g(rec: CellOpt[ID] => ID)(prev: ID => CellOpt[ID])(
-          node: Total[ID]): CellOpt[ID] =
-        TRANS(rec)(prev)(node)
-    }
+    sealed trait Marker
+    val lt = ast.tree
+      .mapInternalGen[CellOpt](ctx => TRANS(ctx.record)(ctx.retrieve))
+      .asInstanceOf[InternalMapGenLazyForest[X, Total, CellOpt, cats.Id, SubSubInt[IDTop, Marker]]] //TODO, we should be able to use cast once the following steps are fixed
+    //    InternalMapGenLazyForest(ast.tree)(ctx => TRANS(ctx.record)(ctx.retrieve))
+    //    val lt = new LazyTree[X, Total, CellOpt, cats.Id](ast.tree) {
+    //      override def g(rec: CellOpt[ID] => ID)(prev: ID => CellOpt[ID])(
+    //          node: Total[ID]): CellOpt[ID] =
+    //        TRANS(rec)(prev)(node)
+    //    }
 
     def leq(lhs: CellOpt[lt.ID], rhs: CellOpt[lt.ID]): CellOpt[lt.ID] = {
       IntermediateExpression(
-        ComputationF(int.LEQ, Seq(lhs, rhs).map(x => lt.rec(x)), Tag.ofBoolean)
+        ComputationF(int.LEQ, Seq(lhs, rhs).map(x => lt.record(x)), Tag.ofBoolean)
       )
     }
 
@@ -193,7 +137,10 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
       val cs = mutable.HashSet[lt.ID]()
       val visited = mutable.HashSet[lt.ID]()
       val stack = mutable.Stack[lt.ID]()
-      def push(i: lt.ID): Unit = { if(!visited.contains(i)) stack.push(i) }
+
+      def push(i: lt.ID): Unit = {
+        if(!visited.contains(i)) stack.push(i)
+      }
 
       push(k)
       while(stack.nonEmpty) {
@@ -201,8 +148,8 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
         visited += cur
         lt.internalCoalgebra(cur) match {
           case i @ CompatibleInput(_, tpe) =>
-            cs += lt.rec(leq(cst(tpe.min), i))
-            cs += lt.rec(leq(i, cst(tpe.max)))
+            cs += lt.record(leq(cst(tpe.min), i))
+            cs += lt.record(leq(i, cst(tpe.max)))
           case IntermediateExpression(e) =>
             e.args.foreach(push)
           case _ =>
@@ -213,68 +160,41 @@ class IntBoolSatisfactionProblem[X](val ast: LazyTree[X, Total, cats.Id]) {
 
     //
     // the root value, is the conjunction of the original root and all constraints placed on inputs.
-    private val internalPrevRoot = lt.rec(lt.getFromOrigID(ast.root))
+    private val internalPrevRoot = lt.record(lt.getFromOrigID(ast.root.asInstanceOf[lt.orig.ID])) //TODO
     private val rootValue = IntermediateExpression(
       ComputationF(bool.And,
                    (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
                    bool.And.tpe))
-    val root: lt.ID = lt.rec(rootValue)
+    val root: lt.ID = lt.record(rootValue)
 
-//    val optTree: RootedLazyTree[X, CellOpt, cats.Id] = RootedLazyTree(root, lt)
+    //    val optTree: RootedLazyTree[X, CellOpt, cats.Id] = RootedLazyTree(root, lt)
 
     type OptTotal[T] = Option[Total[T]]
-
-    val partialTree = new IlazyForest[X, Total, Option] {
-      val t = lt.mapInternal[OptTotal]({
-        case IntermediateExpression(e) => Some(e)
-        case CompatibleInput(v, _)     => Some(v)
-        case SupportedInput(v)         => Some(v)
-        case CompatibleConstant(v, _)  => Some(v)
-        case SupportedConstant(v)      => Some(v)
-        case x if x == Unsupported     => None
-      })
-
-      override def getTreeRoot(k: X): Option[ID] = getExt(k).map(_ => t.getTreeRoot(k))
-
-      override def internalCoalgebra(i: ID): Total[ID] = t.internalCoalgebra(i) match {
+    val t = lt.mapInternal[OptTotal]({
+      case IntermediateExpression(e) => Some(e)
+      case CompatibleInput(v, _)     => Some(v)
+      case SupportedInput(v)         => Some(v)
+      case CompatibleConstant(v, _)  => Some(v)
+      case SupportedConstant(v)      => Some(v)
+      case x if x == Unsupported     => None
+    })
+    val partialTree = new IlazyForest[X, Total, Option, lt.ID] {
+      override def getTreeRoot(k: X): Option[lt.ID] = {
+        val tmp: Option[Total[lt.ID]] = getExt(k)
+        tmp match {
+          case Some(_) => Some(t.getTreeRoot(k))
+          case None    => None
+        }
+        //.map((_: Total[lt.ID]) => t.getTreeRoot(k))
+      }
+      override def internalCoalgebra(i: lt.ID): Total[lt.ID] = t.internalCoalgebra(i) match {
         case Some(e) => e
         case None    => unexpected
       }
     }
 
-    val tree = LazyTree(root, partialTree)
+    val tree = LazyTree(partialTree)(root)
   }
 
-  val tree: LazyTree[X, Total, Option] = Internal.tree
-//
-//    val coalg: K => Option[Total[K]] = k => {
-//      val res = builder(k) match {
-//        case IntermediateExpression(e) => Some(e)
-//        case CompatibleInput(v, _)     => Some(v)
-//        case SupportedInput(v)         => Some(v)
-//        case CompatibleConstant(v, _)  => Some(v)
-//        case SupportedConstant(v)      => Some(v)
-//        case Unsupported               => None
-//      }
-//      res
-//    }
-//
-//    // from builder, gather all expression that can be represented (i.e. int or bool)
-//    val tmp =
-//      ArrayMap
-//        .buildWithKey(builder.domain)(k => coalg(k))
-//        .collect { case Some(v) => v }
-
-//
-////  type K = Internal.tmp.K
-//
-//  // an algebra X => Total[X], where Total[X] is guaranteed to be representable.
-//  val algebra: ArrayMap.Aux[K, Total[K]] = Internal.tmp.asInstanceOf[ArrayMap.Aux[K, Total[K]]]
-//
-//  assert(algebra.isInDomain(Internal.root))
-//  val root: K = Internal.root.asInstanceOf[K]
-
-//  def tree: RootedLazyTree[X, Total] = {
-//    new RootedLazyTree[X, Total](ast.root, )
-//  }
+  val tree: LazyTree[X, Total, Option, _] = LazyTree(Internal.partialTree)(Internal.root)
 }

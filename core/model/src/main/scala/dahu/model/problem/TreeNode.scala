@@ -3,7 +3,7 @@ package dahu.model.problem
 import dahu.model.ir._
 import scala.collection.immutable.Iterable
 
-trait TreeNode[N[_]] {
+trait TreeNode[-N[_]] {
   def children[K](n: N[K]): Iterable[K]
 }
 object TreeNode {

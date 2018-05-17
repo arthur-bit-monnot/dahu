@@ -2,8 +2,7 @@ package dahu.z3
 
 import com.microsoft.z3._
 import dahu.model.ir._
-import dahu.model.problem.{IntBoolSatisfactionProblem, TreeNode}
-import dahu.model.problem.{IlazyForest, LazyTree}
+import dahu.model.problem.{IDTop, IlazyForest, IntBoolSatisfactionProblem, LazyTree, TreeNode}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.SFunctor
@@ -15,9 +14,9 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: IlazyForest[X, F, Opt], f: F[G] => G)(
-    implicit F: SFunctor[F],
-    T: TreeNode[F]) {
+class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
+    t: IlazyForest[X, F, Opt, I],
+    f: F[G] => G)(implicit F: SFunctor[F], T: TreeNode[F]) {
   private val memo = mutable.HashMap[t.ID, G]()
 
   def build(k: t.ID): G = {
@@ -42,21 +41,21 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_]](t: IlazyForest[X, F, Opt], f: F[
   }
 }
 
-class Z3PartialSolver[X](_ast: LazyTree[X, Total, cats.Id]) extends PartialSolver[X](_ast) {
-  trait Tag
+class Z3PartialSolver[X](_ast: LazyTree[X, Total, cats.Id, _]) extends PartialSolver[X](_ast) {
 
   val intBoolPb = new IntBoolSatisfactionProblem[X](ast)
-  val root = intBoolPb.tree.root
-  val tree = intBoolPb.tree.tree
+  val tree = intBoolPb.tree.fixID
+//  val root = intBoolPb.tree.root
+//  val tree = intBoolPb.tree.tree.castID
 
   private val ctx = new Context()
   type OptTotal[T] = Option[Total[T]]
 
-  val treeBuilder = new TreeBuilder(tree, Compiler.partialAlgebra(ctx))
+  val treeBuilder = new TreeBuilder(tree.tree, Compiler.partialAlgebra(ctx))
 
   // Total
   def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
-    tree.getTreeRoot(id).map(internalID => treeBuilder.build(internalID))
+    tree.tree.getTreeRoot(id).map(internalID => treeBuilder.build(internalID))
   }
   def eval(id: X, model: com.microsoft.z3.Model): Option[Value] = {
     asExpr(id) match {
@@ -82,7 +81,7 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, cats.Id]) extends PartialSolve
     }
   }
 
-  val compiled = Try(treeBuilder.build(root)) //hylo(intBoolPb.algebra.asFunction, algebra)(intBoolPb.root)
+  val compiled = Try(treeBuilder.build(tree.root)) //hylo(intBoolPb.algebra.asFunction, algebra)(intBoolPb.root)
   private val satProblem = compiled match {
     case Success(x: BoolExpr) => x
     case Failure(NonFatal(e)) => unexpected("Failure while parsing Z3. Cause: ", e)
@@ -126,7 +125,7 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, cats.Id]) extends PartialSolve
 object Z3PartialSolver {
 
   object builder extends PartialSolver.Builder {
-    override def apply[X](ast: LazyTree[X, Total, cats.Id]): Z3PartialSolver[X] =
+    override def apply[X](ast: LazyTree[X, Total, cats.Id, _]): Z3PartialSolver[X] =
       new Z3PartialSolver[X](ast)
   }
 }

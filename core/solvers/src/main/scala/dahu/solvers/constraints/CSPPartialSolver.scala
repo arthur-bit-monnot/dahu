@@ -11,7 +11,7 @@ import dahu.utils.errors._
 
 import scala.concurrent.duration.Deadline
 
-class CSPPartialSolver[X](_ast: LazyTree[X, Total, cats.Id]) extends PartialSolver[X](_ast) {
+class CSPPartialSolver[X](_ast: LazyTree[X, Total, cats.Id, _]) extends PartialSolver[X](_ast) {
 
   val intBoolPb = new IntBoolSatisfactionProblem[X](ast)
 
@@ -43,7 +43,7 @@ class CSPPartialSolver[X](_ast: LazyTree[X, Total, cats.Id]) extends PartialSolv
 object CSPPartialSolver {
 
   object builder extends PartialSolver.Builder {
-    override def apply[X](ast: LazyTree[X, Total, cats.Id]): CSPPartialSolver[X] =
+    override def apply[X](ast: LazyTree[X, Total, cats.Id, _]): CSPPartialSolver[X] =
       new CSPPartialSolver(ast)
   }
 }

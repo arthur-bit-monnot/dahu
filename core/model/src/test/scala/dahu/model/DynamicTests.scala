@@ -4,10 +4,10 @@ import dahu.model.compiler.Algebras
 import dahu.model.input._
 import dahu.model.ir._
 import dahu.model.math.bool
-import dahu.model.problem.{LazyTree, StaticProblem}
+import dahu.model.problem.{IDTop, LazyTree, StaticProblem}
 import dahu.model.types._
 import dahu.recursion._
-import dahu.utils.Vec
+import dahu.utils.{SubSubInt, Vec}
 import utest._
 
 object DynamicTests extends TestSuite {
@@ -34,7 +34,8 @@ object DynamicTests extends TestSuite {
   val result =
     SubjectTo(dec, Computation(bool.And, Seq(inProvided, xProvider, yProvider)))
 
-  val forest = LazyTree.parse(result, Algebras.coalgebra)
+  sealed trait Marker
+  val forest = LazyTree.parse(result, Algebras.coalgebra).fixID
   val root = forest.getTreeRoot(result)
 //  println(forest.build(root))
   val staticTree = StaticProblem.underClosedWorld(root, forest.internalCoalgebra)

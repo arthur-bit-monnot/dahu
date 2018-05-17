@@ -7,7 +7,7 @@ import dahu.core.algebra.{BoolLike, GenBoolLike}
 import dahu.model.input.Ident
 import dahu.model.ir._
 import dahu.recursion.FCoalgebra
-import dahu.utils.{Bag, SFunctor, Vec}
+import dahu.utils.{Bag, SFunctor, SubSubInt, Vec}
 import dahu.utils.SFunctor._
 import shapeless.tag.@@
 import shapeless.the
@@ -18,16 +18,17 @@ import scala.reflect.ClassTag
 
 object StaticProblem {
 
-  private def trans(provided: Iterable[ID])(ctx: Context[StaticF]): DynamicF[ID] => StaticF[ID] =
-    ???
+  implicit def treeNodeStaticF(implicit instance: TreeNode[ExprF]): TreeNode[StaticF] =
+    instance
+      .asInstanceOf[TreeNode[StaticF]] // TODO: why doesn't contravariance work to provide this one
 
   def underClosedWorld[X](root: X,
-                          coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id] = {
-    val lt: IlazyForest[X, StaticF, IR] = new LazyForestGenerator(coalgebra, algebra)
+                          coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id, _] = {
+    val lt = IlazyForest.build(coalgebra, algebra).fixID
     val provided = lt.getTreeRoot(root).provided
     val dynamics = lt.getTreeRoot(root).dynamics
     val ofValues = lt.mapExternal[cats.Id](_.value)
-    val dynamicsErased = ofValues.mapInternal[StaticF] {
+    val dynamicsErased = ofValues.mapInternalGen[StaticF](ctx => {
       case x @ InputF(Ident.Provided(DynamicF(param, dyn, _)), _) =>
         param
         println(x)
@@ -38,8 +39,8 @@ object StaticProblem {
       case x =>
         println(x)
         x
-    }
-    LazyTree(dynamicsErased.getTreeRoot(root), dynamicsErased)
+    })
+    LazyTree(dynamicsErased)(dynamicsErased.getTreeRoot(root))
   }
 
   case class IR[@specialized(Int) A](value: A, provided: Bag[A], dynamics: Bag[A])
@@ -50,22 +51,21 @@ object StaticProblem {
     }
   }
 
-  def getProvided(e: ExprF[IR[ID]]): Bag[ID] =
+  def getProvided(e: ExprF[IR[IDTop]]): Bag[IDTop] =
     Bag.fromIterables(TreeNode[ExprF].children(e).map(_.provided))
-  def getDynamics(e: ExprF[IR[ID]]): Bag[ID] =
+  def getDynamics(e: ExprF[IR[IDTop]]): Bag[IDTop] =
     Bag.fromIterables(TreeNode[ExprF].children(e).map(_.dynamics))
 
-  def algebra(ctx: Context[StaticF]): ExprF[IR[ID]] => IR[ID] = {
-    case x: InputF[_] => IR(ctx.rec(x), Bag.empty, Bag.empty)
-    case x: CstF[_]   => IR(ctx.rec(x), Bag.empty, Bag.empty)
+  def algebra(ctx: LazyForestGenerator.Context[StaticF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
+    case x: InputF[_] => IR(ctx.record(x), Bag.empty, Bag.empty)
+    case x: CstF[_]   => IR(ctx.record(x), Bag.empty, Bag.empty)
     case x @ DynamicF(params, instantiator, tpe) =>
-      val id = ctx.rec(InputF(Ident(x.smap(_.value)), tpe))
-      val ir = IR(
+      val id = ctx.record(InputF(Ident(x.smap(_.value)), tpe))
+      IR(
         value = id,
         provided = getProvided(x),
         dynamics = getDynamics(x) + id
       )
-      ir
     case x @ DynamicProviderF(v, provided, _) =>
       IR(
         value = v.value,
@@ -74,9 +74,9 @@ object StaticProblem {
       )
     case x @ OptionalF(value, present, typ) =>
       IR(
-        value = ctx.rec((x: StaticF[IR[ID]]).smap(_.value)),
-        provided = getProvided(x).map { id: ID =>
-          ctx.rec(
+        value = ctx.record((x: StaticF[IR[IDTop]]).smap(_.value)),
+        provided = getProvided(x).map { id: IDTop =>
+          ctx.record(
             OptionalF(id, present.value, ctx.retrieve(id).typ)
           )
         },
@@ -84,16 +84,16 @@ object StaticProblem {
       )
     case x @ Partial(value, valid, typ) =>
       IR(
-        value = ctx.rec((x: StaticF[IR[ID]]).smap(_.value)),
-        provided = getProvided(x).map { id: ID =>
-          ctx.rec(Partial(id, valid.value, ctx.retrieve(id).typ))
+        value = ctx.record((x: StaticF[IR[IDTop]]).smap(_.value)),
+        provided = getProvided(x).map { id: IDTop =>
+          ctx.record(Partial(id, valid.value, ctx.retrieve(id).typ))
         },
         dynamics = getDynamics(x)
       )
-    case x: StaticF[IR[ID]] =>
+    case x: StaticF[IR[IDTop]] =>
       assert(x.isInstanceOf[Total[_]] || x.isInstanceOf[ValidF[_]] || x.isInstanceOf[PresentF[_]])
       IR(
-        value = ctx.rec(SFunctor[StaticF].smap(x)(_.value)),
+        value = ctx.record(SFunctor[StaticF].smap(x)(_.value)),
         provided = getProvided(x),
         dynamics = getDynamics(x)
       )
