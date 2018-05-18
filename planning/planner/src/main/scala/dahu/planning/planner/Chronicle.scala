@@ -1,7 +1,7 @@
 package dahu.planning.planner
 
 import dahu.model.functions.{Fun2, FunN, Reversible}
-import dahu.model.input._
+import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
 import dahu.model.types.{BoxedInt, Tag, TagIsoInt}

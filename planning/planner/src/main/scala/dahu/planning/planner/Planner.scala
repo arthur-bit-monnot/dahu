@@ -3,7 +3,7 @@ package dahu.planning.planner
 import cats.effect.IO
 import cats.implicits._
 import dahu.model.compiler.Algebras
-import dahu.model.input.Tentative
+import dahu.model.input.Expr
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
 import dahu.model.types.Value
@@ -62,10 +62,10 @@ object Planner {
     val result = model.foldLeft(Chronicle.empty(ctx)) {
       case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
       case (chronicle, action: ActionTemplate) =>
-        val actionInstances: Seq[Opt[Action[Tentative]]] =
+        val actionInstances: Seq[Opt[Action[Expr]]] =
           if(cfg.symBreak) {
             import dahu.model.input.dsl._
-            (0 until step).foldLeft(List[Opt[Action[Tentative]]]()) {
+            (0 until step).foldLeft(List[Opt[Action[Expr]]]()) {
               case (Nil, _) => // first action
                 Opt.optional(Action.instance(action, ctx)) :: Nil
               case (last :: rest, _) =>
@@ -73,7 +73,7 @@ object Planner {
                 val act = Opt.optional(Action.instance(action, ctx))
                 val presence = act.present implies last.present
                 val after = act.a.start >= last.a.start
-                val withSymBreak: Opt[Action[Tentative]] = act.copy(
+                val withSymBreak: Opt[Action[Expr]] = act.copy(
                   a = act.a.copy(
                     chronicle = act.a.chronicle.copy(
                       constraints = presence :: after :: act.a.chronicle.constraints

@@ -3,6 +3,7 @@ package dahu.model.input
 import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
+import dahu.model.types.Tag._
 import dahu.model.functions._
 import dahu.model.ir.DynamicProviderF
 import dahu.model.types._
@@ -11,16 +12,16 @@ import spire.sp
 import scala.reflect.ClassTag
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
-sealed trait Tentative[T] {
+sealed trait Expr[T] {
   def typ: Tag[T]
 }
-object Tentative {
+object Expr {
   import scala.language.implicitConversions
-  implicit def toAny[T](x: Tentative[T]): Tentative[Any] = x.asInstanceOf[Tentative[Any]]
+  implicit def toAny[T](x: Expr[T]): Expr[Any] = x.asInstanceOf[Expr[Any]]
 
-  implicit def dagInstance: DAG[Id, Tentative[Any]] = new DAG[Id, Tentative[Any]] {
-    override def algebra: Tentative[Any] => Id[Tentative[Any]] = x => x
-    override def children(graph: Id[Tentative[Any]]): Set[Tentative[Any]] = graph match {
+  implicit def dagInstance: DAG[Id, Expr[Any]] = new DAG[Id, Expr[Any]] {
+    override def algebra: Expr[Any] => Id[Expr[Any]] = x => x
+    override def children(graph: Id[Expr[Any]]): Set[Expr[Any]] = graph match {
       case SubjectTo(value, condition) => Set(value, condition)
       case x: Product[_]               => x.members.toSet
       case x: Input[_]                 => Set()
@@ -35,25 +36,23 @@ object Tentative {
 }
 
 /** Evaluation: eval(condition).flatMap(eval(value)) */
-final case class SubjectTo[T](value: Tentative[T], condition: Tentative[Boolean])
-    extends Tentative[T] {
+final case class SubjectTo[T](value: Expr[T], condition: Expr[Boolean]) extends Expr[T] {
   override def typ: Tag[T] = value.typ
 }
 
-final case class Optional[T](value: Tentative[T], present: Tentative[Boolean])
-    extends Tentative[T] {
+final case class Optional[T](value: Expr[T], present: Expr[Boolean]) extends Expr[T] {
   override def typ: Tag[T] = value.typ
 }
 
-sealed abstract class Term[T] extends Tentative[T]
+sealed abstract class Term[T] extends Expr[T]
 
 /** Evaluation yields a Right[T] */
 final case class Input[T: Tag](id: Ident) extends Term[T] {
   override def typ: Tag[T] = Tag[T]
 }
 object Input {
-  def apply[T: Tag](name: String): Tentative[T] = new Input[T](Ident(name))
-  def apply[T: Tag](): Tentative[T] = new Input[T](Ident.anonymous())
+  def apply[T: Tag](name: String): Expr[T] = new Input[T](Ident(name))
+  def apply[T: Tag](): Expr[T] = new Input[T](Ident.anonymous())
 }
 
 /** Evaluation returns a Right[T](value) */
@@ -61,58 +60,56 @@ final case class Cst[T: Tag](value: T) extends Term[T] {
   override def typ: Tag[T] = Tag[T]
 }
 object Cst {
-  def apply[T: Tag](v: T): Tentative[T] = new Cst(v)
+  def apply[T: Tag](v: T): Expr[T] = new Cst(v)
 }
 
-final case class ITE[T](cond: Tentative[Boolean], onTrue: Tentative[T], onFalse: Tentative[T])
-    extends Tentative[T] {
+final case class ITE[T](cond: Expr[Boolean], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
   override def typ: Tag[T] = onTrue.typ
 }
 
-final case class Present(value: Tentative[_]) extends Term[Boolean] {
+final case class Present(value: Expr[_]) extends Term[Boolean] {
   override def typ: Tag[Boolean] = Tag.ofBoolean
 }
-final case class Valid(value: Tentative[_]) extends Term[Boolean] {
+final case class Valid(value: Expr[_]) extends Term[Boolean] {
   override def typ: Tag[Boolean] = Tag.ofBoolean
 }
 
-sealed abstract class Computation[O] extends Tentative[O] {
+sealed abstract class Computation[O] extends Expr[O] {
   override def typ: Tag[O] = f.outType
   def f: Fun[O]
-  def args: Seq[Tentative[Any]]
+  def args: Seq[Expr[Any]]
 
   override def toString: String = s"$f(${args.mkString(", ")})"
 }
 
-final case class Product[T[_[_]]](value: T[Tentative])(implicit tt: ProductTag[T])
-    extends Tentative[T[Id]] {
+final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) extends Expr[T[Id]] {
   override def typ: ProductTag[T] = tt
-  def members: Vec[Tentative[Any]] = tt.exprProd.extractTerms(value)
+  def members: Vec[Expr[Any]] = tt.exprProd.extractTerms(value)
   def buildFromVals(terms: Vec[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
-  def buildFromExpr(terms: Vec[Tentative[Any]]): T[Tentative] = tt.exprProd.buildFromTerms(terms)
+  def buildFromExpr(terms: Vec[Expr[Any]]): T[Expr] = tt.exprProd.buildFromTerms(terms)
 }
 object Product {
-  def fromSeq[T](seq: Seq[Tentative[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
+  def fromSeq[T](seq: Seq[Expr[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
     : Product[ProductTag.Sequence[?[_], T]] =
     new Product[ProductTag.Sequence[?[_], T]](seq)(ev)
 
   import scala.reflect.runtime.universe
-  def fromMap[K: ClassTag, V: ClassTag](map: Map[K, Tentative[V]])(
+  def fromMap[K: ClassTag, V: ClassTag](map: Map[K, Expr[V]])(
       implicit tt: universe.WeakTypeTag[Map[K, Id[V]]]): Product[PMap[K, ?[_], V]] = {
     type M[F[_]] = PMap[K, F, V]
     val keys: Vec[K] = Vec.fromSeq(map.keys.toSeq)
-    val values: Vec[Tentative[Any]] = keys.map(map(_).asInstanceOf[Tentative[Any]])
+    val values: Vec[Expr[Any]] = keys.map(map(_).asInstanceOf[Expr[Any]])
 
     // build a specific type tag that remembers the keys of the original map.
     val tag = new ProductTag[M] {
-      override def exprProd: ProductExpr[M, Tentative] = new ProductExpr[M, Tentative] {
-        override def extractTerms(prod: M[Tentative])(
-            implicit ct: ClassTag[Tentative[Any]]): Vec[Tentative[Any]] = {
+      override def exprProd: ProductExpr[M, Expr] = new ProductExpr[M, Expr] {
+        override def extractTerms(prod: M[Expr])(
+            implicit ct: ClassTag[Expr[Any]]): Vec[Expr[Any]] = {
           assert(prod == map)
           values
         }
 
-        override def buildFromTerms(terms: Vec[Tentative[Any]]): M[Tentative] = {
+        override def buildFromTerms(terms: Vec[Expr[Any]]): M[Expr] = {
           assert(terms == values)
           map
         }
@@ -183,63 +180,76 @@ object ProductExpr {
 }
 
 object Computation {
-  def apply[I, O](f: Fun1[I, O], in: Tentative[I]): Computation1[I, O] =
+  def apply[I, O](f: Fun1[I, O], in: Expr[I]): Computation1[I, O] =
     Computation1(f, in)
 
-  def apply[I1, I2, O](f: Fun2[I1, I2, O],
-                       in1: Tentative[I1],
-                       in2: Tentative[I2]): Computation2[I1, I2, O] =
+  def apply[I1, I2, O](f: Fun2[I1, I2, O], in1: Expr[I1], in2: Expr[I2]): Computation2[I1, I2, O] =
     Computation2(f, in1, in2)
 
   def apply[I1, I2, I3, O](f: Fun3[I1, I2, I3, O],
-                           in1: Tentative[I1],
-                           in2: Tentative[I2],
-                           in3: Tentative[I3]): Computation3[I1, I2, I3, O] =
+                           in1: Expr[I1],
+                           in2: Expr[I2],
+                           in3: Expr[I3]): Computation3[I1, I2, I3, O] =
     Computation3(f, in1, in2, in3)
 
-  def apply[I, O](fun: FunN[I, O], arguments: Seq[Tentative[I]]): Computation[O] =
+  def apply[I, O](fun: FunN[I, O], arguments: Seq[Expr[I]]): Computation[O] =
     new Computation[O] {
       override def f: Fun[O] = fun
-      override def args: Seq[Tentative[Any]] = arguments.asInstanceOf[Seq[Tentative[Any]]]
+      override def args: Seq[Expr[Any]] = arguments.asInstanceOf[Seq[Expr[Any]]]
     }
 }
-final case class Computation1[I, O](f: Fun1[I, O], in: Tentative[I]) extends Computation[O] {
-  override val args: Seq[Tentative[Any]] = Seq(in).asInstanceOf[Seq[Tentative[Any]]]
+final case class Computation1[I, O](f: Fun1[I, O], in: Expr[I]) extends Computation[O] {
+  override val args: Seq[Expr[Any]] = Seq(in).asInstanceOf[Seq[Expr[Any]]]
 }
 
-final case class Computation2[I1, I2, O](f: Fun2[I1, I2, O], in: Tentative[I1], in2: Tentative[I2])
+final case class Computation2[I1, I2, O](f: Fun2[I1, I2, O], in: Expr[I1], in2: Expr[I2])
     extends Computation[O] {
-  override val args: Seq[Tentative[Any]] = Seq(in, in2).asInstanceOf[Seq[Tentative[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in, in2).asInstanceOf[Seq[Expr[Any]]]
 }
 
 final case class Computation3[I1, I2, I3, O](f: Fun3[I1, I2, I3, O],
-                                             in: Tentative[I1],
-                                             in2: Tentative[I2],
-                                             in3: Tentative[I3])
+                                             in: Expr[I1],
+                                             in2: Expr[I2],
+                                             in3: Expr[I3])
     extends Computation[O] {
-  override val args: Seq[Tentative[Any]] = Seq(in, in2, in3).asInstanceOf[Seq[Tentative[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in, in2, in3).asInstanceOf[Seq[Expr[Any]]]
 }
 
 final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
-                                                 in: Tentative[I1],
-                                                 in2: Tentative[I2],
-                                                 in3: Tentative[I3],
-                                                 in4: Tentative[I4])
+                                                 in: Expr[I1],
+                                                 in2: Expr[I2],
+                                                 in3: Expr[I3],
+                                                 in4: Expr[I4])
     extends Computation[O] {
-  override val args: Seq[Tentative[Any]] = Seq(in, in2, in3, in4).asInstanceOf[Seq[Tentative[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in, in2, in3, in4).asInstanceOf[Seq[Expr[Any]]]
 }
 
 trait DynamicInstantiator[Params, Out] {
   def typ: Tag[Out]
 }
 
-final case class Dynamic[Params, Out](params: Tentative[Params],
+final case class Dynamic[Params, Out](params: Expr[Params],
                                       dynamicInstantiator: DynamicInstantiator[Params, Out])
-    extends Tentative[Out] {
+    extends Expr[Out] {
   override def typ: Tag[Out] = dynamicInstantiator.typ
 }
 
-final case class DynamicProvider[A, Provided](e: Tentative[A], provided: Tentative[Provided])
-    extends Tentative[A] {
+final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provided])
+    extends Expr[A] {
   override def typ: Tag[A] = e.typ
+}
+
+final case class Lambda[I: Tag, O: Tag](f: Expr[I] => Expr[O]) extends Expr[I => O] {
+  def outTag: Tag[O] = Tag[O]
+
+  val inputVar: Expr[I] = Input[I](Ident.anonymous())
+
+  def apply(in1: Expr[I]): Expr[O] = f(in1)
+
+  override def typ: LambdaType[I, O] = Tag.functionTag[I, O]
+}
+object Lambda {}
+
+case class Apply[I, O](l: Lambda[I, O], in: Expr[I]) extends Expr[O] {
+  override def typ: Tag[O] = l.outTag
 }

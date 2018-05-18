@@ -3,7 +3,7 @@ package dahu.model.types
 import cats.Id
 import dahu.model.functions.{Box, Fun1, Reversible, Unbox}
 import dahu.utils._
-import dahu.model.input.{ProductExpr, Tentative}
+import dahu.model.input.{Expr, ProductExpr}
 
 import scala.annotation.switch
 import scala.reflect.ClassTag
@@ -43,6 +43,12 @@ object Tag {
     override val min: Int = 0
     override val max: Int = 1
   }
+
+  case class LambdaType[I, O](it: Tag[I], ot: Tag[O]) extends Tag[I => O] {
+    override def typ: Tag.Type = ???
+  }
+  implicit def functionTag[I: Tag, O: Tag]: LambdaType[I, O] = LambdaType(Tag[I], Tag[O])
+
   def tagInstance[T](implicit ttag: universe.WeakTypeTag[T]): Tag[T] = new Tag[T] {
     override def typ: Type = ttag.tpe
   }
@@ -103,19 +109,19 @@ object TagIsoInt {
 trait BoxedInt[T] extends TagIsoInt[T] {}
 
 trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
-  def exprProd: ProductExpr[P, Tentative]
+  def exprProd: ProductExpr[P, Expr]
   def idProd: ProductExpr[P, cats.Id]
 }
 object ProductTag {
 
   import scala.reflect.runtime.universe
 
-  implicit def ofProd[P[_[_]]](implicit pe1: ProductExpr[P, Tentative],
+  implicit def ofProd[P[_[_]]](implicit pe1: ProductExpr[P, Expr],
                                pe2: ProductExpr[P, cats.Id],
                                tt: universe.WeakTypeTag[P[cats.Id]]): ProductTag[P] =
     new ProductTag[P] {
 
-      override def exprProd: ProductExpr[P, Tentative] = pe1
+      override def exprProd: ProductExpr[P, Expr] = pe1
       override def idProd: ProductExpr[P, Id] = pe2
 
       override def typ: Tag.Type = tt.tpe
@@ -126,13 +132,13 @@ object ProductTag {
   implicit def ofSeq[A](
       implicit tt: universe.WeakTypeTag[Seq[cats.Id[A]]]): ProductTag[Sequence[?[_], A]] =
     new ProductTag[Sequence[?[_], A]] {
-      override def exprProd: ProductExpr[Sequence[?[_], A], Tentative] =
-        new ProductExpr[Sequence[?[_], A], Tentative] {
-          override def extractTerms(prod: Sequence[Tentative, A])(
-              implicit ct: ClassTag[Tentative[Any]]): Vec[Tentative[Any]] =
-            Vec.fromSeq(prod.map(_.asInstanceOf[Tentative[Any]]))
-          override def buildFromTerms(terms: Vec[Tentative[Any]]): Sequence[Tentative, A] =
-            terms.map(_.asInstanceOf[Tentative[A]]).toSeq
+      override def exprProd: ProductExpr[Sequence[?[_], A], Expr] =
+        new ProductExpr[Sequence[?[_], A], Expr] {
+          override def extractTerms(prod: Sequence[Expr, A])(
+              implicit ct: ClassTag[Expr[Any]]): Vec[Expr[Any]] =
+            Vec.fromSeq(prod.map(_.asInstanceOf[Expr[Any]]))
+          override def buildFromTerms(terms: Vec[Expr[Any]]): Sequence[Expr, A] =
+            terms.map(_.asInstanceOf[Expr[A]]).toSeq
         }
       override def idProd: ProductExpr[Sequence[?[_], A], Id] =
         new ProductExpr[Sequence[?[_], A], Id] {

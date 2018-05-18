@@ -3,6 +3,7 @@ package dahu.model.ir
 import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.{DynamicInstantiator, Ident}
+import dahu.model.types.Tag.LambdaType
 import dahu.model.types.{ProductTag, Tag, Type, Value}
 
 import scala.{specialized => sp}
@@ -202,3 +203,11 @@ object DynamicInstantiatorF {
     override def toString: String = e.toString
   }
 }
+
+/**
+  * Lambda is composed of an AST `tree` and a variable `in`.
+  * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
+  */
+case class LambdaF[F](in: F, tree: F, typ: LambdaType[_, _]) extends ExprF[F]
+
+case class ApplyF[F](lambda: F, param: F, typ: Type) extends ExprF[F]

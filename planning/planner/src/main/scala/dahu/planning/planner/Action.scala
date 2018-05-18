@@ -1,6 +1,6 @@
 package dahu.planning.planner
 
-import dahu.model.input.{Ident, Input, Tentative}
+import dahu.model.input.{Expr, Ident, Input}
 import dahu.planning.model.common._
 import dahu.planning.model.core._
 import dahu.planning.model.transforms.ActionInstantiation
@@ -15,10 +15,10 @@ object Action {
   var counter = 0
 
   def instance(template: ActionTemplate, ctx: ProblemContext)(
-      implicit predef: Predef): Action[Tentative] = {
+      implicit predef: Predef): Action[Expr] = {
     counter += 1
     val act = ActionInstantiation.instance(template, s"${template.name}_$counter")
-    val argsRewrite: Arg => Tentative[Literal] = {
+    val argsRewrite: Arg => Expr[Literal] = {
       case a @ Arg(_, tpe) => Input(Ident(a))(ctx.specializedTags(tpe))
     }
 

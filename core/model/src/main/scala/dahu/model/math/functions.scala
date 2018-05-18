@@ -1,7 +1,7 @@
 package dahu.model.math
 
 import dahu.model.functions._
-import dahu.model.input.{Cst, Tentative}
+import dahu.model.input.{Cst, Expr}
 import dahu.model.ir.CstF
 import dahu.model.types.Tag
 
@@ -109,9 +109,9 @@ object bool {
     override def reverse: Reversible[Boolean, Boolean] = this
   }
 
-  val True: Tentative[Boolean] = Cst(true)
+  val True: Expr[Boolean] = Cst(true)
   val TrueF: CstF[Any] = CstF(dahu.model.types.Value(true), Tag[Boolean])
-  val False: Tentative[Boolean] = Cst(false)
+  val False: Expr[Boolean] = Cst(false)
   val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
 
 }

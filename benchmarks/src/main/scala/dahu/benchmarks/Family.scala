@@ -1,7 +1,7 @@
 package dahu.benchmarks
 
 import dahu.model.compiler.Algebras
-import dahu.model.input.Tentative
+import dahu.model.input.Expr
 import dahu.model.interpreter.Interpreter
 import dahu.model.types.Value
 import dahu.solvers.{MetaSolver, PartialSolver}
@@ -27,7 +27,7 @@ abstract class Family(val familyName: String) {
 
   def defaultSolver: PartialSolver.Builder = Z3PartialSolver.builder
 
-  def printSolutions[T](sat: Tentative[T], maxSolutions: Option[Int] = None): Unit = {
+  def printSolutions[T](sat: Expr[T], maxSolutions: Option[Int] = None): Unit = {
     val solver = MetaSolver.of(Algebras.parse(sat), defaultSolver)
     val sols = mutable.ArrayBuffer[String]()
     val solutionString = (f: solver.ast.Assignment) => {

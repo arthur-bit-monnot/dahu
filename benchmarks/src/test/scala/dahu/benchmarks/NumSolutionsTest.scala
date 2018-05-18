@@ -24,7 +24,7 @@ object NumSolutionsTest extends TestSuite {
     Z3PartialSolver.builder
   )
 
-  def numSolutions[T](expr: Tentative[T],
+  def numSolutions[T](expr: Expr[T],
                       builder: PartialSolver.Builder,
                       maxSolutions: Option[Int] = None): Int = {
     val solver = MetaSolver.of(parse(expr), builder)

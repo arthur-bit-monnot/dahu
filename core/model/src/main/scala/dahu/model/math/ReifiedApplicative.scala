@@ -14,17 +14,17 @@ trait ReifiedApplicative[F[_]] {
 
 object ReifiedApplicative {
 
-  implicit object ofTentative extends ReifiedApplicative[Tentative] {
-    override def map[A, Z](fa: Tentative[A])(f: Fun1[A, Z]): Tentative[Z] =
+  implicit object ofTentative extends ReifiedApplicative[Expr] {
+    override def map[A, Z](fa: Expr[A])(f: Fun1[A, Z]): Expr[Z] =
       Computation(f, fa)
 
-    override def map2[A, B, Z](fa: Tentative[A], fb: Tentative[B])(f: Fun2[A, B, Z]): Tentative[Z] =
+    override def map2[A, B, Z](fa: Expr[A], fb: Expr[B])(f: Fun2[A, B, Z]): Expr[Z] =
       Computation(f, fa, fb)
 
-    override def mapN[A, Z](fas: Tentative[A]*)(f: FunN[A, Z]): Tentative[Z] =
+    override def mapN[A, Z](fas: Expr[A]*)(f: FunN[A, Z]): Expr[Z] =
       Computation(f, fas)
 
-    override def pure[A: Tag](x: A): Tentative[A] =
+    override def pure[A: Tag](x: A): Expr[A] =
       Cst(x)
   }
 }

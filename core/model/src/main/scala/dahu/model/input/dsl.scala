@@ -13,50 +13,49 @@ import scala.language.implicitConversions
 object dsl {
 
   implicit class Fun1Ops[I, O](private val lhs: Fun1[I, O]) extends AnyVal {
-    def apply(arg: Tentative[I]): Tentative[O] = Computation1(lhs, arg)
+    def apply(arg: Expr[I]): Expr[O] = Computation1(lhs, arg)
   }
 
   implicit class Fun2Ops[I1, I2, O: Tag](f: Fun2[I1, I2, O]) {
-    def apply(i1: Tentative[I1], i2: Tentative[I2]): Computation2[I1, I2, O] =
+    def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
       Computation(f, i1, i2)
   }
 
-  def ITE[T](cond: Tentative[Boolean], t: Tentative[T], f: Tentative[T]) =
+  def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
     new ITE[T](cond, t, f)
 
-  implicit def double2Cst(value: Double): Tentative[Double] = Cst(value)
-  implicit def int2Cst(value: Int): Tentative[Int] = Cst(value)
+  implicit def double2Cst(value: Double): Expr[Double] = Cst(value)
+  implicit def int2Cst(value: Int): Expr[Int] = Cst(value)
 
   implicit class InputHelper(val sc: StringContext) extends AnyVal {
-    def d(args: Any*): Tentative[Double] = Input[Double](sc.s(args: _*))
+    def d(args: Any*): Expr[Double] = Input[Double](sc.s(args: _*))
   }
 
-  implicit val boolLike: BoolLike[Tentative[Boolean]] = new BoolLike[Tentative[Boolean]] {
-    override def and(a: Tentative[Boolean], b: Tentative[Boolean]): Tentative[Boolean] =
+  implicit val boolLike: BoolLike[Expr[Boolean]] = new BoolLike[Expr[Boolean]] {
+    override def and(a: Expr[Boolean], b: Expr[Boolean]): Expr[Boolean] =
       Computation(bool.And, Seq(a, b))
-    override def or(a: Tentative[Boolean], b: Tentative[Boolean]): Tentative[Boolean] =
+    override def or(a: Expr[Boolean], b: Expr[Boolean]): Expr[Boolean] =
       Computation(bool.Or, Seq(a, b))
-    override def not(a: Tentative[Boolean]): Tentative[Boolean] =
+    override def not(a: Expr[Boolean]): Expr[Boolean] =
       Computation(bool.Not, a)
 
-    override def False: Tentative[Boolean] = bool.True
-    override def True: Tentative[Boolean] = bool.False
+    override def False: Expr[Boolean] = bool.True
+    override def True: Expr[Boolean] = bool.False
   }
 
-  implicit val intsNumber: NumberLike.Aux[Tentative[Int], Tentative[Boolean], Tentative[Int]] =
-    Numeric.toNumberLike[Int, Tentative]
+  implicit val intsNumber: NumberLike.Aux[Expr[Int], Expr[Boolean], Expr[Int]] =
+    Numeric.toNumberLike[Int, Expr]
 
-  implicit val numbersDouble
-    : NumberLike.Aux[Tentative[Double], Tentative[Boolean], Tentative[Double]] =
-    Numeric.toNumberLike[Double, Tentative]
+  implicit val numbersDouble: NumberLike.Aux[Expr[Double], Expr[Boolean], Expr[Double]] =
+    Numeric.toNumberLike[Double, Expr]
 
-  implicit def orderableIsoInt[T: TagIsoInt]: Orderable.Aux[Tentative[T], Tentative[Boolean]] =
-    new Orderable[Tentative[T]] {
-      override type Bool = Tentative[Boolean]
-      override def BL: BoolLike[Tentative[Boolean]] = boolLike
-      override def leq(a: Tentative[T], b: Tentative[T]): Bool =
+  implicit def orderableIsoInt[T: TagIsoInt]: Orderable.Aux[Expr[T], Expr[Boolean]] =
+    new Orderable[Expr[T]] {
+      override type Bool = Expr[Boolean]
+      override def BL: BoolLike[Expr[Boolean]] = boolLike
+      override def leq(a: Expr[T], b: Expr[T]): Bool =
         intsNumber.leq(TagIsoInt[T].unbox(a), TagIsoInt[T].unbox(b))
-      override def lt(a: Tentative[T], b: Tentative[T]): Bool =
+      override def lt(a: Expr[T], b: Expr[T]): Bool =
         intsNumber.lt(TagIsoInt[T].unbox(a), TagIsoInt[T].unbox(b))
     }
 
@@ -65,21 +64,21 @@ object dsl {
   implicit def toBoolLikeOps[A: BoolLike](a: A) = new core.algebra.BoolLike.BoolLikeOps(a)
 
   implicit final class ToSubjectToOps[F[_], T](private val lhs: F[T])(
-      implicit ev: F[T] <:< Tentative[T]) {
+      implicit ev: F[T] <:< Expr[T]) {
 
-    def subjectTo(cond: F[T] => Tentative[Boolean]): Tentative[T] =
+    def subjectTo(cond: F[T] => Expr[Boolean]): Expr[T] =
       SubjectTo(lhs, cond(lhs))
 
   }
 
-  implicit class UnboxOps[A](private val lhs: Tentative[A]) extends AnyVal {
-    def unboxed(implicit tag: TagIsoInt[A]): Tentative[Int] =
+  implicit class UnboxOps[A](private val lhs: Expr[A]) extends AnyVal {
+    def unboxed(implicit tag: TagIsoInt[A]): Expr[Int] =
       Computation(tag.unbox, lhs)
   }
 
   implicit class ProductOps[T[_[_]]](private val lhs: Product[T]) extends AnyVal {
 
-    def subjectTo(cond: Product[T] => Tentative[Boolean]): SubjectTo[T[cats.Id]] =
+    def subjectTo(cond: Product[T] => Expr[Boolean]): SubjectTo[T[cats.Id]] =
       SubjectTo(lhs, cond(lhs))
   }
 
@@ -87,7 +86,7 @@ object dsl {
     implicit private[this] def tag: Tag[T] = lhs.typ
 
     /** Swallows a violated constraint and uses the provided value instead. */
-    def recover(onFailure: Tentative[T]): ITE[T] =
+    def recover(onFailure: Expr[T]): ITE[T] =
       ITE(
         lhs.condition,
         lhs.value,
@@ -98,14 +97,14 @@ object dsl {
 
   implicit final class OptionalOps[T](private val lhs: Optional[T]) {
     implicit private[this] def tag: Tag[T] = lhs.typ
-    def subjectTo(f: Tentative[T] => Tentative[Boolean]): SubjectTo[T] = {
+    def subjectTo(f: Expr[T] => Expr[Boolean]): SubjectTo[T] = {
       SubjectTo(lhs, lhs.present ==> f(lhs.value))
     }
 
     def embed: ITE[Option[T]] =
       ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(None))
 
-    def orElse(v: Tentative[T]): ITE[T] =
+    def orElse(v: Expr[T]): ITE[T] =
       ITE(
         lhs.present,
         lhs.value,
@@ -113,17 +112,17 @@ object dsl {
       )
   }
 
-  implicit final class TentativeOps[T](private val lhs: Tentative[T]) extends AnyVal {
+  implicit final class TentativeOps[T](private val lhs: Expr[T]) extends AnyVal {
     implicit private[this] def tag: Tag[T] = lhs.typ
-    def map[B](f: Fun1[T, B]): Tentative[B] = Computation1(f, lhs)
-    def map[B: Tag](f: T => B): Tentative[B] = Computation1(Fun1.embed(f), lhs)
+    def map[B](f: Fun1[T, B]): Expr[B] = Computation1(f, lhs)
+    def map[B: Tag](f: T => B): Expr[B] = Computation1(Fun1.embed(f), lhs)
 
-    def subjectTo(cond: Tentative[T] => Tentative[Boolean]): Tentative[T] =
+    def subjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
       SubjectTo(lhs, cond(lhs))
   }
 
-  implicit class BooleanExprOps(a: Tentative[Boolean]) {
-    def toDouble: Tentative[Double] = ITE(a, Cst(1.0), Cst(0.0))
-    def toInt: Tentative[Int] = ITE(a, Cst(1), Cst(0))
+  implicit class BooleanExprOps(a: Expr[Boolean]) {
+    def toDouble: Expr[Double] = ITE(a, Cst(1.0), Cst(0.0))
+    def toInt: Expr[Int] = ITE(a, Cst(1), Cst(0))
   }
 }

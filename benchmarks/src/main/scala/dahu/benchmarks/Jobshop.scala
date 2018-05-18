@@ -8,14 +8,14 @@ object Jobshop extends Family("jobshop") {
   val START = Cst(1)
   val END = Input[Int]("makespan").subjectTo(START <= _)
 
-  def input(): Tentative[Int] = Input()
+  def input(): Expr[Int] = Input()
   def tp()= input().subjectTo(x => START <= x && x <= END)
 
   case class Job(jobNumber: Int,
                  numInJob: Int,
                  duration: Int,
                  interval: Interval,
-                 machine: Tentative[Int])
+                 machine: Expr[Int])
 
   final case class JobShopInstance(numMachines: Int,
                                    jobs: Seq[Seq[Int]],
@@ -24,10 +24,10 @@ object Jobshop extends Family("jobshop") {
     def numJobs = jobs.size
   }
 
-  case class Interval(start: Tentative[Int], end: Tentative[Int]) {
-    def duration: Tentative[Int] = end - start
-    def <(o: Interval): Tentative[Boolean] = end < o.start
-    def >(o: Interval): Tentative[Boolean] = o < this
+  case class Interval(start: Expr[Int], end: Expr[Int]) {
+    def duration: Expr[Int] = end - start
+    def <(o: Interval): Expr[Boolean] = end < o.start
+    def >(o: Interval): Expr[Boolean] = o < this
   }
   def interval(duration: Int): Interval = {
     val start = tp()
@@ -52,7 +52,7 @@ object Jobshop extends Family("jobshop") {
       }
       .fold(Cst(true))(_ && _)
 
-    val nonOverlappingSeq: Seq[Tentative[Boolean]] = for(j1 <- jobs; j2 <- jobs; if j1 != j2) yield {
+    val nonOverlappingSeq: Seq[Expr[Boolean]] = for(j1 <- jobs; j2 <- jobs; if j1 != j2) yield {
       j1.machine =!= j2.machine || j1.interval < j2.interval || j1.interval > j2.interval
     }
     val nonOverlapping = nonOverlappingSeq.fold(Cst(true))(_ && _)

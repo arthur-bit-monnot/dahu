@@ -22,9 +22,9 @@ object BagPacking extends TestSuite {
 
   val W = Cst(3.0) // max allowed weight
 
-  val w: Tentative[Double] = w1 * x1.toDouble + w2 * x2.toDouble
-  val valid: Tentative[Boolean] = w <= W
-  val utility: Tentative[Double] = p1 * x1.toDouble + p2 * x2.toDouble
+  val w: Expr[Double] = w1 * x1.toDouble + w2 * x2.toDouble
+  val valid: Expr[Boolean] = w <= W
+  val utility: Expr[Double] = p1 * x1.toDouble + p2 * x2.toDouble
 
   val decisions = List(x1, x2)
 

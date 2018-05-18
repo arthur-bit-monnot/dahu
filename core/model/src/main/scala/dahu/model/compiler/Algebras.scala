@@ -12,18 +12,20 @@ import scala.annotation.tailrec
 
 object Algebras {
 
-  val coalgebra: FCoalgebra[ExprF, Tentative[_]] = {
+  val coalgebra: FCoalgebra[ExprF, Expr[_]] = {
     case x @ Input(name)                => InputF(name, x.typ)
     case x @ Cst(value)                 => CstF(Value(value), x.typ)
     case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
     case x @ SubjectTo(value, cond)     => Partial(value, cond, x.typ)
-    case x @ Product(value)             => ProductF(x.members.asInstanceOf[Vec[Tentative[_]]], x.typ)
+    case x @ Product(value)             => ProductF(x.members.asInstanceOf[Vec[Expr[_]]], x.typ)
     case x @ Optional(value, present)   => OptionalF(value, present, x.typ)
     case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
     case Present(partial)               => PresentF(partial)
     case Valid(partial)                 => ValidF(partial)
     case x @ Dynamic(params, dynInst)   => DynamicF(params, DynamicInstantiatorF(dynInst), x.typ)
     case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
+    case x @ Lambda(_)                  => LambdaF(x.inputVar, x.f(x.inputVar), x.typ)
+    case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
@@ -38,6 +40,8 @@ object Algebras {
     case ValidF(partial)                => s"valid($partial)"
     case DynamicF(params, inst, _)      => s"$inst($params)"
     case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
+    case LambdaF(in, tree, _)           => s"($in ↦ $tree)"
+    case ApplyF(lambda, param, _)       => s"$lambda $param"
   }
 
   def format(e: Fix[Total]): String = cata(printAlgebraMultiLine)(e)
@@ -69,13 +73,13 @@ object Algebras {
     }
   }
 
-  def pprint(prg: Tentative[_]): String =
+  def pprint(prg: Expr[_]): String =
     hylo(coalgebra, printAlgebra)(prg)
 
   def pprint[T](coalgebra: FCoalgebra[ExprF, T], expr: T): String =
     hylo(coalgebra, printAlgebra)(expr)
 
-  def parse[T](e: Tentative[T]): AST[Tentative[_]] =
+  def parse[T](e: Expr[T]): AST[Expr[_]] =
     parse(e, coalgebra)
 
   def parse[T](t: T, coalgebra: FCoalgebra[ExprF, T]): AST[T] = {
