@@ -6,7 +6,9 @@ import dahu.model.functions.Fun
 import dahu.model.input.{DynamicInstantiator, Ident}
 import dahu.model.types.Tag.LambdaType
 import dahu.model.types.{ProductTag, Tag, Type, Value}
+import shapeless.=:!=
 
+import scala.annotation.switch
 import scala.{specialized => sp}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -17,38 +19,6 @@ sealed trait ExprF[@sp(Int) F] {
 
   override final lazy val hashCode: Int = ExprF.hash(this)
 }
-
-sealed trait NoProviderF[@sp(Int) F] { self: ExprF[F] =>
-  def typ: Type
-}
-object NoProviderF {
-  implicit val functor: SFunctor[NoProviderF] = ExprF.functor.asInstanceOf[SFunctor[NoProviderF]]
-}
-
-sealed trait StaticF[@sp(Int) F] extends NoProviderF[F] { self: ExprF[F] =>
-  def typ: Type
-}
-object StaticF {
-  implicit val functor: SFunctor[StaticF] = ExprF.functor.asInstanceOf[SFunctor[StaticF]]
-}
-sealed trait TotalOrOptionalF[@sp(Int) F] extends StaticF[F] { self: ExprF[F] =>
-  def typ: Type
-}
-sealed trait TotalOrPartialF[@sp(Int) F] extends StaticF[F] { self: ExprF[F] =>
-  def typ: Type
-}
-
-object TotalOrOptionalF {
-  implicit val functor: SFunctor[TotalOrOptionalF] = new SFunctor[TotalOrOptionalF] {
-    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: TotalOrOptionalF[A])(
-        f: A => B): TotalOrOptionalF[B] = fa match {
-      case fa: Total[A] => Total.functor.smap(fa)(f)
-      case OptionalF(value, present, typ) =>
-        OptionalF(f(value), f(present), typ)
-    }
-  }
-}
-
 object ExprF {
   implicit val functor: SFunctor[ExprF] = new SFunctor[ExprF] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: ExprF[A])(f: A => B): ExprF[B] =
@@ -62,18 +32,26 @@ object ExprF {
         case ValidF(v)                   => ValidF(f(v))
         case DynamicF(params, inst, typ) => DynamicF(f(params), inst, typ)
         case DynamicProviderF(e, p, typ) => DynamicProviderF(f(e), f(p), typ)
+        case ApplyF(lambda, param, typ)  => ApplyF(f(lambda), f(param), typ)
+        case LambdaF(in, tree, typ)      => LambdaF(f(in), f(tree), typ)
       }
   }
+  // note this is safe to do as the functor instance never changes the wrapping type
+  implicit def subFunctorInstance[F[_]](implicit ev: F[Any] <:< ExprF[Any],
+                                        ev2: F[Any] =:!= ExprF[Any]): SFunctor[F] =
+    functor.asInstanceOf[SFunctor[F]]
 
   implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
     override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
+      case x: Total[A]                      => Total.treeNodeInstance.children(x)
       case Partial(value, condition, typ)   => Iterable(value, condition)
       case OptionalF(value, present, typ)   => Iterable(value, present)
       case PresentF(v)                      => Iterable(v)
       case ValidF(v)                        => Iterable(v)
       case DynamicF(params, _, _)           => Iterable(params)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
-      case x: Total[A]                      => Total.treeNodeInstance.children(x)
+      case ApplyF(lambda, param, _)         => Iterable(lambda, param)
+      case LambdaF(in, tree, _)             => Iterable(in, tree)
     }
   }
 
@@ -89,14 +67,21 @@ object ExprF {
     case x: ProductF[A]         => ScalaRunTime._hashCode(x)
     case x: DynamicF[A]         => ScalaRunTime._hashCode(x)
     case x: DynamicProviderF[A] => ScalaRunTime._hashCode(x)
+    case x: LambdaF[A]          => ScalaRunTime._hashCode(x)
+    case x: ApplyF[A]           => ScalaRunTime._hashCode(x)
   }
 }
+
+sealed trait NoProviderF[@sp(Int) F] extends ExprF[F]
+sealed trait StaticF[@sp(Int) F] extends NoProviderF[F]
+sealed trait TotalOrOptionalF[@sp(Int) F] extends StaticF[F]
+sealed trait TotalOrPartialF[@sp(Int) F] extends StaticF[F]
 
 /** Pure expressions that always yield value if they are fed with pure expressions.
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[@sp(Int) F] extends ExprF[F] with TotalOrOptionalF[F] with TotalOrPartialF[F]
+sealed trait Total[@sp(Int) F] extends TotalOrOptionalF[F] with TotalOrPartialF[F]
 object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
@@ -123,17 +108,17 @@ object Total {
 
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
-case class InputF[@sp(Int) F](id: Ident, typ: Type) extends Total[F] {
+final case class InputF[@sp(Int) F](id: Ident, typ: Type) extends Total[F] {
   override def toString: String = s"$id"
 }
 object InputF {
 
-  /** The type parameter of InputF is does not play any role beside allowing recursion scheme.
-    * This implicit conversion, allows usin it interchangeably without creating new objects. or casting manually*/
+  /** The type parameter of InputF does not play any role beside allowing recursion scheme.
+    * This implicit conversion, allows using it interchangeably without creating new objects. or casting manually*/
   implicit def typeParamConversion[F, G](fa: InputF[F]): InputF[G] = fa.asInstanceOf[InputF[G]]
 }
 
-case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
+final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
   override def toString: String = value.toString
 }
 object CstF {
@@ -169,7 +154,7 @@ final case class PresentF[F](optional: F) extends ExprF[F] with StaticF[F] {
   override def toString: String = s"present($optional)"
 }
 
-final case class ValidF[@sp(Int) F](partial: F) extends ExprF[F] with StaticF[F] {
+final case class ValidF[@sp(Int) F](partial: F) extends StaticF[F] {
   override def typ: Type = Tag.ofBoolean
 
   override def toString: String = s"valid($partial)"
@@ -177,8 +162,7 @@ final case class ValidF[@sp(Int) F](partial: F) extends ExprF[F] with StaticF[F]
 
 /** An Optional expression, that evaluates to Some(value) if present == true and to None otherwise. */
 final case class OptionalF[@sp(Int) F](value: F, present: F, typ: Type)
-    extends ExprF[F]
-    with TotalOrOptionalF[F] {
+    extends TotalOrOptionalF[F] {
   override def toString: String = s"$value? (presence: $present)"
 }
 
@@ -192,27 +176,9 @@ final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
 final case class DynamicF[@sp(Int) F](params: F,
                                       dynamicInstantiator: DynamicInstantiatorF,
                                       typ: Type)
-    extends ExprF[F]
-    with NoProviderF[F]
-
-object DynamicF {
-
-  implicit val functorInstance: SFunctor[DynamicF] = new SFunctor[DynamicF] {
-    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: DynamicF[A])(f: A => B): DynamicF[B] =
-      DynamicF(f(fa.params), fa.dynamicInstantiator, fa.typ)
-  }
-}
+    extends NoProviderF[F]
 
 final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) extends ExprF[F]
-
-object DynamicProviderF {
-
-  implicit val functorInstance: SFunctor[DynamicProviderF] = new SFunctor[DynamicProviderF] {
-    override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: DynamicProviderF[A])(
-        f: A => B): DynamicProviderF[B] =
-      DynamicProviderF(f(fa.e), f(fa.provided), fa.typ)
-  }
-}
 
 trait DynamicInstantiatorF {
   def closeWorld[F](params: ExprF[F], witness: Vec[ExprF[F]]): StaticF[F]
@@ -228,6 +194,6 @@ object DynamicInstantiatorF {
   * Lambda is composed of an AST `tree` and a variable `in`.
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
-case class LambdaF[F](in: F, tree: F, typ: LambdaType[_, _]) extends ExprF[F]
+final case class LambdaF[F](in: F, tree: F, typ: LambdaType[_, _]) extends ExprF[F]
 
-case class ApplyF[F](lambda: F, param: F, typ: Type) extends ExprF[F]
+final case class ApplyF[F](lambda: F, param: F, typ: Type) extends ExprF[F]
