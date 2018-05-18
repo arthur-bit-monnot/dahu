@@ -102,7 +102,7 @@ object dsl {
     }
 
     def embed: ITE[Option[T]] =
-      ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(None))
+      ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(Option.empty))
 
     def orElse(v: Expr[T]): ITE[T] =
       ITE(

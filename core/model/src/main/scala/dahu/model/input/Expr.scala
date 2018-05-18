@@ -9,28 +9,27 @@ import dahu.model.ir.DynamicProviderF
 import dahu.model.types._
 import spire.sp
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.ClassTag
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
-sealed trait Expr[T] {
-  def typ: Tag[T]
+sealed trait Expr[+T] {
+  def typ: Tag[T] //@uncheckedVariance
 }
 object Expr {
-  import scala.language.implicitConversions
-  implicit def toAny[T](x: Expr[T]): Expr[Any] = x.asInstanceOf[Expr[Any]]
 
   implicit def dagInstance: DAG[Id, Expr[Any]] = new DAG[Id, Expr[Any]] {
     override def algebra: Expr[Any] => Id[Expr[Any]] = x => x
-    override def children(graph: Id[Expr[Any]]): Set[Expr[Any]] = graph match {
-      case SubjectTo(value, condition) => Set(value, condition)
-      case x: Product[_]               => x.members.toSet
-      case x: Input[_]                 => Set()
-      case x: Cst[_]                   => Set()
-      case x: Computation[_]           => x.args.toSet
-      case Optional(value, present)    => Set(value, present)
-      case ITE(cond, onTrue, onFalse)  => Set(cond, onTrue, onFalse)
-      case Dynamic(p, _)               => Set(p)
-      case DynamicProvider(e, prov)    => Set(e, prov)
+    override def children(graph: Id[Expr[Any]]): Iterable[Expr[Any]] = graph match {
+      case SubjectTo(value, condition) => Iterable(value, condition)
+      case x: Product[_]               => x.members.toIterable
+      case x: Input[_]                 => Iterable.empty
+      case x: Cst[_]                   => Iterable.empty
+      case x: Computation[_]           => x.args
+      case Optional(value, present)    => Iterable(value, present)
+      case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
+      case Dynamic(p, _)               => Iterable(p)
+      case DynamicProvider(e, prov)    => Iterable(e, prov)
     }
   }
 }
@@ -77,7 +76,7 @@ final case class Valid(value: Expr[_]) extends Term[Boolean] {
 sealed abstract class Computation[O] extends Expr[O] {
   override def typ: Tag[O] = f.outType
   def f: Fun[O]
-  def args: Seq[Expr[Any]]
+  def args: Seq[Expr[Any]] // TODO: make args a Vec
 
   override def toString: String = s"$f(${args.mkString(", ")})"
 }

@@ -1,5 +1,6 @@
 package dahu.model.ir
 
+import dahu.graphs.TreeNode
 import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.{DynamicInstantiator, Ident}
@@ -64,6 +65,18 @@ object ExprF {
       }
   }
 
+  implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
+    override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
+      case Partial(value, condition, typ)   => Iterable(value, condition)
+      case OptionalF(value, present, typ)   => Iterable(value, present)
+      case PresentF(v)                      => Iterable(v)
+      case ValidF(v)                        => Iterable(v)
+      case DynamicF(params, _, _)           => Iterable(params)
+      case DynamicProviderF(e, provided, _) => Iterable(e, provided)
+      case x: Total[A]                      => Total.treeNodeInstance.children(x)
+    }
+  }
+
   def hash[@sp(Int) A](exprF: ExprF[A]): Int = exprF match {
     case x: ComputationF[A]     => ScalaRunTime._hashCode(x)
     case x: InputF[A]           => ScalaRunTime._hashCode(x)
@@ -96,8 +109,15 @@ object Total {
         case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
       }
   }
-  trait FunctorSpec[F[_]] {
-    def map[A, B: ClassTag](fa: F[A])(f: A => B): F[B]
+
+  implicit val treeNodeInstance: TreeNode[Total] = new TreeNode[Total] {
+    override def children[A](fa: Total[A]): Iterable[A] = fa match {
+      case ComputationF(_, args, _) => args.toIterable
+      case _: CstF[A]               => Iterable.empty
+      case _: InputF[A]             => Iterable.empty
+      case ITEF(c, t, f, _)         => Iterable(c, t, f)
+      case ProductF(as, _)          => as.toIterable
+    }
   }
 }
 
