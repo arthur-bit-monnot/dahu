@@ -1,7 +1,7 @@
 package dahu.model.types
 
 import cats.Id
-import dahu.model.functions.{Box, Fun1, Reversible, Unbox}
+import dahu.model.functions._
 import dahu.utils._
 import dahu.model.input.{Expr, ProductExpr}
 
@@ -44,10 +44,12 @@ object Tag {
     override val max: Int = 1
   }
 
-  case class LambdaType[I, O](it: Tag[I], ot: Tag[O]) extends Tag[I => O] {
-    override def typ: Tag.Type = ???
+  final case class LambdaTag[I, O](it: Tag[I], ot: Tag[O]) extends Tag[I -> O] {
+    override def typ: Tag.Type = ??? // TODO
   }
-  implicit def functionTag[I: Tag, O: Tag]: LambdaType[I, O] = LambdaType(Tag[I], Tag[O])
+
+  implicit def ofFunction[I: Tag, O: Tag]: Tag[I -> O] = ofLambda[I, O]
+  implicit def ofLambda[I: Tag, O: Tag]: LambdaTag[I, O] = LambdaTag(Tag[I], Tag[O])
 
   def tagInstance[T](implicit ttag: universe.WeakTypeTag[T]): Tag[T] = new Tag[T] {
     override def typ: Type = ttag.tpe

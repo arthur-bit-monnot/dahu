@@ -76,7 +76,7 @@ object StaticProblem {
   def algebra(ctx: LazyForestGenerator.Context[NoProviderF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
     case x: InputF[_] => IR(ctx.record(x), Bag.empty, Bag.empty)
     case x: CstF[_]   => IR(ctx.record(x), Bag.empty, Bag.empty)
-    case x @ DynamicF(params, instantiator, tpe) =>
+    case x @ DynamicF(_, _, _, _) =>
       IR(
         value = ctx.record(x.smap(_.value)),
         provided = getProvided(x),

@@ -3,12 +3,12 @@ package dahu.model.ir
 import dahu.graphs.TreeNode
 import dahu.utils._
 import dahu.model.functions.Fun
-import dahu.model.input.{DynamicInstantiator, Ident}
-import dahu.model.types.Tag.LambdaType
+import dahu.model.input.Ident
+import dahu.model.math.Monoid
+import dahu.model.types.Tag.LambdaTag
 import dahu.model.types.{ProductTag, Tag, Type, Value}
 import shapeless.=:!=
 
-import scala.annotation.switch
 import scala.{specialized => sp}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -28,12 +28,12 @@ object ExprF {
           Partial(f(value), f(condition), typ)
         case OptionalF(value, present, typ) =>
           OptionalF(f(value), f(present), typ)
-        case PresentF(v)                 => PresentF(f(v))
-        case ValidF(v)                   => ValidF(f(v))
-        case DynamicF(params, inst, typ) => DynamicF(f(params), inst, typ)
-        case DynamicProviderF(e, p, typ) => DynamicProviderF(f(e), f(p), typ)
-        case ApplyF(lambda, param, typ)  => ApplyF(f(lambda), f(param), typ)
-        case LambdaF(in, tree, typ)      => LambdaF(f(in), f(tree), typ)
+        case PresentF(v)                        => PresentF(f(v))
+        case ValidF(v)                          => ValidF(f(v))
+        case DynamicF(params, fun, monoid, typ) => DynamicF(f(params), f(fun), monoid, typ)
+        case DynamicProviderF(e, p, typ)        => DynamicProviderF(f(e), f(p), typ)
+        case ApplyF(lambda, param, typ)         => ApplyF(f(lambda), f(param), typ)
+        case LambdaF(in, tree, typ)             => LambdaF(f(in), f(tree), typ)
       }
   }
   // note this is safe to do as the functor instance never changes the wrapping type
@@ -48,7 +48,7 @@ object ExprF {
       case OptionalF(value, present, typ)   => Iterable(value, present)
       case PresentF(v)                      => Iterable(v)
       case ValidF(v)                        => Iterable(v)
-      case DynamicF(params, _, _)           => Iterable(params)
+      case DynamicF(params, f, _, _)        => Iterable(params, f)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
       case ApplyF(lambda, param, _)         => Iterable(lambda, param)
       case LambdaF(in, tree, _)             => Iterable(in, tree)
@@ -173,27 +173,15 @@ final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
   override def toString: String = s"$value? (constraint: $condition)"
 }
 
-final case class DynamicF[@sp(Int) F](params: F,
-                                      dynamicInstantiator: DynamicInstantiatorF,
-                                      typ: Type)
+final case class DynamicF[@sp(Int) F](params: F, f: F, monoid: Monoid[_], typ: Type)
     extends NoProviderF[F]
 
 final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) extends ExprF[F]
-
-trait DynamicInstantiatorF {
-  def closeWorld[F](params: ExprF[F], witness: Vec[ExprF[F]]): StaticF[F]
-}
-object DynamicInstantiatorF {
-  def apply(e: DynamicInstantiator[_, _]): DynamicInstantiatorF = new DynamicInstantiatorF {
-    override def closeWorld[F](params: ExprF[F], witness: Vec[ExprF[F]]): StaticF[F] = ???
-    override def toString: String = e.toString
-  }
-}
 
 /**
   * Lambda is composed of an AST `tree` and a variable `in`.
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
-final case class LambdaF[F](in: F, tree: F, typ: LambdaType[_, _]) extends ExprF[F]
+final case class LambdaF[F](in: F, tree: F, typ: LambdaTag[_, _]) extends ExprF[F]
 
 final case class ApplyF[F](lambda: F, param: F, typ: Type) extends ExprF[F]

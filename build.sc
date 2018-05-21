@@ -6,8 +6,14 @@ import mill.scalalib._
 trait Module extends SbtModule {
   def scalaVersion = "2.12.6"
   
- def compileIvyDeps = Agg(ivy"org.spire-math::kind-projector:0.9.6")
- def scalacPluginIvyDeps = Agg(ivy"org.spire-math::kind-projector:0.9.6")
+ def compileIvyDeps = Agg(
+   ivy"org.spire-math::kind-projector:0.9.6",
+   ivy"io.tryp:::splain:0.3.1"
+ )
+ def scalacPluginIvyDeps = Agg(
+   ivy"org.spire-math::kind-projector:0.9.6",
+   ivy"io.tryp:::splain:0.3.1"
+ )
 
  def scalacOptions = Seq(
    "-target:jvm-1.8",

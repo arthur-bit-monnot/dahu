@@ -5,11 +5,9 @@ import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.types.Tag._
 import dahu.model.functions._
-import dahu.model.ir.DynamicProviderF
+import dahu.model.math.Monoid
 import dahu.model.types._
-import spire.sp
 
-import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.ClassTag
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
@@ -28,7 +26,7 @@ object Expr {
       case x: Computation[_]           => x.args
       case Optional(value, present)    => Iterable(value, present)
       case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
-      case Dynamic(p, _)               => Iterable(p)
+      case Dynamic(p, l, _)            => Iterable(p, l)
       case DynamicProvider(e, prov)    => Iterable(e, prov)
     }
   }
@@ -97,7 +95,7 @@ object Product {
       implicit tt: universe.WeakTypeTag[Map[K, Id[V]]]): Product[PMap[K, ?[_], V]] = {
     type M[F[_]] = PMap[K, F, V]
     val keys: Vec[K] = Vec.fromSeq(map.keys.toSeq)
-    val values: Vec[Expr[Any]] = keys.map(map(_).asInstanceOf[Expr[Any]])
+    val values: Vec[Expr[Any]] = keys.map(map(_))
 
     // build a specific type tag that remembers the keys of the original map.
     val tag = new ProductTag[M] {
@@ -194,16 +192,16 @@ object Computation {
   def apply[I, O](fun: FunN[I, O], arguments: Seq[Expr[I]]): Computation[O] =
     new Computation[O] {
       override def f: Fun[O] = fun
-      override def args: Seq[Expr[Any]] = arguments.asInstanceOf[Seq[Expr[Any]]]
+      override def args: Seq[Expr[Any]] = arguments
     }
 }
 final case class Computation1[I, O](f: Fun1[I, O], in: Expr[I]) extends Computation[O] {
-  override val args: Seq[Expr[Any]] = Seq(in).asInstanceOf[Seq[Expr[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in)
 }
 
 final case class Computation2[I1, I2, O](f: Fun2[I1, I2, O], in: Expr[I1], in2: Expr[I2])
     extends Computation[O] {
-  override val args: Seq[Expr[Any]] = Seq(in, in2).asInstanceOf[Seq[Expr[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in, in2)
 }
 
 final case class Computation3[I1, I2, I3, O](f: Fun3[I1, I2, I3, O],
@@ -211,7 +209,7 @@ final case class Computation3[I1, I2, I3, O](f: Fun3[I1, I2, I3, O],
                                              in2: Expr[I2],
                                              in3: Expr[I3])
     extends Computation[O] {
-  override val args: Seq[Expr[Any]] = Seq(in, in2, in3).asInstanceOf[Seq[Expr[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in, in2, in3)
 }
 
 final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
@@ -220,17 +218,14 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
                                                  in3: Expr[I3],
                                                  in4: Expr[I4])
     extends Computation[O] {
-  override val args: Seq[Expr[Any]] = Seq(in, in2, in3, in4).asInstanceOf[Seq[Expr[Any]]]
+  override val args: Seq[Expr[Any]] = Seq(in, in2, in3, in4)
 }
 
-trait DynamicInstantiator[Params, Out] {
-  def typ: Tag[Out]
-}
-
-final case class Dynamic[Params, Out](params: Expr[Params],
-                                      dynamicInstantiator: DynamicInstantiator[Params, Out])
+final case class Dynamic[Param, Provided, Out: Tag](params: Expr[Param],
+                                                    f: Expr[Param -> (Provided -> Out)],
+                                                    comb: Monoid[Out])
     extends Expr[Out] {
-  override def typ: Tag[Out] = dynamicInstantiator.typ
+  override def typ: Tag[Out] = Tag[Out]
 }
 
 final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provided])
@@ -238,16 +233,15 @@ final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provide
   override def typ: Tag[A] = e.typ
 }
 
-final case class Lambda[I: Tag, O: Tag](f: Expr[I] => Expr[O]) extends Expr[I => O] {
+final case class Lambda[I: Tag, O: Tag](f: Expr[I] => Expr[O]) extends Expr[I -> O] {
   def outTag: Tag[O] = Tag[O]
 
-  val inputVar: Expr[I] = Input[I](Ident.anonymous())
+  val inputVar: Expr[I] = Input[I](Ident(this))
 
   def apply(in1: Expr[I]): Expr[O] = f(in1)
 
-  override def typ: LambdaType[I, O] = Tag.functionTag[I, O]
+  override def typ: LambdaTag[I, O] = Tag.ofLambda[I, O]
 }
-object Lambda {}
 
 case class Apply[I, O](l: Lambda[I, O], in: Expr[I]) extends Expr[O] {
   override def typ: Tag[O] = l.outTag
