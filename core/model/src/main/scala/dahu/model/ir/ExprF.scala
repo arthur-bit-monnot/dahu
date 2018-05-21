@@ -34,6 +34,7 @@ object ExprF {
         case DynamicProviderF(e, p, typ)        => DynamicProviderF(f(e), f(p), typ)
         case ApplyF(lambda, param, typ)         => ApplyF(f(lambda), f(param), typ)
         case LambdaF(in, tree, typ)             => LambdaF(f(in), f(tree), typ)
+        case LambdaParamF(l, t)                 => LambdaParamF(l, t)
       }
   }
   // note this is safe to do as the functor instance never changes the wrapping type
@@ -52,6 +53,7 @@ object ExprF {
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
       case ApplyF(lambda, param, _)         => Iterable(lambda, param)
       case LambdaF(in, tree, _)             => Iterable(in, tree)
+      case _: LambdaParamF[A]               => Iterable.empty
     }
   }
 
@@ -69,6 +71,7 @@ object ExprF {
     case x: DynamicProviderF[A] => ScalaRunTime._hashCode(x)
     case x: LambdaF[A]          => ScalaRunTime._hashCode(x)
     case x: ApplyF[A]           => ScalaRunTime._hashCode(x)
+    case x: LambdaParamF[A]     => ScalaRunTime._hashCode(x)
   }
 }
 
@@ -185,3 +188,5 @@ final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) exte
 final case class LambdaF[F](in: F, tree: F, typ: LambdaTag[_, _]) extends ExprF[F]
 
 final case class ApplyF[F](lambda: F, param: F, typ: Type) extends ExprF[F]
+
+final case class LambdaParamF[F](id: Ident, typ: Type) extends ExprF[F]

@@ -24,8 +24,9 @@ object Algebras {
     case Valid(partial)                 => ValidF(partial)
     case x @ Dynamic(params, f, monoid) => DynamicF(params, f, monoid, x.typ)
     case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
-    case x @ Lambda(_)                  => LambdaF(x.inputVar, x.f(x.inputVar), x.typ)
+    case x @ Lambda(_, _)               => LambdaF(x.inputVar, x.parameterizedTree, x.typ)
     case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
+    case x @ Lambda.Param(l)            => LambdaParamF(Ident(l), x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {

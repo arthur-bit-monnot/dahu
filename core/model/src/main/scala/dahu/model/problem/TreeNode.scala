@@ -21,13 +21,16 @@ object TreeNode {
 
   implicit val exprInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
     override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
+      case x: Total[A]                      => totalInstance.children(x)
       case Partial(value, condition, _)     => Iterable(value, condition)
       case OptionalF(value, present, _)     => Iterable(value, present)
       case PresentF(v)                      => Iterable(v)
       case ValidF(v)                        => Iterable(v)
       case DynamicF(params, f, _, _)        => Iterable(params, f)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
-      case x: Total[A]                      => totalInstance.children(x)
+      case LambdaF(in, tree, _)             => Iterable(in, tree)
+      case ApplyF(lambda, param, _)         => Iterable(lambda, param)
+      case _: LambdaParamF[A]               => Iterable.empty
     }
   }
 

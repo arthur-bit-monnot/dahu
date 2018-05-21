@@ -233,16 +233,34 @@ final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provide
   override def typ: Tag[A] = e.typ
 }
 
-final case class Lambda[I: Tag, O: Tag](f: Expr[I] => Expr[O]) extends Expr[I -> O] {
+final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
+                                        name: Option[String] = None)
+    extends Expr[I -> O] {
+  name match {
+    case Some(n) => println(s"$n: $f")
+    case None    =>
+  }
+
   def outTag: Tag[O] = Tag[O]
 
-  val inputVar: Expr[I] = Input[I](Ident(this))
+  val inputVar: Lambda.Param[I] = Lambda.Param(this)
 
-  def apply(in1: Expr[I]): Expr[O] = f(in1)
+  // f might be side effectfull in the sense that it may generate (identity-full) functions/closures
+  val parameterizedTree: Expr[O] = f(inputVar)
 
   override def typ: LambdaTag[I, O] = Tag.ofLambda[I, O]
+
+  override def toString: String = name.getOrElse(super.toString)
+
+  def named(name: String): Lambda[I, O] = this.copy(name = Some(name))
 }
 
-case class Apply[I, O](l: Lambda[I, O], in: Expr[I]) extends Expr[O] {
+object Lambda {
+  final case class Param[I: Tag](lambda: Lambda[I, _]) extends Expr[I] {
+    override def typ: Tag[I] = lambda.typ.it
+  }
+}
+
+final case class Apply[I, O](l: Lambda[I, O], in: Expr[I]) extends Expr[O] {
   override def typ: Tag[O] = l.outTag
 }
