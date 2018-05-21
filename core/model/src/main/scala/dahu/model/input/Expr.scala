@@ -236,11 +236,6 @@ final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provide
 final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
                                         name: Option[String] = None)
     extends Expr[I -> O] {
-  name match {
-    case Some(n) => println(s"$n: $f")
-    case None    =>
-  }
-
   def outTag: Tag[O] = Tag[O]
 
   val inputVar: Lambda.Param[I] = Lambda.Param(this)

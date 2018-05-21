@@ -185,8 +185,17 @@ final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) exte
   * Lambda is composed of an AST `tree` and a variable `in`.
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
-final case class LambdaF[F](in: F, tree: F, typ: LambdaTag[_, _]) extends ExprF[F]
+final case class LambdaF[F](in: F, tree: F, tpe: LambdaTag[_, _]) extends StaticF[F] {
+  // strangely, declaring this in the parameters results in AbstractMethodError when called
+  override def typ: Type = tpe
 
-final case class ApplyF[F](lambda: F, param: F, typ: Type) extends ExprF[F]
+  override def toString: String = s"λ$in.$tree"
+}
 
-final case class LambdaParamF[F](id: Ident, typ: Type) extends ExprF[F]
+final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
+  override def toString: String = s"($lambda $param)"
+}
+
+final case class LambdaParamF[F](id: Ident, typ: Type) extends StaticF[F] {
+  override def toString: String = id.toString
+}
