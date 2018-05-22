@@ -3,9 +3,11 @@ package dahu.model.problem
 import cats.{Functor, Id}
 import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
-import dahu.model.input.Expr
+import dahu.model.input.{Expr, Ident}
+import dahu.model.interpreter.Interpreter
 import dahu.model.ir.{ExprF, NoApplyF, StaticF, Total}
 import dahu.model.problem.SatisfactionProblem.IR
+import dahu.model.types._
 import dahu.utils.SFunctor
 
 object API {
@@ -35,6 +37,14 @@ object API {
 
   def parseAndProcess(expr: Expr[_]): LazyTree[Expr[_], Total, IR, _] =
     parseAndProcess(expr, Algebras.coalgebra)
+
+  def eval[T](expr: Expr[T], inputs: Ident => Value): Interpreter.Result[T] =
+    parse(expr).noDynamics.expandLambdas
+      .eval[Interpreter.Result[Value]](Interpreter.partialEvalAlgebra(inputs))
+      .asInstanceOf[Interpreter.Result[T]]
+
+  def evalTotal(expr: Expr[_], inputs: Ident => Value): IR[Value] =
+    API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs))
 
   implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {
     def noDynamics: LazyTree[K, StaticF, Id, _] = eliminitateDynamics(tree)

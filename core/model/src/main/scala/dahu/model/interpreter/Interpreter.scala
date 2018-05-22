@@ -31,7 +31,7 @@ object Interpreter {
       }
   }
 
-  def partialEvalAlgebra(valueOf: Ident => Value): FAlgebra[NoLambdas, Result[Value]] = {
+  def partialEvalAlgebra(valueOf: Ident => Value): FAlgebra[NoApplyF, Result[Value]] = {
     case InputF(id, _) => Res(valueOf(id))
     case CstF(v, _)    => Res(v)
     case ComputationF(f, args, _) =>
@@ -50,19 +50,19 @@ object Interpreter {
       }
     case Partial(value, cond, _) =>
       cond match {
-        case Empty                 => value
-        case Res(true)             => value
-        case Res(false)            => ConstraintViolated(Nil)
-        case Res(x)                => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-        case x: ConstraintViolated => x
+        case Empty              => value
+        case Res(true)          => value
+        case Res(false)         => ConstraintViolated
+        case Res(x)             => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+        case ConstraintViolated => ConstraintViolated
       }
     case OptionalF(value, present, _) =>
       present match {
-        case Res(true)             => value
-        case Res(false)            => Empty
-        case Res(x)                => unexpected(s"Present does not evaluates to a boolean but to: $x")
-        case Empty                 => ???
-        case x: ConstraintViolated => x
+        case Res(true)          => value
+        case Res(false)         => Empty
+        case Res(x)             => unexpected(s"Present does not evaluates to a boolean but to: $x")
+        case Empty              => ???
+        case ConstraintViolated => ConstraintViolated
       }
     case PresentF(v) =>
       v match {
@@ -71,9 +71,11 @@ object Interpreter {
       }
     case ValidF(v) =>
       v match {
-        case ConstraintViolated(_) => Res(Value(false)) //TODO: semantics for Empty
-        case _                     => Res(Value(true))
+        case ConstraintViolated => Res(Value(false)) //TODO: semantics for Empty
+        case _                  => Res(Value(true))
       }
+    case _: LambdaF[_]      => ??? // TODO: generation of functions from lambda not implemented yet
+    case _: LambdaParamF[_] => ???
   }
 
   def eval(ast: TotalSubAST[_])(root: ast.ID, inputs: ast.VID => Value): Value = {
@@ -112,14 +114,14 @@ object Interpreter {
 
   sealed trait Result[+A] {
     def map[B](f: A => B): Result[B] = this match {
-      case Res(v)                => Res(f(v))
-      case ConstraintViolated(x) => ConstraintViolated(x)
-      case Empty                 => Empty
+      case Res(v)             => Res(f(v))
+      case ConstraintViolated => ConstraintViolated
+      case Empty              => Empty
     }
     def flatMap[B](f: A => Result[B]): Result[B] = this match {
-      case Res(v)                => f(v)
-      case ConstraintViolated(x) => ConstraintViolated(x)
-      case Empty                 => Empty
+      case Res(v)             => f(v)
+      case ConstraintViolated => ConstraintViolated
+      case Empty              => Empty
     }
   }
   object Result {
@@ -130,11 +132,11 @@ object Interpreter {
         pending match {
           case head :: tail =>
             val next = (current, head) match {
-              case (Empty, _)                     => Empty
-              case (_, Empty)                     => Empty
-              case (x @ ConstraintViolated(_), _) => x
-              case (_, x @ ConstraintViolated(_)) => x
-              case (Res(list), Res(h))            => Res(h :: list)
+              case (Empty, _)              => Empty
+              case (_, Empty)              => Empty
+              case (ConstraintViolated, _) => ConstraintViolated
+              case (_, ConstraintViolated) => ConstraintViolated
+              case (Res(list), Res(h))     => Res(h :: list)
             }
             go(next, tail)
           case Nil =>
@@ -148,15 +150,15 @@ object Interpreter {
       override def empty: Result[T] = Res(Monoid[T].empty)
 
       override def combine(x: Result[T], y: Result[T]): Result[T] = (x, y) match {
-        case (Empty, _)                     => Empty
-        case (_, Empty)                     => Empty
-        case (x @ ConstraintViolated(_), _) => x
-        case (_, x @ ConstraintViolated(_)) => x
-        case (Res(xr), Res(yr))             => Res(xr |+| yr)
+        case (Empty, _)              => Empty
+        case (_, Empty)              => Empty
+        case (ConstraintViolated, _) => ConstraintViolated
+        case (_, ConstraintViolated) => ConstraintViolated
+        case (Res(xr), Res(yr))      => Res(xr |+| yr)
       }
     }
   }
-  case class ConstraintViolated(nodes: Seq[Any]) extends Result[Nothing]
+  case object ConstraintViolated extends Result[Nothing]
 
   case class Res[T](v: T) extends Result[T]
   case object Empty extends Result[Nothing]
@@ -168,6 +170,8 @@ object Interpreter {
       x =>
         map(x)
     }
+    // TODO: the attribute algebra is not needed anymore (EnvT wrapper is useless)
+    // should use the partialEvalAlgebra instead
     val alg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
       case EnvT(_, x: InputF[_]) => Res(input(x))
       case EnvT(_, CstF(v, _))   => Res(v)
@@ -178,8 +182,8 @@ object Interpreter {
         }
       case EnvT(_, ValidF(v)) =>
         v match {
-          case ConstraintViolated(_) => Res(Value(false))
-          case _                     => Res(Value(true))
+          case ConstraintViolated => Res(Value(false))
+          case _                  => Res(Value(true))
         }
       case EnvT(_, ComputationF(f, args, _)) =>
         Result
@@ -194,7 +198,7 @@ object Interpreter {
           case Res(true) =>
             value
           case Res(false) =>
-            ConstraintViolated(ast.toInput(id))
+            ConstraintViolated
 
           case Res(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
           case x      => x
@@ -212,14 +216,6 @@ object Interpreter {
           case false => onFalse
         }
     }
-    // identical algebra that also prints intermediate values.
-//    val logAlg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
-//      case x =>
-//        val node = ast.tree(x.ask)
-//        val res = alg(x)
-//        println(f"${x.ask}%2s $res%-20s   -> ${x.lower}%-50s  :$node")
-//        res
-//    }
 
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra
     hylo(coalg, alg)(ast.root)

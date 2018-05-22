@@ -2,22 +2,17 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.core.algebra.GenBoolLike
-import dahu.model.compiler.Algebras
 import dahu.model.functions.{Box, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
+import dahu.model.products.FieldAccess
 import dahu.model.types._
 import dahu.recursion._
-import dahu.utils.SFunctor
 import dahu.utils.Vec._
 import dahu.utils.errors._
 import spire.math.Interval
 import spire.syntax.cfor._
-
-import scala.collection.mutable
-import scala.reflect.ClassTag
 
 object SatisfactionProblem {
 
@@ -202,7 +197,23 @@ object SatisfactionProblem {
         case x => x
       }
     }
+
+    object ExtractField extends Optimizer {
+      override def optim(retrieve: IDTop => Total[IDTop],
+                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+        case x @ ComputationF(fa: FieldAccess[_, _], Vec1(p), _) =>
+          retrieve(p) match {
+            case ProductF(members, _) =>
+              retrieve(members(fa.fieldPosition))
+            case _ => unexpected
+          }
+        case ComputationF(fa: FieldAccess[_, _], _, _) => unexpected
+        case x                                         => x
+      }
+    }
+
     private val optimizers = List(
+      ExtractField,
       ElimReversible,
       ElimIdentity,
       ElimEmptyAndSingletonMonoid,
