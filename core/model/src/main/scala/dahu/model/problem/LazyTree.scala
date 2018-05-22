@@ -88,6 +88,13 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
     }
     result.toList
   }
+
+  def changedKey[K2](f: K2 => K): IlazyForest[K2, F, Opt, self.ID] =
+    new IlazyForest[K2, F, Opt, self.ID] {
+      override def getTreeRoot(k: K2): Opt[self.ID] = self.getTreeRoot(f(k))
+
+      override def internalCoalgebra(i: self.ID): F[self.ID] = self.internalCoalgebra(i)
+    }
 }
 object IlazyForest {
   def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](
@@ -158,10 +165,10 @@ object LazyTree {
       root: K): LazyTree[K, F, Opt, tree.ID] =
     new LazyTree[K, F, Opt, tree.ID](tree, root)
 
-  def parse[K, F[_]: SFunctor: TreeNode](t: K,
-                                         coalgebra: K => F[K]): IlazyForest[K, F, cats.Id, _] = {
+  def parse[K, F[_]: SFunctor: TreeNode](t: K, coalgebra: K => F[K]): LazyTree[K, F, cats.Id, _] = {
     def algebra(ctx: LazyForestGenerator.Context[F, IDTop]): F[IDTop] => IDTop = ctx.record
-    new LazyForestGenerator[K, F, F, cats.Id, IDTop](coalgebra, algebra)
+    val forest = new LazyForestGenerator[K, F, F, cats.Id, IDTop](coalgebra, algebra)
+    LazyTree(forest)(t)
   }
   def parse[K, FIn[_]: SFunctor: TreeNode, FOut[_]](
       t: K,

@@ -231,53 +231,6 @@ object SatisfactionProblem {
 
   }
 
-//  class LazyTreeSpec[@specialized(Int) K](f: K => ExprF[K],
-//                                          g: Context => ExprF[IR[IDTop]] => IR[IDTop]) {
-//    private val treeNode = implicitly[TreeNode[ExprF]]
-//    private val functor = implicitly[SFunctor[ExprF]]
-//
-//    private val idsMap = mutable.HashMap[K, IR[IDTop]]()
-//    private val repMap = mutable.ArrayBuffer[Total[IDTop]]() // ID => Total[ID]
-//    private val memo = mutable.HashMap[Total[IDTop], IDTop]()
-//
-//    private def getID(e: Total[IDTop]): IDTop = {
-//      if(memo.contains(e))
-//        memo(e)
-//      else {
-//        val id = repMap.size.asInstanceOf[IDTop]
-//        repMap += e
-//        memo += ((e, id))
-//        id
-//      }
-//    }
-//    private val ctx: Context = new Context(getID, get)
-//
-//    private val g2: ExprF[IR[IDTop]] => IR[IDTop] = g(ctx)
-//
-//    @inline private def processed(k: K): Boolean = idsMap.contains(k)
-//
-//    def get(i: IDTop): Total[IDTop] = repMap(i)
-//
-//    def get(key: K): IR[IDTop] = {
-//      val queue = mutable.Stack[K]()
-//      queue.push(key)
-//
-//      while(queue.nonEmpty) {
-//        val cur = queue.pop()
-//        val fk = f(cur)
-//        if(treeNode.children(fk).forall(processed)) {
-//          val fg = functor.smap(fk)(id => idsMap(id))
-//          val g: IR[IDTop] = g2(fg)
-//          idsMap += ((cur, g))
-//        } else {
-//          queue.push(cur)
-//          queue.pushAll(treeNode.children(fk))
-//        }
-//      }
-//      idsMap(key)
-//    }
-//  }
-
   case class IR[@specialized(Int) A](value: A, present: A, valid: A)
 
   def compiler(context: LazyForestGenerator.Context[Total, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] =
@@ -338,16 +291,22 @@ object SatisfactionProblem {
       ir
     }
 
+  // TODO: the ExprF is to wide as this method does not handle lambdas
   def encode[X <: Int](root: X,
                        coalgebra: FCoalgebra[ExprF, X],
                        optimize: Boolean = true): LazyTree[X, Total, IR, _] = {
-    val lt =
-      IlazyForest.build(coalgebra, compiler).fixID
-//    val totalTrees = lt.mapExternal[cats.Id](_.value)
-//    val satRoot = lt.getTreeRoot(root).valid
-//    LazyTree(totalTrees)(satRoot)
+    val lt = IlazyForest.build(coalgebra, compiler).fixID
 
     LazyTree(lt)(root)
+  }
+
+  def encode[X](_t: LazyTree[X, NoApplyF, cats.Id, _]): LazyTree[X, Total, IR, _] = {
+    val t = _t.fixID
+    val innerRoot = t.tree.getTreeRoot(t.root)
+    val total =
+      encode[t.ID](innerRoot, (k: t.ID) => t.tree.internalCoalgebra(k)).tree.fixID
+        .changedKey[X](k2 => t.tree.getTreeRoot(k2))
+    LazyTree(total)(t.root)
   }
 
 }

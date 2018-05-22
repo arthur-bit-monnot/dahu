@@ -1,8 +1,6 @@
 package dahu.model.problem
 
-import java.util.Optional
-
-import cats.Functor
+import cats.{Functor, Id}
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.model.ir._
@@ -12,8 +10,20 @@ import dahu.utils.SFunctor._
 
 object StaticProblem {
 
-  def underClosedWorld[X](root: X,
-                          coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id, _] = {
+  // TODO: we could keep the cats.Id parameter generic
+  def underClosedWorld[X](
+      _tree: LazyTree[X, ExprF, cats.Id, _]): LazyTree[X, StaticF, cats.Id, _] = {
+    val tree = _tree.fixID
+    val internalRoot = tree.tree.getTreeRoot(tree.root)
+    val lowLevelTree =
+      underClosedWorldBase[tree.ID](internalRoot, i => tree.tree.internalCoalgebra(i)).fixID
+    val finalTree: IlazyForest[X, StaticF, Id, lowLevelTree.tree.ID] =
+      lowLevelTree.tree.changedKey[X](x => if(x == tree.root) lowLevelTree.root else ???)
+    LazyTree[X, StaticF, Id, finalTree.ID](finalTree)(tree.root)
+  }
+
+  def underClosedWorldBase[X](root: X,
+                              coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id, _] = {
     val lt = IlazyForest.build(coalgebra, algebra).fixID
     val provided = lt.getTreeRoot(root).provided.toSet.toSeq
     val ofValues = lt.mapExternal[cats.Id](_.value)
