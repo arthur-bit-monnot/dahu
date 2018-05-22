@@ -3,6 +3,8 @@ package dahu.model.input
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
+import dahu.model.problem.API
+import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
 import utest._
 
@@ -28,16 +30,25 @@ object BagPacking extends TestSuite {
 
   val decisions = List(x1, x2)
 
+  import dahu.model.interpreter.Interpreter.evalAlgebra
+
+  def eval(expr: Expr[_], inputs: Ident => Value): IR[Value] =
+    API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs))
+
   def tests = Tests {
+
     "satisfaction" - {
       val ast = Algebras.parse(valid)
       "all-true" - {
-        val satisfied = Interpreter.eval(ast)(_ => Value(true))
-        satisfied ==> Some(false)
+        Interpreter.eval(ast)(_ => Value(true)) ==> Some(false)
+
+        eval(valid, _ => Value(true)) ==> IR(false, true, true)
+
       }
       "all-false" - {
-        val satisfied = Interpreter.eval(ast)(_ => Value(false))
-        satisfied ==> Some(true)
+        eval(valid, _ => Value(false)) ==> IR(true, true, true)
+
+        Interpreter.eval(ast)(_ => Value(false)) ==> Some(true)
       }
 
       "predefined-results" - {
@@ -56,16 +67,15 @@ object BagPacking extends TestSuite {
       }
     }
     "evaluation-subject-to" - {
-      val opt = utility.subjectTo(_ => valid)
-      val ast = Algebras.parse(opt)
+      val problem = utility.subjectTo(_ => valid)
+      val ast = Algebras.parse(problem)
       "all-true" - {
-        val satisfied = Interpreter.eval(ast)(_ => Value(true))
-        satisfied ==> None
-
+        Interpreter.eval(ast)(_ => Value(true)) ==> None
+        eval(problem, _ => Value(true))         ==> IR(4.7, true, false)
       }
       "all-false" - {
-        val satisfied = Interpreter.eval(ast)(_ => Value(false))
-        satisfied ==> Some(0.0)
+        Interpreter.eval(ast)(_ => Value(false)) ==> Some(0.0)
+        eval(problem, _ => Value(false))         ==> IR(0.0, true, true)
       }
 
       "predefined-results" - {
@@ -74,7 +84,7 @@ object BagPacking extends TestSuite {
           Map("x1" -> false, "x2" -> false) -> Res(0.0),
           Map("x1" -> false, "x2" -> true) -> Res(2.7),
           Map("x1" -> true, "x2" -> false) -> Res(2.0),
-          Map("x1" -> true, "x2" -> true) -> Interpreter.ConstraintViolated(Seq(opt))
+          Map("x1" -> true, "x2" -> true) -> Interpreter.ConstraintViolated(Seq(problem))
         )
         for((inputs, expected) <- possibleBinds) {
           val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.toString))

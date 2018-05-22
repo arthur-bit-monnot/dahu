@@ -2,11 +2,15 @@ package dahu.model.problem
 
 import cats.{Functor, Id}
 import dahu.graphs.TreeNode
+import dahu.model.compiler.Algebras
+import dahu.model.input.Expr
 import dahu.model.ir.{ExprF, NoApplyF, StaticF, Total}
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.utils.SFunctor
 
 object API {
+
+  def parse(expr: Expr[_]): LazyTree[Expr[_], ExprF, Id, _] = parse(expr, Algebras.coalgebra)
 
   def parse[K, F[_]: SFunctor: TreeNode](root: K, coalgebra: K => F[K]): LazyTree[K, F, Id, _] =
     LazyTree.parse(root, coalgebra)
@@ -22,11 +26,26 @@ object API {
     SatisfactionProblem.encode(t)
   }
 
-  def parseAndPreProcess[K](root: K, coalgebra: K => ExprF[K]): LazyTree[K, Total, IR, _] = {
+  def parseAndProcess[K](root: K, coalgebra: K => ExprF[K]): LazyTree[K, Total, IR, _] = {
     val parsed = parse(root, coalgebra)
     val noDynamics = eliminitateDynamics[K](parsed)
     val noLambdas = expandLambdas[K, Id](noDynamics)
     makeTotal(noLambdas)
+  }
+
+  def parseAndProcess(expr: Expr[_]): LazyTree[Expr[_], Total, IR, _] =
+    parseAndProcess(expr, Algebras.coalgebra)
+
+  implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {
+    def noDynamics: LazyTree[K, StaticF, Id, _] = eliminitateDynamics(tree)
+  }
+  implicit class ExpandLambdasOps[K, Opt[_]](private val tree: LazyTree[K, StaticF, Opt, _])
+      extends AnyVal {
+    def expandLambdas(implicit F: Functor[Opt]): LazyTree[K, NoApplyF, Opt, _] =
+      API.expandLambdas(tree)
+  }
+  implicit class MakeTotalOps[K](private val tree: LazyTree[K, NoApplyF, Id, _]) extends AnyVal {
+    def totalSubParts: LazyTree[K, Total, IR, _] = API.makeTotal(tree)
   }
 
 }

@@ -35,7 +35,7 @@ object DynamicTests extends TestSuite {
         SubjectTo(dec, Computation(bool.And, Seq(inProvided, xProvider, yProvider)))
 
       import dahu.model.problem.API._
-      val prepro = parseAndPreProcess(result, Algebras.coalgebra)
+      val prepro = parseAndProcess(result, Algebras.coalgebra)
       println(prepro.mapExternal[Id](_.valid).fullTree)
       println(prepro.mapExternal[Id](_.value).fullTree)
 
