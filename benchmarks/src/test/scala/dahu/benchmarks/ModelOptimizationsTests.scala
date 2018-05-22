@@ -19,6 +19,7 @@ object ModelOptimizationsTests extends TestSuite {
     val parsed = dahu.model.compiler.Algebras.parse(pb.pb)
     SatisfactionProblem
       .encode(parsed.root, parsed.tree.asFunction, optimize = false)
+      .mapExternal[cats.Id](_.valid)
       .fullTree
   }
 

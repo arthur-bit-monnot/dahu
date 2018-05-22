@@ -12,7 +12,7 @@ object ExpandLambdas {
     val forest =
       tree.tree.mapContextualized(compiler, MyPrepro[tree.ID]())
 
-    LazyTree(forest)(forest.getFromOriginalId(tree.root))
+    LazyTree(forest)(tree.root)
   }
 
   case class MyPrepro[I <: IDTop](map: Map[I, I] = Map[I, I]())

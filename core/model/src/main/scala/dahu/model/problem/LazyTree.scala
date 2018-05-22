@@ -68,6 +68,26 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       }
       override def internalCoalgebra(i: InternalID): F[InternalID] = self.internalCoalgebra(i)
     }
+
+  def nodes(root: ID)(implicit tn: TreeNode[F]): Seq[(ID, F[ID])] = {
+    val queue = mutable.Stack[ID]()
+    val visited = mutable.HashSet[ID]()
+    val result = mutable.ArrayBuffer[(ID, F[ID])]()
+    queue.push(root)
+
+    while(queue.nonEmpty) {
+      val cur = queue.pop()
+      val fcur = internalCoalgebra(cur)
+      if(tn.children(fcur).forall(visited)) {
+        visited += cur
+        result += ((cur, fcur))
+      } else {
+        queue.push(cur)
+        queue.pushAll(tn.children(fcur))
+      }
+    }
+    result.toList
+  }
 }
 object IlazyForest {
   def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](
@@ -112,9 +132,9 @@ object ExternalMappedLazyForest {
 }
 
 class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
-    val tree: IlazyForest[K, F, Opt, InternalID])(_root: InternalID) {
+    val tree: IlazyForest[K, F, Opt, InternalID],
+    val root: K) {
   type ID = InternalID
-  val root = _root.asInstanceOf[ID]
 
   def fixID: LazyTree[K, F, Opt, SubSubInt[IDTop, tree.Marker]] =
     this.asInstanceOf[LazyTree[K, F, Opt, SubSubInt[IDTop, tree.Marker]]]
@@ -122,34 +142,21 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
     LazyTree(tree.mapInternal(f))(root)
 
-  def nodes(implicit tn: TreeNode[F]): Seq[(tree.ID, F[tree.ID])] = {
-    val queue = mutable.Stack[tree.ID]()
-    val visited = mutable.HashSet[tree.ID]()
-    val result = mutable.ArrayBuffer[(tree.ID, F[tree.ID])]()
-    queue.push(root)
+  def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): LazyTree[K, F, Opt2, ID] =
+    LazyTree(tree.mapExternal(f))(root)
 
-    while(queue.nonEmpty) {
-      val cur = queue.pop()
-      val fcur = tree.internalCoalgebra(cur)
-      if(tn.children(fcur).forall(visited)) {
-        visited += cur
-        result += ((cur, fcur))
-      } else {
-        queue.push(cur)
-        queue.pushAll(tn.children(fcur))
-      }
-    }
-    result.toList
-  }
+  def fullTree(implicit F: SFunctor[F], FO: Functor[Opt], ct: ClassTag[F[Fix[F]]]): Opt[Fix[F]] =
+    tree.getTreeRoot(root).map(tree.build)
 
-  def fullTree(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = tree.build(root)
+  def nodes(implicit tn: TreeNode[F], F: Functor[Opt]): Opt[Seq[(tree.ID, F[tree.ID])]] =
+    tree.getTreeRoot(root).map(tree.nodes)
 }
 
 object LazyTree {
 
   def apply[K, F[_], Opt[_], I <: IDTop](tree: IlazyForest[K, F, Opt, I])(
-      root: tree.ID): LazyTree[K, F, Opt, tree.ID] =
-    new LazyTree[K, F, Opt, tree.ID](tree)(root)
+      root: K): LazyTree[K, F, Opt, tree.ID] =
+    new LazyTree[K, F, Opt, tree.ID](tree, root)
 
   def parse[K, F[_]: SFunctor: TreeNode](t: K,
                                          coalgebra: K => F[K]): IlazyForest[K, F, cats.Id, _] = {
@@ -309,7 +316,6 @@ class ContextualLazyForestMap[
 
   private type PrePro = ContextualLazyForestMap.ContextualPreprocessor[FIn, OID]
 
-//  private val extIdsMap = mutable.HashMap[K, Opt[ID]]()
   private val intIdsMap = mutable.HashMap[(OID, PrePro), ID]()
   private val repMap = mutable.ArrayBuffer[FOut[ID]]() // ID => FOut[ID]
   private val memo = mutable.HashMap[FOut[ID], ID]()

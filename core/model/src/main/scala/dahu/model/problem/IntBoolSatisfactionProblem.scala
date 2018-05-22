@@ -180,12 +180,13 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
     })
     val partialTree = new IlazyForest[X, Total, Option, lt.ID] {
       override def getTreeRoot(k: X): Option[lt.ID] = {
-        val tmp: Option[Total[lt.ID]] = getExt(k)
-        tmp match {
-          case Some(_) => Some(t.getTreeRoot(k))
-          case None    => None
-        }
-        //.map((_: Total[lt.ID]) => t.getTreeRoot(k))
+        if(k == ast.root)
+          Some(root) // we modified the root to account for additional constraints,
+        else
+          (getExt(k): Option[Total[lt.ID]]) match {
+            case Some(_) => Some(t.getTreeRoot(k))
+            case None    => None
+          }
       }
       override def internalCoalgebra(i: lt.ID): Total[lt.ID] = t.internalCoalgebra(i) match {
         case Some(e) => e
@@ -193,8 +194,8 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
       }
     }
 
-    val tree = LazyTree(partialTree)(root)
+    val tree = LazyTree(partialTree)(ast.root)
   }
 
-  val tree: LazyTree[X, Total, Option, _] = LazyTree(Internal.partialTree)(Internal.root)
+  val tree: LazyTree[X, Total, Option, _] = Internal.tree
 }

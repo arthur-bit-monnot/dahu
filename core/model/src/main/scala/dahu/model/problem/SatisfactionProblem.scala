@@ -22,7 +22,7 @@ import scala.reflect.ClassTag
 object SatisfactionProblem {
 
   def satisfactionSubAST(ast: AST[_]): LazyTree[ast.ID, Total, cats.Id, _] = {
-    encode(ast.root, ast.tree.asFunction)
+    encode(ast.root, ast.tree.asFunction).mapExternal[cats.Id](_.valid)
   }
 
   object Optimizations {
@@ -340,12 +340,14 @@ object SatisfactionProblem {
 
   def encode[X <: Int](root: X,
                        coalgebra: FCoalgebra[ExprF, X],
-                       optimize: Boolean = true): LazyTree[X, Total, cats.Id, _] = {
+                       optimize: Boolean = true): LazyTree[X, Total, IR, _] = {
     val lt =
       IlazyForest.build(coalgebra, compiler).fixID
-    val totalTrees = lt.mapExternal[cats.Id](_.value)
-    val satRoot = lt.getTreeRoot(root).valid
-    LazyTree(totalTrees)(satRoot)
+//    val totalTrees = lt.mapExternal[cats.Id](_.value)
+//    val satRoot = lt.getTreeRoot(root).valid
+//    LazyTree(totalTrees)(satRoot)
+
+    LazyTree(lt)(root)
   }
 
 }

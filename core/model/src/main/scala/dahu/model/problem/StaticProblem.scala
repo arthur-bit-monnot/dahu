@@ -46,7 +46,7 @@ object StaticProblem {
               x
           }
         })
-    LazyTree(dynamicsErased)(dynamicsErased.getTreeRoot(root))
+    LazyTree(dynamicsErased)(root)
   }
 
   case class IR[@specialized(Int) A](value: A, provided: Bag[A])
