@@ -3,9 +3,8 @@ package dahu.model.interpreter
 import cats.Foldable
 import cats.implicits._
 import cats.kernel.Monoid
-
 import dahu.utils._
-import dahu.model.input.Present
+import dahu.model.input.{Ident, Present}
 import dahu.model.ir._
 import dahu.model.types._
 import dahu.utils.errors._
@@ -18,6 +17,64 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
 object Interpreter {
+
+  def evalAlgebra(valueOf: Ident => Value): FAlgebra[Total, Value] = {
+    case InputF(id, _)            => valueOf(id)
+    case CstF(v, _)               => v
+    case ComputationF(f, args, _) => Value(f.compute(args))
+    case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
+    case ITEF(cond, onTrue, onFalse, _) =>
+      cond match {
+        case true  => onTrue
+        case false => onFalse
+        case _     => dahu.utils.errors.unexpected
+      }
+  }
+
+  def partialEvalAlgebra(valueOf: Ident => Value): FAlgebra[NoLambdas, Result[Value]] = {
+    case InputF(id, _) => Res(valueOf(id))
+    case CstF(v, _)    => Res(v)
+    case ComputationF(f, args, _) =>
+      Result
+        .sequence(args)
+        .map(as => Value(f.compute(as)))
+    case ProductF(members, t) =>
+      Result
+        .sequence(members)
+        .map(as => Value(t.idProd.buildFromValues(as)))
+    case ITEF(cond, onTrue, onFalse, _) =>
+      cond.flatMap {
+        case true  => onTrue
+        case false => onFalse
+        case _     => dahu.utils.errors.unexpected
+      }
+    case Partial(value, cond, _) =>
+      cond match {
+        case Empty                 => value
+        case Res(true)             => value
+        case Res(false)            => ConstraintViolated(Nil)
+        case Res(x)                => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+        case x: ConstraintViolated => x
+      }
+    case OptionalF(value, present, _) =>
+      present match {
+        case Res(true)             => value
+        case Res(false)            => Empty
+        case Res(x)                => unexpected(s"Present does not evaluates to a boolean but to: $x")
+        case Empty                 => ???
+        case x: ConstraintViolated => x
+      }
+    case PresentF(v) =>
+      v match {
+        case Empty => Res(Value(false)) //TODO, semantics for ConstraintViolated
+        case _     => Res(Value(true))
+      }
+    case ValidF(v) =>
+      v match {
+        case ConstraintViolated(_) => Res(Value(false)) //TODO: semantics for Empty
+        case _                     => Res(Value(true))
+      }
+  }
 
   def eval(ast: TotalSubAST[_])(root: ast.ID, inputs: ast.VID => Value): Value = {
     val input: InputF[_] => Value = {

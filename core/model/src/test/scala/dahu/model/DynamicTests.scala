@@ -39,18 +39,8 @@ object DynamicTests extends TestSuite {
       println(prepro.mapExternal[Id](_.valid).fullTree)
       println(prepro.mapExternal[Id](_.value).fullTree)
 
-      def evalAlgebra(valueOf: Ident => Value): FAlgebra[Total, Value] = {
-        case InputF(id, _)            => valueOf(id)
-        case CstF(v, _)               => v
-        case ComputationF(f, args, _) => Value(f.compute(args))
-        case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
-        case ITEF(cond, onTrue, onFalse, _) =>
-          cond match {
-            case true  => onTrue
-            case false => onFalse
-            case _     => dahu.utils.errors.unexpected
-          }
-      }
+      import dahu.model.interpreter.Interpreter.evalAlgebra
+
       prepro.eval(evalAlgebra(_ => Value(1))) ==> IR(1, true, true)
       prepro.eval(evalAlgebra(_ => Value(2))) ==> IR(2, true, true)
 
