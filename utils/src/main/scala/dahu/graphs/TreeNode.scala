@@ -1,5 +1,7 @@
 package dahu.graphs
 
+import scala.collection.immutable.Iterable
+
 trait TreeNode[-N[_]] {
   def children[K](n: N[K]): Iterable[K]
 }

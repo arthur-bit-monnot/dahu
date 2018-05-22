@@ -3,6 +3,8 @@ package dahu.model.problem
 import java.util.Optional
 
 import cats.Functor
+import dahu.graphs.TreeNode
+import dahu.graphs.TreeNode._
 import dahu.model.ir._
 import dahu.recursion.FCoalgebra
 import dahu.utils.{Bag, SFunctor, Vec}

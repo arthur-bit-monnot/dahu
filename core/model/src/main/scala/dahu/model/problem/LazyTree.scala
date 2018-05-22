@@ -2,9 +2,12 @@ package dahu.model.problem
 
 import cats._
 import cats.implicits._
+import dahu.graphs.TreeNode
+import dahu.graphs.TreeNode._
 import dahu.model.ir.{AST, ExprF}
 import dahu.recursion.{EnvT, FAlgebra, FCoalgebra, Fix, Recursion}
 import dahu.utils.{BiMap, SFunctor, SubSubInt}
+import dahu.utils.SFunctor._
 import shapeless.the
 
 import scala.collection.mutable
@@ -37,6 +40,14 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       OF: Functor[Opt]
   ) = //: IlazyForest[K, G, Opt, _] =
     InternalMapGenLazyForest(this)(f)
+
+  def mapContextualized[G[_]](
+      f: LazyForestGenerator.Context[G, IDTop] => F[IDTop] => IDTop,
+      contextTracker: ContextualLazyForestMap.ContextualPreprocessor[F, ID])(
+      implicit TN: TreeNode[F],
+      F: SFunctor[F],
+      FO: Functor[Opt]) = //: IlazyForest[K, G, Opt, _] = TODO: this is need because LazyTree use an internal id
+    new ContextualLazyForestMap[K, F, G, Opt, IDTop, ID](this, f, contextTracker)
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2, ID] =
     ExternalMappedLazyForest(this)(f)
@@ -243,7 +254,7 @@ class InternalMapGenLazyForest[K, F[_]: SFunctor, G[_], Opt[_]: Functor, IDOrig 
     orig.getTreeRoot(k).map(getFromOrigID)
   }
 
-  private def oldToNewId(origID: orig.ID): ID = {
+  def oldToNewId(origID: orig.ID): ID = {
     if(!idsMap.contains(origID)) {
       val id = getNewID()
       idsMap.add(origID, id)
@@ -282,4 +293,74 @@ object InternalMapGenLazyForest {
                                                            val retrieve: ID => G[ID],
                                                            val retrieveOld: IDOld => F[IDOld],
                                                            val toNewId: IDOld => ID)
+}
+
+class ContextualLazyForestMap[
+    K,
+    FIn[_]: TreeNode: SFunctor,
+    FOut[_],
+    Opt[_]: Functor,
+    InternalID <: IDTop,
+    OID <: IDTop](base: IlazyForest[K, FIn, Opt, OID],
+                  compilerGenerator: LazyForestGenerator.Context[FOut, InternalID] => FIn[
+                    InternalID] => InternalID,
+                  contextualPreprocessor: ContextualLazyForestMap.ContextualPreprocessor[FIn, OID])
+    extends IlazyForest[K, FOut, Opt, InternalID] {
+
+  private type PrePro = ContextualLazyForestMap.ContextualPreprocessor[FIn, OID]
+
+//  private val extIdsMap = mutable.HashMap[K, Opt[ID]]()
+  private val intIdsMap = mutable.HashMap[(OID, PrePro), ID]()
+  private val repMap = mutable.ArrayBuffer[FOut[ID]]() // ID => FOut[ID]
+  private val memo = mutable.HashMap[FOut[ID], ID]()
+
+  private def record(e: FOut[ID]): ID = {
+    if(memo.contains(e))
+      memo(e)
+    else {
+      val id = repMap.size.asInstanceOf[ID]
+      repMap += e
+      memo += ((e, id))
+      id
+    }
+  }
+  private val generationContext: LazyForestGenerator.Context[FOut, ID] =
+    new LazyForestGenerator.Context(record, internalCoalgebra)
+
+  def algebra: FIn[ID] => ID = compilerGenerator(generationContext)
+
+  override def internalCoalgebra(i: ID): FOut[ID] = repMap(i)
+
+  def getFromOriginalId(oid: base.ID): ID = {
+    val queue = mutable.Stack[(OID, PrePro)]()
+    queue.push((oid, contextualPreprocessor))
+
+    while(queue.nonEmpty) {
+      val (cur, ctx) = queue.pop()
+      val fkNoPrepro = base.internalCoalgebra(cur) //originalCoalgebra(cur)
+      val subCtx = ctx.subPreprocessor(base.internalCoalgebra, fkNoPrepro)
+      val fk = fkNoPrepro.smap(subCtx.prepro)
+      if(fk.children.forall(c => intIdsMap.contains((c, subCtx)))) {
+        val fg = fk.smap(c => intIdsMap((c, subCtx)))
+        val g: ID = algebra(fg)
+        intIdsMap += (((cur, ctx), g))
+      } else {
+        queue.push((cur, ctx))
+
+        fk.children.foreach(c => queue.push((c, subCtx)))
+      }
+    }
+    intIdsMap((oid, contextualPreprocessor))
+  }
+
+  override def getTreeRoot(key: K): Opt[ID] = {
+    base.getTreeRoot(key).map(getFromOriginalId)
+  }
+}
+
+object ContextualLazyForestMap {
+  abstract class ContextualPreprocessor[F[_], I <: Int] {
+    def subPreprocessor(coalg: I => F[I], fi: F[I]): ContextualPreprocessor[F, I]
+    def prepro(i: I): I
+  }
 }

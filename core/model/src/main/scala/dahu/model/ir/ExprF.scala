@@ -13,6 +13,7 @@ import scala.{specialized => sp}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
+import scala.collection.immutable.Iterable
 
 sealed trait ExprF[@sp(Int) F] {
   def typ: Type
@@ -77,14 +78,14 @@ object ExprF {
 
 sealed trait NoProviderF[@sp(Int) F] extends ExprF[F]
 sealed trait StaticF[@sp(Int) F] extends NoProviderF[F]
-sealed trait TotalOrOptionalF[@sp(Int) F] extends StaticF[F]
-sealed trait TotalOrPartialF[@sp(Int) F] extends StaticF[F]
+sealed trait NoApplyF[@sp(Int) F] extends StaticF[F]
+sealed trait NoLambdas[@sp(Int) F] extends NoApplyF[F]
 
 /** Pure expressions that always yield value if they are fed with pure expressions.
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[@sp(Int) F] extends TotalOrOptionalF[F] with TotalOrPartialF[F]
+sealed trait Total[@sp(Int) F] extends NoLambdas[F]
 object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
@@ -151,28 +152,27 @@ final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) ext
   override def toString: String = s"ite($cond, $onTrue, $onFalse)"
 }
 
-final case class PresentF[F](optional: F) extends ExprF[F] with StaticF[F] {
+final case class PresentF[F](optional: F) extends ExprF[F] with NoLambdas[F] {
   override def typ: Type = Tag.ofBoolean
 
   override def toString: String = s"present($optional)"
 }
 
-final case class ValidF[@sp(Int) F](partial: F) extends StaticF[F] {
+final case class ValidF[@sp(Int) F](partial: F) extends NoLambdas[F] {
   override def typ: Type = Tag.ofBoolean
 
   override def toString: String = s"valid($partial)"
 }
 
 /** An Optional expression, that evaluates to Some(value) if present == true and to None otherwise. */
-final case class OptionalF[@sp(Int) F](value: F, present: F, typ: Type)
-    extends TotalOrOptionalF[F] {
+final case class OptionalF[@sp(Int) F](value: F, present: F, typ: Type) extends NoLambdas[F] {
   override def toString: String = s"$value? (presence: $present)"
 }
 
 /** A partial expression that only produces a value if its condition evaluates to True. */
 final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
     extends ExprF[F]
-    with TotalOrPartialF[F] {
+    with NoLambdas[F] {
   override def toString: String = s"$value? (constraint: $condition)"
 }
 
@@ -185,7 +185,7 @@ final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) exte
   * Lambda is composed of an AST `tree` and a variable `in`.
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
-final case class LambdaF[F](in: F, tree: F, tpe: LambdaTag[_, _]) extends StaticF[F] {
+final case class LambdaF[F](in: F, tree: F, tpe: LambdaTag[_, _]) extends NoApplyF[F] {
   // strangely, declaring this in the parameters results in AbstractMethodError when called
   override def typ: Type = tpe
 
@@ -196,6 +196,6 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
   override def toString: String = s"($lambda $param)"
 }
 
-final case class LambdaParamF[F](id: Ident, typ: Type) extends StaticF[F] {
+final case class LambdaParamF[F](id: Ident, typ: Type) extends NoApplyF[F] {
   override def toString: String = id.toString
 }

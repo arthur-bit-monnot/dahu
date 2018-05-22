@@ -5,7 +5,7 @@ import dahu.model.functions.->
 import dahu.model.input._
 import dahu.model.ir._
 import dahu.model.math.{bool, int}
-import dahu.model.problem.{IDTop, LazyTree, StaticProblem}
+import dahu.model.problem.{ExpandLambdas, IDTop, LazyTree, StaticProblem}
 import dahu.model.types._
 import dahu.model.types.Tag._
 import dahu.recursion._
@@ -41,6 +41,8 @@ object DynamicTests extends TestSuite {
       //  println(forest.build(root))
       val staticTree = StaticProblem.underClosedWorld(root, forest.internalCoalgebra)
       println(staticTree.fullTree)
+      val expanded = ExpandLambdas.expandLambdas[forest.ID, cats.Id](staticTree)
+      println(expanded.fullTree)
 
       assert(true)
     }

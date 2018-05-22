@@ -1,8 +1,9 @@
 package dahu.z3
 
 import com.microsoft.z3._
+import dahu.graphs.TreeNode
 import dahu.model.ir._
-import dahu.model.problem.{IDTop, IlazyForest, IntBoolSatisfactionProblem, LazyTree, TreeNode}
+import dahu.model.problem.{IDTop, IlazyForest, IntBoolSatisfactionProblem, LazyTree}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.SFunctor
@@ -51,6 +52,7 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, cats.Id, _]) extends PartialSo
   private val ctx = new Context()
   type OptTotal[T] = Option[Total[T]]
 
+  implicit val treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
   val treeBuilder = new TreeBuilder(tree.tree, Compiler.partialAlgebra(ctx))
 
   // Total
