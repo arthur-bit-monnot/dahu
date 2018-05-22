@@ -181,6 +181,11 @@ object SatisfactionProblem {
             buff += record(CstF(acc, f.outType))
             ComputationF(f, Vec.unsafe(buff.toArray()), tpe)
 
+          case x @ ITEF(cond, onTrue, onFalse, _) =>
+            if(cond == TRUE) retrieve(onTrue)
+            else if(cond == FALSE) retrieve(onFalse)
+            else x
+
           case x => x
         }
       }
