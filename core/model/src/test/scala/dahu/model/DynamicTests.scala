@@ -4,8 +4,12 @@ import cats.Id
 import dahu.model.compiler.Algebras
 import dahu.model.functions.->
 import dahu.model.input._
+import dahu.model.ir._
 import dahu.model.math.{bool, int}
+import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types.Tag._
+import dahu.model.types._
+import dahu.recursion.FAlgebra
 import utest._
 
 object DynamicTests extends TestSuite {
@@ -35,7 +39,27 @@ object DynamicTests extends TestSuite {
       println(prepro.mapExternal[Id](_.valid).fullTree)
       println(prepro.mapExternal[Id](_.value).fullTree)
 
-      assert(true)
+      def evalAlgebra(valueOf: Ident => Value): FAlgebra[Total, Value] = {
+        case InputF(id, _)            => valueOf(id)
+        case CstF(v, _)               => v
+        case ComputationF(f, args, _) => Value(f.compute(args))
+        case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
+        case ITEF(cond, onTrue, onFalse, _) =>
+          cond match {
+            case true  => onTrue
+            case false => onFalse
+            case _     => dahu.utils.errors.unexpected
+          }
+      }
+      prepro.eval(evalAlgebra(_ => Value(1))) ==> IR(1, true, true)
+      prepro.eval(evalAlgebra(_ => Value(2))) ==> IR(2, true, true)
+
+      prepro.eval(evalAlgebra(_ => Value(0))) ==> IR(0, true, false)
+      prepro.eval(evalAlgebra(_ => Value(3))) ==> IR(3, true, false)
+      prepro.eval(evalAlgebra(_ => Value(4))) ==> IR(4, true, false)
     }
+
+    assert(true)
   }
+
 }

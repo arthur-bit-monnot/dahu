@@ -19,6 +19,10 @@ trait OpaqueForest[K, F[_], Opt[_]] {
   sealed trait Marker
 }
 
+trait LazyMap[K, V, Opt[_]] {
+  def get(k: K): Opt[V]
+}
+
 trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, F, Opt] { self =>
   override type ID = InternalID
   def getExt(k: K)(implicit F: Functor[Opt]): Opt[F[ID]] =
@@ -95,6 +99,17 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
 
       override def internalCoalgebra(i: self.ID): F[self.ID] = self.internalCoalgebra(i)
     }
+
+  // TODO: we should provide a memoized version of this
+  def cata[V: ClassTag](f: F[V] => V)(implicit F: Functor[Opt],
+                                      SF: SFunctor[F]): LazyMap[K, V, Opt] =
+    new LazyMap[K, V, Opt] {
+      override def get(k: K): Opt[V] = {
+        self.getTreeRoot(k).map { id =>
+          Recursion.hylo(internalCoalgebra, f)(id)
+        }
+      }
+    }
 }
 object IlazyForest {
   def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](
@@ -148,6 +163,9 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
 
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
     LazyTree(tree.mapInternal(f))(root)
+
+  def eval[V: ClassTag](f: F[V] => V)(implicit F: Functor[Opt], SF: SFunctor[F]): Opt[V] =
+    tree.cata(f).get(root)
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): LazyTree[K, F, Opt2, ID] =
     LazyTree(tree.mapExternal(f))(root)

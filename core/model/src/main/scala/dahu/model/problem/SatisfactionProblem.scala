@@ -232,6 +232,12 @@ object SatisfactionProblem {
   }
 
   case class IR[@specialized(Int) A](value: A, present: A, valid: A)
+  object IR {
+    implicit val functorInstance: Functor[IR] = new Functor[IR] {
+      override def map[A, B](fa: IR[A])(f: A => B): IR[B] =
+        IR(f(fa.value), f(fa.present), f(fa.valid))
+    }
+  }
 
   def compiler(context: LazyForestGenerator.Context[Total, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] =
     x => {
