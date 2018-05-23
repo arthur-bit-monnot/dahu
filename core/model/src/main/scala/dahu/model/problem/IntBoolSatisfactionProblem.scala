@@ -78,7 +78,7 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
         )
       }
 
-      def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
+      def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), TagIsoInt.ofInt)
 
       def isUnbox(f: Fun[_]): Boolean = f match {
         case fun: Fun1[_, _] =>
@@ -131,7 +131,7 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
       )
     }
 
-    def cst[K](n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), Tag.ofInt)
+    def cst[K](n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), TagIsoInt.ofInt)
 
     private def gatherConstraints(k: lt.ID): Set[lt.ID] = {
       val cs = mutable.HashSet[lt.ID]()

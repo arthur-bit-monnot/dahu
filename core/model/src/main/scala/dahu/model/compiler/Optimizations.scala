@@ -33,8 +33,8 @@ object Optimizations {
       case x @ ComputationF(f: Monoid[_], args, _) if args.isEmpty => f.liftedIdentity
       case x                                                       => x
     }
-    private val FALSE: Fix[Total] = Fix(CstF(Value(false), Tag.ofBoolean))
-    private val TRUE: Fix[Total] = Fix(CstF(Value(true), Tag.ofBoolean))
+    private val FALSE: Fix[Total] = Fix(CstF(Value(false), Tag[Boolean]))
+    private val TRUE: Fix[Total] = Fix(CstF(Value(true), Tag[Boolean]))
     val constantFolding: PASS = namedPass("constant-folding") {
       case ComputationF(bool.And, args, _) if args.contains(FALSE) => FALSE.unfix
       case ComputationF(bool.Or, args, _) if args.contains(TRUE)   => TRUE.unfix

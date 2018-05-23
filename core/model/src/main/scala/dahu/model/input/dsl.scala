@@ -3,12 +3,13 @@ package dahu.model.input
 import dahu.core
 import dahu.core.algebra
 import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
-import dahu.model.functions.{Fun, Fun1, Fun2, FunN}
-import dahu.model.ir.CstF
+import dahu.model.functions._
 import dahu.model.math._
 import dahu.model.types.{Tag, TagIsoInt}
+import dahu.utils.Vec
 
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 object dsl {
 
@@ -19,6 +20,14 @@ object dsl {
   implicit class Fun2Ops[I1, I2, O: Tag](f: Fun2[I1, I2, O]) {
     def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
       Computation(f, i1, i2)
+  }
+
+  implicit class LambdaOps[I, O](private val lambda: Expr[I ->: O]) extends AnyVal {
+    def apply(arg: Expr[I])(implicit ev: Tag[O]): Expr[O] = Apply(lambda, arg)
+  }
+  implicit class Lambda2Ops[I1, I2, O](private val lambda: Expr[I1 ->: I2 ->: O]) extends AnyVal {
+    def apply(arg1: Expr[I1], arg2: Expr[I2])(implicit to: Tag[O], ti2: Tag[I2]): Expr[O] =
+      Apply(Apply(lambda, arg1), arg2)
   }
 
   def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
@@ -74,6 +83,12 @@ object dsl {
   implicit class UnboxOps[A](private val lhs: Expr[A]) extends AnyVal {
     def unboxed(implicit tag: TagIsoInt[A]): Expr[Int] =
       Computation(tag.unbox, lhs)
+  }
+
+  implicit class SequenceOps[A](private val lhs: Expr[Vec[A]]) extends AnyVal {
+    def map[B: Tag](f: Expr[A ->: B]): Expr[Vec[B]] = MapSeq(lhs, f)
+    def fold(monoid: Monoid[A])(implicit tag: Tag[A], ct: ClassTag[A]): Expr[A] =
+      sequence.Fold(monoid).apply(lhs)
   }
 
   implicit class ProductOps[T[_[_]]](private val lhs: Product[T]) extends AnyVal {

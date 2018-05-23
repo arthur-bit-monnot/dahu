@@ -2,7 +2,7 @@ package dahu.model
 
 import cats.Id
 import dahu.model.compiler.Algebras
-import dahu.model.functions.->
+import dahu.model.functions.->:
 import dahu.model.input._
 import dahu.model.ir._
 import dahu.model.math.{bool, int}
@@ -18,8 +18,8 @@ object DynamicTests extends TestSuite {
   def tests = Tests {
     "e" - {
 
-      val equal: Expr[Int -> (Int -> Boolean)] =
-        Lambda[Int, Int -> Boolean](i => Lambda[Int, Boolean](j => i === j).named("par-eq"))
+      val equal: Expr[Int ->: (Int ->: Boolean)] =
+        Lambda[Int, Int ->: Boolean](i => Lambda[Int, Boolean](j => i === j).named("par-eq"))
           .named("full-eq")
 
       val True = Cst(true)

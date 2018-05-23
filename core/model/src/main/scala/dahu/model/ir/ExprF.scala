@@ -5,8 +5,7 @@ import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.Ident
 import dahu.model.math.Monoid
-import dahu.model.types.Tag.LambdaTag
-import dahu.model.types.{ProductTag, Tag, Type, Value}
+import dahu.model.types.{LambdaTag, ProductTag, SequenceTag, Tag, Type, Value}
 import shapeless.=:!=
 
 import scala.{specialized => sp}
@@ -140,6 +139,10 @@ object ComputationF {
 
 }
 
+final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTag[Any]) extends Total[F] {
+  override def toString: String = members.mkString("[", ", ", "]")
+}
+
 final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
 }
@@ -153,13 +156,13 @@ final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) ext
 }
 
 final case class PresentF[F](optional: F) extends ExprF[F] with NoLambdas[F] {
-  override def typ: Type = Tag.ofBoolean
+  override def typ: Type = Tag[Boolean]
 
   override def toString: String = s"present($optional)"
 }
 
 final case class ValidF[@sp(Int) F](partial: F) extends NoLambdas[F] {
-  override def typ: Type = Tag.ofBoolean
+  override def typ: Type = Tag[Boolean]
 
   override def toString: String = s"valid($partial)"
 }

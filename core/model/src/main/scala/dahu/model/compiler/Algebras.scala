@@ -17,7 +17,8 @@ object Algebras {
     case x @ Cst(value)                 => CstF(Value(value), x.typ)
     case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
     case x @ SubjectTo(value, cond)     => Partial(value, cond, x.typ)
-    case x @ Product(value)             => ProductF(x.members.asInstanceOf[Vec[Expr[_]]], x.typ)
+    case x @ Product(value)             => ProductF(x.members, x.typ)
+    case x @ Sequence(members)          => SequenceF(members, x.typ)
     case x @ Optional(value, present)   => OptionalF(value, present, x.typ)
     case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
     case Present(partial)               => PresentF(partial)
@@ -34,6 +35,7 @@ object Algebras {
     case CstF(v, _)                     => v.toString
     case ComputationF(f, args, _)       => f.name + args.mkString("(", ",", ")")
     case Partial(value, cond, _)        => s"$value ?($cond)"
+    case SequenceF(members, _)          => members.mkString("[", ", ", "]")
     case ProductF(members, _)           => members.mkString("(", ", ", ")")
     case OptionalF(value, present, _)   => s"($value (presence: $present))"
     case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
@@ -43,6 +45,7 @@ object Algebras {
     case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
     case LambdaF(in, tree, _)           => s"($in ↦ $tree)"
     case ApplyF(lambda, param, _)       => s"$lambda $param"
+    case LambdaParamF(id, _)            => s"?$id"
   }
 
   def format(e: Fix[Total]): String = cata(printAlgebraMultiLine)(e)

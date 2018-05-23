@@ -1,10 +1,11 @@
 package dahu.planning.planner
 
-import dahu.model.functions.{Fun2, FunN, Reversible}
+import dahu.model.functions.{->:, Fun2, FunN, Reversible}
 import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
-import dahu.model.types.{BoxedInt, Tag, TagIsoInt}
+import dahu.model.products.FieldAccess
+import dahu.model.types.{BoxedInt, ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._

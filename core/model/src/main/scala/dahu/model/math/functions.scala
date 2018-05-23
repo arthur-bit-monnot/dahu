@@ -3,7 +3,10 @@ package dahu.model.math
 import dahu.model.functions._
 import dahu.model.input.{Cst, Expr}
 import dahu.model.ir.CstF
-import dahu.model.types.Tag
+import dahu.model.types.{ProductTag, SequenceTag, Tag}
+import dahu.utils.Vec
+
+import scala.reflect.ClassTag
 
 object double {
 
@@ -114,4 +117,40 @@ object bool {
   val False: Expr[Boolean] = Cst(false)
   val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
 
+}
+
+object sequence {
+
+  private implicit val intSeqTag: Tag[Vec[Int]] = SequenceTag[Int]
+
+  object EQ extends Fun2[Vec[Int], Vec[Int], Boolean] {
+    override def of(in1: Vec[Int], in2: Vec[Int]): Boolean = in1 == in2
+
+    override def name: String = "eq"
+  }
+
+  final case class Map[I: Tag, O: Tag: ClassTag](f: Fun1[I, O])
+      extends Fun1[Vec[I], Vec[O]]()(SequenceTag[I], SequenceTag[O]) {
+    override def of(in: Vec[I]): Vec[O] = in.map(f.of)
+    override def name: String = s"map(${f.name})"
+  }
+
+  final case class Fold[A: Tag: ClassTag](monoid: Monoid[A]) extends Fun1[Vec[A], A] {
+    override def of(in: Vec[A]): A = in.foldLeft(monoid.identity)((a, b) => monoid.combine(a, b))
+    override def name: String = s"fold($monoid)"
+  }
+
+}
+
+object any {
+
+  private[this] implicit val anyTag: Tag[Any] = Tag.default[Any]
+
+  sealed trait EQ
+
+  private object EQSingleton extends Fun2[Any, Any, Boolean] with EQ {
+    override def of(in1: Any, in2: Any): Boolean = in1 == in2
+    override def name: String = "any-eq"
+  }
+  def EQ[T]: Fun2[T, T, Boolean] = EQSingleton
 }

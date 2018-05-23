@@ -3,7 +3,7 @@ package dahu.model.input
 import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
-import dahu.model.types.Tag._
+import dahu.model.types.Tag.{Type, _}
 import dahu.model.functions._
 import dahu.model.math.Monoid
 import dahu.model.types._
@@ -28,6 +28,13 @@ object Expr {
       case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
       case Dynamic(p, l, _)            => Iterable(p, l)
       case DynamicProvider(e, prov)    => Iterable(e, prov)
+      case Apply(l, i)                 => Iterable(l, i)
+      case x @ Lambda(_, _)            => Iterable(x.parameterizedTree, x.inputVar)
+      case Lambda.Param(_)             => Iterable.empty
+      case Present(v)                  => Iterable(v)
+      case Valid(v)                    => Iterable(v)
+      case Sequence(ms)                => ms.toIterable
+      case MapSeq(target, f)           => Iterable(target, f)
     }
   }
 }
@@ -77,6 +84,15 @@ sealed abstract class Computation[O] extends Expr[O] {
   def args: Seq[Expr[Any]] // TODO: make args a Vec
 
   override def toString: String = s"$f(${args.mkString(", ")})"
+}
+
+final case class Sequence[T: Tag](members: Vec[Expr[T]])(implicit ct: ClassTag[Vec[T]])
+    extends Expr[Vec[T]] {
+  override def typ: SequenceTag[T] = SequenceTag[T]
+}
+
+final case class MapSeq[A, B: Tag](target: Expr[Vec[A]], f: Expr[A ->: B]) extends Expr[Vec[B]] {
+  override def typ: SequenceTag[B] = SequenceTag[B]
 }
 
 final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) extends Expr[T[Id]] {
@@ -222,7 +238,7 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
 }
 
 final case class Dynamic[Param, Provided, Out: Tag](params: Expr[Param],
-                                                    f: Expr[Param -> (Provided -> Out)],
+                                                    f: Expr[Param ->: Provided ->: Out],
                                                     comb: Monoid[Out])
     extends Expr[Out] {
   override def typ: Tag[Out] = Tag[Out]
@@ -235,7 +251,7 @@ final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provide
 
 final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
                                         name: Option[String] = None)
-    extends Expr[I -> O] {
+    extends Expr[I ->: O] {
   def outTag: Tag[O] = Tag[O]
 
   val inputVar: Lambda.Param[I] = Lambda.Param(this)
@@ -243,7 +259,7 @@ final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
   // f might be side effectfull in the sense that it may generate (identity-full) functions/closures
   val parameterizedTree: Expr[O] = f(inputVar)
 
-  override def typ: LambdaTag[I, O] = Tag.ofLambda[I, O]
+  override def typ: LambdaTag[I, O] = LambdaTag[I, O]
 
   override def toString: String = name.getOrElse(super.toString)
 
@@ -252,10 +268,10 @@ final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
 
 object Lambda {
   final case class Param[I: Tag](lambda: Lambda[I, _]) extends Expr[I] {
-    override def typ: Tag[I] = lambda.typ.it
+    override def typ: Tag[I] = Tag[I]
   }
 }
 
-final case class Apply[I, O](l: Lambda[I, O], in: Expr[I]) extends Expr[O] {
-  override def typ: Tag[O] = l.outTag
+final case class Apply[I, O: Tag](l: Expr[I ->: O], in: Expr[I]) extends Expr[O] {
+  override def typ: Tag[O] = Tag[O]
 }
