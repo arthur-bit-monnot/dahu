@@ -29,12 +29,13 @@ object ShowScoped {
   }
   implicit object ofExpr extends ShowScoped[Expr] {
     override def show(elem: Expr)(implicit scope: Scope): String = elem match {
-      case LocalVar(id, tpe) => show"$id"
-      case Arg(id, _)        => show"$id"
-      case IntLiteral(v)     => v.toString
-      case Instance(id, _)   => show"$id"
-      case Op1(op, e)        => show"${op.op}$e"
-      case Op2(op, l, r)     => show"(${op.op} $l $r)"
+      case LocalVar(id, tpe)     => show"$id"
+      case Arg(id, _)            => show"$id"
+      case IntLiteral(v)         => v.toString
+      case Instance(id, _)       => show"$id"
+      case Op1(op, e)            => show"${op.op}$e"
+      case Op2(op, l, r)         => show"(${op.op} $l $r)"
+      case Constant(tpl, params) => show"${tpl.id}(${params.map(show).mkString(", ")})"
     }
   }
   implicit object ofInterval extends ShowScoped[Interval[Expr]] {
