@@ -4,8 +4,7 @@ import cats._
 import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
-import dahu.model.ir.{AST, ExprF}
-import dahu.recursion.{EnvT, FAlgebra, FCoalgebra, Fix, Recursion}
+import dahu.recursion.{Fix, Recursion}
 import dahu.utils.{BiMap, SFunctor, SubSubInt}
 import dahu.utils.SFunctor._
 import shapeless.the
@@ -27,7 +26,9 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
   override type ID = InternalID
   def getExt(k: K)(implicit F: Functor[Opt]): Opt[F[ID]] =
     F.map(getTreeRoot(k))(internalCoalgebra)
+
   def getTreeRoot(k: K): Opt[ID]
+
   def internalCoalgebra(i: ID): F[ID]
 
   def fixID: IlazyForest[K, F, Opt, SubSubInt[IDTop, Marker]] =
@@ -98,6 +99,8 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       override def getTreeRoot(k: K2): Opt[self.ID] = self.getTreeRoot(f(k))
 
       override def internalCoalgebra(i: self.ID): F[self.ID] = self.internalCoalgebra(i)
+
+      override def toString: String = "ILazyForestChangedKey"
     }
 
   // TODO: we should provide a memoized version of this
@@ -188,13 +191,13 @@ object LazyTree {
     val forest = new LazyForestGenerator[K, F, F, cats.Id, IDTop](coalgebra, algebra)
     LazyTree(forest)(t)
   }
-  def parse[K, FIn[_]: SFunctor: TreeNode, FOut[_]](
+  def parseGen[K, FIn[_]: SFunctor: TreeNode, FOut[_]](
       t: K,
       coalgebra: K => FIn[K],
-      algebra: LazyForestGenerator.Context[FOut, IDTop] => FIn[IDTop] => IDTop)
-    : IlazyForest[K, FOut, cats.Id, _] = {
+      algebra: LazyForestGenerator.Context[FOut, IDTop] => FIn[IDTop] => IDTop) =
+    //:  IlazyForest[K, FOut, cats.Id, _] = TODO: make opaque once IntBoolSatisfactionProblem is clean
     new LazyForestGenerator[K, FIn, FOut, cats.Id, IDTop](coalgebra, algebra)
-  }
+
 }
 
 class LazyForestGenerator[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_], InternalID <: IDTop](
@@ -207,7 +210,8 @@ class LazyForestGenerator[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_], Intern
   private val repMap = mutable.ArrayBuffer[FOut[ID]]() // ID => H[ID]
   private val memo = mutable.HashMap[FOut[ID], ID]()
 
-  private def record(e: FOut[ID]): ID = {
+  // TODO make private once IntBoolSatiscationProblem is fixed
+  def record(e: FOut[ID]): ID = {
     if(memo.contains(e))
       memo(e)
     else {

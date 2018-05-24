@@ -19,7 +19,7 @@ sealed trait ExprF[@sp(Int) F] {
 
   override final lazy val hashCode: Int = ExprF.hash(this)
 }
-object ExprF {
+object ExprF extends LowPriorityExprF {
   implicit val functor: SFunctor[ExprF] = new SFunctor[ExprF] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: ExprF[A])(f: A => B): ExprF[B] =
       fa match {
@@ -36,25 +36,6 @@ object ExprF {
         case LambdaF(in, tree, typ)             => LambdaF(f(in), f(tree), typ)
         case LambdaParamF(l, t)                 => LambdaParamF(l, t)
       }
-  }
-  // note this is safe to do as the functor instance never changes the wrapping type
-  implicit def subFunctorInstance[F[_]](implicit ev: F[Any] <:< ExprF[Any],
-                                        ev2: F[Any] =:!= ExprF[Any]): SFunctor[F] =
-    functor.asInstanceOf[SFunctor[F]]
-
-  implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
-    override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
-      case x: Total[A]                      => Total.treeNodeInstance.children(x)
-      case Partial(value, condition, typ)   => Iterable(value, condition)
-      case OptionalF(value, present, typ)   => Iterable(value, present)
-      case PresentF(v)                      => Iterable(v)
-      case ValidF(v)                        => Iterable(v)
-      case DynamicF(params, f, _, _)        => Iterable(params, f)
-      case DynamicProviderF(e, provided, _) => Iterable(e, provided)
-      case ApplyF(lambda, param, _)         => Iterable(lambda, param)
-      case LambdaF(in, tree, _)             => Iterable(in, tree)
-      case _: LambdaParamF[A]               => Iterable.empty
-    }
   }
 
   def hash[@sp(Int) A](exprF: ExprF[A]): Int = exprF match {
@@ -73,6 +54,28 @@ object ExprF {
     case x: ApplyF[A]           => ScalaRunTime._hashCode(x)
     case x: LambdaParamF[A]     => ScalaRunTime._hashCode(x)
     case x: SequenceF[A]        => ScalaRunTime._hashCode(x)
+  }
+}
+trait LowPriorityExprF {
+  // note this is safe to do as the functor instance never changes the wrapping type
+  implicit def subFunctorInstance[F[_]](implicit ev: F[Any] <:< ExprF[Any],
+                                        ev2: F[Any] =:!= ExprF[Any],
+                                        ev3: F[Any] =:!= Total[Any]): SFunctor[F] =
+    ExprF.functor.asInstanceOf[SFunctor[F]]
+
+  implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
+    override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
+      case x: Total[A]                      => Total.treeNodeInstance.children(x)
+      case Partial(value, condition, typ)   => Iterable(value, condition)
+      case OptionalF(value, present, typ)   => Iterable(value, present)
+      case PresentF(v)                      => Iterable(v)
+      case ValidF(v)                        => Iterable(v)
+      case DynamicF(params, f, _, _)        => Iterable(params, f)
+      case DynamicProviderF(e, provided, _) => Iterable(e, provided)
+      case ApplyF(lambda, param, _)         => Iterable(lambda, param)
+      case LambdaF(in, tree, _)             => Iterable(in, tree)
+      case _: LambdaParamF[A]               => Iterable.empty
+    }
   }
 }
 
@@ -144,13 +147,17 @@ object ComputationF {
 final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("[", ", ", "]")
 }
+object SequenceF {
+  def apply[F: ClassTag](args: Seq[F], tpe: SequenceTag[Any]): SequenceF[F] =
+    new SequenceF[F](Vec.fromSeq(args), tpe)
+}
 
 final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTag[Any]) extends Total[F] {
   override def toString: String = members.mkString("(", ", ", ")")
 }
 object ProductF {
   def apply[F: ClassTag](args: Seq[F], tpe: ProductTag[Any]): ProductF[F] =
-    new ProductF[F](Vec.fromArray(args.toArray), tpe)
+    new ProductF[F](Vec.fromSeq(args), tpe)
 }
 
 final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) extends Total[F] {

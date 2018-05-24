@@ -1,14 +1,13 @@
 package dahu.solvers
 
-import dahu.constraints.interval.Interval
-import dahu.model.ir.{Total, TotalSubAST}
+import dahu.model.ir.Total
 import dahu.model.problem.LazyTree
+import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types.Value
-import dahu.solvers.problem.IntCSP
 
 import scala.concurrent.duration.Deadline
 
-abstract class PartialSolver[X](final val ast: LazyTree[X, Total, cats.Id, _]) {
+abstract class PartialSolver[X] {
 
   type K <: X
 
@@ -18,7 +17,7 @@ abstract class PartialSolver[X](final val ast: LazyTree[X, Total, cats.Id, _]) {
 object PartialSolver {
 
   trait Builder {
-    def apply[X](ast: LazyTree[X, Total, cats.Id, _]): PartialSolver[X]
+    def apply[X](ast: LazyTree[X, Total, IR, _]): PartialSolver[X]
   }
 
 }

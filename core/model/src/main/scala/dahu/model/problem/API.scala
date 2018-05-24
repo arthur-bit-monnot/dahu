@@ -39,6 +39,7 @@ object API {
     makeTotal(noLambdas)
   }
 
+  @deprecated("intended for debug only", since = "forever")
   def parseAndProcessPrint(e: Expr[_]): LazyTree[Expr[_], Total, IR, _] = {
     val nodes = Expr.dagInstance.descendantsAndSelf(e)
     def printAll[F[_]: SFunctor, Opt[_]: Functor](tree: LazyTree[Expr[_], F, Opt, _])(
@@ -53,22 +54,22 @@ object API {
     val parsed = parse(e, Algebras.coalgebra)
     println("\nParsed")
     println(parsed.fullTree)
-    printAll[ExprF, Id](parsed)
+//    printAll[ExprF, Id](parsed)
     val noDynamics = eliminitateDynamics[Expr[_]](parsed)
     println("\nno dynamics")
     println(noDynamics.fullTree)
-    printAll[StaticF, Id](noDynamics)
+//    printAll[StaticF, Id](noDynamics)
     val noLambdas = expandLambdas[Expr[_], Id](noDynamics)
     println(noLambdas.fullTree)
     val total = makeTotal(noLambdas)
     println("\nTotal")
     println(total.fullTree)
-    printAll(total)
+//    printAll(total)
 
-    val intBool = new IntBoolSatisfactionProblem(total.mapExternal[Id](_.value)).tree
-    println("\nint bool")
-    println(intBool.fullTree)
-    printAll(intBool)
+//    val intBool = new IntBoolSatisfactionProblem(total.mapExternal[Id](_.value)).tree
+//    println("\nint bool")
+//    println(intBool.fullTree)
+//    printAll(intBool)
 
     total
   }

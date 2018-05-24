@@ -3,7 +3,6 @@ package dahu.benchmarks
 import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.solvers.PartialSolver
-import dahu.solvers.constraints.CSPPartialSolver
 import dahu.z3.Z3PartialSolver
 
 object Optionals extends Family("optionals") {
@@ -21,9 +20,13 @@ object Optionals extends Family("optionals") {
     val itv2 = Optional(variable(), boolVar())
 
     val e1 =
-      Product.fromSeq(Seq(itv1, itv2).map(_.embed)).subjectTo(_ => itv1.present || itv2.present)
+      Product
+        .fromSeq(Seq(itv1, itv2).map(_.explicitlyOptional))
+        .subjectTo(_ => itv1.present || itv2.present)
     val e2 =
-      Product.fromSeq(Seq(itv1, itv2).map(_.embed)).subjectTo(_ => itv1.present && itv2.present)
+      Product
+        .fromSeq(Seq(itv1, itv2).map(_.explicitlyOptional))
+        .subjectTo(_ => itv1.present && itv2.present)
 
     Seq(
       SatProblem.fromExpr(e1, NumSolutions.AtLeast(3)),
@@ -44,9 +47,13 @@ object Optionals extends Family("optionals") {
     val itv2 = Optional(itv(), boolVar())
 
     val e1 =
-      Product.fromSeq(Seq(itv1.embed, itv2.embed)).subjectTo(_ => itv1.present || itv2.present)
+      Product
+        .fromSeq(Seq(itv1.explicitlyOptional, itv2.explicitlyOptional))
+        .subjectTo(_ => itv1.present || itv2.present)
     val e2 =
-      Product.fromSeq(Seq(itv1, itv2).map(_.embed)).subjectTo(_ => itv1.present && itv2.present)
+      Product
+        .fromSeq(Seq(itv1, itv2).map(_.explicitlyOptional))
+        .subjectTo(_ => itv1.present && itv2.present)
 
     Seq(
       SatProblem.fromExpr(e1, NumSolutions.AtLeast(3)),
@@ -58,10 +65,10 @@ object Optionals extends Family("optionals") {
     val x = Input[Int]("x").subjectTo(x => x < 10)
     val y = Input[Int]("y").subjectTo(y => y >= 0 && y <= 10)
 
-    val ox = Optional(x, Input[Boolean]("px"))
-    val oy = Optional(y, Input[Boolean]("py").subjectTo(_ === Cst(true)))
+    val ox: Expr[Int] = Optional(x, Input[Boolean]("px"))
+    val oy: Expr[Int] = Optional(y, Input[Boolean]("py").subjectTo(x => x))
 
-    val pb = Product.fromSeq(Seq(ox, oy).map(_.embed)).subjectTo(_ => ox <= oy)
+    val pb = Product.fromSeq(Seq(ox, oy).map(_.explicitlyOptional)).subjectTo(_ => ox <= oy)
 
     Seq(
       SatProblem.fromExpr(pb, NumSolutions.AtLeast(1)),

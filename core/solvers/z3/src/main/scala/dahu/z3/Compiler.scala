@@ -33,6 +33,9 @@ object Compiler {
     case ProductF(members, t) =>
       members.toList.sequence
         .flatMap(ms => Try(alg(ProductF(ms, t))))
+    case SequenceF(members, t) =>
+      members.toList.sequence
+        .flatMap(ms => Try(alg(SequenceF(ms, t))))
 
   }
 

@@ -3,6 +3,7 @@ package dahu.model.problem
 import cats.Functor
 import cats.implicits._
 import dahu.model.functions.{Box, Reversible, Unbox}
+import dahu.model.input.{Ident, Input}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
@@ -16,10 +17,7 @@ import spire.syntax.cfor._
 
 object SatisfactionProblem {
 
-//  def satisfactionSubAST(ast: AST[_]): LazyTree[ast.ID, Total, cats.Id, _] = {
-//    encode(ast.root, ast.tree.asFunction).mapExternal[cats.Id](_.valid)
-//  }
-
+  // TODO: move optimizations to distinct package
   object Optimizations {
     trait Optimizer {
       self =>
@@ -320,7 +318,7 @@ object SatisfactionProblem {
       ir
     }
 
-  // TODO: the ExprF is to wide as this method does not handle lambdas
+  // TODO: the StaticF is to wide as this method does not handle lambdas
   def encode[X <: Int](root: X,
                        coalgebra: FCoalgebra[StaticF, X],
                        optimize: Boolean = true): LazyTree[X, Total, IR, _] = {

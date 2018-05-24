@@ -27,9 +27,8 @@ object NumSolutionsTest extends TestSuite {
   def numSolutions[T](expr: Expr[T],
                       builder: PartialSolver.Builder,
                       maxSolutions: Option[Int] = None): Int = {
-    ???
-//    val solver = MetaSolver.of(parse(expr), builder)
-//    val solutionString = (f: solver.ast.Assignment) => {
+    val solver = MetaSolver.of(expr, builder)
+//    val solutionString = (f: solver.Assignment) => {
 //      solver.ast.variables.domain
 //        .toIterable()
 //        .map(v => (solver.ast.variables(v), f(v)))
@@ -38,17 +37,16 @@ object NumSolutionsTest extends TestSuite {
 //        }
 //        .mkString("\n")
 //    }
-//    val validateSolution: solver.ast.Assignment => Unit = ass => {
-//      val f: solver.ast.VID => Value = ass
-//      Interpreter.evalWithFailureCause(solver.ast)(f) match {
-//        case Res(_) =>
-//        case x =>
-//          System.err.println("Error: the following solution evaluates as not valid.")
+    val validateSolution: solver.Assignment => Unit = ass => {
+      solver.solutionEvaluator(expr)(ass) match {
+        case Res(_) =>
+        case x =>
+          System.err.println("Error: the following solution evaluates as not valid.")
 //          System.err.println(solutionString(ass))
-//          dahu.utils.errors.unexpected(s"Invalid solution. Result: $x")
-//      }
-//    }
-//    solver.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
+          dahu.utils.errors.unexpected(s"Invalid solution. Result: $x")
+      }
+    }
+    solver.enumerateSolutions(maxSolutions = maxSolutions, validateSolution)
   }
 
   def tests = Tests {

@@ -1,25 +1,18 @@
 package dahu.solvers
 
 import dahu.graphs.DAG
-import dahu.model.compiler.Algebras
-import dahu.model.input.{Expr, Ident, Input}
+import dahu.model.input.{Expr, Input}
 import dahu.model.interpreter.Interpreter
-import dahu.utils._
-import dahu.model.ir.{AST, InputF, Total}
-import dahu.model.problem.{API, SatisfactionProblem}
+import dahu.model.ir.Total
+import dahu.model.problem.API
 import dahu.model.types.{TagIsoInt, Value}
-import dahu.recursion.Recursion
-import dahu.solvers.constraints.CSPPartialSolver
 
-import scala.concurrent.duration.{Deadline, FiniteDuration}
+import scala.concurrent.duration.Deadline
 
 class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
-  val sat = //SatisfactionProblem.satisfactionSubAST(ast)
-    API.parseAndProcess(e).fixID.mapExternal[cats.Id](_.valid)
+  val pb = API.parseAndProcess(e).fixID
 
-  val solver = builder(sat)
-
-//  def typeOf(id: K): dahu.model.types.Tag[_] = ast.tree(id).typ
+  val solver = builder(pb)
 
   def defaultDomain(k: Expr[_]): Stream[Value] = k.typ match {
     case t: TagIsoInt[_] =>
@@ -49,6 +42,7 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
       println(assignment)
       API.eval(e, assignment(_))
     }
+
   def enumerateSolutions(maxSolutions: Option[Int] = None,
                          onSolutionFound: Assignment => Unit = _ => ()): Int = {
     var count = 0

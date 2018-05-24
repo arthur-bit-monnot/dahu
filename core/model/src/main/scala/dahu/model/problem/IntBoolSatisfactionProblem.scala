@@ -1,29 +1,21 @@
 package dahu.model.problem
 
-import cats.Functor
-import cats.implicits._
 import dahu.model.functions._
 import dahu.model.input.Ident
 import dahu.model.ir._
 import dahu.model.math._
-import dahu.model.problem
 import dahu.model.types._
-import dahu.utils.{SFunctor, SubSubInt}
 import dahu.utils.Vec.Vec1
 import dahu.utils.errors._
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
-  val ast = _ast.fixID
+class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
 
   /** Methods and variables in Internal are public so that there is no escape of private types.
     * However they are meant for internal use only are are subject to change. */
   object Internal {
-
-    //    type K = builder.K
-
     sealed trait CellOpt[K]
 
     case class SupportedInput[K](value: InputF[K]) extends CellOpt[K] {
@@ -64,32 +56,19 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
       case _           => true
     }
 
+    private def isUnbox(f: Fun[_]): Boolean = f match {
+      case fun: Fun1[_, _] =>
+        fun.inType match {
+          case t: TagIsoInt[_] => t.unbox == fun
+          case _               => false
+        }
+      case _ => false
+    }
+
     private def TRANS[K: ClassTag](rec: CellOpt[K] => K)(prev: K => CellOpt[K])(
-        node: Total[K]): CellOpt[K] = {
-      def and(conjuncts: CellOpt[K]*): CellOpt[K] = {
-        IntermediateExpression(
-          ComputationF(bool.And, conjuncts.toSeq.map(x => rec(x)), Tag.ofBoolean)
-        )
-      }
+        node: Total[K]): K = {
 
-      def leq(lhs: CellOpt[K], rhs: CellOpt[K]): CellOpt[K] = {
-        IntermediateExpression(
-          ComputationF(int.LEQ, Seq(lhs, rhs).map(x => rec(x)), Tag.ofBoolean)
-        )
-      }
-
-      def cst(n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), TagIsoInt.ofInt)
-
-      def isUnbox(f: Fun[_]): Boolean = f match {
-        case fun: Fun1[_, _] =>
-          fun.inType match {
-            case t: TagIsoInt[_] => t.unbox == fun
-            case _               => false
-          }
-        case _ => false
-      }
-
-      node match {
+      val res: CellOpt[K] = node match {
         case x @ CstF(v, Tag.ofBoolean) => SupportedConstant(x)
         case x @ CstF(v, t: TagIsoInt[_]) =>
           CompatibleConstant(CstF(Value(t.toIntUnsafe(v)), Tag.ofInt), t)
@@ -113,21 +92,10 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
               unsupported()
           }
       }
+      rec(res)
     }
-    sealed trait Marker
-    val lt = ast.tree
-      .mapInternalGen[CellOpt](ctx => TRANS(ctx.record)(ctx.retrieve))
-//    val lt = ltO match {
-//      case x: InternalMapGenLazyForest[_, _, _, _, _] => x
-//      case _                                          => unexpected
-//    }
-    //.asInstanceOf[InternalMapGenLazyForest[X, Total, CellOpt, cats.Id, SubSubInt[IDTop, Marker]]] //TODO, we should be able to use cast once the following steps are fixed
-    //    InternalMapGenLazyForest(ast.tree)(ctx => TRANS(ctx.record)(ctx.retrieve))
-    //    val lt = new LazyTree[X, Total, CellOpt, cats.Id](ast.tree) {
-    //      override def g(rec: CellOpt[ID] => ID)(prev: ID => CellOpt[ID])(
-    //          node: Total[ID]): CellOpt[ID] =
-    //        TRANS(rec)(prev)(node)
-    //    }
+    val lt =
+      LazyTree.parseGen[X, Total, CellOpt](rootNode, coalg, ctx => TRANS(ctx.record)(ctx.retrieve))
 
     def leq(lhs: CellOpt[lt.ID], rhs: CellOpt[lt.ID]): CellOpt[lt.ID] = {
       IntermediateExpression(
@@ -162,16 +130,13 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
       cs.toSet
     }
 
-    //
     // the root value, is the conjunction of the original root and all constraints placed on inputs.
-    private val internalPrevRoot = lt.record(lt.get(ast.root)) //.getFromOrigID(ast.root)) //.asInstanceOf[lt.orig.ID])) //TODO
+    private val internalPrevRoot = lt.record(lt.getExt(rootNode))
     private val rootValue = IntermediateExpression(
       ComputationF(bool.And,
                    (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
                    bool.And.tpe))
     val root: lt.ID = lt.record(rootValue)
-
-    //    val optTree: RootedLazyTree[X, CellOpt, cats.Id] = RootedLazyTree(root, lt)
 
     type OptTotal[T] = Option[Total[T]]
     val t = lt.mapInternal[OptTotal]({
@@ -184,7 +149,7 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
     })
     val partialTree = new IlazyForest[X, Total, Option, lt.ID] {
       override def getTreeRoot(k: X): Option[lt.ID] = {
-        if(k == ast.root)
+        if(k == rootNode)
           Some(root) // we modified the root to account for additional constraints,
         else
           (t.getExt(k): Option[Total[lt.ID]]) match {
@@ -198,7 +163,7 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
       }
     }
 
-    val tree = LazyTree(partialTree)(ast.root)
+    val tree = LazyTree(partialTree)(rootNode)
   }
 
   val tree: LazyTree[X, Total, Option, _] = Internal.tree

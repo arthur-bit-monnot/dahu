@@ -100,12 +100,16 @@ object dsl {
     def subjectTo(cond: Product[T] => Expr[Boolean]): SubjectTo[T[cats.Id]] =
       SubjectTo(lhs, cond(lhs))
   }
+  private def named[A, B](f: A => B, name: String): A => B = new Function[A, B] {
+    override def apply(v1: A): B = f(v1)
+    override def toString(): String = name
+  }
 
   implicit class GeneralOps[T](private val lhs: Expr[T]) {
     private implicit def tagT: Tag[T] = lhs.typ
 
     def explicitlyOptional: Expr[Option[T]] =
-      ITE(Present(lhs), lhs.map(x => Option(x)), Cst(Option.empty))
+      ITE(Present(lhs), lhs.map(named[T, Option[T]](x => Option(x), "Some")), Cst(Option.empty))
 
     def recover(onConstraintViolated: Expr[T]): Expr[T] =
       ITE(Valid(lhs), lhs, onConstraintViolated)
@@ -128,23 +132,6 @@ object dsl {
         onFailure
       )
 
-  }
-
-  implicit final class OptionalOps[T](private val lhs: Optional[T]) {
-    implicit private[this] def tag: Tag[T] = lhs.typ
-    def subjectTo(f: Expr[T] => Expr[Boolean]): SubjectTo[T] = {
-      SubjectTo(lhs, lhs.present ==> f(lhs.value))
-    }
-
-    def embed: ITE[Option[T]] =
-      ITE(lhs.present, lhs.value.map(x => Option(x)), Cst(Option.empty))
-
-    def orElse(v: Expr[T]): ITE[T] =
-      ITE(
-        lhs.present,
-        lhs.value,
-        v
-      )
   }
 
   implicit class BooleanExprOps(a: Expr[Boolean]) {
