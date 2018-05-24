@@ -39,6 +39,60 @@ object SatisfactionProblem {
         identity[Total[IDTop]]
     }
 
+    object ElimUniversalEquality extends Optimizer {
+      override def optim(retrieve: IDTop => Total[IDTop],
+                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+        case orig @ ComputationF(f: any.EQ, Vec2(x, y), _) =>
+          val fx = retrieve(x)
+          val fy = retrieve(y)
+          (fx, fy) match {
+            case (SequenceF(xs, xt), SequenceF(ys, yt)) =>
+//              require(xt == yt) // TODO: we should be able to test type equality for derived types
+              if(xs.size != ys.size)
+                bool.FalseF
+              else {
+                val pushedDown = xs.indices.map(i => {
+                  val a = xs(i)
+                  val b = ys(i)
+                  val recursed =
+                    optim(retrieve, record)(ComputationF(any.EQ, Vec(a, b), Tag.ofBoolean))
+                  record(recursed)
+                })
+                ComputationF(bool.And, pushedDown, Tag.ofBoolean)
+              }
+            case (ProductF(xs, xt), ProductF(ys, yt)) =>
+//              require(xt == yt)
+              require(xs.size == ys.size)
+              val pushedDown = xs.indices.map(i => {
+                val a = xs(i)
+                val b = ys(i)
+                val recursed =
+                  optim(retrieve, record)(ComputationF(any.EQ, Vec(a, b), Tag.ofBoolean))
+                record(recursed)
+              })
+              ComputationF(bool.And, pushedDown, Tag.ofBoolean)
+            case (CstF(a, _), CstF(b, _)) =>
+              if(a == b) bool.TrueF else bool.FalseF
+
+            case _ if fx.typ == Tag.ofInt && fy.typ == Tag.ofInt =>
+              ComputationF(int.EQ, Vec(x, y), Tag.ofBoolean)
+            case _ =>
+              (fx.typ, fy.typ) match {
+                case (t1: TagIsoInt[_], t2: TagIsoInt[_]) =>
+                  val ix = record(ComputationF(t1.unbox, Vec(x), t1.unbox.outType))
+                  val iy = record(ComputationF(t2.unbox, Vec(y), t1.unbox.outType))
+                  ComputationF(int.EQ, Vec(ix, iy), int.EQ.outType)
+                case _ =>
+                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
+                  orig
+              }
+
+          }
+
+        case x => x
+      }
+    }
+
     object ElimReversible extends Optimizer {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
@@ -52,6 +106,19 @@ object SatisfactionProblem {
               ???
             case _ => orig
           }
+        case x => x
+      }
+    }
+
+    object SimplifyIfThenElse extends Optimizer {
+      override def optim(retrieve: IDTop => Total[IDTop],
+                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+        case ITEF(_, onTrue, onFalse, _) if onTrue == onFalse => retrieve(onTrue)
+        case orig @ ITEF(cond, onTrue, onFalse, t) if t == Tag.ofBoolean =>
+          if(retrieve(onFalse) == bool.FalseF)
+            ComputationF(bool.And, Vec(cond, onTrue), Tag.ofBoolean)
+          else
+            orig
         case x => x
       }
     }
@@ -212,6 +279,7 @@ object SatisfactionProblem {
 
     private val optimizers = List(
       ExtractField,
+      ElimUniversalEquality,
       ElimReversible,
       ElimIdentity,
       ElimEmptyAndSingletonMonoid,
@@ -219,6 +287,7 @@ object SatisfactionProblem {
       ElimDuplicationsIdempotentMonoids,
       ElimTautologies,
       ConstantFolding,
+      SimplifyIfThenElse,
       OrderArgs,
     )
     val optimizer: Optimizer = (optimizers ++ optimizers).foldLeft[Optimizer](NoOpOptimizer) {

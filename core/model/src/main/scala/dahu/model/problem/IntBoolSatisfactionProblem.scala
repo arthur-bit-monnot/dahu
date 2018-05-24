@@ -5,6 +5,7 @@ import dahu.model.input.Ident
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._
+import dahu.utils.SFunctor
 import dahu.utils.Vec.Vec1
 import dahu.utils.errors._
 
@@ -82,7 +83,8 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
           prev(arg)
 
         case x =>
-          dahu.utils.debug.warning(s"unsupported: $x")
+          val x2 = SFunctor[Total].smap(x)(prev)
+          dahu.utils.debug.warning(s"unsupported: $x2")
           x.typ match {
             case Tag.ofBoolean =>
               SupportedInput(InputF(Ident.anonymous(), Tag.ofBoolean))

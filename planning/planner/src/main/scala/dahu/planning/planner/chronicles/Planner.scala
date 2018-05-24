@@ -8,6 +8,7 @@ import dahu.planning.planner.{PlannerConfig, ProblemContext}
 import dahu.z3.Z3PartialSolver
 import dahu.model.input.dsl._
 import dahu.model.interpreter.Interpreter.Res
+import dahu.model.problem.API
 import dahu.solvers.MetaSolver
 
 import scala.concurrent.duration.Deadline
@@ -87,7 +88,7 @@ object Planner {
   }
 
   def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
-//    println(API.parseAndProcess(chronicle).fullTree)
+//    API.parseAndProcessPrint(chronicle)
     val formatted = chronicle
       .map(c =>
         Plan(c.actions.collect {

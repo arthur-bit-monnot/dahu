@@ -25,7 +25,7 @@ object StaticProblem {
   def underClosedWorldBase[X](root: X,
                               coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id, _] = {
     val lt = IlazyForest.build(coalgebra, algebra).fixID
-    val provided = lt.getTreeRoot(root).provided.toSet.toSeq
+    val provided = lt.getTreeRoot(root).provided.toSeq.distinct
     val ofValues = lt.mapExternal[cats.Id](_.value)
     val dynamicsErased =
       ofValues.mapInternalGen[StaticF](
@@ -86,11 +86,12 @@ object StaticProblem {
     case x @ OptionalF(value, present, typ) =>
       IR(
         value = ctx.record((x: StaticF[IR[IDTop]]).smap(_.value)),
-        provided = getProvided(x).map { id: IDTop =>
-          ctx.record(
-            OptionalF(id, present.value, ctx.retrieve(id).typ)
-          )
-        }
+        provided = getProvided(x)
+          .map { id: IDTop =>
+            ctx.record(
+              OptionalF(id, present.value, ctx.retrieve(id).typ)
+            )
+          }
       )
     case x @ Partial(value, valid, typ) =>
       IR(

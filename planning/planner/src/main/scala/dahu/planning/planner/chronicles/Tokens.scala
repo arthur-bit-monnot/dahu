@@ -63,7 +63,7 @@ object CondTokF {
              fluent: Expr[Fluent],
              value: Expr[Literal]): Expr[CondTok] =
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
-  //TODO TODO.subjectTo(i => Dynamic[CondTok, EffTok, Boolean](i, supportedBy, bool.Or))
+      .subjectTo(i => Dynamic[CondTok, EffTok, Boolean](i, supportedBy, bool.Or))
 
   val Itv = FieldAccess[CondTokF, IntervalF[Id]]("itv", 0)
   val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
@@ -126,7 +126,7 @@ object ChronicleF {
              actions: Expr[Vec[Option[Action]]]): Expr[Chronicle] = {
     val chron = ChronicleF(constraints, conditions, effects, actions)
 
-    Product(chron) //TODO TODO.subjectTo(_ => constraints) // constraints on conditions and effects are directly placed on them
+    Product(chron).subjectTo(_ => constraints) // constraints on conditions and effects are directly placed on them
   }
 
 }

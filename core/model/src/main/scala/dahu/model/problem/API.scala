@@ -60,6 +60,7 @@ object API {
     println(noDynamics.fullTree)
 //    printAll[StaticF, Id](noDynamics)
     val noLambdas = expandLambdas[Expr[_], Id](noDynamics)
+    println("no-lambdas")
     println(noLambdas.fullTree)
     val total = makeTotal(noLambdas)
     println("\nTotal")
