@@ -21,6 +21,7 @@ object Mode {
 }
 case class Config(mode: Mode = Mode.Planner,
                   problemFile: File = null,
+                  validate: Boolean = true,
                   domainFile: Option[File] = None,
                   minInstances: Int = 0,
                   maxInstances: Int = 500,
@@ -46,6 +47,9 @@ object Main extends App {
 
     opt[Int]("discretization")
       .action((i, c) => c.copy(discretization = i))
+
+    opt[Boolean]("validate")
+      .action((b, c) => c.copy(validate = b))
 
     arg[File]("[XXX.dom.pddl] XXX.YY.pb.pddl").minOccurs(1).maxOccurs(2).action {
       case (f, cfg) if cfg.problemFile == null => cfg.copy(problemFile = f)
@@ -118,8 +122,10 @@ object Main extends App {
             println("\n== Solution ==")
             val sol = PddlPlan(plan)
             println(sol.format)
-            println("Validating")
-            Validator.validate(domain, problem, sol)
+            if(config.validate) {
+              println("Validating")
+              Validator.validate(domain, problem, sol)
+            }
           case None =>
             println("\nFAIL")
         }

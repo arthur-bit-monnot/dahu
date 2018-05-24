@@ -42,6 +42,8 @@ object Interpreter {
       Result
         .sequence(members)
         .map(as => Value(t.idProd.buildFromValues(as)))
+    case SequenceF(members, t) =>
+      Result.sequence(members).map(Value(_))
     case ITEF(cond, onTrue, onFalse, _) =>
       cond.flatMap {
         case true  => onTrue

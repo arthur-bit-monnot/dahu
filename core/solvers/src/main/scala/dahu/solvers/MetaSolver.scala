@@ -39,7 +39,6 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
         .collect { case i: Input[Any] => i }
         .map(i => (i.id, ass(i)))
         .toMap
-      println(assignment)
       API.eval(e, assignment(_))
     }
 

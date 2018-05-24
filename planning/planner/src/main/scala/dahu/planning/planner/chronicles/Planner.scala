@@ -1,17 +1,13 @@
 package dahu.planning.planner.chronicles
 
 import cats.effect.IO
-import dahu.model.compiler.Algebras
 import dahu.model.input._
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
 import dahu.planning.planner.{PlannerConfig, ProblemContext}
 import dahu.z3.Z3PartialSolver
 import dahu.model.input.dsl._
-import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
-import dahu.model.problem.API
-import dahu.model.types.Value
 import dahu.solvers.MetaSolver
 
 import scala.concurrent.duration.Deadline
@@ -91,7 +87,7 @@ object Planner {
   }
 
   def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
-    println(API.parseAndProcess(chronicle).fullTree)
+//    println(API.parseAndProcess(chronicle).fullTree)
     val formatted = chronicle
       .map(c =>
         Plan(c.actions.collect {
