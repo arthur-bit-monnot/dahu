@@ -90,14 +90,21 @@ final case class Sequence[T: Tag](members: Vec[Expr[T]])(implicit ct: ClassTag[V
     extends Expr[Vec[T]] {
   override def typ: SequenceTag[T] = SequenceTag[T]
 }
+object Sequence {
+  def apply[T: Tag](members: Seq[Expr[T]])(implicit classTag: ClassTag[Vec[T]]): Sequence[T] =
+    Sequence(Vec.fromSeq(members))
+}
 
 final case class MapSeq[A, B: Tag](target: Expr[Vec[A]], f: Expr[A ->: B]) extends Expr[Vec[B]] {
   override def typ: SequenceTag[B] = SequenceTag[B]
 }
 
 final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) extends Expr[T[Id]] {
+  require(tt != null)
   override def typ: ProductTag[T] = tt
-  def members: Vec[Expr[Any]] = tt.exprProd.extractTerms(value)
+  def members: Vec[Expr[Any]] = {
+    tt.exprProd.extractTerms(value)
+  }
   def buildFromVals(terms: Vec[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
   def buildFromExpr(terms: Vec[Expr[Any]]): T[Expr] = tt.exprProd.buildFromTerms(terms)
 }

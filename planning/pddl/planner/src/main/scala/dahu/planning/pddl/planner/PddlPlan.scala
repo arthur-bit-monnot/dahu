@@ -1,13 +1,15 @@
 package dahu.planning.pddl.planner
 
 import dahu.planning.pddl.parser.PddlPredef
-import dahu.planning.planner.Plan
+import dahu.planning.planner.chronicles.Plan
+import dahu.utils.Vec
+import cats.implicits._
 
-case class PddlPlan(operators: Seq[PddlOperator]) {
+case class PddlPlan(operators: Vec[PddlOperator]) {
 
   def format: String =
     operators
-      .sortBy(_.start)
+      .sortedBy(_.start)
       .mkString("\n")
 }
 
@@ -17,6 +19,6 @@ object PddlPlan {
     PddlPlan(
       genPlan.operators
         .map(PddlOperator(_))
-        .sortBy(_.start))
+        .sortedBy(_.start))
   }
 }

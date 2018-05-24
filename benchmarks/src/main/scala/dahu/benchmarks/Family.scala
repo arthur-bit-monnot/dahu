@@ -28,31 +28,29 @@ abstract class Family(val familyName: String) {
   def defaultSolver: PartialSolver.Builder = Z3PartialSolver.builder
 
   def printSolutions[T](sat: Expr[T], maxSolutions: Option[Int] = None): Unit = {
-    val solver = MetaSolver.of(Algebras.parse(sat), defaultSolver)
+    val solver = MetaSolver.of(sat, defaultSolver)
     val sols = mutable.ArrayBuffer[String]()
-    val solutionString = (f: solver.ast.Assignment) => {
-      solver.ast.variables.domain
-        .toIterable()
-        .map(v => (solver.ast.variables(v), f(v)))
-        .toList
-        .sortBy(_._1.id)
-        .map {
-          case (id, value) => s"${id.id}: $value"
-        }
-        .mkString("  -  ")
-    }
-    val evaluatedSolution: solver.ast.Assignment => Interpreter.Result[Value] =
-      (ass: solver.ast.Assignment) => {
-        Interpreter.evalWithFailureCause(solver.ast)(ass)
-      }
+//    val solutionString = (f: solver.ast.Assignment) => {
+//      solver.ast.variables.domain
+//        .toIterable()
+//        .map(v => (solver.ast.variables(v), f(v)))
+//        .toList
+//        .sortBy(_._1.id)
+//        .map {
+//          case (id, value) => s"${id.id}: $value"
+//        }
+//        .mkString("  -  ")
+//    }
+    val evaluatedSolution = solver.solutionEvaluator(sat)
     solver.enumerateSolutions(
-      onSolutionFound = (f: solver.ast.Assignment) => {
-        sols += solutionString(f) + "\n" + evaluatedSolution(f) + "\n"
+      onSolutionFound = (f: solver.Assignment) => {
+//        sols += solutionString(f) + "\n" + evaluatedSolution(f) + "\n"
+        sols += evaluatedSolution(f) + "\n"
       },
       maxSolutions = maxSolutions
     )
-    println(s"Solutions found: ${sols.size} ${maxSolutions.map("(max:" + _ + ")").getOrElse("")}")
-    sols.sorted.foreach(println)
+//    println(s"Solutions found: ${sols.size} ${maxSolutions.map("(max:" + _ + ")").getOrElse("")}")
+//    sols.sorted.foreach(println)
   }
 
   def solveAndPrintAll(): Unit = {

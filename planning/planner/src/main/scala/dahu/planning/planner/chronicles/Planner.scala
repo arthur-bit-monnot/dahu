@@ -1,26 +1,22 @@
-package dahu.planning.planner
+package dahu.planning.planner.chronicles
 
 import cats.effect.IO
-import cats.implicits._
-import dahu.graphs.DAG
 import dahu.model.compiler.Algebras
-import dahu.model.input.{Expr, Input}
-import dahu.model.interpreter.Interpreter
-import dahu.model.interpreter.Interpreter.Res
-import dahu.model.ir.{InputF, Total}
-import dahu.model.problem.API
-import dahu.model.types.Value
+import dahu.model.input._
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
-import dahu.planning.model.core.{ActionTemplate, Statement}
+import dahu.planning.planner.{PlannerConfig, ProblemContext}
+import dahu.z3.Z3PartialSolver
+import dahu.model.input.dsl._
+import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.Interpreter.Res
+import dahu.model.problem.API
+import dahu.model.types.Value
 import dahu.solvers.MetaSolver
+
+import scala.concurrent.duration.Deadline
 import dahu.utils.debug._
 import dahu.utils.errors._
-import dahu.z3.Z3PartialSolver
-
-import scala.concurrent.duration._
-
-case class PlannerConfig(minInstances: Int, maxInstances: Int, symBreak: Boolean = true)
 
 object Planner {
 
@@ -62,61 +58,57 @@ object Planner {
 
     info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)
-    val result = model.foldLeft(Chronicle.empty(ctx)) {
-      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
-      case (chronicle, action: ActionTemplate) =>
-        val actionInstances: Seq[Opt[Action[Expr]]] =
+    val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
+      case (chronicle, statement: core.Statement) => chronicle.extended(statement)(_ => unexpected)
+      case (chronicle, action: core.ActionTemplate) =>
+        val actionInstances: Seq[Expr[Action]] =
           if(cfg.symBreak) {
-            import dahu.model.input.dsl._
-            (0 until step).foldLeft(List[Opt[Action[Expr]]]()) {
+
+            (0 until step).foldLeft(List[Expr[Action]]()) {
               case (Nil, _) => // first action
-                Opt.optional(Action.instance(action, ctx)) :: Nil
+                ActionF.optionalInstance(action, ctx) :: Nil
               case (last :: rest, _) =>
                 // not first, enforce that this action is only present if the last one is and that its start no earliest that the last one
-                val act = Opt.optional(Action.instance(action, ctx))
-                val presence = act.present implies last.present
-                val after = act.a.start >= last.a.start
-                val withSymBreak: Opt[Action[Expr]] = act.copy(
-                  a = act.a.copy(
-                    chronicle = act.a.chronicle.copy(
-                      constraints = presence :: after :: act.a.chronicle.constraints
-                    )))
+                val act = ActionF.optionalInstance(action, ctx)
+                val presence = (Present(act): Expr[Boolean]) implies Present(last)
+                val after = act.start >= last.start
+                val withSymBreak = act.subjectTo(_ => presence && after)
                 withSymBreak :: last :: rest
             }
 
           } else {
             (0 until step).map { _ =>
-              Opt.optional(Action.instance(action, ctx))
+              ActionF.optionalInstance(action, ctx)
             }
           }
-        chronicle.copy(actions = chronicle.actions ++ actionInstances)
+        chronicle.copy(actions = chronicle.actions ++ actionInstances.map(_.explicitlyOptional))
       case (chronicle, _) => chronicle
     }
     //        println(result)
-    val solution = Planner.solve(result, deadline)
+    val solution = Planner.solve(result.compile, deadline)
     //        println(solution)
     solution
   }
 
-  def solve(chronicle: Chronicle, deadline: Deadline): Option[Plan] = {
+  def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
+    println(API.parseAndProcess(chronicle).fullTree)
+    val formatted = chronicle
+      .map(c =>
+        Plan(c.actions.collect {
+          case Some(a) =>
+            OperatorF[cats.Id](a.name, a.args, a.start, a.end)
+        }))
     if(deadline.isOverdue)
       return None
-    val sat = chronicle.toSatProblem
+    val sat = formatted
     info("  Encoding...")
     val solver = MetaSolver.of(sat, backend)
-
+    val evaluatedSolution = solver.solutionEvaluator(sat)
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
-        solver.solutionEvaluator(sat)(ass) match {
-          case Res(operators) =>
-            Some(
-              Plan(
-                operators
-                  .asInstanceOf[Seq[Operator[cats.Id]]]
-                  .filter(_.present)
-                  .sortBy(_.start)
-              ))
-          case x => unexpected(x.toString)
+        evaluatedSolution(ass) match {
+          case Res(plan) => Some(plan)
+          case x         => unexpected(x.toString)
         }
       case None => None
     }

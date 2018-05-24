@@ -16,9 +16,9 @@ import spire.syntax.cfor._
 
 object SatisfactionProblem {
 
-  def satisfactionSubAST(ast: AST[_]): LazyTree[ast.ID, Total, cats.Id, _] = {
-    encode(ast.root, ast.tree.asFunction).mapExternal[cats.Id](_.valid)
-  }
+//  def satisfactionSubAST(ast: AST[_]): LazyTree[ast.ID, Total, cats.Id, _] = {
+//    encode(ast.root, ast.tree.asFunction).mapExternal[cats.Id](_.valid)
+//  }
 
   object Optimizations {
     trait Optimizer {
@@ -255,7 +255,8 @@ object SatisfactionProblem {
     }
   }
 
-  def compiler(context: LazyForestGenerator.Context[Total, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] =
+  def compiler(
+      context: LazyForestGenerator.Context[Total, IDTop]): StaticF[IR[IDTop]] => IR[IDTop] =
     x => {
       val utils = new Utils(context.record, context.retrieve)
       val ir = x match {
@@ -270,6 +271,12 @@ object SatisfactionProblem {
         case ProductF(members, t) =>
           IR(
             value = utils.rec(ProductF(members.map(a => a.value), t)),
+            present = utils.and(members.map(_.present)),
+            valid = utils.and(members.map(_.valid))
+          )
+        case SequenceF(members, t) =>
+          IR(
+            value = utils.rec(SequenceF(members.map(a => a.value), t)),
             present = utils.and(members.map(_.present)),
             valid = utils.and(members.map(_.valid))
           )
@@ -315,7 +322,7 @@ object SatisfactionProblem {
 
   // TODO: the ExprF is to wide as this method does not handle lambdas
   def encode[X <: Int](root: X,
-                       coalgebra: FCoalgebra[ExprF, X],
+                       coalgebra: FCoalgebra[StaticF, X],
                        optimize: Boolean = true): LazyTree[X, Total, IR, _] = {
     val lt = IlazyForest.build(coalgebra, compiler).fixID
 

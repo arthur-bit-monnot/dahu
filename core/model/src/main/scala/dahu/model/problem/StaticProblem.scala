@@ -18,7 +18,7 @@ object StaticProblem {
     val lowLevelTree =
       underClosedWorldBase[tree.ID](internalRoot, i => tree.tree.internalCoalgebra(i)).fixID
     val finalTree: IlazyForest[X, StaticF, Id, lowLevelTree.tree.ID] =
-      lowLevelTree.tree.changedKey[X](x => if(x == tree.root) lowLevelTree.root else ???)
+      lowLevelTree.tree.changedKey[X](x => tree.tree.getTreeRoot(x))
     LazyTree[X, StaticF, Id, finalTree.ID](finalTree)(tree.root)
   }
 

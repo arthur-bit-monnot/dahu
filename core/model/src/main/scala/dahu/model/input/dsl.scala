@@ -21,6 +21,10 @@ object dsl {
     def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
       Computation(f, i1, i2)
   }
+  implicit class FunNOps[I1, O: Tag](f: FunN[I1, O]) {
+    def apply(i1: Expr[I1]*): Expr[O] =
+      Computation(f, i1)
+  }
 
   implicit class LambdaOps[I, O](private val lambda: Expr[I ->: O]) extends AnyVal {
     def apply(arg: Expr[I])(implicit ev: Tag[O]): Expr[O] = Apply(lambda, arg)
@@ -97,6 +101,22 @@ object dsl {
       SubjectTo(lhs, cond(lhs))
   }
 
+  implicit class GeneralOps[T](private val lhs: Expr[T]) {
+    private implicit def tagT: Tag[T] = lhs.typ
+
+    def explicitlyOptional: Expr[Option[T]] =
+      ITE(Present(lhs), lhs.map(x => Option(x)), Cst(Option.empty))
+
+    def recover(onConstraintViolated: Expr[T]): Expr[T] =
+      ITE(Valid(lhs), lhs, onConstraintViolated)
+
+    def map[B](f: Fun1[T, B]): Expr[B] = Computation1(f, lhs)
+    def map[B: Tag](f: T => B): Expr[B] = Computation1(Fun1.embed(f), lhs)
+
+    def subjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
+      SubjectTo(lhs, cond(lhs))
+  }
+
   implicit final class SubjectToOps[T](private val lhs: SubjectTo[T]) extends AnyVal {
     implicit private[this] def tag: Tag[T] = lhs.typ
 
@@ -125,15 +145,6 @@ object dsl {
         lhs.value,
         v
       )
-  }
-
-  implicit final class TentativeOps[T](private val lhs: Expr[T]) extends AnyVal {
-    implicit private[this] def tag: Tag[T] = lhs.typ
-    def map[B](f: Fun1[T, B]): Expr[B] = Computation1(f, lhs)
-    def map[B: Tag](f: T => B): Expr[B] = Computation1(Fun1.embed(f), lhs)
-
-    def subjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
-      SubjectTo(lhs, cond(lhs))
   }
 
   implicit class BooleanExprOps(a: Expr[Boolean]) {

@@ -72,6 +72,7 @@ object ExprF {
     case x: LambdaF[A]          => ScalaRunTime._hashCode(x)
     case x: ApplyF[A]           => ScalaRunTime._hashCode(x)
     case x: LambdaParamF[A]     => ScalaRunTime._hashCode(x)
+    case x: SequenceF[A]        => ScalaRunTime._hashCode(x)
   }
 }
 
@@ -89,12 +90,12 @@ object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
       fa match {
-        case x @ InputF(_, _) => x
-        case x @ CstF(_, _)   => x
-        case ComputationF(fun, args, typ) =>
-          new ComputationF(fun, implicitly[SFunctor[Vec]].smap(args)(f), typ)
+        case x @ InputF(_, _)                 => x
+        case x @ CstF(_, _)                   => x
+        case ComputationF(fun, args, typ)     => ComputationF(fun, args.map(f), typ)
         case ProductF(members, typ)           => ProductF(members.map(f), typ)
         case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
+        case SequenceF(members, typ)          => SequenceF(members.map(f), typ)
       }
   }
 
@@ -105,6 +106,7 @@ object Total {
       case _: InputF[A]             => Iterable.empty
       case ITEF(c, t, f, _)         => Iterable(c, t, f)
       case ProductF(as, _)          => as.toIterable
+      case SequenceF(as, _)         => as.toIterable
     }
   }
 }

@@ -220,6 +220,16 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     }
     builder.result()
   }
+
+  def collect[@sp B: ClassTag](pf: PartialFunction[A, B]): Vec[B] = {
+    val builder = Vec.newBuilder[B]
+    foreach { a =>
+      if(pf.isDefinedAt(a))
+        builder += pf(a)
+    }
+    builder.result()
+  }
+
   def forall(f: A => Boolean): Boolean = {
     cfor(0)(_ < length, _ + 1) { i =>
       if(!f(apply(i)))

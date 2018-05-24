@@ -6,7 +6,8 @@ import dahu.planning.model.ShowScoped
 import dahu.planning.model.common.RootScope
 import dahu.planning.model.core.{ActionTemplate, InModuleBlock}
 import dahu.planning.pddl.parser._
-import dahu.planning.planner._
+import dahu.planning.planner.PlannerConfig
+import dahu.planning.planner.chronicles._
 import dahu.utils.Vec
 
 import scala.concurrent.duration._

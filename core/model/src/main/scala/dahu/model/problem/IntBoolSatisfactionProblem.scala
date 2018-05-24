@@ -117,7 +117,11 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
     sealed trait Marker
     val lt = ast.tree
       .mapInternalGen[CellOpt](ctx => TRANS(ctx.record)(ctx.retrieve))
-      .asInstanceOf[InternalMapGenLazyForest[X, Total, CellOpt, cats.Id, SubSubInt[IDTop, Marker]]] //TODO, we should be able to use cast once the following steps are fixed
+//    val lt = ltO match {
+//      case x: InternalMapGenLazyForest[_, _, _, _, _] => x
+//      case _                                          => unexpected
+//    }
+    //.asInstanceOf[InternalMapGenLazyForest[X, Total, CellOpt, cats.Id, SubSubInt[IDTop, Marker]]] //TODO, we should be able to use cast once the following steps are fixed
     //    InternalMapGenLazyForest(ast.tree)(ctx => TRANS(ctx.record)(ctx.retrieve))
     //    val lt = new LazyTree[X, Total, CellOpt, cats.Id](ast.tree) {
     //      override def g(rec: CellOpt[ID] => ID)(prev: ID => CellOpt[ID])(
@@ -160,7 +164,7 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
 
     //
     // the root value, is the conjunction of the original root and all constraints placed on inputs.
-    private val internalPrevRoot = lt.record(lt.getFromOrigID(ast.root.asInstanceOf[lt.orig.ID])) //TODO
+    private val internalPrevRoot = lt.record(lt.get(ast.root)) //.getFromOrigID(ast.root)) //.asInstanceOf[lt.orig.ID])) //TODO
     private val rootValue = IntermediateExpression(
       ComputationF(bool.And,
                    (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
@@ -183,7 +187,7 @@ class IntBoolSatisfactionProblem[X](val _ast: LazyTree[X, Total, cats.Id, _]) {
         if(k == ast.root)
           Some(root) // we modified the root to account for additional constraints,
         else
-          (getExt(k): Option[Total[lt.ID]]) match {
+          (t.getExt(k): Option[Total[lt.ID]]) match {
             case Some(_) => Some(t.getTreeRoot(k))
             case None    => None
           }

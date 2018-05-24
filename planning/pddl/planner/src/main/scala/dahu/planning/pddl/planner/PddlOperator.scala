@@ -1,7 +1,7 @@
 package dahu.planning.pddl.planner
 
 import dahu.planning.pddl.parser.PddlPredef
-import dahu.planning.planner.Operator
+import dahu.planning.planner.chronicles._
 import dahu.utils.Vec
 
 case class PddlOperator(name: String, args: Vec[String], start: Double, duration: Double) {
@@ -10,14 +10,11 @@ case class PddlOperator(name: String, args: Vec[String], start: Double, duration
 
 object PddlOperator {
 
-  def toPddlTime(t: Int)(implicit predef: PddlPredef): Double = t.toDouble / predef.discretization.toDouble
+  def toPddlTime(t: Int)(implicit predef: PddlPredef): Double =
+    t.toDouble / predef.discretization.toDouble
 
-  def apply(gen: Operator[cats.Id])(implicit predef: PddlPredef): PddlOperator = gen match {
-    case Operator(name, args, start, end, true) =>
-      new PddlOperator(
-        name,
-        Vec(args.map(_.toString): _*),
-        toPddlTime(start),
-        toPddlTime(end - start))
+  def apply(gen: Operator)(implicit predef: PddlPredef): PddlOperator = gen match {
+    case OperatorF(name, args, start, end) =>
+      new PddlOperator(name, args.map(_.toString), toPddlTime(start), toPddlTime(end - start))
   }
 }

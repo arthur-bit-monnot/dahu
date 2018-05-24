@@ -1,6 +1,7 @@
 package dahu.model.problem
 
-import cats.{Functor, Id}
+import cats._
+import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
 import dahu.model.input.{Expr, Ident}
@@ -9,6 +10,9 @@ import dahu.model.ir.{ExprF, NoApplyF, StaticF, Total}
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
 import dahu.utils.SFunctor
+import dahu.recursion._
+
+import scala.reflect.ClassTag
 
 object API {
 
@@ -33,6 +37,40 @@ object API {
     val noDynamics = eliminitateDynamics[K](parsed)
     val noLambdas = expandLambdas[K, Id](noDynamics)
     makeTotal(noLambdas)
+  }
+
+  def parseAndProcessPrint(e: Expr[_]): LazyTree[Expr[_], Total, IR, _] = {
+    val nodes = Expr.dagInstance.descendantsAndSelf(e)
+    def printAll[F[_]: SFunctor, Opt[_]: Functor](tree: LazyTree[Expr[_], F, Opt, _])(
+        implicit ev: ClassTag[F[Fix[F]]]): Unit = {
+      nodes.foreach(n => {
+        val ast = tree.tree.getTreeRoot(n).map(i => tree.tree.build(i))
+        println(s"${tree.tree.getTreeRoot(n)}  $n")
+        println("  " + ast)
+      })
+    }
+
+    val parsed = parse(e, Algebras.coalgebra)
+    println("\nParsed")
+    println(parsed.fullTree)
+    printAll[ExprF, Id](parsed)
+    val noDynamics = eliminitateDynamics[Expr[_]](parsed)
+    println("\nno dynamics")
+    println(noDynamics.fullTree)
+    printAll[StaticF, Id](noDynamics)
+    val noLambdas = expandLambdas[Expr[_], Id](noDynamics)
+    println(noLambdas.fullTree)
+    val total = makeTotal(noLambdas)
+    println("\nTotal")
+    println(total.fullTree)
+    printAll(total)
+
+    val intBool = new IntBoolSatisfactionProblem(total.mapExternal[Id](_.value)).tree
+    println("\nint bool")
+    println(intBool.fullTree)
+    printAll(intBool)
+
+    total
   }
 
   def parseAndProcess(expr: Expr[_]): LazyTree[Expr[_], Total, IR, _] =

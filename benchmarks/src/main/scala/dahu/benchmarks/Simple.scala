@@ -2,6 +2,8 @@ package dahu.benchmarks
 
 import dahu.model.input._
 import dahu.model.input.dsl._
+import dahu.model.problem.API
+import dahu.model.types._
 
 object Simple extends Family("simple") {
   var counter = 0
@@ -11,14 +13,20 @@ object Simple extends Family("simple") {
   val v1 = variable()
   val v2 = variable().subjectTo(_ > v1)
 
-  instances("base")(
+  instances("base") {
+    println(API.parseAndProcessPrint(v1 < 100))
+    println(API.eval(v1 < 100, _ => Value(1)))
     Seq(
-      SatProblem.fromSat(v1 < 100, 11),
-//      SatProblem.fromSat(v1 === 1, 1),
-//      SatProblem.fromSat(v1 <= 1, 2),
-//      SatProblem.fromSat(v2 === 1, 1),
-//      SatProblem.fromSat(v2 <= 1, 1),
-//      SatProblem.fromSat(v2 <= 2, 3),
-    ))
+      SatProblem.fromSat(
+        v1 < 100,
+        11
+      ),
+      //      SatProblem.fromSat(v1 === 1, 1),
+      //      SatProblem.fromSat(v1 <= 1, 2),
+      //      SatProblem.fromSat(v2 === 1, 1),
+      //      SatProblem.fromSat(v2 <= 1, 1),
+      //      SatProblem.fromSat(v2 <= 2, 3),
+    )
+  }
 
 }
