@@ -88,13 +88,12 @@ object EffTokF {
   implicit val productTag: ProductTag[EffTokF] = ProductTag.ofProd[EffTokF]
 
   private var lastID: Int = 0
-  def nextID(): Int = { lastID += 1; lastID }
+  private def nextID(): Int = { lastID += 1; lastID }
   def ofExpr(startChange: Expr[Int],
              endChange: Expr[Int],
              endPersistenceOpt: Option[Expr[Int]],
              fluent: Expr[Fluent],
              value: Expr[Literal]): Expr[EffTok] = {
-    val id = Cst(nextID())
     val endPersistence: Expr[Int] =
       endPersistenceOpt.getOrElse(Input[Int]()).subjectTo(_ >= endChange)
     val tok = Product(
@@ -104,12 +103,24 @@ object EffTokF {
                         value,
                         Cst(nextID())))
     DynamicProvider(tok, tok)
+      .subjectTo(t => Dynamic[EffTok, EffTok, Boolean](t, NonThreatening, bool.And))
   }
 
   val StartChange = FieldAccess[EffTokF, Int]("startChange", 0)
   val Persistence = FieldAccess[EffTokF, IntervalF[Id]]("persistence", 1)
   val Fluent = FieldAccess[EffTokF, FluentF[Id]]("fluent", 2)
   val Value = FieldAccess[EffTokF, Literal]("value", 3)
+  val Id = FieldAccess[EffTokF, Int]("id", 4)
+
+  val NonThreatening: Expr[EffTok ->: EffTok ->: Boolean] = Lambda(
+    lhs =>
+      Lambda(
+        rhs =>
+          Id(lhs) >= Id(rhs) || //bool.True ||
+            IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+            IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
+            bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))))
+
 }
 
 case class ChronicleF[F[_]](constraints: F[Boolean],

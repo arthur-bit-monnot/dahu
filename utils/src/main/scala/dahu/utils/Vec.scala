@@ -51,7 +51,7 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
   /**
     * Return a string representation of the contents of the buffer.
     */
-  override def toString: String = "Vec" + mkString("(", ", ", ")")
+  override def toString: String = mkString("[", ", ", "]")
 
   def mkString(sep: String): String = mkString("", sep, "")
   def mkString(start: String, sep: String, end: String): String = {

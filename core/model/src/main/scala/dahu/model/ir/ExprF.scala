@@ -153,7 +153,13 @@ object SequenceF {
 }
 
 final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTag[Any]) extends Total[F] {
-  override def toString: String = members.mkString("(", ", ", ")")
+  override def toString: String =
+    typ.typ.toString
+      .replaceFirst("\\[cats\\.Id\\]", "")
+      .reverse
+      .takeWhile(_ != '.')
+      .reverse + members
+      .mkString("(", ", ", ")")
 }
 object ProductF {
   def apply[F: ClassTag](args: Seq[F], tpe: ProductTag[Any]): ProductF[F] =

@@ -87,25 +87,28 @@ object Planner {
     solution
   }
 
+  def chroncleToPlan(c: Chronicle): Plan =
+    Plan(c.actions.collect {
+      case Some(a) =>
+        OperatorF[cats.Id](a.name, a.args, a.start, a.end)
+    })
+
   def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
 //    API.parseAndProcessPrint(chronicle)
-    val formatted = chronicle
-      .map(c =>
-        Plan(c.actions.collect {
-          case Some(a) =>
-            OperatorF[cats.Id](a.name, a.args, a.start, a.end)
-        }))
+    chronicle
     if(deadline.isOverdue)
       return None
-    val sat = formatted
+    val sat = chronicle
     info("  Encoding...")
     val solver = MetaSolver.of(sat, backend)
     val evaluatedSolution = solver.solutionEvaluator(sat)
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
         evaluatedSolution(ass) match {
-          case Res(plan) => Some(plan)
-          case x         => unexpected(x.toString)
+          case Res(solution) =>
+//            println(solution)
+            Some(chroncleToPlan(solution))
+          case x => unexpected(x.toString)
         }
       case None => None
     }

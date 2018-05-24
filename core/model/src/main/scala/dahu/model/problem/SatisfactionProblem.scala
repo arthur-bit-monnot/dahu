@@ -117,7 +117,10 @@ object SatisfactionProblem {
         case orig @ ITEF(cond, onTrue, onFalse, t) if t == Tag.ofBoolean =>
           if(retrieve(onFalse) == bool.FalseF)
             ComputationF(bool.And, Vec(cond, onTrue), Tag.ofBoolean)
-          else
+          else if(retrieve(onFalse) == bool.TrueF) {
+            val notCond = record(ComputationF(bool.Not, Vec(cond), Tag.ofBoolean))
+            ComputationF(bool.Or, Vec(notCond, onTrue), Tag.ofBoolean)
+          } else
             orig
         case x => x
       }
