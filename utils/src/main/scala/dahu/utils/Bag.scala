@@ -1,7 +1,5 @@
 package dahu.utils
 
-import java.util.Optional
-
 import dahu.utils.Bag.{Cons, ConsA}
 
 import scala.collection.immutable.Iterable
@@ -39,15 +37,20 @@ sealed trait Bag[+A] extends Iterable[A] {
   override def iterator: Iterator[A] = new Iterator[A] {
     private var nextBag: Bag[A] = self.tailBag
     private var it = self.headIterator
+    goToNextElem()
+
+    private def goToNextElem(): Unit = {
+      while(!it.hasNext && nextBag != null) {
+        it = nextBag.headIterator
+        nextBag = nextBag.tailBag
+      }
+    }
 
     override def hasNext: Boolean = it.hasNext
 
     override def next(): A = {
       val ret = it.next()
-      while(!it.hasNext && nextBag != null) {
-        it = nextBag.headIterator
-        nextBag = nextBag.tailBag
-      }
+      goToNextElem()
       ret
     }
   }
