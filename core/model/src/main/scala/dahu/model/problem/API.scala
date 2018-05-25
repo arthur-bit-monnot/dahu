@@ -16,26 +16,26 @@ import scala.reflect.ClassTag
 
 object API {
 
-  def parse(expr: Expr[_]): LazyTree[Expr[_], ExprF, Id, _] = parse(expr, Algebras.coalgebra)
+  def parse(expr: Expr[_]): LazyTree[Expr[_], ExprF, Id, _] =
+    parse(expr, Algebras.coalgebra).forceEvaluation
 
   def parse[K, F[_]: SFunctor: TreeNode](root: K, coalgebra: K => F[K]): LazyTree[K, F, Id, _] =
-    LazyTree.parse(root, coalgebra)
+    LazyTree.parse(root, coalgebra).forceEvaluation
 
   def eliminitateDynamics[K](tree: LazyTree[K, ExprF, Id, _]): LazyTree[K, StaticF, Id, _] =
-    StaticProblem.underClosedWorld[K](tree)
+    StaticProblem.underClosedWorld[K](tree).forceEvaluation
 
-  def expandLambdas[K, Opt[_]: Functor](
-      tree: LazyTree[K, StaticF, Opt, _]): LazyTree[K, NoApplyF, Opt, _] =
-    ExpandLambdas.expandLambdas[K, Opt](tree)
+  def expandLambdas[K](tree: LazyTree[K, StaticF, Id, _]): LazyTree[K, NoApplyF, Id, _] =
+    ExpandLambdas.expandLambdas[K](tree).forceEvaluation
 
   def makeTotal[K](t: LazyTree[K, NoApplyF, Id, _]): LazyTree[K, Total, IR, _] = {
-    SatisfactionProblem.encode(t)
+    SatisfactionProblem.encode(t).forceEvaluation
   }
 
   def parseAndProcess[K](root: K, coalgebra: K => ExprF[K]): LazyTree[K, Total, IR, _] = {
     val parsed = parse(root, coalgebra)
     val noDynamics = eliminitateDynamics[K](parsed)
-    val noLambdas = expandLambdas[K, Id](noDynamics)
+    val noLambdas = expandLambdas[K](noDynamics)
     makeTotal(noLambdas)
   }
 
@@ -53,18 +53,18 @@ object API {
 
     val parsed = parse(e, Algebras.coalgebra)
     println("\nParsed")
-    println(parsed.fullTree)
+//    parsed.fullTree
 //    printAll[ExprF, Id](parsed)
     val noDynamics = eliminitateDynamics[Expr[_]](parsed)
     println("\nno dynamics")
-    println(noDynamics.fullTree)
+//    noDynamics.fullTree
 //    printAll[StaticF, Id](noDynamics)
-    val noLambdas = expandLambdas[Expr[_], Id](noDynamics)
+    val noLambdas = expandLambdas[Expr[_]](noDynamics)
     println("no-lambdas")
-    println(noLambdas.fullTree)
+//    noLambdas.fullTree
     val total = makeTotal(noLambdas)
     println("\nTotal")
-    println(total.fullTree)
+//    total.fullTree
 //    printAll(total)
 
 //    val intBool = new IntBoolSatisfactionProblem(total.mapExternal[Id](_.value)).tree
@@ -89,9 +89,8 @@ object API {
   implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {
     def noDynamics: LazyTree[K, StaticF, Id, _] = eliminitateDynamics(tree)
   }
-  implicit class ExpandLambdasOps[K, Opt[_]](private val tree: LazyTree[K, StaticF, Opt, _])
-      extends AnyVal {
-    def expandLambdas(implicit F: Functor[Opt]): LazyTree[K, NoApplyF, Opt, _] =
+  implicit class ExpandLambdasOps[K](private val tree: LazyTree[K, StaticF, Id, _]) extends AnyVal {
+    def expandLambdas: LazyTree[K, NoApplyF, Id, _] =
       API.expandLambdas(tree)
   }
   implicit class MakeTotalOps[K](private val tree: LazyTree[K, NoApplyF, Id, _]) extends AnyVal {

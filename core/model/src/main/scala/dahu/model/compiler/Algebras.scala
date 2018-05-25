@@ -25,9 +25,9 @@ object Algebras {
     case Valid(partial)                 => ValidF(partial)
     case x @ Dynamic(params, f, monoid) => DynamicF(params, f, monoid, x.typ)
     case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
-    case x @ Lambda(_, _)               => LambdaF(x.inputVar, x.parameterizedTree, x.typ)
+    case x @ Lambda(_, _)               => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
     case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
-    case x @ Lambda.Param(l)            => LambdaParamF(Ident(l), x.typ)
+    case x @ Lambda.Param(l)            => LambdaParamF(l.id, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
@@ -43,7 +43,7 @@ object Algebras {
     case ValidF(partial)                => s"valid($partial)"
     case DynamicF(params, f, monoid, _) => s"$f/$monoid($params)"
     case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
-    case LambdaF(in, tree, _)           => s"($in ↦ $tree)"
+    case LambdaF(in, tree, _, _)        => s"($in ↦ $tree)"
     case ApplyF(lambda, param, _)       => s"$lambda $param"
     case LambdaParamF(id, _)            => s"?$id"
   }

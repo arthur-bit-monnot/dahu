@@ -22,6 +22,7 @@ object Mode {
 case class Config(mode: Mode = Mode.Planner,
                   problemFile: File = null,
                   validate: Boolean = true,
+                  solve: Boolean = true,
                   domainFile: Option[File] = None,
                   minInstances: Int = 0,
                   maxInstances: Int = 500,
@@ -50,6 +51,9 @@ object Main extends App {
 
     opt[Boolean]("validate")
       .action((b, c) => c.copy(validate = b))
+
+    opt[Boolean]("solve")
+      .action((b, c) => c.copy(solve = b))
 
     arg[File]("[XXX.dom.pddl] XXX.YY.pb.pddl").minOccurs(1).maxOccurs(2).action {
       case (f, cfg) if cfg.problemFile == null => cfg.copy(problemFile = f)

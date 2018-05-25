@@ -29,10 +29,14 @@ object DynamicTests extends TestSuite {
 
       val xProvider = DynamicProvider(True, x)
       val yProvider = DynamicProvider(True, y)
+      val zProvider = DynamicProvider(True, Cst(4))
+      val aProvider = DynamicProvider(True, Cst(5))
       val inProvided = Dynamic[Int, Int, Boolean](dec, equal, bool.Or)
 
       val result =
-        SubjectTo(dec, Computation(bool.And, Seq(inProvided, xProvider, yProvider)))
+        SubjectTo(dec,
+                  Computation(bool.And,
+                              Seq(inProvided, xProvider, yProvider, zProvider, aProvider)))
 
       import dahu.model.problem.API._
       val prepro = parseAndProcess(result, Algebras.coalgebra)
@@ -46,7 +50,7 @@ object DynamicTests extends TestSuite {
 
       prepro.eval(evalAlgebra(_ => Value(0))) ==> IR(0, true, false)
       prepro.eval(evalAlgebra(_ => Value(3))) ==> IR(3, true, false)
-      prepro.eval(evalAlgebra(_ => Value(4))) ==> IR(4, true, false)
+      prepro.eval(evalAlgebra(_ => Value(6))) ==> IR(6, true, false)
     }
 
     assert(true)

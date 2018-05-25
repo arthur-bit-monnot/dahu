@@ -33,7 +33,7 @@ object ExprF extends LowPriorityExprF {
         case DynamicF(params, fun, monoid, typ) => DynamicF(f(params), f(fun), monoid, typ)
         case DynamicProviderF(e, p, typ)        => DynamicProviderF(f(e), f(p), typ)
         case ApplyF(lambda, param, typ)         => ApplyF(f(lambda), f(param), typ)
-        case LambdaF(in, tree, typ)             => LambdaF(f(in), f(tree), typ)
+        case LambdaF(in, tree, id, typ)         => LambdaF(f(in), f(tree), id, typ)
         case LambdaParamF(l, t)                 => LambdaParamF(l, t)
       }
   }
@@ -73,7 +73,7 @@ trait LowPriorityExprF {
       case DynamicF(params, f, _, _)        => Iterable(params, f)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
       case ApplyF(lambda, param, _)         => Iterable(lambda, param)
-      case LambdaF(in, tree, _)             => Iterable(in, tree)
+      case LambdaF(in, tree, _, _)          => Iterable(in, tree)
       case _: LambdaParamF[A]               => Iterable.empty
     }
   }
@@ -136,7 +136,10 @@ object CstF {
 }
 
 final case class ComputationF[@sp(Int) F](fun: Fun[_], args: Vec[F], typ: Type) extends Total[F] {
-  override def toString: String = s"$fun(${args.mkString(", ")})"
+  override def toString: String = {
+    if(fun.name == "box" || fun.name == "unbox") args(0).toString
+    else s"$fun(${args.mkString(", ")})"
+  }
 }
 object ComputationF {
   def apply[F: ClassTag](fun: Fun[_], args: Seq[F], tpe: Type): ComputationF[F] =
@@ -203,7 +206,7 @@ final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) exte
   * Lambda is composed of an AST `tree` and a variable `in`.
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
-final case class LambdaF[F](in: F, tree: F, tpe: LambdaTag[_, _]) extends NoApplyF[F] {
+final case class LambdaF[F](in: F, tree: F, id: Ident, tpe: LambdaTag[_, _]) extends NoApplyF[F] {
   // strangely, declaring this in the parameters results in AbstractMethodError when called
   override def typ: Type = tpe
 
@@ -215,5 +218,5 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
 }
 
 final case class LambdaParamF[F](id: Ident, typ: Type) extends NoApplyF[F] {
-  override def toString: String = id.toString
+  override def toString: String = "???" + id.toString
 }

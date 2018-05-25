@@ -261,6 +261,8 @@ final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
     extends Expr[I ->: O] {
   def outTag: Tag[O] = Tag[O]
 
+  def id: Ident = Ident(this)
+
   val inputVar: Lambda.Param[I] = Lambda.Param(this)
 
   // f might be side effectfull in the sense that it may generate (identity-full) functions/closures

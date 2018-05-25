@@ -18,8 +18,9 @@ trait OpaqueForest[K, F[_], Opt[_]] {
   sealed trait Marker
 }
 
-trait LazyMap[K, V, Opt[_]] {
-  def get(k: K): Opt[V]
+trait LazyMap[K, V, Opt[_], I <: IDTop] {
+  def get(k: K)(implicit F: Functor[Opt]): Opt[V]
+  def getInternal(i: I): V
 }
 
 trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, F, Opt] { self =>
@@ -36,6 +37,10 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
   private def castIDTo[NewInternalID <: IDTop]: IlazyForest[K, F, Opt, NewInternalID] =
     this.asInstanceOf[IlazyForest[K, F, Opt, NewInternalID]]
 
+  def forceEvaluation(k: K): Unit = {
+    getTreeRoot(k)
+  }
+
   def mapInternal[G[_]](f: F[ID] => G[ID]): IlazyForest[K, G, Opt, ID] =
     InternalMappedLazyForest(this)(f)
 
@@ -46,13 +51,15 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
   ) = //: IlazyForest[K, G, Opt, _] =
     InternalMapGenLazyForest(this)(f)
 
-  def mapContextualized[G[_]](
-      f: LazyForestGenerator.Context[G, IDTop] => F[IDTop] => IDTop,
-      contextTracker: ContextualLazyForestMap.ContextualPreprocessor[F, ID])(
-      implicit TN: TreeNode[F],
-      F: SFunctor[F],
-      FO: Functor[Opt]) = //: IlazyForest[K, G, Opt, _] = TODO: this is need because LazyTree use an internal id
-    new ContextualLazyForestMap[K, F, G, Opt, IDTop, ID](this, f, contextTracker)
+//  def mapContextualized[G[_]](
+//      f: LazyForestGenerator.Context[G, IDTop] => F[IDTop] => IDTop,
+//      contextTracker: ContextualLazyForestMap.ContextualPreprocessor[F, ID])(
+//      implicit TN: TreeNode[F],
+//      F: SFunctor[F],
+//      FO: Functor[Opt],
+//      ct: ClassTag[G[IDTop]]
+//  ) = //: IlazyForest[K, G, Opt, _] = TODO: this is need because LazyTree use an internal id
+//    new ContextualLazyForestMap[K, F, G, Opt, IDTop, ID](this, f, contextTracker)
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2, ID] =
     ExternalMappedLazyForest(this)(f)
@@ -103,15 +110,78 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       override def toString: String = "ILazyForestChangedKey"
     }
 
-  // TODO: we should provide a memoized version of this
-  def cata[V: ClassTag](f: F[V] => V)(implicit F: Functor[Opt],
-                                      SF: SFunctor[F]): LazyMap[K, V, Opt] =
-    new LazyMap[K, V, Opt] {
-      override def get(k: K): Opt[V] = {
-        self.getTreeRoot(k).map { id =>
-          Recursion.hylo(internalCoalgebra, f)(id)
+  def cata[V: ClassTag](f: F[V] => V)(implicit T: TreeNode[F],
+                                      F: SFunctor[F]): LazyMap[K, V, Opt, ID] =
+    new LazyMap[K, V, Opt, ID] {
+      private val values = debox.Map[ID, V]()
+
+      private def hasValue(i: ID): Boolean = values.contains(i)
+      private def getValue(i: ID): V = values(i)
+      private def setValue(i: ID, v: V): Unit = values.update(i, v)
+
+      def getInternal(i: ID): V = {
+        if(!hasValue(i)) {
+          val queue = debox.Buffer[ID]()
+          @inline def push(i: ID): Unit = queue += i
+          @inline def pop(): ID = { queue.remove(queue.length - 1) }
+          push(i)
+          while(!queue.isEmpty) {
+            val cur = pop()
+            if(!hasValue(cur)) {
+              val fcur = self.internalCoalgebra(cur)
+              val children = TreeNode[F].children(fcur)
+              if(children.forall(hasValue)) {
+                val fcurv = SFunctor[F].smap(fcur)(getValue)
+                setValue(cur, f(fcurv))
+              } else {
+                push(cur)
+                children.foreach(push)
+              }
+            }
+          }
         }
+        getValue(i)
       }
+
+      override def get(k: K)(implicit F: Functor[Opt]): Opt[V] =
+        self.getTreeRoot(k).map(getInternal)
+    }
+
+  def cataLow[V: ClassTag](f: (ID, F[V]) => V)(implicit T: TreeNode[F],
+                                               F: SFunctor[F]): LazyMap[K, V, Opt, ID] =
+    new LazyMap[K, V, Opt, ID] {
+      private val values = debox.Map[ID, V]()
+
+      private def hasValue(i: ID): Boolean = values.contains(i)
+      private def getValue(i: ID): V = values(i)
+      private def setValue(i: ID, v: V): Unit = values.update(i, v)
+
+      def getInternal(i: ID): V = {
+        if(!hasValue(i)) {
+          val queue = debox.Buffer[ID]()
+          @inline def push(i: ID): Unit = queue += i
+          @inline def pop(): ID = { queue.remove(queue.length - 1) }
+          push(i)
+          while(!queue.isEmpty) {
+            val cur = pop()
+            if(!hasValue(cur)) {
+              val fcur = self.internalCoalgebra(cur)
+              val children = TreeNode[F].children(fcur)
+              if(children.forall(hasValue)) {
+                val fcurv = SFunctor[F].smap(fcur)(getValue)
+                setValue(cur, f(cur, fcurv))
+              } else {
+                push(cur)
+                children.foreach(push)
+              }
+            }
+          }
+        }
+        getValue(i)
+      }
+
+      override def get(k: K)(implicit F: Functor[Opt]): Opt[V] =
+        self.getTreeRoot(k).map(getInternal)
     }
 }
 object IlazyForest {
@@ -164,10 +234,13 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
   def fixID: LazyTree[K, F, Opt, SubSubInt[IDTop, tree.Marker]] =
     this.asInstanceOf[LazyTree[K, F, Opt, SubSubInt[IDTop, tree.Marker]]]
 
+  def forceEvaluation: LazyTree[K, F, Opt, InternalID] = { tree.forceEvaluation(root); this }
+
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
     LazyTree(tree.mapInternal(f))(root)
 
-  def eval[V: ClassTag](f: F[V] => V)(implicit F: Functor[Opt], SF: SFunctor[F]): Opt[V] =
+  def eval[V: ClassTag](
+      f: F[V] => V)(implicit F: Functor[Opt], SF: SFunctor[F], T: TreeNode[F]): Opt[V] =
     tree.cata(f).get(root)
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): LazyTree[K, F, Opt2, ID] =
@@ -329,73 +402,4 @@ object InternalMapGenLazyForest {
                                                            val retrieve: ID => G[ID],
                                                            val retrieveOld: IDOld => F[IDOld],
                                                            val toNewId: IDOld => ID)
-}
-
-class ContextualLazyForestMap[
-    K,
-    FIn[_]: TreeNode: SFunctor,
-    FOut[_],
-    Opt[_]: Functor,
-    InternalID <: IDTop,
-    OID <: IDTop](base: IlazyForest[K, FIn, Opt, OID],
-                  compilerGenerator: LazyForestGenerator.Context[FOut, InternalID] => FIn[
-                    InternalID] => InternalID,
-                  contextualPreprocessor: ContextualLazyForestMap.ContextualPreprocessor[FIn, OID])
-    extends IlazyForest[K, FOut, Opt, InternalID] {
-
-  private type PrePro = ContextualLazyForestMap.ContextualPreprocessor[FIn, OID]
-
-  private val intIdsMap = mutable.HashMap[(OID, PrePro), ID]()
-  private val repMap = mutable.ArrayBuffer[FOut[ID]]() // ID => FOut[ID]
-  private val memo = mutable.HashMap[FOut[ID], ID]()
-
-  private def record(e: FOut[ID]): ID = {
-    if(memo.contains(e))
-      memo(e)
-    else {
-      val id = repMap.size.asInstanceOf[ID]
-      repMap += e
-      memo += ((e, id))
-      id
-    }
-  }
-  private val generationContext: LazyForestGenerator.Context[FOut, ID] =
-    new LazyForestGenerator.Context(record, internalCoalgebra)
-
-  def algebra: FIn[ID] => ID = compilerGenerator(generationContext)
-
-  override def internalCoalgebra(i: ID): FOut[ID] = repMap(i)
-
-  def getFromOriginalId(oid: base.ID): ID = {
-    val queue = mutable.Stack[(OID, PrePro)]()
-    queue.push((oid, contextualPreprocessor))
-
-    while(queue.nonEmpty) {
-      val (cur, ctx) = queue.pop()
-      val fkNoPrepro = base.internalCoalgebra(cur) //originalCoalgebra(cur)
-      val subCtx = ctx.subPreprocessor(base.internalCoalgebra, fkNoPrepro)
-      val fk = fkNoPrepro.smap(subCtx.prepro)
-      if(fk.children.forall(c => intIdsMap.contains((c, subCtx)))) {
-        val fg = fk.smap(c => intIdsMap((c, subCtx)))
-        val g: ID = algebra(fg)
-        intIdsMap += (((cur, ctx), g))
-      } else {
-        queue.push((cur, ctx))
-
-        fk.children.foreach(c => queue.push((c, subCtx)))
-      }
-    }
-    intIdsMap((oid, contextualPreprocessor))
-  }
-
-  override def getTreeRoot(key: K): Opt[ID] = {
-    base.getTreeRoot(key).map(getFromOriginalId)
-  }
-}
-
-object ContextualLazyForestMap {
-  abstract class ContextualPreprocessor[F[_], I <: Int] {
-    def subPreprocessor(coalg: I => F[I], fi: F[I]): ContextualPreprocessor[F, I]
-    def prepro(i: I): I
-  }
 }

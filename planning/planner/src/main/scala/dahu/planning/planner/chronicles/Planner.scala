@@ -95,6 +95,7 @@ object Planner {
 
   def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
 //    API.parseAndProcessPrint(chronicle)
+//    return None
     chronicle
     if(deadline.isOverdue)
       return None
