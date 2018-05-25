@@ -7,6 +7,7 @@ import dahu.graphs.TreeNode._
 import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.problem.ContextualLazyForestMap.ContextualPreprocessor
+import dahu.model.problem.ExpandLambdas.LambdaDeps
 import dahu.recursion.Recursion
 import dahu.utils.SFunctor
 import dahu.utils.SFunctor._
@@ -120,13 +121,13 @@ object ExpandLambdas {
     override def toString: String = map.toString()
 
     override def prepro(i: I, coalg: I => N[I]): I = {
-      coalg(i) match {
-        case N(LambdaParamF(_, _), _) =>
-          val fi = coalg(i)
-          assert(map.contains(i), fi.toString)
-        case _ =>
-          assert(!map.contains(i))
-      }
+//      coalg(i) match {
+//        case N(LambdaParamF(_, _), _) =>
+//          val fi = coalg(i)
+//          assert(map.contains(i), fi.toString)
+//        case _ =>
+//          assert(!map.contains(i))
+//      }
       map.get(i).map(_._1).getOrElse(i)
     }
 
@@ -156,24 +157,35 @@ object ExpandLambdas {
 //          if(map.keys.exists(i => !deps.params.contains(i)))
 //            println("BREAK")
 
-          val withIndirectDeps: Set[I] = deps.deps ++ map.values.toSet
-            .filter(_._1 != i) // if we are the result of a transformation, ignore it
-            .flatMap((x: (I, LambdaDeps[I], I)) => x._2.deps)
-          val withIndirectDeps2 =
-            withIndirectDeps
-              .filterNot(dep => map.get(dep).map(_._1).contains(i))
+//          val indirectTrees = deps.treesBelow ++ map.values.toSet
+//            .flatMap((x: (I, LambdaDeps[I], I)) => x._2.treesBelow)
+
+//          val withIndirectDeps: Set[I] = deps.deps ++
+//            map.values.toSet
+//              .filter(_._1 != i) // if we are the result of a transformation, ignore it
+//              .filter {
+//                case (_, _, targetTree) => {
+//                  if(!indirectTrees.contains(targetTree))
+//                    println("dddd")
+//                }
+//                true
+//              }
+//              .flatMap((x: (I, LambdaDeps[I], I)) => x._2.deps)
+//          val withIndirectDeps2 =
+//            withIndirectDeps
+//              .filterNot(dep => map.get(dep).map(_._1).contains(i))
 
 //          if(i == 90)
 //            println("STOP")
-          if(deps.static) {
-            val TMP = map.filterKeys(k => withIndirectDeps2.contains(k))
-            if(TMP.nonEmpty) {
-              println("BREAK" + TMP)
-            }
-            new MyPrepro2[I](Map(), None)
-          } else {
-            new MyPrepro2(map.filterKeys(k => withIndirectDeps2.contains(k)), Some((fi, this)))
-          }
+//          if(deps.static) {
+//            val TMP = map.filterKeys(k => withIndirectDeps2.contains(k))
+//            if(TMP.nonEmpty) {
+//              println("BREAK" + TMP)
+//            }
+//            new MyPrepro2[I](Map(), None)
+//          } else {
+          new MyPrepro2(map.filterKeys(k => deps.deps.contains(k)), Some((fi, this)))
+//          }
 //          this
         //          println(s"${deps.size} / ${map.size}         ${map.keys}  /  ${deps}")
 
@@ -244,6 +256,9 @@ object ExpandLambdas {
     private var perRequest = 0
     private var counter = 0
 
+    private val preproUsage = mutable.Map[(OID, PrePro), Set[(OID, OID)]]()
+    private val uselessBinds = mutable.Map[OID, Set[OID]]()
+
     override def getTreeRoot(oid: OID): ID = {
       val queue = mutable.ArrayStack[(OID, PrePro)]()
       queue.push((oid, contextualPreprocessor))
@@ -255,13 +270,34 @@ object ExpandLambdas {
 //          println(next)
           counter += 1
           perRequest += 1
-          if(counter % 1000 == 0)
+          if(counter % 10000 == 0)
             println(s"$counter \t $cacheHit / $cacheMiss -- ${intIdsMap.size}")
           val (cur, ctx) = next
           val fkNoPrepro = coalg(cur) //originalCoalgebra(cur)
           val subCtx = ctx.subPreprocessor(coalg, cur)
           val fk = fkNoPrepro.smap(subCtx.prepro(_, coalg))
+
+//          val directPreprocessing = fkNoPrepro.children
+//            .map(i => (i, subCtx.prepro(i, coalg)))
+//            .filter(x => x._1 != x._2)
+//            .toSet
 //          println("processing: " + next)
+
+//          def addPreprocessingData(): Unit = {
+//            val usage = (fk.children.toSet
+//              .filter(_ != cur)
+//              .flatMap((i: OID) => preproUsage((i, subCtx)))
+//              ++ directPreprocessing)
+//              .filter(x => ctx.map.keySet.contains(x._1))
+//
+//            preproUsage += (((cur, ctx), usage))
+//            val used = usage.map(_._1)
+//            val all = ctx.map.keySet
+//            val unused = all -- used
+//            uselessBinds(cur) = uselessBinds.getOrElse(cur, Set()) ++ unused
+//            if(all.nonEmpty)
+//              println(s"${used.size} / ${all.size}    $used    //  $all")
+//          }
 
           if(fk.children.forall(c => (c == cur) || intIdsMap.contains((c, subCtx)))) {
             if(fk.children.toSet.contains(cur)) {
@@ -271,12 +307,14 @@ object ExpandLambdas {
               assert(!foutg.children.toSet.contains(FUTURE_ID))
               val g: ID = record(foutg)
               intIdsMap += (((cur, ctx), g))
+//              addPreprocessingData()
 //              println(s"$cur  $ctx  $g")
             } else {
               val fing = fk.smap(c => intIdsMap((c, subCtx)))
               val foutg = algebra(fing)
               val g: ID = record(foutg)
               intIdsMap += (((cur, ctx), g))
+//              addPreprocessingData()
 //              println(s"$cur  $ctx  $g")
             }
           } else {
@@ -293,6 +331,7 @@ object ExpandLambdas {
 //      val num = intIdsMap.keysSet.toScalaSet().groupBy(_._1).values.size
 //      val totalKeys = intIdsMap.keysSet.toScalaSet().groupBy(_._1).values.map(_.size).sum
 //      println(s"$num / $totalKeys = ${totalKeys / num}")
+
       intIdsMap((oid, contextualPreprocessor))
     }
   }
@@ -386,6 +425,7 @@ object ExpandLambdas {
 
 object ContextualLazyForestMap {
   abstract class ContextualPreprocessor[F[_], I <: Int] {
+    def map: Map[I, (I, LambdaDeps[I], I)]
     def subPreprocessor(coalg: I => F[I], i: I): ContextualPreprocessor[F, I]
     def prepro(i: I, coalg: I => F[I]): I
   }

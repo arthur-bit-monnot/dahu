@@ -33,8 +33,10 @@ object IntervalF {
   val Start: FieldAccess[IntervalF, Int] = FieldAccess("start", 0)
   val End: FieldAccess[IntervalF, Int] = FieldAccess("end", 1)
 
-  val Contains: Expr[Interval ->: Interval ->: Boolean] =
-    Lambda(lhs => Lambda(rhs => Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)))
+  def contains(lhs: Expr[Interval], rhs: Expr[Interval]): Expr[Boolean] =
+    Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)
+//  val Contains: Expr[Interval ->: Interval ->: Boolean] =
+//    Lambda(lhs => Lambda(rhs => Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)))
 
   val NonOverlapping: Expr[Interval ->: Interval ->: Boolean] =
     Lambda(lhs => Lambda(rhs => End(lhs) < Start(rhs) || End(rhs) < Start(lhs)))
@@ -74,7 +76,7 @@ object CondTokF {
       Lambda(eff => {
         (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
         (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-        (IntervalF.Contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+        (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
       }))
 }
 
