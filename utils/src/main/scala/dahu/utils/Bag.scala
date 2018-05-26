@@ -61,6 +61,8 @@ object Bag {
   def apply[A](a: A, as: A*): Bag[A] = ConsA(a, Cons(as.to, Nil))
   def fromIterables[A](its: Iterable[Iterable[A]]): Bag[A] =
     its.foldLeft[Bag[A]](empty)((acc, cur) => Cons(cur, acc))
+  def fromIterables2[A](head: Iterable[A], tail: Iterable[A]*): Bag[A] =
+    tail.foldLeft[Bag[A]](Bag(head))((acc, cur) => Cons(cur, acc))
 
   def empty: Bag[Nothing] = Nil
 
