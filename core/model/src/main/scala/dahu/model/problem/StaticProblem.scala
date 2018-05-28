@@ -28,34 +28,28 @@ object StaticProblem {
     val provided = lt.getTreeRoot(root).provided.toSeq.distinct
     val ofValues = lt.mapExternal[cats.Id](_.value)
     val dynamicsErased =
-      ofValues.mapInternalGen[StaticF](
-        ctx => {
-          val rec = ctx.record
-          _ match {
-            case x: DynamicF[IDTop] =>
-              val default = rec(x.monoid.liftedIdentity)
-              val newProvided = provided.map(ctx.toNewId)
-              val lbd = ctx.retrieve(x.f)
-              def compute(a: IDTop, b: IDTop): IDTop =
-                ctx.record(ApplyF(ctx.record(ApplyF(x.f, a, lbd.typ)), b, x.typ))
+      ofValues.mapInternalGen[StaticF](ctx => {
+        val rec = ctx.record
+        _ match {
+          case x: DynamicF[IDTop] =>
+            val default = rec(x.monoid.liftedIdentity)
+            val newProvided = provided.map(ctx.toNewId)
+            val lbd = ctx.retrieve(x.f)
+            def compute(oneProvided: IDTop): IDTop =
+              ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
 
-              val conditionals: Vec[IDTop] =
-                Vec(
-                  newProvided.map(
-                    i =>
-                      rec(ITEF[IDTop](rec(PresentF(i)),
-                                      compute(x.params, i),
-                                      default,
-                                      x.monoid.tpe))): _*)
+            val conditionals: Vec[IDTop] =
+              Vec(newProvided.map(i =>
+                rec(ITEF[IDTop](rec(PresentF(i)), compute(i), default, x.monoid.tpe))): _*)
 
-              val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
-              value
-            case x: InputF[_] =>
-              x
-            case x: StaticF[IDTop] =>
-              x
-          }
-        })
+            val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
+            value
+          case x: InputF[_] =>
+            x
+          case x: StaticF[IDTop] =>
+            x
+        }
+      })
     LazyTree(dynamicsErased)(root)
   }
 
@@ -73,7 +67,7 @@ object StaticProblem {
   def algebra(ctx: LazyForestGenerator.Context[NoProviderF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
     case x: InputF[_] => IR(ctx.record(x), Bag.empty)
     case x: CstF[_]   => IR(ctx.record(x), Bag.empty)
-    case x @ DynamicF(_, _, _, _) =>
+    case x @ DynamicF(_, _, _) =>
       IR(
         value = ctx.record(x.smap(_.value)),
         provided = getProvided(x)

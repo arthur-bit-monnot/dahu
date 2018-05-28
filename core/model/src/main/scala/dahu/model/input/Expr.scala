@@ -26,7 +26,7 @@ object Expr {
       case x: Computation[_]           => x.args
       case Optional(value, present)    => Iterable(value, present)
       case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
-      case Dynamic(p, l, _)            => Iterable(p, l)
+      case Dynamic(l, _)               => Iterable(l)
       case DynamicProvider(e, prov)    => Iterable(e, prov)
       case Apply(l, i)                 => Iterable(l, i)
       case x @ Lambda(_, _)            => Iterable(x.parameterizedTree, x.inputVar)
@@ -244,9 +244,7 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
   override val args: Seq[Expr[Any]] = Seq(in, in2, in3, in4)
 }
 
-final case class Dynamic[Param, Provided, Out: Tag](params: Expr[Param],
-                                                    f: Expr[Param ->: Provided ->: Out],
-                                                    comb: Monoid[Out])
+final case class Dynamic[Provided, Out: Tag](f: Expr[Provided ->: Out], comb: Monoid[Out])
     extends Expr[Out] {
   override def typ: Tag[Out] = Tag[Out]
 }

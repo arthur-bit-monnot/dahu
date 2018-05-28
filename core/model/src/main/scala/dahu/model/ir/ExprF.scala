@@ -28,13 +28,13 @@ object ExprF extends LowPriorityExprF {
           Partial(f(value), f(condition), typ)
         case OptionalF(value, present, typ) =>
           OptionalF(f(value), f(present), typ)
-        case PresentF(v)                        => PresentF(f(v))
-        case ValidF(v)                          => ValidF(f(v))
-        case DynamicF(params, fun, monoid, typ) => DynamicF(f(params), f(fun), monoid, typ)
-        case DynamicProviderF(e, p, typ)        => DynamicProviderF(f(e), f(p), typ)
-        case ApplyF(lambda, param, typ)         => ApplyF(f(lambda), f(param), typ)
-        case LambdaF(in, tree, id, typ)         => LambdaF(f(in), f(tree), id, typ)
-        case LambdaParamF(l, t)                 => LambdaParamF(l, t)
+        case PresentF(v)                 => PresentF(f(v))
+        case ValidF(v)                   => ValidF(f(v))
+        case DynamicF(fun, monoid, typ)  => DynamicF(f(fun), monoid, typ)
+        case DynamicProviderF(e, p, typ) => DynamicProviderF(f(e), f(p), typ)
+        case ApplyF(lambda, param, typ)  => ApplyF(f(lambda), f(param), typ)
+        case LambdaF(in, tree, id, typ)  => LambdaF(f(in), f(tree), id, typ)
+        case LambdaParamF(l, t)          => LambdaParamF(l, t)
       }
   }
 
@@ -70,7 +70,7 @@ trait LowPriorityExprF {
       case OptionalF(value, present, typ)   => Iterable(value, present)
       case PresentF(v)                      => Iterable(v)
       case ValidF(v)                        => Iterable(v)
-      case DynamicF(params, f, _, _)        => Iterable(params, f)
+      case DynamicF(f, _, _)                => Iterable(f)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
       case ApplyF(lambda, param, _)         => Iterable(lambda, param)
       case LambdaF(in, tree, _, _)          => Iterable(in, tree)
@@ -197,8 +197,7 @@ final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
   override def toString: String = s"$value? (constraint: $condition)"
 }
 
-final case class DynamicF[@sp(Int) F](params: F, f: F, monoid: Monoid[_], typ: Type)
-    extends NoProviderF[F]
+final case class DynamicF[@sp(Int) F](f: F, monoid: Monoid[_], typ: Type) extends NoProviderF[F]
 
 final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) extends ExprF[F]
 

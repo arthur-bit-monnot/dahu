@@ -65,19 +65,18 @@ object CondTokF {
              fluent: Expr[Fluent],
              value: Expr[Literal]): Expr[CondTok] =
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
-      .subjectTo(i => Dynamic[CondTok, EffTok, Boolean](i, supportedBy, bool.Or))
+      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or))
 
   val Itv = FieldAccess[CondTokF, IntervalF[Id]]("itv", 0)
   val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
   val Value = FieldAccess[CondTokF, Literal]("value", 2)
 
-  val supportedBy: Expr[CondTok ->: EffTok ->: Boolean] =
-    Lambda(cond =>
-      Lambda(eff => {
-        (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
-        (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-        (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
-      }))
+  def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Boolean] =
+    Lambda[EffTok, Boolean](eff => {
+      (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
+      (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
+      (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+    }).named(s"{$cond}-supported-by")
 }
 
 case class EffTokF[F[_]](startChange: F[Int],
@@ -105,7 +104,7 @@ object EffTokF {
                         value,
                         Cst(nextID())))
     DynamicProvider(tok, tok)
-      .subjectTo(t => Dynamic[EffTok, EffTok, Boolean](t, NonThreatening, bool.And))
+      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And))
   }
 
   val StartChange = FieldAccess[EffTokF, Int]("startChange", 0)
@@ -114,14 +113,13 @@ object EffTokF {
   val Value = FieldAccess[EffTokF, Literal]("value", 3)
   val Id = FieldAccess[EffTokF, Int]("id", 4)
 
-  val NonThreatening: Expr[EffTok ->: EffTok ->: Boolean] = Lambda(
-    lhs =>
-      Lambda(
-        rhs =>
-          Id(lhs) >= Id(rhs) || //bool.True ||
-            IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
-            IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
-            bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))))
+  def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Boolean] =
+    Lambda[EffTok, Boolean](
+      rhs =>
+        Id(lhs) >= Id(rhs) || //bool.True ||
+          IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+          IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
+          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))).named(s"{$lhs}-non-threatening")
 
 }
 

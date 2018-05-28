@@ -18,9 +18,8 @@ object DynamicTests extends TestSuite {
   def tests = Tests {
     "e" - {
 
-      val equal: Expr[Int ->: (Int ->: Boolean)] =
-        Lambda[Int, Int ->: Boolean](i => Lambda[Int, Boolean](j => i === j).named("par-eq"))
-          .named("full-eq")
+      def equal(i: Expr[Int]): Expr[Int ->: Boolean] =
+        Lambda[Int, Boolean](j => i === j).named("par-eq")
 
       val True = Cst(true)
       val x = Cst(1)
@@ -31,7 +30,7 @@ object DynamicTests extends TestSuite {
       val yProvider = DynamicProvider(True, y)
       val zProvider = DynamicProvider(True, Cst(4))
       val aProvider = DynamicProvider(True, Cst(5))
-      val inProvided = Dynamic[Int, Int, Boolean](dec, equal, bool.Or)
+      val inProvided = Dynamic[Int, Boolean](equal(dec), bool.Or)
 
       val result =
         SubjectTo(dec,
