@@ -82,7 +82,7 @@ object CondTokF {
     val accept: Tag[EffTok] => Boolean = {
       case EffTokF.EffProductTag(et, eargs, ev, _) =>
         func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
-      case _ => ???
+      case _ => false
     }
 
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
@@ -173,7 +173,7 @@ object EffTokF {
       from.id < id &&
         from.template == t &&
         compatibles(from.args, args)
-    case _ => ???
+    case _ => false
   }
 
   val StartChange = FieldAccess[EffTokF, Int]("startChange", 0)
@@ -195,6 +195,7 @@ object EffTokF {
 case class ChronicleF[F[_]](constraints: F[Boolean],
                             conditions: F[Vec[CondTok]],
                             effects: F[Vec[EffTok]],
+                            staticEffects: F[Vec[SEffTok]],
                             actions: F[Vec[Option[Action]]]) {}
 
 object ChronicleF {
@@ -203,8 +204,9 @@ object ChronicleF {
   def ofExpr(constraints: Expr[Boolean],
              conditions: Expr[Vec[CondTok]],
              effects: Expr[Vec[EffTok]],
+             staticEffects: Expr[Vec[SEffTok]],
              actions: Expr[Vec[Option[Action]]]): Expr[Chronicle] = {
-    val chron = ChronicleF(constraints, conditions, effects, actions)
+    val chron = ChronicleF(constraints, conditions, effects, staticEffects, actions)
 
     Product(chron).subjectTo(_ => constraints) // constraints on conditions and effects are directly placed on them
   }

@@ -8,7 +8,9 @@ package object chronicles {
   type Interval = IntervalF[cats.Id]
   type Fluent = FluentF[cats.Id]
   type CondTok = CondTokF[cats.Id]
+  type SCondTok = SCondTokF[cats.Id]
   type EffTok = EffTokF[cats.Id]
+  type SEffTok = SEffTokF[cats.Id]
   type Chronicle = ChronicleF[cats.Id]
 
   type Action = ActionF[cats.Id]

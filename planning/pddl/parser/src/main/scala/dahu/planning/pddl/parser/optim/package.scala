@@ -14,10 +14,8 @@ package object optim {
     Try(new InvariantInference(model).rewritten)
 
   def all(model: CoreModel)(implicit predef: Predef, option: Options): Try[CoreModel] =
-//    for {
-//      m1 <- reorderTimelines(model)
-//      m2 <- inferInvariants(m1)
-//    } yield m2
-//    reorderTimelines(model) // TODO: reactivate invariant inference
-    Success(model)
+    for {
+      m1 <- reorderTimelines(model)
+      m2 <- inferInvariants(m1)
+    } yield m2
 }
