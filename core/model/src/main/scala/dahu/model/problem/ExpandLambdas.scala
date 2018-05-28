@@ -61,24 +61,19 @@ object ExpandLambdas {
 
   def expandLambdas[X](
       lazyTree: LazyTree[X, StaticF, cats.Id, _]): LazyTree[X, NoApplyF, cats.Id, _] = {
-    info("entering expand lamdas")
+//    info("entering expand lamdas")
     val tree = lazyTree.fixID.forceEvaluation
-    info("defining forest")
+//    info("defining forest")
 
     val x = tree.tree.cataLow(lambdaDependencies)
-    //x.get(tree.root)
     type I = tree.ID
 
     val XX: I => N[I] = i => N(tree.tree.internalCoalgebra(i), x.getInternal(i))
 
-//    println(Recursion.ana(XX)(tree.tree.getTreeRoot(tree.root)))
-//    sys.exit()
-
     val t2 =
       new ContextualLazyForestMap2[I, N, NoApplyF, IDTop](XX, compiler2, new MyPrepro2(Map()))
     val opt = tree.tree.getTreeRoot(tree.root)
-//    println(opt.map(t2.getTreeRoot))
-//    println("dd")
+
     val t3 = t2.changedKey[X](x => tree.tree.getTreeRoot(x))
     LazyTree(t3)(tree.root)
   }
@@ -106,36 +101,52 @@ object ExpandLambdas {
     }
   }
 
-  case class MyPrepro2[I <: IDTop](map: Map[I, I] = Map()) extends ContextualPreprocessor[N, I] {
+  case class MyPrepro2[I <: IDTop](map: Map[I, I] = Map[I, I]())
+      extends ContextualPreprocessor[N, I] {
 
     override val hashCode: Int = map.hashCode()
 
-    override def prepro(i: I, coalg: I => N[I]): I = map.getOrElse(i, i)
+    override def prepro(i: I, coalg: I => N[I]): (I, MyPrepro2[I]) = {
+      val i2 = map.getOrElse(i, i)
+      val tmp = subPreprocessor(coalg, i2)
+      (tmp.map.getOrElse(i2, i2), tmp)
+    }
 
-    override def subPreprocessor(coalg: I => N[I], i: I): ContextualPreprocessor[N, I] = {
+    def subPreprocessor(coalg: I => N[I], i: I): MyPrepro2[I] = {
       val fi = coalg(i)
       val res = fi match {
         case x @ N(ApplyF(lbd, param, _), LambdaDeps(_, _, Some(cur), _)) =>
-          def getLambdaParam(i: I, nesting: Int): (I, I) = coalg(i) match {
-            case N(LambdaF(arg, tree, _, _), _) if nesting == 0 => (arg, tree)
-            case N(LambdaF(_, tree, _, _), _)                   => getLambdaParam(tree, nesting - 1)
-            case N(ApplyF(x, _, _), _)                          => getLambdaParam(x, nesting + 1)
-            case N(x, _)                                        => dahu.utils.errors.unexpected(x.toString)
-          }
-
-          val (lambdaArg, lambdaTree) = getLambdaParam(lbd, nesting = 0)
-          assert(cur == lambdaArg)
-          val XXX = coalg(param)
-          MyPrepro2(map + (lambdaArg -> param))
+//          def getLambdaParam(i: I, nesting: Int): (I, I) = coalg(i) match {
+//            case N(LambdaF(arg, tree, _, _), _) if nesting == 0 => (arg, tree)
+//            case N(LambdaF(_, tree, _, _), _)                   => getLambdaParam(tree, nesting - 1)
+//            case N(ApplyF(x, _, _), _)                          => getLambdaParam(x, nesting + 1)
+//            case N(x, _)                                        => dahu.utils.errors.unexpected(x.toString)
+//          }
+//
+//          val (lambdaArg, lambdaTree) = getLambdaParam(lbd, nesting = 0)
+//          assert(cur == lambdaArg)
+//          val XXX = coalg(param)
+          MyPrepro2(map + (cur -> param))
         case x @ N(LambdaParamF(_, _), deps) if !deps.params.contains(i) =>
           dahu.utils.errors.unexpected
 
         case x @ N(_: ApplyF[_], _) => dahu.utils.errors.unexpected
-        case N(_, deps) =>
-          new MyPrepro2(map.filterKeys(k => deps.deps.contains(k)))
+        case N(a, deps) =>
+          if(this.map.isEmpty)
+            this
+          else if(map.keys.forall(x => !deps.params.contains(x)))
+            MyPrepro2.empty[I]
+          else if(map.keys.exists(x => !deps.params.contains(x)))
+            MyPrepro2(map.filterKeys(k => deps.params.contains(k)))
+          else
+            this
       }
       res
     }
+  }
+  object MyPrepro2 {
+    private val emptySingleton = new MyPrepro2[IDTop]()
+    def empty[I <: IDTop]: MyPrepro2[I] = emptySingleton.asInstanceOf[MyPrepro2[I]]
   }
 
   def compiler2[I <: IDTop](genCtx: Context[NoApplyF, I]): N[cats.Id[I]] => NoApplyF[cats.Id[I]] = {
@@ -203,15 +214,13 @@ object ExpandLambdas {
       while(queue.nonEmpty) {
         val next = queue.pop()
         if(!intIdsMap.contains(next)) {
-//          println(next)
           counter += 1
           perRequest += 1
-          if(counter % 10000 == 0)
-            println(s"$counter \t $cacheHit / $cacheMiss -- ${intIdsMap.size}")
+//          if(counter % 10000 == 0)
+//            println(s"$counter \t $cacheHit / $cacheMiss -- ${intIdsMap.size}")
           val (cur, ctx) = next
-          val fkNoPrepro = coalg(cur) //originalCoalgebra(cur)
-          val subCtx = ctx.subPreprocessor(coalg, cur)
-          val fk = fkNoPrepro.smap(subCtx.prepro(_, coalg))
+          val fkNoPrepro = coalg(cur)
+          val fk = fkNoPrepro.smap(ctx.prepro(_, coalg))
 
 //          val directPreprocessing = fkNoPrepro.children
 //            .map(i => (i, subCtx.prepro(i, coalg)))
@@ -236,34 +245,50 @@ object ExpandLambdas {
 //                s"${used.size.toDouble / all.size}  ${used.size} / ${all.size}    $used    //  $all")
 //          }
 
-          if(fk.children.forall(c => (c == cur) || intIdsMap.contains((c, subCtx)))) {
+          if(fk.children.forall(c => (c == next) || intIdsMap.contains(c))) {
             if(fk.children.toSet.contains(cur)) {
               val FUTURE_ID: ID = repMap.length.asInstanceOf[ID]
-              val fing = fk.smap(c => if(c == cur) FUTURE_ID else intIdsMap((c, subCtx)))
+              val fing = fk.smap(c => if(c == cur) FUTURE_ID else intIdsMap(c))
               val foutg = algebra(fing)
               assert(!foutg.children.toSet.contains(FUTURE_ID))
               val g: ID = record(foutg)
-              intIdsMap += (((cur, ctx), g))
+              intIdsMap += ((next, g))
 //              addPreprocessingData()
 //              println(s"$cur  $ctx  $g")
             } else {
-              val fing = fk.smap(c => intIdsMap((c, subCtx)))
+              val fing = fk.smap(c => intIdsMap(c))
               val foutg = algebra(fing)
               val g: ID = record(foutg)
-              intIdsMap += (((cur, ctx), g))
+              intIdsMap += ((next, g))
 //              addPreprocessingData()
 //              println(s"$cur  $ctx  $g")
             }
           } else {
             queue.push((cur, ctx))
-
+            val children = fk.children.toList
             fk.children.foreach(c => {
               if(c != cur)
-                queue.push((c, subCtx))
+                queue.push(c)
             })
           }
         }
       }
+
+//      println {
+//        val x = intIdsMap.keysSet
+//          .toScalaSet()
+//          .groupBy(_._1)
+//          .mapValues(z => (z.size, z.map(_._2)))
+//          .toSeq
+//          .map { case (i, (n, ctxs)) => (n, i, coalg(i), ctxs) }
+//          .sortBy(_._1)
+//          .reverse
+//          .take(1000)
+//        x.foreach {
+//          case (n, i, orig, ctxs) => println(s"$n  ($i) \t\t     $orig                   $ctxs")
+//        }
+//        println("a")
+//      }
       intIdsMap((oid, contextualPreprocessor))
     }
   }
@@ -272,7 +297,7 @@ object ExpandLambdas {
 
 object ContextualLazyForestMap {
   abstract class ContextualPreprocessor[F[_], I <: Int] {
-    def subPreprocessor(coalg: I => F[I], i: I): ContextualPreprocessor[F, I]
-    def prepro(i: I, coalg: I => F[I]): I
+//    def subPreprocessor(coalg: I => F[I], i: I): ContextualPreprocessor[F, I]
+    def prepro(i: I, coalg: I => F[I]): (I, ContextualPreprocessor[F, I])
   }
 }
