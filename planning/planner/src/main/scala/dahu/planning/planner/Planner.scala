@@ -107,7 +107,7 @@ object Planner {
 
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
-        solver.solutionEvaluator(sat)(ass) match {
+        solver.solutionEvaluator(ass)(sat) match {
           case Res(operators) =>
             Some(
               Plan(

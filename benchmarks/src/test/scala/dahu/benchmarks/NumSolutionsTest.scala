@@ -38,7 +38,7 @@ object NumSolutionsTest extends TestSuite {
 //        .mkString("\n")
 //    }
     val validateSolution: solver.Assignment => Unit = ass => {
-      solver.solutionEvaluator(expr)(ass) match {
+      solver.solutionEvaluator(ass)(expr) match {
         case Res(_) =>
         case x =>
           System.err.println("Error: the following solution evaluates as not valid.")

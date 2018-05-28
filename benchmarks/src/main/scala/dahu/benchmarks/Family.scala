@@ -41,11 +41,10 @@ abstract class Family(val familyName: String) {
 //        }
 //        .mkString("  -  ")
 //    }
-    val evaluatedSolution = solver.solutionEvaluator(sat)
     solver.enumerateSolutions(
       onSolutionFound = (f: solver.Assignment) => {
 //        sols += solutionString(f) + "\n" + evaluatedSolution(f) + "\n"
-        sols += evaluatedSolution(f) + "\n"
+        sols += solver.solutionEvaluator(f)(sat) + "\n"
       },
       maxSolutions = maxSolutions
     )

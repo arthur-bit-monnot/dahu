@@ -102,10 +102,10 @@ object Planner {
     val sat = chronicle
     info("  Encoding...")
     val solver = MetaSolver.of(sat, backend)
-    val evaluatedSolution = solver.solutionEvaluator(sat)
+
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
-        evaluatedSolution(ass) match {
+        solver.solutionEvaluator(ass)(sat) match {
           case Res(solution) =>
 //            println(solution)
             Some(chroncleToPlan(solution))

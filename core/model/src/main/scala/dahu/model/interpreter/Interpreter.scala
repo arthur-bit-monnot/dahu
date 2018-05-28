@@ -29,6 +29,7 @@ object Interpreter {
         case false => onFalse
         case _     => dahu.utils.errors.unexpected
       }
+    case SequenceF(values, _) => Value(values)
   }
 
   def partialEvalAlgebra(valueOf: Ident => Value): FAlgebra[NoApplyF, Result[Value]] = {

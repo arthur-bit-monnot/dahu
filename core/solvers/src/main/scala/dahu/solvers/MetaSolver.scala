@@ -1,16 +1,18 @@
 package dahu.solvers
 
 import dahu.graphs.DAG
-import dahu.model.input.{Expr, Input}
+import dahu.model.input.{Expr, Ident, Input}
 import dahu.model.interpreter.Interpreter
 import dahu.model.ir.Total
 import dahu.model.problem.API
-import dahu.model.types.{TagIsoInt, Value}
+import dahu.model.problem.SatisfactionProblem.IR
+import dahu.model.types._
 
 import scala.concurrent.duration.Deadline
 
 class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
   val pb = API.parseAndProcess(e).fixID
+  lazy val valuesTree = pb.mapExternal[cats.Id](_.value)
 
   val solver = builder(pb)
 
@@ -31,15 +33,20 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
 
   type Assignment = Expr[_] => Value
 
-  def solutionEvaluator[A](e: Expr[A]): (Expr[_] => Value) => Interpreter.Result[A] =
-    ass => {
+  def solutionEvaluator[A](ass: Expr[_] => Value): Expr[A] => Interpreter.Result[A] =
+    e => {
       implicit val tn = Total.treeNodeInstance
-      val assignment = DAG[cats.Id, Expr[Any]]
+      val assignment: Map[Ident, Value] = DAG[cats.Id, Expr[Any]]
         .descendantsAndSelf(e)
         .collect { case i: Input[Any] => i }
         .map(i => (i.id, ass(i)))
         .toMap
-      API.eval(e, assignment(_))
+      val evaluation = pb.tree.cata(Interpreter.evalAlgebra(assignment))
+      evaluation.get(e) match {
+        case IR(_, false, _)   => Interpreter.Empty
+        case IR(_, _, false)   => Interpreter.ConstraintViolated
+        case IR(v, true, true) => Interpreter.Res(v.asInstanceOf[A])
+      }
     }
 
   def enumerateSolutions(maxSolutions: Option[Int] = None,

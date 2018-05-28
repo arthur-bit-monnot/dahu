@@ -236,7 +236,7 @@ object ExpandLambdas {
           if(fkChildren.forall(c => (c == next) || intIdsMap.contains(c))) {
             if(fkChildren.contains(next)) {
               val FUTURE_ID: ID = repMap.length.asInstanceOf[ID]
-              val fing = fk.smap(c => if(c == cur) FUTURE_ID else intIdsMap(c))
+              val fing = fk.smap(c => if(c == next) FUTURE_ID else intIdsMap(c))
               val foutg = algebra(fing)
               dahu.utils.debug.assert4(!foutg.children.toSet.contains(FUTURE_ID))
               val g: ID = record(foutg)
@@ -254,7 +254,7 @@ object ExpandLambdas {
           } else {
             queue.push((cur, ctx))
             fkChildren.foreach(c => {
-              if(c != cur)
+              if(c != next)
                 queue.push(c)
             })
           }
