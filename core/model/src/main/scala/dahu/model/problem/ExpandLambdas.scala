@@ -1,17 +1,12 @@
 package dahu.model.problem
 
 import cats._
-import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
-import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.problem.ContextualLazyForestMap.ContextualPreprocessor
-import dahu.model.problem.ExpandLambdas.LambdaDeps
-import dahu.recursion.Recursion
 import dahu.utils.{Bag, SFunctor}
 import dahu.utils.SFunctor._
-import dahu.utils.debug._
 import spire.sp
 
 import scala.collection.{immutable, mutable}
@@ -19,12 +14,7 @@ import scala.reflect.ClassTag
 
 object ExpandLambdas {
 
-//  case class LambdaTok[@sp(Int) I](lbd: I, param: I) {
-//    def subs: immutable.Iterable[I] = immutable.Iterable(lbd, param)
-//    def map[@sp(Int) B](f: I => B): LambdaTok[B] = LambdaTok(f(lbd), f(param))
-//  }
   case class LambdaDeps[@sp(Int) I](params: Set[I],
-//                                    treesBelow: Set[I],
                                     applicationStack: List[I],
                                     forApply: Option[I],
                                     static: Boolean) {
@@ -36,14 +26,13 @@ object ExpandLambdas {
       else LambdaDeps(params ++ o.params, Nil, None, static && o.static)
     }
 
-    def subs: immutable.Iterable[I] =
+    val subs: Bag[I] =
       Bag.fromIterables2(params, applicationStack, forApply.toList)
 
     def map[@sp(Int) B](f: I => B): LambdaDeps[B] =
       LambdaDeps(params.map(f), applicationStack.map(f), forApply.map(f), static)
-
-    val deps = params ++ forApply
   }
+
   object LambdaDeps {
     private val singleton = LambdaDeps[Int](Set(), List(), None, true)
     def empty[I <: Int]: LambdaDeps[I] = singleton.asInstanceOf[LambdaDeps[I]]
@@ -52,7 +41,7 @@ object ExpandLambdas {
   case class N[@sp(Int) X](e: StaticF[X], deps: LambdaDeps[X])
   implicit val treeNode: TreeNode[N] = new TreeNode[N] {
     override def children[K](n: N[K]): immutable.Iterable[K] =
-      TreeNode[StaticF].children(n.e) ++ n.deps.subs
+      Bag.Cons(TreeNode[StaticF].children(n.e), n.deps.subs)
   }
   implicit val sfunctorInstance: SFunctor[N] = new SFunctor[N] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: N[A])(f: A => B): N[B] =
@@ -61,9 +50,7 @@ object ExpandLambdas {
 
   def expandLambdas[X](
       lazyTree: LazyTree[X, StaticF, cats.Id, _]): LazyTree[X, NoApplyF, cats.Id, _] = {
-//    info("entering expand lamdas")
     val tree = lazyTree.fixID.forceEvaluation
-//    info("defining forest")
 
     val x = tree.tree.cataLow(lambdaDependencies)
     type I = tree.ID
@@ -84,7 +71,7 @@ object ExpandLambdas {
       case (i, LambdaF(in, tree, _, _)) =>
         assert(in.params.size == 1 && in.applicationStack.isEmpty)
         assert(tree.params.contains(in.params.head))
-        LambdaDeps(tree.deps ++ in.deps, in.params.head :: tree.applicationStack, None, false)
+        LambdaDeps(tree.params ++ in.params, in.params.head :: tree.applicationStack, None, false)
       case (i, ApplyF(lbd, param, _)) =>
         assert(param.applicationStack.isEmpty)
         assert(lbd.applicationStack.nonEmpty)
@@ -126,7 +113,7 @@ object ExpandLambdas {
 //          val (lambdaArg, lambdaTree) = getLambdaParam(lbd, nesting = 0)
 //          assert(cur == lambdaArg)
 //          val XXX = coalg(param)
-          MyPrepro2(map + (cur -> param))
+          MyPrepro2(map.updated(cur, param))
         case x @ N(LambdaParamF(_, _), deps) if !deps.params.contains(i) =>
           dahu.utils.errors.unexpected
 
@@ -244,13 +231,14 @@ object ExpandLambdas {
 //              println(
 //                s"${used.size.toDouble / all.size}  ${used.size} / ${all.size}    $used    //  $all")
 //          }
+          val fkChildren = fk.children.toSet
 
-          if(fk.children.forall(c => (c == next) || intIdsMap.contains(c))) {
-            if(fk.children.toSet.contains(cur)) {
+          if(fkChildren.forall(c => (c == next) || intIdsMap.contains(c))) {
+            if(fkChildren.contains(next)) {
               val FUTURE_ID: ID = repMap.length.asInstanceOf[ID]
               val fing = fk.smap(c => if(c == cur) FUTURE_ID else intIdsMap(c))
               val foutg = algebra(fing)
-              assert(!foutg.children.toSet.contains(FUTURE_ID))
+              dahu.utils.debug.assert4(!foutg.children.toSet.contains(FUTURE_ID))
               val g: ID = record(foutg)
               intIdsMap += ((next, g))
 //              addPreprocessingData()
@@ -265,8 +253,7 @@ object ExpandLambdas {
             }
           } else {
             queue.push((cur, ctx))
-            val children = fk.children.toList
-            fk.children.foreach(c => {
+            fkChildren.foreach(c => {
               if(c != cur)
                 queue.push(c)
             })
