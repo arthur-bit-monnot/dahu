@@ -35,7 +35,17 @@ object StaticProblem {
         _ match {
           case x: DynamicF[IDTop] =>
             val default = rec(x.monoid.liftedIdentity)
-            val newProvided = provided.map(ctx.toNewId)
+            val filter: IDTop => Boolean = {
+              x.accept match {
+                case Some(f) =>
+                  (i: IDTop) =>
+                    f(ctx.retrieve(i).typ)
+                case None =>
+                  _ =>
+                    true
+              }
+            }
+            val newProvided = provided.map(ctx.toNewId).withFilter(filter)
             val lbd = ctx.retrieve(x.f)
             def compute(oneProvided: IDTop): IDTop =
               ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
@@ -69,7 +79,7 @@ object StaticProblem {
   def algebra(ctx: LazyForestGenerator.Context[NoProviderF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
     case x: InputF[_] => IR(ctx.record(x), Bag.empty)
     case x: CstF[_]   => IR(ctx.record(x), Bag.empty)
-    case x @ DynamicF(_, _, _) =>
+    case x @ DynamicF(_, _, _, _) =>
       IR(
         value = ctx.record(x.smap(_.value)),
         provided = getProvided(x)

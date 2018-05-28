@@ -30,7 +30,7 @@ object DynamicTests extends TestSuite {
       val yProvider = DynamicProvider(True, y)
       val zProvider = DynamicProvider(True, Cst(4))
       val aProvider = DynamicProvider(True, Cst(5))
-      val inProvided = Dynamic[Int, Boolean](equal(dec), bool.Or)
+      val inProvided = Dynamic[Int, Boolean](equal(dec), bool.Or, None)
 
       val result =
         SubjectTo(dec,

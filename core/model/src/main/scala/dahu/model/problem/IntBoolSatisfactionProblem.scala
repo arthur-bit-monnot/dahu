@@ -65,6 +65,14 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
         }
       case _ => false
     }
+    private def isBox(f: Fun[_]): Boolean = f match {
+      case fun: Fun1[_, _] =>
+        fun.outType match {
+          case t: TagIsoInt[_] => t.box == fun
+          case _               => false
+        }
+      case _ => false
+    }
 
     private def TRANS[K: ClassTag](rec: CellOpt[K] => K)(prev: K => CellOpt[K])(
         node: Total[K]): K = {
@@ -81,7 +89,9 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
         case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
             if isUnbox(f) && sup(prev(arg)) => //TODO double check
           prev(arg)
-
+        case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
+            if isBox(f) && sup(prev(arg)) => //TODO double check
+          prev(arg)
         case x =>
           val x2 = SFunctor[Total].smap(x)(prev)
           dahu.utils.debug.warning(s"unsupported: $x2")

@@ -6,10 +6,13 @@ import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.model.math.{any, bool}
 import dahu.model.products.FieldAccess
+import dahu.model.types.Tag.Type
 import dahu.model.types.{ProductTag, Tag, TagIsoInt}
+import dahu.planning.model.common
 import dahu.planning.model.common.FunctionTemplate
 import dahu.planning.planner.Literal
 import dahu.utils.Vec
+import spire.syntax.cfor
 
 object DummyImplicits {
   // normally this is only supposed to be used for field access that will use the type of the underlying field anyway
@@ -63,9 +66,29 @@ object CondTokF {
   def ofExpr(start: Expr[Int],
              end: Expr[Int],
              fluent: Expr[Fluent],
-             value: Expr[Literal]): Expr[CondTok] =
+             value: Expr[Literal]): Expr[CondTok] = {
+    val (func, args, v) = fluent match {
+      case Product(FluentF(Cst(f), Sequence(args))) =>
+        (f, args.map {
+          case Cst(lit) => Some(lit)
+          case _        => None
+        }, value match {
+          case Cst(v) => Some(v)
+          case _      => None
+        })
+      case _ => ???
+    }
+
+    val accept: Tag[EffTok] => Boolean = {
+      case EffTokF.EffProductTag(et, eargs, ev, _) =>
+        func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
+      case _ => ???
+    }
+
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
-      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or))
+      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
+
+  }
 
   val Itv = FieldAccess[CondTokF, IntervalF[Id]]("itv", 0)
   val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
@@ -88,6 +111,18 @@ case class EffTokF[F[_]](startChange: F[Int],
 object EffTokF {
   implicit val productTag: ProductTag[EffTokF] = ProductTag.ofProd[EffTokF]
 
+  final case class EffProductTag(template: FunctionTemplate,
+                                 args: Vec[Option[Literal]],
+                                 value: Option[Literal],
+                                 id: Int)
+      extends ProductTag[EffTokF] {
+    override def exprProd: ProductExpr[EffTokF, Expr] = productTag.exprProd
+
+    override def idProd: ProductExpr[EffTokF, Id] = productTag.idProd
+
+    override def typ: Type = productTag.typ
+  }
+
   private var lastID: Int = 0
   private def nextID(): Int = { lastID += 1; lastID }
   def ofExpr(startChange: Expr[Int],
@@ -95,16 +130,50 @@ object EffTokF {
              endPersistenceOpt: Option[Expr[Int]],
              fluent: Expr[Fluent],
              value: Expr[Literal]): Expr[EffTok] = {
+    val id = nextID()
     val endPersistence: Expr[Int] =
       endPersistenceOpt.getOrElse(Input[Int]()).subjectTo(_ >= endChange)
-    val tok = Product(
-      new EffTokF[Expr](startChange.subjectTo(_ <= endChange),
-                        IntervalF.ofExpr(endChange, endPersistence),
-                        fluent,
-                        value,
-                        Cst(nextID())))
+    val tag = fluent match {
+      case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
+        EffProductTag(f, args.map {
+          case Cst(lit) => Some(lit)
+          case _        => None
+        }, value match {
+          case Cst(v) => Some(v)
+          case _      => None
+        }, id)
+    }
+    val tok =
+      Product(
+        new EffTokF[Expr](startChange.subjectTo(_ <= endChange),
+                          IntervalF.ofExpr(endChange, endPersistence),
+                          fluent,
+                          value,
+                          Cst(id)))(tag)
     DynamicProvider(tok, tok)
-      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And))
+      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(accept(tag))))
+  }
+  def compatible[A](a: Option[A], b: Option[A]): Boolean = (a, b) match {
+    case (None, _)          => true
+    case (_, None)          => true
+    case (Some(l), Some(r)) => l == r
+  }
+  def compatibles[A](as: Vec[Option[A]], bs: Vec[Option[A]]): Boolean = {
+    if(as.size != bs.size)
+      return false
+    val len = as.size
+    cfor.cfor(0)(_ < len, _ + 1) { i =>
+      if(!compatible(as(i), bs(i)))
+        return false
+    }
+    true
+  }
+  def accept(from: EffProductTag): Tag[EffTok] => Boolean = {
+    case EffProductTag(t, args, value, id) =>
+      from.id < id &&
+        from.template == t &&
+        compatibles(from.args, args)
+    case _ => ???
   }
 
   val StartChange = FieldAccess[EffTokF, Int]("startChange", 0)
@@ -116,8 +185,8 @@ object EffTokF {
   def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Boolean] =
     Lambda[EffTok, Boolean](
       rhs =>
-        Id(lhs) >= Id(rhs) || //bool.True ||
-          IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+        //Id(lhs) >= Id(rhs) || // superseded by accept function
+        IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
           IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
           bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))).named(s"{$lhs}-non-threatening")
 

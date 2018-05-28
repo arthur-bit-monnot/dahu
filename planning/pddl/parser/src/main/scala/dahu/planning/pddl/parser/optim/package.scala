@@ -3,7 +3,7 @@ package dahu.planning.pddl.parser
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core.CoreModel
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 package object optim {
 
@@ -14,9 +14,10 @@ package object optim {
     Try(new InvariantInference(model).rewritten)
 
   def all(model: CoreModel)(implicit predef: Predef, option: Options): Try[CoreModel] =
-    for {
-      m1 <- reorderTimelines(model)
-      m2 <- inferInvariants(m1)
-    } yield m2
-
+//    for {
+//      m1 <- reorderTimelines(model)
+//      m2 <- inferInvariants(m1)
+//    } yield m2
+//    reorderTimelines(model) // TODO: reactivate invariant inference
+    Success(model)
 }
