@@ -101,9 +101,11 @@ object bool {
     override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs || rhs
     override val identity: Boolean = false
   }
-  object XOr extends FunN[Boolean, Boolean] {
-    override def of(args: Seq[Boolean]): Boolean = args.count(_ == true) == 1
+  object XOr extends CommutativeMonoid[Boolean] {
+    override def tpe: Tag[Boolean] = Tag.ofBoolean
     override def name: String = "xor"
+    override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs ^ rhs
+    override val identity: Boolean = false
   }
 
   object Not extends Reversible[Boolean, Boolean] {
