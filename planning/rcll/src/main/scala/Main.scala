@@ -20,7 +20,7 @@ case class Options(r: Int = 1,
                    solve: Boolean = true,
                    specialized: Boolean = true,
                    domain: String =
-                     "/home/arthur/work/ext/ros-rcll_ros/pddl/rcll_domain_production_durations.pddl")
+                     "/home/arthur/work/dahu/planning/rcll/rcll_domain_production_durations.pddl")
 
 object Main extends CaseApp[Options] {
   val pddlOptions = dahu.planning.pddl.parser.Options(discretization = 1000)
