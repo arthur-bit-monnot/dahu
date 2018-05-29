@@ -33,7 +33,7 @@ object Planner {
           return None
 
         info(s"Depth: $step")
-        solveIncrementalStep(model, step.toInt, deadline) match {
+        solveWithGivenActionNumbers(model, _ => step, deadline, symBreak = cfg.symBreak) match {
           case Some(sol) =>
             info(s"  Solution found at depth $step")
             return Some(sol)
@@ -47,9 +47,10 @@ object Planner {
     task.unsafeRunTimed(deadline.timeLeft).flatten
   }
 
-  def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Deadline)(
-      implicit cfg: PlannerConfig,
-      predef: Predef): Option[Plan] = {
+  def solveWithGivenActionNumbers(model: core.CoreModel,
+                                  num: core.ActionTemplate => Int,
+                                  deadline: Deadline,
+                                  symBreak: Boolean)(implicit predef: Predef): Option[Plan] = {
     if(deadline.isOverdue())
       return None
 
@@ -59,9 +60,9 @@ object Planner {
       case (chronicle, statement: core.Statement) => chronicle.extended(statement)(_ => unexpected)
       case (chronicle, action: core.ActionTemplate) =>
         val actionInstances: Seq[Expr[Action]] =
-          if(cfg.symBreak) {
+          if(symBreak) {
 
-            (0 until step).foldLeft(List[Expr[Action]]()) {
+            (0 until num(action)).foldLeft(List[Expr[Action]]()) {
               case (Nil, _) => // first action
                 ActionF.optionalInstance(action, ctx) :: Nil
               case (last :: rest, _) =>
@@ -74,7 +75,7 @@ object Planner {
             }
 
           } else {
-            (0 until step).map { _ =>
+            (0 until num(action)).map { _ =>
               ActionF.optionalInstance(action, ctx)
             }
           }
@@ -87,16 +88,13 @@ object Planner {
     solution
   }
 
-  def chroncleToPlan(c: Chronicle): Plan =
+  def chronicleToPlan(c: Chronicle): Plan =
     Plan(c.actions.collect {
       case Some(a) =>
         OperatorF[cats.Id](a.name, a.args, a.start, a.end)
     })
 
   def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
-//    API.parseAndProcessPrint(chronicle)
-//    return None
-    chronicle
     if(deadline.isOverdue)
       return None
     val sat = chronicle
@@ -107,8 +105,7 @@ object Planner {
       case Some(ass) =>
         solver.solutionEvaluator(ass)(sat) match {
           case Res(solution) =>
-//            println(solution)
-            Some(chroncleToPlan(solution))
+            Some(chronicleToPlan(solution))
           case x => unexpected(x.toString)
         }
       case None => None

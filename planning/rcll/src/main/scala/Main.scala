@@ -1,20 +1,31 @@
 package dahu.planning.rcll
 
+import java.io.File
+
+import cats.implicits._
 import ammonite.ops._
 import caseapp._
-import dahu.planning.pddl.planner.Config
+import dahu.planning.pddl.parser.PddlPredef
+import dahu.planning.pddl.planner.{Config, PddlPlan}
+import dahu.planning.planner.PlannerConfig
+import dahu.planning.planner.chronicles.{Plan, Planner}
 
 import scala.concurrent.duration._
+import scala.util.Success
 
 case class Options(r: Int = 1,
                    complexity: Int = 0,
                    outputDir: String = "out/",
                    game: String = "001",
                    solve: Boolean = true,
+                   specialized: Boolean = true,
                    domain: String =
                      "/home/arthur/work/ext/ros-rcll_ros/pddl/rcll_domain_production_durations.pddl")
 
 object Main extends CaseApp[Options] {
+  val pddlOptions = dahu.planning.pddl.parser.Options(discretization = 1000)
+  val pddlParser = new dahu.planning.pddl.parser.Parser()(pddlOptions)
+  implicit val predef: PddlPredef = pddlParser.predef
 
   override def run(options: Options, remainingArgs: RemainingArgs): Unit = {
 
@@ -36,7 +47,36 @@ object Main extends CaseApp[Options] {
 
     write.over(pbFile, pb.asPddl)
 
-    dahu.planning.pddl.planner.Main.solve(domainFile.toIO, pbFile.toIO, Config())
+    val result =
+      if(options.specialized)
+        solveSpecialized(domainFile.toIO, pbFile.toIO, pb)
+      else
+        solveGeneric(domainFile.toIO, pbFile.toIO)
+
+    result match {
+      case Some(plan) => println(plan.format)
+      case None       => println("OUPSIE")
+    }
+  }
+
+  def solveGeneric(domain: File, problem: File): Option[PddlPlan] = {
+    dahu.planning.pddl.planner.Main
+      .solve(domain, problem, Config())
+      .map(p => PddlPlan(p))
+  }
+
+  def solveSpecialized(domain: File, problem: File, c: Problem): Option[PddlPlan] = {
+    pddlParser.parse(domain, problem) match {
+      case Success(model) =>
+        Planner
+          .solveWithGivenActionNumbers(model,
+                                       a => c.maxActions(a.name),
+                                       Deadline.now + 120.seconds,
+                                       symBreak = true)
+          .map(PddlPlan(_))
+      case x =>
+        None
+    }
   }
 }
 

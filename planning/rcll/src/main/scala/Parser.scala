@@ -64,6 +64,23 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
   def ringStations = stations.filter(typeOf(_) == "RS")
   def capStations = stations.filter(typeOf(_) == "CS")
 
+  val maxActions: Map[String, Int] = Map(
+    "bs-dispense" -> 1,
+    "cs-mount-cap" -> 1,
+    "cs-retrieve-cap" -> 1,
+    "enter-field" -> robots.size,
+    "move-wp-get" -> 3,
+    "move-wp-put-at-input" -> 3,
+    "prepare-bs" -> 1,
+    "prepare-cs" -> 2, // mount and retrieve
+    "prepare-ds" -> 1,
+    "wp-discard" -> 1,
+    "wp-get" -> 3,
+    "wp-get-shelf" -> 1,
+    "wp-put" -> 3,
+    "fulfill-order-c0" -> 1,
+  )
+
   def orderInit: String = order match {
     case Order(_, baseColor, Nil, capColor, _, gate) =>
       s"""

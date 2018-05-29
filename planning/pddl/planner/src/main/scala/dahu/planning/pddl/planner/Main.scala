@@ -102,7 +102,6 @@ object Main extends App {
     }
   }
 
-  type Plan = String
   def solve(domain: File, problem: File, config: Config): Option[Plan] = {
     val pddlOptions = Options(discretization = config.discretization)
     val parser = new Parser()(pddlOptions)
@@ -121,13 +120,14 @@ object Main extends App {
             if(config.validate) {
               Validator.validate(domain, problem, sol)
             }
+            Some(plan)
           case None =>
             println("\nFAIL")
+            None
         }
       case Failure(err) =>
         err.printStackTrace()
         sys.exit(1)
     }
-    None
   }
 }

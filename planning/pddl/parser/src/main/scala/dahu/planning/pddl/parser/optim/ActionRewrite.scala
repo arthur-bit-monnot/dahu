@@ -1,5 +1,6 @@
 package dahu.planning.pddl.parser.optim
 
+import dahu.planning.model.common
 import dahu.planning.model.common.Interval.{ClosedOnLeft, ClosedOnRight, OpenOnLeft, OpenOnRight}
 import dahu.planning.model.common._
 import dahu.planning.model.core._
@@ -10,16 +11,93 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.Try
 
-class ActionRewrite(options: Options) {
+class ActionRewrite(options: Options)(implicit predef: Predef) {
+
+//  case class ToStateVariable(predicate: FluentTemplate, sv: FluentTemplate) {
+//    def matches(f: FluentTemplate): Boolean = f == predicate
+//    def rewrite(b: Statement): Statement = b match {
+//      case TimedAssignmentAssertion(itv, f, value) if f.template == predicate =>
+//        if(value == predef.True)
+//          TimedAssignmentAssertion(itv, Fluent(sv, f.params.dropRight(1)), f.params.last)
+//        else
+//          TimedAssignmentAssertion(itv, Fluent(sv, f.params.dropRight(1)), common.Undefined)
+//      case TimedEqualAssertion(itv, f, value) if f.template == predicate =>
+//        if(value == predef.True)
+//          TimedEqualAssertion(itv, Fluent(sv, f.params.dropRight(1)), f.params.last)
+//        else
+//          ???
+//      case TimedTransitionAssertion(itv, f, from, to) if f.template == predicate =>
+//        ???
+//      case x => x
+//    }
+//    def rewrite(b: InModuleBlock): InModuleBlock = b match {
+//      case x: Statement                             => rewrite(x)
+//      case FunctionDeclaration(f) if f == predicate => FunctionDeclaration(sv)
+//      case a @ ActionTemplate(_, _) =>
+//        val timelines = a.content
+//          .collect { case x: TimedAssertion => x }
+//          .map(assertionToTimeline)
+//          .sortBy(_.toString)
+//
+//        val regrouped = regroup(timelines).sortBy(_.toString)
+//        val merged = removeDiscontinuitiesUnsafe(regrouped, a.start, a.end).toList
+//        val rewrittenWithSV = rewriteTimelines(merged)
+//        val content = a.content.filterNot(_.isInstanceOf[TimedAssertion]) ++ rewrittenWithSV
+//          .flatMap(encode)
+//        ActionTemplate(a.scope, content)
+//
+//      case x => x
+//    }
+//    def rewrite(b: InActionBlock): InActionBlock = b match {
+//      case x: Statement      => rewrite(x)
+//      case x: ArgDeclaration => x
+//    }
+//
+//    def rewrite(model: CoreModel): CoreModel =
+//      model.map(rewrite)
+//
+//    def rewriteTimelines(timelines: Seq[Timeline]): Seq[Timeline] = {
+//      val (matched, untouched) = timelines.partition(_.fluent.template == predicate)
+//      def priority(tl: Timeline): Int = if(tl.toks.exists(_.isInstanceOf[Is])) 0 else 1
+//      val rw = matched.toList.sortBy(priority) match {
+//        case Timeline(fStart, Seq(Is(itrv, predef.True), Undef(_), Becomes(_, predef.False))) :: Timeline(
+//              fEnd,
+//              Seq(Undef(_), Becomes(at, predef.True))) :: Nil =>
+//          assert(fStart.params.dropRight(1) == fEnd.params.dropRight(1))
+//          Timeline(
+//            Fluent(sv, fStart.params.dropRight(1)),
+//            Is(itrv, fStart.params.last),
+//            Undef(
+//              if(itrv.isRightOpen) RightOpenInterval(itrv.end, at)
+//              else OpenInterval(itrv.end, at)),
+//            Becomes(at, fEnd.params.last)
+//          ) :: Nil
+//        case Timeline(f, Seq(Is(itv, predef.True))) :: Nil =>
+//          Timeline(Fluent(sv, f.params.dropRight(1)), Is(itv, f.params.last)) :: Nil
+//        case Nil => Nil
+//        case x   => ???
+//      }
+//      untouched ++ rw
+//    }
+//  }
 
   def optimize(model: CoreModel)(implicit predef: Predef): Try[CoreModel] = Try {
     val invariants = new InvariantInference(model)
+
+//    val toSVs = model.collect {
+//      case FunctionDeclaration(p @ FluentTemplate(common.Id(RootScope, "mps-state"), tpe, args)) =>
+//        ToStateVariable(
+//          p,
+//          FluentTemplate(RootScope / "mps-state-sv", args.last.typ, args.dropRight(1)))
+//    }
+//    val lifted = toSVs.foldLeft(model)((mod, toSv) => toSv.rewrite(mod))
+    val lifted = model
 //    implicit val ctx: Ctx = model
     val f: InModuleBlock => InModuleBlock = {
       case e: ActionTemplate => opt(e, invariants)
       case x                 => x
     }
-    model.map(f)
+    lifted.map(f)
   }
 
   def opt(a: ActionTemplate, invariants: InvariantInference)(
