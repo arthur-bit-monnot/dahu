@@ -126,73 +126,36 @@
 	; (rs-inc TWO THREE)
 
 	
-	; (:action prepare-bs
-	; 	:parameters (?m - mps ?side - mps-side ?bc - product-base-color)
-	; 	:precondition (and (mps-type ?m BS) (mps-state ?m IDLE))
-	; 	:effect (and (not (mps-state ?m IDLE)) (mps-state ?m PROCESSING)
-	; 							 (bs-prepared-color ?m ?bc) (bs-prepared-side ?m ?side))
-	; )
-
-	; (:action prepare-ds
-	; 	:parameters (?r - robot ?m - mps ?gate - ds-gate)
-	; 	:precondition (and (at ?r ?m INPUT) (mps-type ?m DS) (mps-state ?m IDLE))
-	; 	:effect (and (not (mps-state ?m IDLE)) (mps-state ?m PREPARED) (ds-prepared-gate ?m ?gate))
-	; )
-
-	; (:action prepare-cs
-	; 	:parameters (?r - robot ?m - mps ?op - cs-operation)
-	; 	:precondition (and (at ?r ?m INPUT) (mps-type ?m CS) (mps-state ?m IDLE) (cs-can-perform ?m ?op))
-	; 	:effect (and (not (mps-state ?m IDLE)) (mps-state ?m PREPARED)
-	; 							 (not (cs-can-perform ?m ?op)) (cs-prepared-for ?m ?op))
-	; )
-
-	; (:action bs-dispense
-	; 	:parameters (?m - mps ?side - mps-side ?wp - workpiece ?basecol - product-base-color)
-	; 	:precondition (and (mps-type ?m BS) (mps-state ?m PROCESSING)
-	; 										 (bs-prepared-color ?m ?basecol) (bs-prepared-side ?m ?side)
-	; 										 (wp-base-color ?wp BASE_NONE) (wp-unused ?wp))
-	; 	:effect (and (wp-at ?wp ?m ?side)
-	; 							 (not (bs-prepared-color ?m ?basecol)) (not (bs-prepared-side ?m ?side))
-	; 							 (not (wp-base-color ?wp BASE_NONE)) (wp-base-color ?wp ?basecol)
-	; 							 (not (wp-unused ?wp)) (wp-usable ?wp)
-	; 							 (not (mps-state ?m PROCESSING)) (mps-state ?m READY-AT-OUTPUT))
-	; )
-
-
-	(:durative-action prepare-bs
+	(:action prepare-bs
 		:parameters (?m - mps ?side - mps-side ?bc - product-base-color)
-		:duration (= ?duration 0.1)
-		:condition (and (at start (mps-type ?m BS)) (at start (mps-state ?m IDLE)))
-		:effect (and (at end (not (mps-state ?m IDLE))) (at end (mps-state ?m PROCESSING))
-								 (at end (bs-prepared-color ?m ?bc)) (at end (bs-prepared-side ?m ?side)))
+		:precondition (and (mps-type ?m BS) (mps-state ?m IDLE))
+		:effect (and (not (mps-state ?m IDLE)) (mps-state ?m PROCESSING)
+								 (bs-prepared-color ?m ?bc) (bs-prepared-side ?m ?side))
 	)
 
-	(:durative-action prepare-ds
+	(:action prepare-ds
 		:parameters (?r - robot ?m - mps ?gate - ds-gate)
-		:duration (= ?duration 0.1)
-		:condition (and (at start (at ?r ?m INPUT)) (at start (mps-type ?m DS)) (at start (mps-state ?m IDLE)))
-		:effect (and (at end (not (mps-state ?m IDLE))) (at end (mps-state ?m PREPARED)) (at end (ds-prepared-gate ?m ?gate)))
+		:precondition (and (at ?r ?m INPUT) (mps-type ?m DS) (mps-state ?m IDLE))
+		:effect (and (not (mps-state ?m IDLE)) (mps-state ?m PREPARED) (ds-prepared-gate ?m ?gate))
 	)
 
-	(:durative-action prepare-cs
+	(:action prepare-cs
 		:parameters (?r - robot ?m - mps ?op - cs-operation)
-		:duration (= ?duration 0.1)
-		:condition (and (at start (at ?r ?m INPUT)) (at start (mps-type ?m CS)) (at start (mps-state ?m IDLE)) (at start (cs-can-perform ?m ?op)))
-		:effect (and (at end (not (mps-state ?m IDLE))) (at end (mps-state ?m PREPARED))
-								 (at end (not (cs-can-perform ?m ?op))) (at end (cs-prepared-for ?m ?op)))
+		:precondition (and (at ?r ?m INPUT) (mps-type ?m CS) (mps-state ?m IDLE) (cs-can-perform ?m ?op))
+		:effect (and (not (mps-state ?m IDLE)) (mps-state ?m PREPARED)
+								 (not (cs-can-perform ?m ?op)) (cs-prepared-for ?m ?op))
 	)
 
-	(:durative-action bs-dispense
+	(:action bs-dispense
 		:parameters (?m - mps ?side - mps-side ?wp - workpiece ?basecol - product-base-color)
-		:duration (= ?duration 0.1)
-		:condition (and (at start (mps-type ?m BS)) (at start (mps-state ?m PROCESSING))
-											(at start (bs-prepared-color ?m ?basecol)) (at start (bs-prepared-side ?m ?side))
-											 (at start (wp-base-color ?wp BASE_NONE)) (at start (wp-unused ?wp)))
-		:effect (and (at end (wp-at ?wp ?m ?side))
-								 (at end (not (bs-prepared-color ?m ?basecol))) (at end (not (bs-prepared-side ?m ?side)))
-								 (at end (not (wp-base-color ?wp BASE_NONE))) (at end (wp-base-color ?wp ?basecol))
-								 (at end (not (wp-unused ?wp))) (at end (wp-usable ?wp))
-								 (at end (not (mps-state ?m PROCESSING))) (at end (mps-state ?m READY-AT-OUTPUT)))
+		:precondition (and (mps-type ?m BS) (mps-state ?m PROCESSING)
+											 (bs-prepared-color ?m ?basecol) (bs-prepared-side ?m ?side)
+											 (wp-base-color ?wp BASE_NONE) (wp-unused ?wp))
+		:effect (and (wp-at ?wp ?m ?side)
+								 (not (bs-prepared-color ?m ?basecol)) (not (bs-prepared-side ?m ?side))
+								 (not (wp-base-color ?wp BASE_NONE)) (wp-base-color ?wp ?basecol)
+								 (not (wp-unused ?wp)) (wp-usable ?wp)
+								 (not (mps-state ?m PROCESSING)) (mps-state ?m READY-AT-OUTPUT))
 	)
 		
 	(:durative-action cs-mount-cap
@@ -347,17 +310,10 @@
 								 (at end (not (robot-waiting ?r))) (at end (can-hold ?r)))
 	)
 
-	; (:action wp-discard
-	; 	:parameters (?r - robot ?cc - cap-carrier)
-	; 	:precondition (and (holding ?r ?cc))
-	; 	:effect (and (not (holding ?r ?cc)) (not (wp-usable ?cc)) (can-hold ?r))
-	; )
-
-	(:durative-action wp-discard
+	(:action wp-discard
 		:parameters (?r - robot ?cc - cap-carrier)
-		:duration (= ?duration 0.1)
-		:condition (and (at start (holding ?r ?cc)))
-		:effect (and (at end (not (holding ?r ?cc))) (at end (not (wp-usable ?cc))) (at end (can-hold ?r)))
+		:precondition (and (holding ?r ?cc))
+		:effect (and (not (holding ?r ?cc)) (not (wp-usable ?cc)) (can-hold ?r))
 	)
 
 	(:durative-action wp-get-shelf
@@ -412,34 +368,19 @@
 	; 							 (at end (not (rs-filled-with ?m ?rs-before))) (at end (rs-filled-with ?m ?rs-after)))
 	; )
 
-	(:durative-action fulfill-order-c0
+	(:action fulfill-order-c0
 		:parameters (?ord - order ?wp - workpiece ?m - mps ?g - ds-gate
 		             ?basecol - product-base-color ?capcol - product-cap-color)
-		:duration (= ?duration 0.1)
-		:condition (and (at start (wp-at ?wp ?m INPUT)) (at start (wp-usable ?wp))
-											 (at start (mps-type ?m DS)) (at start (mps-state ?m PROCESSING)) (at start (ds-prepared-gate ?m ?g))
-											 (at start (order-complexity ?ord C0)) (at start (order-gate ?ord ?g))
-											 (at start (order-base-color ?ord ?basecol)) (at start (wp-base-color ?wp ?basecol))
-											 (at start (order-cap-color ?ord ?capcol)) (at start (wp-cap-color ?wp ?capcol))
-											 (at start (wp-ring1-color ?wp RING_NONE)) (at start (wp-ring2-color ?wp RING_NONE)) (at start (wp-ring3-color ?wp RING_NONE)))
-		:effect (and (at end (order-fulfilled ?ord)) (at end (not (wp-at ?wp ?m INPUT))) (at end (not  (ds-prepared-gate ?m ?g)))
-								 (at end (not (wp-base-color ?wp ?basecol))) (at end (not (wp-cap-color ?wp ?capcol))))
-
-	)
-
-	; (:action fulfill-order-c0
-	; 	:parameters (?ord - order ?wp - workpiece ?m - mps ?g - ds-gate
-	; 	             ?basecol - product-base-color ?capcol - product-cap-color)
-	; 	:precondition (and (wp-at ?wp ?m INPUT) (wp-usable ?wp)
-	; 										 (mps-type ?m DS) (mps-state ?m PROCESSING) (ds-prepared-gate ?m ?g)
-	; 										 (order-complexity ?ord C0) (order-gate ?ord ?g)
-	; 										 (order-base-color ?ord ?basecol) (wp-base-color ?wp ?basecol)
-	; 										 (order-cap-color ?ord ?capcol) (wp-cap-color ?wp ?capcol)
-	; 										 (wp-ring1-color ?wp RING_NONE) (wp-ring2-color ?wp RING_NONE) (wp-ring3-color ?wp RING_NONE))
-	; 	:effect (and (order-fulfilled ?ord) (not (wp-at ?wp ?m INPUT)) (not  (ds-prepared-gate ?m ?g))
-	; 							 (not (wp-base-color ?wp ?basecol)) (not (wp-cap-color ?wp ?capcol)))
+		:precondition (and (wp-at ?wp ?m INPUT) (wp-usable ?wp)
+											 (mps-type ?m DS) (mps-state ?m PROCESSING) (ds-prepared-gate ?m ?g)
+											 (order-complexity ?ord C0) (order-gate ?ord ?g)
+											 (order-base-color ?ord ?basecol) (wp-base-color ?wp ?basecol)
+											 (order-cap-color ?ord ?capcol) (wp-cap-color ?wp ?capcol)
+											 (wp-ring1-color ?wp RING_NONE) (wp-ring2-color ?wp RING_NONE) (wp-ring3-color ?wp RING_NONE))
+		:effect (and (order-fulfilled ?ord) (not (wp-at ?wp ?m INPUT)) (not  (ds-prepared-gate ?m ?g))
+								 (not (wp-base-color ?wp ?basecol)) (not (wp-cap-color ?wp ?capcol)))
 								 
-	; )
+	)
 
 	; (:action fulfill-order-c1
 	; 	:parameters (?ord - order ?wp - workpiece ?m - mps ?g - ds-gate
@@ -491,4 +432,4 @@
 	; 	:effect (and (order-fulfilled ?ord) (not (wp-at ?wp ?m INPUT)) (not (ds-prepared-gate ?m ?g))
 	; 							 (not (wp-base-color ?wp ?basecol)) (not (wp-cap-color ?wp ?capcol)))
 	; )
-)
+
