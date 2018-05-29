@@ -50,14 +50,16 @@ class InvariantInference(original: CoreModel)(implicit predef: Predef) {
     }.toSet
   def fluents: Set[FluentTemplate] = staticAssertions.keySet.toSet ++ possibleAssertions.keySet
 
-  for(f <- fluents if dynamicEffects(f).isEmpty) {
-    println(f)
-    println("  cond stat: " + staticConditions(f))
-    println("  cond dyna: " + dynamicConditions(f))
-    println("   eff stat: " + staticEffects(f))
-    println("   eff dyna: " + dynamicEffects(f))
-  }
-  println("")
+//  for(f <- fluents if dynamicEffects(f).isEmpty) {
+//    println(f)
+//    println("  cond stat: " + staticConditions(f))
+//    println("  cond dyna: " + dynamicConditions(f))
+//    println("   eff stat: " + staticEffects(f))
+//    println("   eff dyna: " + dynamicEffects(f))
+//  }
+//  println("")
+  def allConds(f: FluentTemplate): Set[Expr] = dynamicConditions(f) ++ staticConditions(f)
+  def allEffects(f: FluentTemplate): Set[Expr] = dynamicEffects(f) ++ staticEffects(f)
 
   def rewritten: CoreModel = getRewriter.apply(original)
   def getRewriter: CoreModel => CoreModel =

@@ -11,46 +11,30 @@ import scala.collection.mutable
 import scala.util.Try
 
 class ActionRewrite(options: Options) {
+
   def optimize(model: CoreModel)(implicit predef: Predef): Try[CoreModel] = Try {
+    val invariants = new InvariantInference(model)
 //    implicit val ctx: Ctx = model
     val f: InModuleBlock => InModuleBlock = {
-      case e: ActionTemplate => opt(e)
+      case e: ActionTemplate => opt(e, invariants)
       case x                 => x
     }
     model.map(f)
   }
 
-  def opt(a: ActionTemplate)(implicit predef: Predef): ActionTemplate = {
+  def opt(a: ActionTemplate, invariants: InvariantInference)(
+      implicit predef: Predef): ActionTemplate = {
+
     def println(str: Any): Unit = Predef.println(str.toString.replaceAll(a.name + "\\.", ""))
     val timelines = a.content
       .collect { case x: TimedAssertion => x }
       .map(assertionToTimeline)
       .sortBy(_.toString)
 
-//    if(options.lint) {
     val regrouped = regroup(timelines).sortBy(_.toString)
-//      timelines.foreach(println)
-//      println("  ============  ")
-//      regrouped.foreach(println)
-//      println("")
-//      regrouped.map(encode).foreach(x => println(x.mkString("     ------     ")))
-    println("")
-
-//      println("GROUPED: ")
-//      regrouped
-//        .groupBy(_.fluent)
-//        .values
-//        .filter(_.size > 1)
-//        .foreach(x => println(x.mkString(" ---------> ")))
-
     val merged = removeDiscontinuitiesUnsafe(regrouped, a.start, a.end)
-//    merged.flatMap(encode).foreach(println)
-
-//    }
     val content = a.content.filterNot(_.isInstanceOf[TimedAssertion]) ++ merged.flatMap(encode)
-//    println(xx)
     ActionTemplate(a.scope, content)
-//    a
   }
 
   def removeDiscontinuitiesUnsafe(timelines: Seq[Timeline],
@@ -81,9 +65,9 @@ class ActionRewrite(options: Options) {
     }
 
     timelines.groupBy(_.fluent).values.toSeq.map {
-      case Seq(tl) => tl
+      case Seq(tl)       => tl
       case Seq(tl1, tl2) =>
-        println(s"warning: merging two discontinuous timelines: $tl1 ----- $tl2")
+//        println(s"warning: merging two discontinuous timelines: $tl1 ----- $tl2")
         tl1.order(tl2, ordering) match {
           case After     => merge(tl1, tl2)
           case Before    => merge(tl2, tl1)
@@ -91,10 +75,6 @@ class ActionRewrite(options: Options) {
         }
     }
   }
-
-//  private def tqa(itv: Interval[Expr],
-//                  assertion: TimedAssertion): TemporallyQualifiedAssertion =
-//    TemporallyQualifiedAssertion(Equals(itv), assertion)
 
   def encode(tl: Timeline)(implicit predef: Predef): Seq[TimedAssertion] = {
     val fluent = tl.fluent

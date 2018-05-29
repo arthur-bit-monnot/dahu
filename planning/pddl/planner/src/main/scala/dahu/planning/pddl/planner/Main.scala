@@ -97,15 +97,7 @@ object Main extends App {
       case Success(x) =>
         val printer = ShowScoped[InModuleBlock]
         implicit val scope = RootScope
-//        println(x)
         x.foreach(b => println(printer.show(b)))
-//        x.foreach {
-//          case a @ ActionTemplate(_, content) =>
-//            println()
-//            println(a)
-//            content.distinct.foreach(x => println("  " + x))
-//          case _ =>
-//        }
       case Failure(e) => throw e
     }
   }
@@ -127,7 +119,6 @@ object Main extends App {
             val sol = PddlPlan(plan)
             println(sol.format)
             if(config.validate) {
-              println("Validating")
               Validator.validate(domain, problem, sol)
             }
           case None =>

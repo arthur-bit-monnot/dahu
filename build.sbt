@@ -192,6 +192,19 @@ lazy val pddlPlanner = project
       "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
     ))
 
+lazy val rcllPlanner = project
+  .in(file("planning/rcll"))
+  .dependsOn(pddlPlanner)
+  .settings(commonSettings: _*)
+  .settings(
+    name := "rcll-parser",
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "fastparse" % "1.0.0",
+      "com.lihaoyi" %% "ammonite-ops" % "1.1.1",
+      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
+    )
+  )
+
 resolvers += Resolver.sonatypeRepo("releases")
 
 exportJars := true
