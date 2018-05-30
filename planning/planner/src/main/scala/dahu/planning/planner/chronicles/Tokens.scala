@@ -14,6 +14,11 @@ import dahu.planning.planner.Literal
 import dahu.utils.Vec
 import spire.syntax.cfor
 
+class Counter {
+  private var n = 0
+  def next(): Int = { n += 1; n - 1 }
+}
+
 object DummyImplicits {
   // normally this is only supposed to be used for field access that will use the type of the underlying field anyway
   implicit val literalTag: Tag[Literal] = Tag.default[Literal]
@@ -134,10 +139,10 @@ object EffTokF {
              endChange: Expr[Int],
              endPersistenceOpt: Option[Expr[Int]],
              fluent: Expr[Fluent],
-             value: Expr[Literal]): Expr[EffTok] = {
-    val id = nextID()
+             value: Expr[Literal])(implicit cnt: Counter): Expr[EffTok] = {
+    val id = cnt.next()
     val endPersistence: Expr[Int] =
-      endPersistenceOpt.getOrElse(Input[Int]()).subjectTo(_ >= endChange)
+      endPersistenceOpt.getOrElse(Input[Int](Ident("___" + cnt.next()))).subjectTo(_ >= endChange)
     val tag = fluent match {
       case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
         EffProductTag(f, args.map {

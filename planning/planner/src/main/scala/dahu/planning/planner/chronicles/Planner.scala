@@ -47,17 +47,14 @@ object Planner {
     task.unsafeRunTimed(deadline.timeLeft).flatten
   }
 
-  def solveWithGivenActionNumbers(model: core.CoreModel,
-                                  num: core.ActionTemplate => Int,
-                                  deadline: Deadline,
-                                  symBreak: Boolean)(implicit predef: Predef): Option[Plan] = {
-    if(deadline.isOverdue())
-      return None
-
-    info("  Processing ANML model...")
+  def asChronicleExpr(model: core.CoreModel, num: core.ActionTemplate => Int, symBreak: Boolean)(
+      implicit predef: Predef): Expr[Chronicle] = {
+    implicit val cnt: Counter = new Counter
+//    info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)
     val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
-      case (chronicle, statement: core.Statement) => chronicle.extended(statement)(_ => unexpected)
+      case (chronicle, statement: core.Statement) =>
+        chronicle.extended(statement)(_ => unexpected, cnt)
       case (chronicle, action: core.ActionTemplate) =>
         val actionInstances: Seq[Expr[Action]] =
           if(symBreak) {
@@ -82,8 +79,21 @@ object Planner {
         chronicle.copy(actions = chronicle.actions ++ actionInstances.map(_.explicitlyOptional))
       case (chronicle, _) => chronicle
     }
+    result.compile
+  }
+
+  def solveWithGivenActionNumbers(model: core.CoreModel,
+                                  num: core.ActionTemplate => Int,
+                                  deadline: Deadline,
+                                  symBreak: Boolean)(implicit predef: Predef): Option[Plan] = {
+
+    if(deadline.isOverdue())
+      return None
+
+    val expr = asChronicleExpr(model, num, symBreak)
+
     //        println(result)
-    val solution = Planner.solve(result.compile, deadline)
+    val solution = Planner.solve(expr, deadline)
     //        println(solution)
     solution
   }

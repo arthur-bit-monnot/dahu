@@ -39,7 +39,8 @@ case class ChronicleFactory(ctx: ProblemContext,
         applyOperator(op, encode(left), encode(right))
     }
 
-  def extended(e: core.InActionBlock)(implicit argRewrite: Arg => E[Literal]): ChronicleFactory =
+  def extended(e: core.InActionBlock)(implicit argRewrite: Arg => E[Literal],
+                                      cnt: Counter): ChronicleFactory =
     e match {
       case _: core.LocalVarDeclaration => this
       case _: core.ArgDeclaration      => this

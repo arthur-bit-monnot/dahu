@@ -16,23 +16,22 @@ case class ActionF[F[_]](name: F[String],
                          chronicle: F[Chronicle]) {}
 
 object ActionF {
-  var counter = 0
   private implicit val literalTag: Tag[Literal] = Tag.default[Literal]
   implicit val tag: ProductTag[ActionF] = ProductTag.ofProd[ActionF]
 
   val Start = FieldAccess[ActionF, Int]("start", 1)
   val End = FieldAccess[ActionF, Int]("end", 2)
 
-  def instance(template: ActionTemplate, ctx: ProblemContext)(
-      implicit predef: Predef): ActionF[Expr] = {
-    counter += 1
-    val act = ActionInstantiation.instance(template, s"${template.name}_$counter")
+  def instance(template: ActionTemplate, ctx: ProblemContext)(implicit predef: Predef,
+                                                              cnt: Counter): ActionF[Expr] = {
+    val actId = cnt.next()
+    val act = ActionInstantiation.instance(template, s"${template.name}_$actId")
     val argsRewrite: Arg => Expr[Literal] = {
       case a @ Arg(_, tpe) => Input(Ident(a))(ctx.specializedTags(tpe))
     }
 
     val chronicle = act.content.foldLeft(ChronicleFactory.empty(ctx)) {
-      case (c, s) => c.extended(s)(argsRewrite)
+      case (c, s) => c.extended(s)(argsRewrite, cnt)
     }
 
     ActionF(
@@ -44,9 +43,9 @@ object ActionF {
     )
   }
 
-  def optionalInstance(template: ActionTemplate, ctx: ProblemContext)(
-      implicit predef: Predef): Expr[Action] = {
+  def optionalInstance(template: ActionTemplate,
+                       ctx: ProblemContext)(implicit predef: Predef, cnt: Counter): Expr[Action] = {
     val act = instance(template, ctx)
-    Optional(Product(act), Input[Boolean]())
+    Optional(Product(act), Input[Boolean](Ident("prez?" + cnt.next())))
   }
 }
