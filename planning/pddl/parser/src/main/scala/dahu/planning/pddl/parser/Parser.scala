@@ -19,7 +19,8 @@ class Parser(implicit opt: Options) {
     parser.parse(domain, problem)
     val factory = new ModelFactory(predef)
     factory.loadDomain(parser.getDomain)
-    factory.loadProblem(parser.getProblem)
+    Option(parser.getProblem)
+      .foreach(pb => factory.loadProblem(pb))
 
     factory.result
   }

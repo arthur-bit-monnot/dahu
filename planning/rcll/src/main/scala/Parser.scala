@@ -71,17 +71,17 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
     "cs-mount-cap" -> 1,
     "cs-retrieve-cap" -> 1,
     "enter-field" -> robots.size,
-    "move-wp-get" -> 3,
-    "move-wp-put-at-input" -> 3,
+    "move-wp-get" -> (3 + 2 * complexity),
+    "move-wp-put-at-input" -> (3 + 2 * complexity),
     "prepare-bs" -> 1,
     "prepare-cs" -> 2, // mount and retrieve
     "prepare-ds" -> 1,
     "prepare-rs" -> order.complexity,
     "rs-mount-ring1" -> (if(complexity >= 1) 1 else 0),
-    "wp-discard" -> 1,
-    "wp-get" -> 3,
-    "wp-get-shelf" -> 1,
-    "wp-put" -> 3,
+    "wp-discard" -> (1 + complexity),
+    "wp-get" -> (3 + 2 * complexity),
+    "wp-get-shelf" -> (1 + complexity),
+    "wp-put" -> (3 + 2 * complexity),
     "fulfill-order-c0" -> (if(complexity == 0) 1 else 0),
     "fulfill-order-c1" -> (if(complexity == 1) 1 else 0),
   )
@@ -133,7 +133,8 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
 	 (cs-free C-CS1)
 	 (cs-free C-CS2)
 	 ; Additional base number handling static predicates
-	 (rs-sub THREE TWO ONE)
+  ${if(complexity >= 1)
+         """(rs-sub THREE TWO ONE)
 	 (rs-sub THREE ONE TWO)
 	 (rs-sub THREE ZERO THREE)
 	 (rs-sub TWO TWO ZERO)
@@ -146,7 +147,8 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
 	 (rs-inc ONE TWO)
 	 (rs-inc TWO THREE)
 	 (rs-filled-with C-RS1 ZERO)
-	 (rs-filled-with C-RS2 ZERO)
+	 (rs-filled-with C-RS2 ZERO)"""
+       else ""}
 	 (wp-base-color wp1 BASE_NONE)
 	 (wp-cap-color wp1 CAP_NONE)
 	 (wp-ring1-color wp1 RING_NONE)
@@ -179,11 +181,12 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
 	 (wp-on-shelf cb1 C-CS2 LEFT)
 	 (wp-on-shelf cb2 C-CS2 MIDDLE)
 	 (wp-on-shelf cb3 C-CS2 RIGHT)
-
-	 (rs-ring-spec C-RS1 RING_GREEN ZERO)
+   ${if(complexity >= 1)
+         """(rs-ring-spec C-RS1 RING_GREEN ZERO)
 	 (rs-ring-spec C-RS1 RING_YELLOW ZERO)
 	 (rs-ring-spec C-RS2 RING_BLUE ONE)
-	 (rs-ring-spec C-RS2 RING_ORANGE TWO)
+	 (rs-ring-spec C-RS2 RING_ORANGE TWO)"""
+       else ""}
 
    $orderInit
 

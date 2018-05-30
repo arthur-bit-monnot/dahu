@@ -42,21 +42,22 @@ object Main extends CaseApp[Options] {
     val order = game.orders.find(_.complexity == options.complexity).get
     val pb = Problem(order, options.r, nav)
 
-    val domainFile = Path(options.domain)
-    val pbFile = pwd / RelPath(options.outputDir) / s"rcll.$problemName.pb.anml"
+    val domainFile = pwd / RelPath(options.outputDir) / "rcll.dom.pddl" //Path(options.domain)
+    val pbFile = pwd / RelPath(options.outputDir) / s"rcll.$problemName.pb.pddl"
 
+//    write.over(pwd / RelPath(options.outputDir) / "rcll.dom.pddl", read(domainFile))
     write.over(pbFile, pb.asPddl)
 
-    val result =
-      if(options.specialized)
-        solveSpecialized(domainFile.toIO, pbFile.toIO, pb)
-      else
-        solveGeneric(domainFile.toIO, pbFile.toIO)
-
-    result match {
-      case Some(plan) => println(plan.format)
-      case None       => println("OUPSIE")
-    }
+//    val result =
+//      if(options.specialized)
+//        solveSpecialized(domainFile.toIO, pbFile.toIO, pb)
+//      else
+//        solveGeneric(domainFile.toIO, pbFile.toIO)
+//
+//    result match {
+//      case Some(plan) => println(plan.format)
+//      case None       => println("OUPSIE")
+//    }
   }
 
   def solveGeneric(domain: File, problem: File): Option[PddlPlan] = {
@@ -84,7 +85,7 @@ object Benchmark extends App {
   val outFile = pwd / "results.txt"
   write.over(outFile, "")
 
-  for(game <- 1 to 10; r <- 1 to 3; c <- 0 to 0) {
+  for(game <- 1 to 50; r <- 1 to 3; c <- 0 to 1) {
     val options = Options(r = r, complexity = c, game = f"$game%03d")
 
     val startTime = System.currentTimeMillis()
