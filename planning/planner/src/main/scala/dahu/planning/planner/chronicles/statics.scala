@@ -18,6 +18,15 @@ case class SCondTokF[F[_]](fluent: F[Fluent], value: F[Literal])
 object SCondTokF {
   implicit val productTag: ProductTag[CondTokF] = ProductTag.ofProd[CondTokF]
 
+  case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
+      extends (Tag[SEffTok] => Boolean) {
+    override def apply(v1: Tag[SEffTok]): Boolean = v1 match {
+      case SEffTokF.SEffProductTag(et, eargs, ev) =>
+        func == et && SEffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
+      case _ => false
+    }
+  }
+
   def ofExpr(fluent: Expr[Fluent], value: Expr[Literal]): Expr[Boolean] = {
     val (func, args, v) = fluent match {
       case Product(FluentF(Cst(f), Sequence(args))) =>
@@ -31,11 +40,7 @@ object SCondTokF {
       case _ => ???
     }
 
-    val accept: Tag[SEffTok] => Boolean = {
-      case SEffTokF.SEffProductTag(et, eargs, ev) =>
-        func == et && SEffTokF.compatibles(args, eargs) && SEffTokF.compatible(v, ev)
-      case _ => false
-    }
+    val accept = Accept(func, args, v)
 
     val condTok = Product(SCondTokF[Expr](fluent, value))
     Dynamic[SEffTok, Boolean](supportedBy(condTok), bool.Or, Some(accept))

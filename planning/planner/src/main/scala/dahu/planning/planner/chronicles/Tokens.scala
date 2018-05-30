@@ -63,6 +63,15 @@ case class CondTokF[F[_]](itv: F[Interval], fluent: F[Fluent], value: F[Literal]
 object CondTokF {
   implicit val productTag: ProductTag[CondTokF] = ProductTag.ofProd[CondTokF]
 
+  case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
+      extends (Tag[EffTok] => Boolean) {
+    override def apply(v1: Tag[EffTok]): Boolean = v1 match {
+      case EffTokF.EffProductTag(et, eargs, ev, _) =>
+        func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
+      case _ => false
+    }
+  }
+
   def ofExpr(start: Expr[Int],
              end: Expr[Int],
              fluent: Expr[Fluent],
@@ -79,11 +88,7 @@ object CondTokF {
       case _ => ???
     }
 
-    val accept: Tag[EffTok] => Boolean = {
-      case EffTokF.EffProductTag(et, eargs, ev, _) =>
-        func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
-      case _ => false
-    }
+    val accept = Accept(func, args, v)
 
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
       .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
@@ -151,7 +156,7 @@ object EffTokF {
                           value,
                           Cst(id)))(tag)
     DynamicProvider(tok, tok)
-      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(accept(tag))))
+      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(Accept(tag))))
   }
   def compatible[A](a: Option[A], b: Option[A]): Boolean = (a, b) match {
     case (None, _)          => true
@@ -168,12 +173,14 @@ object EffTokF {
     }
     true
   }
-  def accept(from: EffProductTag): Tag[EffTok] => Boolean = {
-    case EffProductTag(t, args, value, id) =>
-      from.id < id &&
-        from.template == t &&
-        compatibles(from.args, args)
-    case _ => false
+  case class Accept(from: EffProductTag) extends (Tag[EffTok] => Boolean) {
+    override def apply(to: Tag[EffTok]): Boolean = to match {
+      case EffProductTag(t, args, value, id) =>
+        from.id < id &&
+          from.template == t &&
+          compatibles(from.args, args)
+      case _ => false
+    }
   }
 
   val StartChange = FieldAccess[EffTokF, Int]("startChange", 0)
