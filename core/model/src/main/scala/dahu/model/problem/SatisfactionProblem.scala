@@ -361,10 +361,12 @@ object SatisfactionProblem {
                               utils.implies(utils.not(cond.value), onFalse.valid))
           )
         case OptionalF(value, present, _) =>
+          val p = utils.and(value.present, present.present, present.value)
           IR(
             value = value.value,
-            present = utils.and(value.present, present.present, present.value),
-            valid = utils.and(present.valid, value.valid)
+            present = p,
+//            valid = utils.and(present.valid, value.valid)
+            valid = utils.implies(p, utils.and(present.valid, value.valid))
           )
         case PresentF(opt) =>
           IR(
