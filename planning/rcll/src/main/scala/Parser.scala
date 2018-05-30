@@ -64,6 +64,8 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
   def ringStations = stations.filter(typeOf(_) == "RS")
   def capStations = stations.filter(typeOf(_) == "CS")
 
+  def complexity: Int = order.complexity
+
   val maxActions: Map[String, Int] = Map(
     "bs-dispense" -> 1,
     "cs-mount-cap" -> 1,
@@ -74,11 +76,14 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
     "prepare-bs" -> 1,
     "prepare-cs" -> 2, // mount and retrieve
     "prepare-ds" -> 1,
+    "prepare-rs" -> order.complexity,
+    "rs-mount-ring1" -> (if(complexity >= 1) 1 else 0),
     "wp-discard" -> 1,
     "wp-get" -> 3,
     "wp-get-shelf" -> 1,
     "wp-put" -> 3,
-    "fulfill-order-c0" -> 1,
+    "fulfill-order-c0" -> (if(complexity == 0) 1 else 0),
+    "fulfill-order-c1" -> (if(complexity == 1) 1 else 0),
   )
 
   def orderInit: String = order match {
@@ -89,6 +94,15 @@ case class Problem(order: Order, numRobots: Int, travelTimes: Seq[TravelTime]) {
          (order-cap-color o1 $capColor)
          (order-gate o1 $gate)
       """.stripMargin
+    case Order(_, baseColor, Seq(ringColor1), capColor, _, gate) =>
+      s"""
+         ; C1 order
+	       (order-complexity o1 c1)
+	       (order-base-color o1 $baseColor)
+	       (order-ring1-color o1 $ringColor1)
+	       (order-cap-color o1 $capColor)
+	       (order-gate o1 $gate)
+       """.stripMargin
   }
 
   def asPddl =
@@ -246,25 +260,4 @@ object Parser {
 
   val travelTimes = travelTime.rep ~ End
 
-}
-
-object Ext {
-  val game =
-    """Order 1: C0 (BASE_RED||CAP_BLACK) from 00:00 to 15:00 (@00:00 ~900s) D2
-Order 2: C0 (BASE_SILVER||CAP_GREY) from 03:21 to 05:04 (@00:29 ~103s) D1
-Order 3: C0 (BASE_RED||CAP_BLACK) from 07:09 to 09:39 (@04:26 ~150s) D2
-Order 4: C0 (BASE_SILVER||CAP_BLACK) from 12:14 to 15:00 (@09:16 ~166s) D1
-Order 5: C1 (BASE_RED|RING_YELLOW|CAP_GREY) from 09:23 to 11:00 (@03:59 ~97s) D2
-Order 6: C2 (BASE_RED|RING_BLUE RING_YELLOW|CAP_BLACK) from 10:51 to 13:21 (@02:18 ~150s) D1
-Order 7: C3 (BASE_BLACK|RING_ORANGE RING_BLUE RING_GREEN|CAP_GREY) from 10:12 to 12:37 (@00:00 ~145s) D3
-Order 8: C0 (BASE_BLACK||CAP_BLACK) from 15:00 to 20:00 (@15:00 ~300s) D3
-Ring color RING_YELLOW requires 2 additional bases
-Ring color RING_GREEN requires 1 additional bases
-Ring color RING_BLUE requires 0 additional bases
-Ring color RING_ORANGE requires 0 additional bases
-RS C-RS1 has colors (RING_YELLOW RING_BLUE)
-RS M-RS1 has colors (RING_YELLOW RING_BLUE)
-RS C-RS2 has colors (RING_GREEN RING_ORANGE)
-RS M-RS2 has colors (RING_GREEN RING_ORANGE)
-"""
 }

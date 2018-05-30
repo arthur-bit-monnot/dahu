@@ -19,7 +19,7 @@ object DynamicTests extends TestSuite {
     "e" - {
 
       def equal(i: Expr[Int]): Expr[Int ->: Boolean] =
-        Lambda[Int, Boolean](j => i === j).named("par-eq")
+        Lambda[Int, Boolean]((j: Expr[Int]) => i === j, Ident("par-eq"))
 
       val True = Cst(true)
       val x = Cst(1)

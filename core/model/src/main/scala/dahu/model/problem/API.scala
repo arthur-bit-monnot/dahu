@@ -13,6 +13,7 @@ import dahu.utils.SFunctor
 import dahu.recursion._
 
 import scala.reflect.ClassTag
+import scala.util.Try
 
 object API {
 
@@ -44,28 +45,31 @@ object API {
     val nodes = Expr.dagInstance.descendantsAndSelf(e)
     def printAll[F[_]: SFunctor, Opt[_]: Functor](tree: LazyTree[Expr[_], F, Opt, _])(
         implicit ev: ClassTag[F[Fix[F]]]): Unit = {
-      nodes.foreach(n => {
-        val ast = tree.tree.getTreeRoot(n).map(i => tree.tree.build(i))
-        println(s"${tree.tree.getTreeRoot(n)}  $n")
-        println("  " + ast)
+      nodes.foreach(n =>
+        Try {
+          val ast = tree.tree.getTreeRoot(n).map(i => tree.tree.build(i))
+          println(s"${tree.tree.getTreeRoot(n)}  $n")
+          println("  " + ast)
       })
     }
 
     val parsed = parse(e, Algebras.coalgebra)
     println("\nParsed")
-//    parsed.fullTree
-//    printAll[ExprF, Id](parsed)
+    parsed.fullTree
+    printAll[ExprF, Id](parsed)
     val noDynamics = eliminitateDynamics[Expr[_]](parsed)
     println("\nno dynamics")
-//    noDynamics.fullTree
-//    printAll[StaticF, Id](noDynamics)
+    noDynamics.fullTree
+    printAll[StaticF, Id](noDynamics)
     val noLambdas = expandLambdas[Expr[_]](noDynamics)
     println("no-lambdas")
-//    noLambdas.fullTree
+    noLambdas.fullTree
+    printAll[NoApplyF, Id](noLambdas)
     val total = makeTotal(noLambdas)
     println("\nTotal")
-//    total.fullTree
-//    printAll(total)
+    val x = total.mapExternal[Id](_.valid).fullTree
+    println(x)
+    printAll(total)
 
 //    val intBool = new IntBoolSatisfactionProblem(total.mapExternal[Id](_.value)).tree
 //    println("\nint bool")

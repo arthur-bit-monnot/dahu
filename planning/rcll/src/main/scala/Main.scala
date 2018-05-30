@@ -34,7 +34,7 @@ object Main extends CaseApp[Options] {
     val navFile = Path(
       s"/home/arthur/work/postdoc/rcll_planner/input-files/navgraph/navgraph-costs-${options.game}.csv")
 
-    val problemName = s"${options.game}-R${options.r}-C0"
+    val problemName = s"${options.game}-R${options.r}-C${options.complexity}"
 
     val game: Game = Parser.game.parse(read(gameFile)).get.value
     val nav = Parser.travelTimes.parse(read(navFile)).get.value
@@ -71,7 +71,7 @@ object Main extends CaseApp[Options] {
         Planner
           .solveWithGivenActionNumbers(model,
                                        a => c.maxActions(a.name),
-                                       Deadline.now + 120.seconds,
+                                       Deadline.now + 1800.seconds,
                                        symBreak = true)
           .map(PddlPlan(_))
       case x =>

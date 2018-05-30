@@ -5,6 +5,7 @@ import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.types.Tag.{Type, _}
 import dahu.model.functions._
+import dahu.model.ir.LambdaParamF
 import dahu.model.math.Monoid
 import dahu.model.types._
 
@@ -19,22 +20,22 @@ object Expr {
   implicit def dagInstance: DAG[Id, Expr[Any]] = new DAG[Id, Expr[Any]] {
     override def algebra: Expr[Any] => Id[Expr[Any]] = x => x
     override def children(graph: Id[Expr[Any]]): Iterable[Expr[Any]] = graph match {
-      case SubjectTo(value, condition) => Iterable(value, condition)
-      case x: Product[_]               => x.members.toIterable
-      case x: Input[_]                 => Iterable.empty
-      case x: Cst[_]                   => Iterable.empty
-      case x: Computation[_]           => x.args
-      case Optional(value, present)    => Iterable(value, present)
-      case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
-      case Dynamic(l, _, _)            => Iterable(l)
-      case DynamicProvider(e, prov)    => Iterable(e, prov)
-      case Apply(l, i)                 => Iterable(l, i)
-      case x @ Lambda(_, _)            => Iterable(x.parameterizedTree, x.inputVar)
-      case Lambda.Param(_)             => Iterable.empty
-      case Present(v)                  => Iterable(v)
-      case Valid(v)                    => Iterable(v)
-      case Sequence(ms)                => ms.toIterable
-      case MapSeq(target, f)           => Iterable(target, f)
+      case SubjectTo(value, condition)             => Iterable(value, condition)
+      case x: Product[_]                           => x.members.toIterable
+      case x: Input[_]                             => Iterable.empty
+      case x: Cst[_]                               => Iterable.empty
+      case x: Computation[_]                       => x.args
+      case Optional(value, present)                => Iterable(value, present)
+      case ITE(cond, onTrue, onFalse)              => Iterable(cond, onTrue, onFalse)
+      case Dynamic(l, _, _)                        => Iterable(l)
+      case DynamicProvider(e, prov)                => Iterable(e, prov)
+      case Apply(l, i)                             => Iterable(l, i)
+      case x @ Lambda(inputVar, parameterizedTree) => Iterable(parameterizedTree, inputVar)
+      case Lambda.Param(_)                         => Iterable.empty
+      case Present(v)                              => Iterable(v)
+      case Valid(v)                                => Iterable(v)
+      case Sequence(ms)                            => ms.toIterable
+      case MapSeq(target, f)                       => Iterable(target, f)
     }
   }
 }
@@ -256,27 +257,21 @@ final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provide
   override def typ: Tag[A] = e.typ
 }
 
-final case class Lambda[I: Tag, O: Tag](private val f: Expr[I] => Expr[O],
-                                        name: Option[String] = None)
+final case class Lambda[I: Tag, O: Tag](inputVar: Lambda.Param[I], parameterizedTree: Expr[O])
     extends Expr[I ->: O] {
   def outTag: Tag[O] = Tag[O]
 
-  def id: Ident = Ident(this)
-
-  val inputVar: Lambda.Param[I] = Lambda.Param(this)
-
-  // f might be side effectfull in the sense that it may generate (identity-full) functions/closures
-  val parameterizedTree: Expr[O] = f(inputVar)
+  def id: Ident = inputVar.ident
 
   override def typ: LambdaTag[I, O] = LambdaTag[I, O]
-
-  override def toString: String = name.getOrElse(super.toString)
-
-  def named(name: String): Lambda[I, O] = this.copy(name = Some(name))
 }
 
 object Lambda {
-  final case class Param[I: Tag](lambda: Lambda[I, _]) extends Expr[I] {
+  def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O], ident: Ident): Lambda[I, O] = {
+    val param = Lambda.Param[I](ident)
+    new Lambda[I, O](param, f(param))
+  }
+  final case class Param[I: Tag](ident: Ident) extends Expr[I] {
     override def typ: Tag[I] = Tag[I]
   }
 }

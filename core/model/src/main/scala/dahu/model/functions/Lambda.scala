@@ -9,10 +9,15 @@ import dsl._
 
 object Lambdas {
 
-  val NonZero: Expr[Int ->: Boolean] = Lambda(i => !(i === Cst(0)))
+  val NonZero: Expr[Int ->: Boolean] =
+    Lambda[Int, Boolean]((i: Expr[Int]) => !(i === Cst(0)), Ident.anonymous())
 
-  val Max = Lambda[Int, Int ->: Int](l => Lambda[Int, Int](r => dahu.model.input.ITE(l <= r, r, l)))
+  val Max = Lambda[Int, Int ->: Int](
+    (l: Expr[Int]) =>
+      Lambda[Int, Int]((r: Expr[Int]) => dahu.model.input.ITE(l <= r, r, l), Ident.anonymous()),
+    Ident.anonymous())
   val Min: Expr[Int ->: (Int ->: Int)] = Lambda(
-    l => Lambda(r => dahu.model.input.ITE(l >= r, r, l)))
+    l => Lambda(r => dahu.model.input.ITE(l >= r, r, l), Ident.anonymous()),
+    Ident.anonymous())
 
 }

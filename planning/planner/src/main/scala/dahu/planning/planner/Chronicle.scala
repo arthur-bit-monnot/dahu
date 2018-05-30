@@ -10,6 +10,7 @@ import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
 import dahu.planning.model.{common, core}
+import dahu.planning.planner.chronicles.Counter
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -143,9 +144,10 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   }
 
   val temporalOrigin = Cst(0)
-  val temporalHorizon: Tentative[Int] = Input[Int]().subjectTo(temporalOrigin <= _)
-  def anonymousTp(): Tentative[Int] =
-    Input[Int]().subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
+  val temporalHorizon: Tentative[Int] = Input[Int](Ident("__END__")).subjectTo(temporalOrigin <= _)
+  def anonymousTp()(implicit cnt: Counter): Tentative[Int] =
+    Input[Int](Ident("____" + cnt.next())).subjectTo(tp =>
+      temporalOrigin <= tp && tp <= temporalHorizon)
 
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =
     Fluent(orig.template, orig.params.map(encode(_)))
@@ -373,16 +375,16 @@ case class Chronicle(ctx: ProblemContext,
 //          conditions = cond :: conditions
 //        )
 
-      case TimedAssignmentAssertion(itv, fluent, value) =>
-        val changeItv = itv.map(encodeAsInt)
-        val persistenceEnd = anonymousTp().subjectTo(changeItv.end <= _)
-        val token = EffectToken(
-          changeItv,
-          persistenceEnd = persistenceEnd,
-          fluent = encode(fluent),
-          value = encode(value)
-        )
-        copy(effects = token :: effects)
+      case TimedAssignmentAssertion(itv, fluent, value) => ???
+//        val changeItv = itv.map(encodeAsInt)
+//        val persistenceEnd = anonymousTp().subjectTo(changeItv.end <= _)
+//        val token = EffectToken(
+//          changeItv,
+//          persistenceEnd = persistenceEnd,
+//          fluent = encode(fluent),
+//          value = encode(value)
+//        )
+//        copy(effects = token :: effects)
 
       case TimedEqualAssertion(itv, f, v) =>
         val token = ConditionToken(
@@ -392,17 +394,17 @@ case class Chronicle(ctx: ProblemContext,
         )
         copy(conditions = token :: conditions)
 
-      case TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
-        val start = encodeAsInt(s)
-        val changeEnd = encodeAsInt(e)
-        val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
-        val cond = ConditionToken(ClosedInterval(start, start), encode(f), encode(v1))
-        val eff =
-          EffectToken(LeftOpenInterval(start, changeEnd), persistenceEnd, encode(f), encode(v2))
-        copy(
-          conditions = cond :: conditions,
-          effects = eff :: effects
-        )
+      case TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) => ???
+//        val start = encodeAsInt(s)
+//        val changeEnd = encodeAsInt(e)
+//        val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
+//        val cond = ConditionToken(ClosedInterval(start, start), encode(f), encode(v1))
+//        val eff =
+//          EffectToken(LeftOpenInterval(start, changeEnd), persistenceEnd, encode(f), encode(v2))
+//        copy(
+//          conditions = cond :: conditions,
+//          effects = eff :: effects
+//        )
 
       case StaticAssignmentAssertion(lhs, rhs) => ???
 //        val eff = EffectToken(

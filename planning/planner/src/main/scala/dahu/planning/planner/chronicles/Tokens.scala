@@ -9,7 +9,7 @@ import dahu.model.products.FieldAccess
 import dahu.model.types.Tag.Type
 import dahu.model.types.{ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common
-import dahu.planning.model.common.FunctionTemplate
+import dahu.planning.model.common.{FluentTemplate, FunctionTemplate}
 import dahu.planning.planner.Literal
 import dahu.utils.Vec
 import spire.syntax.cfor
@@ -46,11 +46,11 @@ object IntervalF {
 //  val Contains: Expr[Interval ->: Interval ->: Boolean] =
 //    Lambda(lhs => Lambda(rhs => Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)))
 
-  val NonOverlapping: Expr[Interval ->: Interval ->: Boolean] =
-    Lambda(lhs => Lambda(rhs => End(lhs) < Start(rhs) || End(rhs) < Start(lhs)))
-
-  val Overlap: Expr[Interval ->: Interval ->: Boolean] =
-    Lambda(lhs => Lambda(rhs => End(lhs) >= Start(rhs) && End(rhs) >= Start(lhs)))
+//  val NonOverlapping: Expr[Interval ->: Interval ->: Boolean] =
+//    Lambda(lhs => Lambda(rhs => End(lhs) < Start(rhs) || End(rhs) < Start(lhs)))
+//
+//  val Overlap: Expr[Interval ->: Interval ->: Boolean] =
+//    Lambda(lhs => Lambda(rhs => End(lhs) >= Start(rhs) && End(rhs) >= Start(lhs)))
 }
 
 case class FluentF[F[_]](template: F[FunctionTemplate], args: F[Vec[Literal]])
@@ -105,11 +105,14 @@ object CondTokF {
   val Value = FieldAccess[CondTokF, Literal]("value", 2)
 
   def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Boolean] =
-    Lambda[EffTok, Boolean](eff => {
-      (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
-      (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-      (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
-    }).named(s"{$cond}-supported-by")
+    Lambda[EffTok, Boolean](
+      (eff: Expr[EffTok]) => {
+        (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
+        (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
+        (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+      },
+      Ident(s"${cond}-supported-by")
+    )
 }
 
 case class EffTokF[F[_]](startChange: F[Int],
@@ -196,11 +199,13 @@ object EffTokF {
 
   def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Boolean] =
     Lambda[EffTok, Boolean](
-      rhs =>
+      (rhs: Expr[EffTok]) =>
         //Id(lhs) >= Id(rhs) || // superseded by accept function
         IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
           IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
-          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))).named(s"{$lhs}-non-threatening")
+          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs))),
+      Ident(s"{$lhs}-non-threatening")
+    )
 
 }
 

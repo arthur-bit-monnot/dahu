@@ -27,7 +27,7 @@ object Algebras {
     case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
     case x @ Lambda(_, _)               => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
     case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
-    case x @ Lambda.Param(l)            => LambdaParamF(l.id, x.typ)
+    case x @ Lambda.Param(id)           => LambdaParamF(id, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {

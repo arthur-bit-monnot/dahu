@@ -50,10 +50,13 @@ object SCondTokF {
   val Value = FieldAccess[SCondTokF, Literal]("value", 1)
 
   def supportedBy(cond: Expr[SCondTok]): Expr[SEffTok ->: Boolean] =
-    Lambda[SEffTok, Boolean](eff => {
-      (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
-      (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
-    }).named(s"{$cond}-supported-by")
+    Lambda[SEffTok, Boolean](
+      (eff: Expr[SEffTok]) => {
+        (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
+        (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
+      },
+      Ident(s"{$cond}-supported-by")
+    )
 }
 
 case class SEffTokF[F[_]](fluent: F[Fluent], value: F[Literal])
