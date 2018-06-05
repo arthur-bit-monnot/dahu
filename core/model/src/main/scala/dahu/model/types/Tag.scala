@@ -1,14 +1,18 @@
 package dahu.model.types
 
 import dahu.model.functions._
+import dahu.model.input.Expr
+import dahu.model.math.bool
 import dahu.utils._
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.runtime.universe
 
 trait Tag[+T] {
 
   def typ: Tag.Type
 
+  def isValid(e: Expr[T] @uncheckedVariance): Expr[Boolean]
 }
 
 object Tag extends LowPriorityTags {
@@ -27,6 +31,7 @@ trait LowPriorityTags {
 
   def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
     override def typ: universe.Type = Tag.typeOf[T]
+    override def isValid(e: Expr[T]): Expr[Boolean] = bool.True
   }
 
   implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
@@ -40,10 +45,12 @@ trait LowPriorityTags {
   implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] =
     new Tag[Option[T]] {
       override def typ: universe.Type = ev.tpe
+      override def isValid(e: Expr[Option[T]]): Expr[Boolean] = bool.True
     }
   implicit def eitherTag[L, R](implicit ev: universe.WeakTypeTag[Either[L, R]]): Tag[Either[L, R]] =
     new Tag[Either[L, R]] {
       override def typ: universe.Type = ev.tpe
+      override def isValid(e: Expr[Either[L, R]]): Expr[Boolean] = bool.True
     }
 
 }

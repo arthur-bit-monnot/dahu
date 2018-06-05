@@ -1,6 +1,7 @@
 package dahu.model.types
 
 import dahu.model.functions.{Box, Unbox}
+import dahu.model.input.{Cst, Expr}
 
 import scala.annotation.switch
 
@@ -20,6 +21,11 @@ trait TagIsoInt[T] extends Tag[T] {
 
   val unbox: Unbox[T] = new Unbox[T]()(this)
   val box: Box[T] = unbox.reverse
+
+  import dahu.model.input.dsl._
+  override def isValid(e: Expr[T]): Expr[Boolean] =
+    Cst(min) <= unbox(e) && unbox(e) <= Cst(max)
+
 }
 
 object TagIsoInt {

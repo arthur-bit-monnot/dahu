@@ -8,7 +8,7 @@ import dahu.graphs.DAG
 import dahu.model.types.Tag.{Type, _}
 import dahu.model.functions._
 import dahu.model.ir.LambdaParamF
-import dahu.model.math.Monoid
+import dahu.model.math.{bool, Monoid}
 import dahu.model.types._
 
 import scala.reflect.ClassTag
@@ -53,20 +53,30 @@ final case class Optional[T](value: Expr[T], present: Expr[Boolean]) extends Exp
 sealed abstract class Term[T] extends Expr[T]
 
 /** Evaluation yields a Right[T] */
-final case class Input[T: Tag](id: Ident) extends Term[T] {
+final case class Input[T: Tag] private (id: Ident) extends Term[T] {
   override def typ: Tag[T] = Tag[T]
 }
 object Input {
-  def apply[T: Tag](name: String): Expr[T] = new Input[T](Ident(name))
-  def apply[T: Tag](): Expr[T] = new Input[T](Ident.anonymous())
+  def apply[T: Tag](name: String): Expr[T] = {
+    val in = new Input[T](Ident(name))
+    SubjectTo(in, Tag[T].isValid(in))
+  }
+  def apply[T: Tag](): Expr[T] = {
+    val in = new Input[T](Ident.anonymous())
+    SubjectTo(in, Tag[T].isValid(in))
+  }
 }
 
-/** Evaluation returns a Right[T](value) */
-final case class Cst[T: Tag](value: T) extends Term[T] {
-  override def typ: Tag[T] = Tag[T]
-}
+// TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult
+final case class Cst[T](value: T, typ: Tag[T]) extends Term[T]
+
 object Cst {
-  def apply[T: Tag](v: T): Expr[T] = new Cst(v)
+  def apply[T: Tag](v: T): Expr[T] = new Cst(v, Tag[T])
+
+  def unapply[T](arg: Expr[T]): Option[T] = arg match {
+    case x: Cst[T] => Some(x.value)
+    case _         => None
+  }
 }
 
 final case class ITE[T](cond: Expr[Boolean], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {

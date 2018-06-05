@@ -2,6 +2,7 @@ package dahu.model.types
 
 import cats.Id
 import dahu.model.input.{Expr, ProductExpr}
+import dahu.model.math.bool
 import dahu.utils.Vec
 
 import scala.reflect.ClassTag
@@ -9,6 +10,8 @@ import scala.reflect.ClassTag
 trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
   def exprProd: ProductExpr[P, Expr]
   def idProd: ProductExpr[P, cats.Id]
+
+  override def isValid(e: Expr[P[Id]]): Expr[Boolean] = bool.True
 }
 
 object ProductTag {

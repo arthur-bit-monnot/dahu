@@ -3,6 +3,7 @@ package dahu.model.input
 import dahu.model.compiler.Algebras
 import dahu.model.interpreter.Interpreter
 import dahu.model.interpreter.Interpreter.Res
+import dahu.model.problem.API
 import dahu.model.problem.API.evalTotal
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
