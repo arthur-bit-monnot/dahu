@@ -73,8 +73,14 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
         model.eval(e, false) match {
           case i: IntNum =>
             ast.tree.getExt(id).value.typ match {
-              case t: TagIsoInt[_] => Some(t.toValue(i.getInt))
-              case _               => unexpected
+              case t: TagIsoInt[_] =>
+                //Some(t.toValue(i.getInt))
+                val v = i.getInt
+                if(t.min <= v && v <= t.max) // TODO: make functions in tag iso int total
+                  Some(t.toValue(v))
+                else
+                  None
+              case _ => unexpected
             }
           case i: IntExpr =>
             None

@@ -8,15 +8,16 @@ import dahu.planning.model.full.Model
 import dahu.planning.model.transforms.FullToCore
 import dahu.planning.pddl.parser.optim.{ActionRewrite, InvariantInference}
 
+import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 class Parser(implicit opt: Options) {
 
   implicit val predef: PddlPredef = PddlPredef(opt.discretization)
 
-  def parseToFull(domain: File, problem: File): Try[Model] = Try {
+  def parseToFull(domain: String, problem: String) = Try {
     val parser = new fr.uga.pddl4j.parser.Parser()
-    parser.parse(domain, problem)
+    parser.parseFromString(domain, problem)
     val factory = new ModelFactory(predef)
     factory.loadDomain(parser.getDomain)
     Option(parser.getProblem)
@@ -25,7 +26,7 @@ class Parser(implicit opt: Options) {
     factory.result
   }
 
-  def parse(domain: File, problem: File): Try[CoreModel] = {
+  def parse(domain: String, problem: String): Try[CoreModel] = {
     parseToFull(domain, problem).flatMap { m =>
       val coreM = FullToCore.trans(m)
       val result =

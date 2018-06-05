@@ -11,6 +11,7 @@ import dahu.planning.planner.chronicles._
 import dahu.utils.Vec
 
 import scala.concurrent.duration._
+import scala.io.Source
 import scala.util.{Failure, Success}
 
 sealed trait Mode
@@ -81,19 +82,19 @@ object Main extends App {
           }
       }
       cfg.mode match {
-        case Mode.Planner => solve(dom, pb, cfg)
-        case Mode.Linter  => lint(dom, pb, cfg)
+        case Mode.Planner => solve(Source.fromFile(dom), Source.fromFile(pb), cfg)
+        case Mode.Linter  => lint(Source.fromFile(dom), Source.fromFile(pb), cfg)
       }
 
     case None => sys.exit(1)
   }
 
-  def lint(domain: File, problem: File, cfg: Config): Unit = {
+  def lint(domain: Source, problem: Source, cfg: Config): Unit = {
     val pddlOptions = Options(discretization = cfg.discretization, lint = true)
     val parser = new Parser()(pddlOptions)
     implicit val predef: PddlPredef = parser.predef
 
-    parser.parse(domain, problem) match {
+    parser.parse(domain.mkString, problem.mkString) match {
       case Success(x) =>
         val printer = ShowScoped[InModuleBlock]
         implicit val scope = RootScope
@@ -102,7 +103,11 @@ object Main extends App {
     }
   }
 
-  def solve(domain: File, problem: File, config: Config): Option[Plan] = {
+  def solve(domain: Source, problem: Source, config: Config): Either[String, Plan] = {
+    solve(domain.mkString, problem.mkString, config)
+  }
+
+  def solve(domain: String, problem: String, config: Config): Either[String, Plan] = {
     val pddlOptions = Options(discretization = config.discretization)
     val parser = new Parser()(pddlOptions)
 
@@ -114,16 +119,17 @@ object Main extends App {
       case Success(model) =>
         Planner.solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
           case Some(plan) =>
-            println("\n== Solution ==")
             val sol = PddlPlan(plan)
-            println(sol.format)
             if(config.validate) {
-              Validator.validate(domain, problem, sol)
-            }
-            Some(plan)
+              if(Validator.validate(domain, problem, sol))
+                Right(plan)
+              else
+                Left("Invalid plan")
+            } else
+              Right(plan)
           case None =>
             println("\nFAIL")
-            None
+            Left("Failed to find a plan")
         }
       case Failure(err) =>
         err.printStackTrace()
