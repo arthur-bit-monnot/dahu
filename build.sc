@@ -48,10 +48,11 @@ trait Module extends SbtModule {
      MavenRepository("file:///home/arthur/.m2/repository")
    )
 }
-trait ModuleTests extends Module {
+trait ModuleTests extends Module { outer =>
   object test extends Tests {
     override def ivyDeps = Agg(deps.utest, deps.scalatest, deps.scalacheck)
     override def testFrameworks = Seq("utest.runner.Framework", "org.scalatest.tools.Framework")
+    override def unmanagedClasspath = outer.unmanagedClasspath
   }
 }
 trait EmptyModule extends mill.Module {}
@@ -122,6 +123,16 @@ object planning extends EmptyModule {
       def moduleDeps = Seq(planning.pddl.parser, planning.planner)
       def ivyDeps = Agg(scopt, ammoniteOps)
       def mainClass = Some("dahu.planning.pddl.planner.Main")
+      object test extends Tests {
+        override def unmanagedClasspath = planner.unmanagedClasspath
+        override def moduleDeps = super.moduleDeps ++ Seq(planning.pddl.problems)
+        override def ivyDeps = Agg(deps.utest)
+
+        override def testFrameworks = Seq("utest.runner.Framework")
+      }
+    }
+    object problems extends Module {
+      override def resources = T.sources{ millSourcePath / 'resources }
     }
   }
 }

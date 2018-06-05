@@ -104,6 +104,15 @@ lazy val pddlParser = project
     "fr.uga" % "pddl4j" % "3.6.0"
   ))
 
+lazy val pddlProblems = project
+  .in(file("planning/pddl/problems"))
+  .settings(name := "dahu-pddl-problems")
+  .settings(commonSettings: _*)
+  .settings(resourceDirectory in Compile := baseDirectory.value / "resources": _*)
+  .settings(libraryDependencies ++= Seq(
+    "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
+  ))
+
 lazy val utils = project
   .in(file("utils"))
   .settings(name := "dahu-utils")
@@ -158,7 +167,7 @@ lazy val benchmarks = project
 
 lazy val planner = project
   .in(file("planning/planner"))
-  .dependsOn(anmlParser, solvers, z3)
+  .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(libraryDependencies ++= Seq(
     "org.typelevel" %% "cats-effect" % "1.0.0-RC"
