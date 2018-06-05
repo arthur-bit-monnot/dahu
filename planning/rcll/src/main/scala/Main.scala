@@ -47,37 +47,6 @@ object Main extends CaseApp[Options] {
 
 //    write.over(pwd / RelPath(options.outputDir) / "rcll.dom.pddl", read(domainFile))
     write.over(pbFile, pb.asPddl)
-
-//    val result =
-//      if(options.specialized)
-//        solveSpecialized(domainFile.toIO, pbFile.toIO, pb)
-//      else
-//        solveGeneric(domainFile.toIO, pbFile.toIO)
-//
-//    result match {
-//      case Some(plan) => println(plan.format)
-//      case None       => println("OUPSIE")
-//    }
-  }
-
-  def solveGeneric(domain: File, problem: File): Option[PddlPlan] = {
-    dahu.planning.pddl.planner.Main
-      .solve(domain, problem, Config())
-      .map(p => PddlPlan(p))
-  }
-
-  def solveSpecialized(domain: File, problem: File, c: Problem): Option[PddlPlan] = {
-    pddlParser.parse(domain, problem) match {
-      case Success(model) =>
-        Planner
-          .solveWithGivenActionNumbers(model,
-                                       a => c.maxActions(a.name),
-                                       Deadline.now + 1800.seconds,
-                                       symBreak = true)
-          .map(PddlPlan(_))
-      case x =>
-        None
-    }
   }
 }
 
