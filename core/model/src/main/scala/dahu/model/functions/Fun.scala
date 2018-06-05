@@ -6,6 +6,7 @@ import dahu.model.types._
 
 abstract class Fun[O: Tag] {
   final val outType: Tag[O] = Tag[O]
+  require(outType != null)
   def compute(args: Vec[Value]): O
 
   def name: String
@@ -31,7 +32,7 @@ sealed abstract class Box[T: TagIsoInt] extends Reversible[Int, T] {
   def reverse: Unbox[T]
 }
 final class Unbox[T: TagIsoInt] extends Reversible[T, Int] { self =>
-  val tag: TagIsoInt[T] = TagIsoInt[T]
+  def tag: TagIsoInt[T] = TagIsoInt[T]
   override val reverse: Box[T] = new Box[T] {
     override def reverse: Unbox[T] = self
     override def of(in: Int): T = tag.fromInt(in)

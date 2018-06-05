@@ -57,7 +57,7 @@ object NumSolutionsTest extends TestSuite {
           (instanceName, instance) <- fam.instancesMap.toIterable // conversion to iterable to preserve order when traversing LinkedHashMap
         } yield (s"${fam.familyName}/$instanceName", instance)
 
-      "num-solutions-csp" - {
+      "num-solutions-z3" - {
         val solver = Z3PartialSolver.builder
         def test(originalPb: SatProblem): Unit = {
           val pb =

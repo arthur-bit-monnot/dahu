@@ -68,7 +68,9 @@ object Input {
 }
 
 // TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult
-final case class Cst[T](value: T, typ: Tag[T]) extends Term[T]
+final case class Cst[T](value: T, typ: Tag[T]) extends Term[T] {
+  require(typ != null)
+}
 
 object Cst {
   def apply[T: Tag](v: T): Expr[T] = new Cst(v, Tag[T])

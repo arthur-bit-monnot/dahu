@@ -87,10 +87,10 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
             if supportedFunctions.contains(f) && args.forall(x => sup(prev(x))) =>
           IntermediateExpression(ComputationF(f, args, t))
         case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
-            if isUnbox(f) && sup(prev(arg)) => //TODO double check
+            if isUnbox(f) && sup(prev(arg)) && f != TagIsoInt.ofBoolean.unbox => //TODO double check
           prev(arg)
         case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
-            if isBox(f) && sup(prev(arg)) => //TODO double check
+            if isBox(f) && sup(prev(arg)) && f != TagIsoInt.ofBoolean.box => //TODO double check
           prev(arg)
         case x =>
           val x2 = SFunctor[Total].smap(x)(prev)

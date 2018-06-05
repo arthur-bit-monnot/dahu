@@ -117,6 +117,7 @@ object Total {
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
 final case class InputF[@sp(Int) F](id: Ident, typ: Type) extends Total[F] {
+  require(typ != null)
   override def toString: String = s"$id"
 }
 object InputF {
@@ -136,6 +137,7 @@ object CstF {
 }
 
 final case class ComputationF[@sp(Int) F](fun: Fun[_], args: Vec[F], typ: Type) extends Total[F] {
+  require(typ != null)
   override def toString: String = {
     if(fun.name == "box" || fun.name == "unbox") args(0).toString
     else s"$fun(${args.mkString(", ")})"

@@ -2,6 +2,7 @@ package dahu.model.types
 
 import dahu.model.functions.{Box, Unbox}
 import dahu.model.input.{Cst, Expr}
+import dahu.model.math.bool
 
 import scala.annotation.switch
 
@@ -19,8 +20,8 @@ trait TagIsoInt[T] extends Tag[T] {
 
   private implicit def selfTag: TagIsoInt[T] = this
 
-  val unbox: Unbox[T] = new Unbox[T]()(this)
-  val box: Box[T] = unbox.reverse
+  lazy val unbox: Unbox[T] = new Unbox[T]()(this)
+  def box: Box[T] = unbox.reverse
 
   import dahu.model.input.dsl._
   override def isValid(e: Expr[T]): Expr[Boolean] =
@@ -52,6 +53,8 @@ object TagIsoInt {
 
     override val min: Int = 0
     override val max: Int = 1
+
+    override def isValid(e: Expr[Boolean]): Expr[Boolean] = bool.True
   }
 
   import scala.reflect.runtime.universe
