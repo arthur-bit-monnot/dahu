@@ -92,6 +92,7 @@ object Interpreter {
       case x: InputF[_]             => input(x)
       case CstF(v, _)               => v
       case ComputationF(f, args, _) => Value(f.compute(args))
+      case SequenceF(members, _)    => Value(members)
       case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
       case ITEF(cond, onTrue, onFalse, _) =>
         cond match {
@@ -218,6 +219,7 @@ object Interpreter {
           case true  => onTrue
           case false => onFalse
         }
+      case _ => ??? // this evaluation method is outdated and deprecated
     }
 
     val coalg: AttributeCoalgebra[ExprF, ast.ID] = ast.tree.asFunction.toAttributeCoalgebra

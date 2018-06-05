@@ -144,6 +144,7 @@ object ActionFactory {
         case Ass(t2, eff: TimedAssignmentAssertion) :: Ass(t, cond: TimedEqualAssertion) :: Nil =>
           assert(t == t2 && cond.fluent == eff.fluent)
           regroup(t, cond, eff)
+        case _ => ???
       })
 
     val afterStart = BinaryExprTree(operators.Add, start, predef.Epsilon)
@@ -165,6 +166,7 @@ object ActionFactory {
         add(Equals(ClosedInterval(start, afterStart)), e)
       case Ass(End, e: TimedTransitionAssertion) =>
         add(Equals(ClosedInterval(end, afterEnd)), e)
+      case _ => ???
     }
     mod
   }

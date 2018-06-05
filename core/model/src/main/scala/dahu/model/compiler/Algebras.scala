@@ -25,7 +25,7 @@ object Algebras {
     case Valid(partial)                 => ValidF(partial)
     case x @ Dynamic(f, monoid, accept) => DynamicF(f, monoid, accept, x.typ)
     case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
-    case x :Lambda[_, _]               => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
+    case x: Lambda[_, _]                => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
     case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
     case x @ Lambda.Param(id)           => LambdaParamF(id, x.typ)
   }
@@ -72,6 +72,7 @@ object Algebras {
           else
             f.name + args.mkString("(", ",\n", ")")
         addIndent(tmp, argsIndent)
+      case SequenceF(members, _)          => members.mkString("[", ", ", "]")
       case ProductF(members, _)           => members.mkString("(", ", ", ")")
       case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
     }

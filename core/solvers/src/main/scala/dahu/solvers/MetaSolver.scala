@@ -7,6 +7,7 @@ import dahu.model.ir.Total
 import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
+import dahu.utils.errors._
 
 import scala.concurrent.duration.Deadline
 
@@ -46,6 +47,7 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
         case IR(_, false, _)   => Interpreter.Empty
         case IR(_, _, false)   => Interpreter.ConstraintViolated
         case IR(v, true, true) => Interpreter.Res(v.asInstanceOf[A])
+        case _                 => unexpected("A bool expression did not eval to false/true")
       }
     }
 

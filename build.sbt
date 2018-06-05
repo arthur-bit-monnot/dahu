@@ -31,12 +31,12 @@ lazy val commonSettings = Seq(
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard",
+//    "-Ywarn-value-discard", // to many false positives
     //  "-Ywarn-unused",
     "-feature",
     "-language:higherKinds",
     "-language:existentials",
-    // experimental option to speed up the build require 2.12.5
+    // experimental option to speed up the build require 2.12.5+
      "-Ycache-plugin-class-loader:last-modified",
      "-Ycache-macro-class-loader:last-modified",
      "-Ybackend-parallelism", "3"

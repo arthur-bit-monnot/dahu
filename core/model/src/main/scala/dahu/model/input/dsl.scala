@@ -90,7 +90,6 @@ object dsl {
   }
 
   implicit class SequenceOps[A](private val lhs: Expr[Vec[A]]) extends AnyVal {
-    def map[B: Tag](f: Expr[A ->: B]): Expr[Vec[B]] = MapSeq(lhs, f)
     def fold(monoid: Monoid[A])(implicit tag: Tag[A], ct: ClassTag[A]): Expr[A] =
       sequence.Fold(monoid).apply(lhs)
   }

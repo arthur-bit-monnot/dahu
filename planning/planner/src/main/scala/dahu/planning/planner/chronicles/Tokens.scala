@@ -12,6 +12,7 @@ import dahu.planning.model.common
 import dahu.planning.model.common.{FluentTemplate, FunctionTemplate}
 import dahu.planning.planner.Literal
 import dahu.utils.Vec
+import dahu.utils.errors._
 import spire.syntax.cfor
 
 class Counter {
@@ -154,6 +155,7 @@ object EffTokF {
           case Cst(v) => Some(v)
           case _      => None
         }, id)
+      case _ => unexpected
     }
     val tok =
       Product(

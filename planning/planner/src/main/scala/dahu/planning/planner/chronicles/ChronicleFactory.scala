@@ -37,6 +37,7 @@ case class ChronicleFactory(ctx: ProblemContext,
         ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
       case Op2(op, left, right) =>
         applyOperator(op, encode(left), encode(right))
+      case _ => ???
     }
 
   def extended(e: core.InActionBlock)(implicit argRewrite: Arg => E[Literal],
@@ -78,6 +79,7 @@ case class ChronicleFactory(ctx: ProblemContext,
         copy(
           constraints = c :: constraints
         )
+      case _ => ???
     }
   import dahu.model.input.dsl._
   def compile: E[Chronicle] = {

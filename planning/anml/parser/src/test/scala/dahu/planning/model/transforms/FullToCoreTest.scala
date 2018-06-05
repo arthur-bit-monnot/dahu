@@ -24,8 +24,8 @@ class FullToCoreTest extends FunSuite {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>
           println(FullToCore.trans(module).mkString("\n"))
-        case x: ParserFailure =>
-        // ignore, this should be caught by the ANML parsing tests
+        case err =>
+          fail(s"Could not parse anml string: $err")
       }
     }
   }
@@ -45,6 +45,6 @@ class FullToCoreTest extends FunSuite {
   def checkInvariantsInCore(m: CoreModel): Unit = {
     val declarations = m.collect { case x: Declaration[_] => x }
     Predef.assert(declarations.distinct.size == declarations.size,
-      "\nDuplicate declarations in: \n" + declarations.mkString("\n"))
+                  "\nDuplicate declarations in: \n" + declarations.mkString("\n"))
   }
 }

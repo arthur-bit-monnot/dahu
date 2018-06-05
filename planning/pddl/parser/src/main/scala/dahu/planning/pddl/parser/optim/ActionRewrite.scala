@@ -138,6 +138,7 @@ class ActionRewrite(options: Options)(implicit predef: Predef) {
           lhs :: Is(LeftOpenInterval(t, itv.start), v) :: rhs :: Nil
         case (lhs @ Becomes(t, v), rhs @ Undef(itv: ClosedOnLeft)) =>
           lhs :: Is(OpenInterval(t, itv.start), v) :: rhs :: Nil
+        case _ => ???
       }
       Timeline(before.fluent, header ++ middleToks ++ footer: _*)
     }
@@ -147,9 +148,9 @@ class ActionRewrite(options: Options)(implicit predef: Predef) {
       case Seq(tl1, tl2) =>
 //        println(s"warning: merging two discontinuous timelines: $tl1 ----- $tl2")
         tl1.order(tl2, ordering) match {
-          case After     => merge(tl1, tl2)
-          case Before    => merge(tl2, tl1)
-          case Unordered => ???
+          case After  => merge(tl1, tl2)
+          case Before => merge(tl2, tl1)
+          case _      => ???
         }
     }
   }

@@ -37,7 +37,6 @@ object Expr {
       case Present(v)                  => Iterable(v)
       case Valid(v)                    => Iterable(v)
       case Sequence(ms)                => ms.toIterable
-      case MapSeq(target, f)           => Iterable(target, f)
     }
   }
 }
@@ -96,10 +95,6 @@ final case class Sequence[T: Tag](members: Vec[Expr[T]])(implicit ct: ClassTag[V
 object Sequence {
   def apply[T: Tag](members: Seq[Expr[T]])(implicit classTag: ClassTag[Vec[T]]): Sequence[T] =
     Sequence(Vec.fromSeq(members))
-}
-
-final case class MapSeq[A, B: Tag](target: Expr[Vec[A]], f: Expr[A ->: B]) extends Expr[Vec[B]] {
-  override def typ: SequenceTag[B] = SequenceTag[B]
 }
 
 final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) extends Expr[T[Id]] {

@@ -25,12 +25,13 @@ object Validator {
          out.getAbsolutePath)(pwd)) match {
       case Success(_) =>
         info("Plan validated.")
+        true
       case Failure(e: ShelloutException) =>
-        error("Invalid plan:")
+        error("Validation failed:")
         println(e)
+        false
+      case Failure(e) => throw e
     }
-
-    true
   }
 
 }

@@ -10,6 +10,7 @@ import dahu.model.types._
 import dahu.planning.model.common.FunctionTemplate
 import dahu.planning.planner.Literal
 import dahu.utils.Vec
+import dahu.utils.errors._
 import spire.syntax.cfor
 import DummyImplicits._
 
@@ -84,6 +85,7 @@ object SEffTokF {
           case Cst(v) => Some(v)
           case _      => None
         })
+      case _ => unexpected
     }
     val tok =
       Product(new SEffTokF[Expr](fluent, value))(tag)
