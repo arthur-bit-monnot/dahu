@@ -110,8 +110,7 @@ object CondTokF {
         (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
         (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
         (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
-      },
-      Ident(s"${cond}-supported-by")
+      }
     )
 }
 
@@ -203,8 +202,7 @@ object EffTokF {
         //Id(lhs) >= Id(rhs) || // superseded by accept function
         IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
           IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
-          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs))),
-      Ident(s"{$lhs}-non-threatening")
+          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
     )
 
 }

@@ -3,7 +3,7 @@ package dahu.model.ir
 import dahu.graphs.TreeNode
 import dahu.utils._
 import dahu.model.functions.Fun
-import dahu.model.input.Ident
+import dahu.model.input.{Ident, Lambda}
 import dahu.model.math.Monoid
 import dahu.model.types.{LambdaTag, ProductTag, SequenceTag, Tag, Type, Value}
 import shapeless.=:!=
@@ -209,7 +209,8 @@ final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) exte
   * Lambda is composed of an AST `tree` and a variable `in`.
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
-final case class LambdaF[F](in: F, tree: F, id: Ident, tpe: LambdaTag[_, _]) extends NoApplyF[F] {
+final case class LambdaF[F](in: F, tree: F, id: Lambda.LambdaIdent, tpe: LambdaTag[_, _])
+    extends NoApplyF[F] {
   // strangely, declaring this in the parameters results in AbstractMethodError when called
   override def typ: Type = tpe
 
@@ -220,6 +221,6 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
   override def toString: String = s"($lambda $param)"
 }
 
-final case class LambdaParamF[F](id: Ident, typ: Type) extends NoApplyF[F] {
+final case class LambdaParamF[F](id: Lambda.LambdaIdent, typ: Type) extends NoApplyF[F] {
   override def toString: String = "???" + id.toString
 }

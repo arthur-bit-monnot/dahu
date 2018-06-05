@@ -54,8 +54,7 @@ object SCondTokF {
       (eff: Expr[SEffTok]) => {
         (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
         (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
-      },
-      Ident(s"{$cond}-supported-by")
+      }
     )
 }
 

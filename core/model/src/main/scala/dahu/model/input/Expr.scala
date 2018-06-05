@@ -1,5 +1,7 @@
 package dahu.model.input
 
+import java.util.Objects
+
 import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
@@ -20,22 +22,22 @@ object Expr {
   implicit def dagInstance: DAG[Id, Expr[Any]] = new DAG[Id, Expr[Any]] {
     override def algebra: Expr[Any] => Id[Expr[Any]] = x => x
     override def children(graph: Id[Expr[Any]]): Iterable[Expr[Any]] = graph match {
-      case SubjectTo(value, condition)             => Iterable(value, condition)
-      case x: Product[_]                           => x.members.toIterable
-      case x: Input[_]                             => Iterable.empty
-      case x: Cst[_]                               => Iterable.empty
-      case x: Computation[_]                       => x.args
-      case Optional(value, present)                => Iterable(value, present)
-      case ITE(cond, onTrue, onFalse)              => Iterable(cond, onTrue, onFalse)
-      case Dynamic(l, _, _)                        => Iterable(l)
-      case DynamicProvider(e, prov)                => Iterable(e, prov)
-      case Apply(l, i)                             => Iterable(l, i)
-      case x @ Lambda(inputVar, parameterizedTree) => Iterable(parameterizedTree, inputVar)
-      case Lambda.Param(_)                         => Iterable.empty
-      case Present(v)                              => Iterable(v)
-      case Valid(v)                                => Iterable(v)
-      case Sequence(ms)                            => ms.toIterable
-      case MapSeq(target, f)                       => Iterable(target, f)
+      case SubjectTo(value, condition) => Iterable(value, condition)
+      case x: Product[_]               => x.members.toIterable
+      case x: Input[_]                 => Iterable.empty
+      case x: Cst[_]                   => Iterable.empty
+      case x: Computation[_]           => x.args
+      case Optional(value, present)    => Iterable(value, present)
+      case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
+      case Dynamic(l, _, _)            => Iterable(l)
+      case DynamicProvider(e, prov)    => Iterable(e, prov)
+      case Apply(l, i)                 => Iterable(l, i)
+      case x: Lambda[_, _]             => Iterable(x.parameterizedTree, x.inputVar)
+      case Lambda.Param(_)             => Iterable.empty
+      case Present(v)                  => Iterable(v)
+      case Valid(v)                    => Iterable(v)
+      case Sequence(ms)                => ms.toIterable
+      case MapSeq(target, f)           => Iterable(target, f)
     }
   }
 }
@@ -257,22 +259,46 @@ final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provide
   override def typ: Tag[A] = e.typ
 }
 
-final case class Lambda[I: Tag, O: Tag](inputVar: Lambda.Param[I], parameterizedTree: Expr[O])
+final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameterizedTree: Expr[O])
     extends Expr[I ->: O] {
   def outTag: Tag[O] = Tag[O]
 
-  def id: Ident = inputVar.ident
+  def id: Lambda.LambdaIdent = inputVar.ident
 
   override def typ: LambdaTag[I, O] = LambdaTag[I, O]
+
+  override def hashCode(): Int = Objects.hash(inputVar, parameterizedTree)
+
+  override def equals(o: scala.Any): Boolean = o match {
+    case l: Lambda[_, _] => inputVar == l.inputVar && parameterizedTree == l.parameterizedTree
+    case _               => false
+  }
+
+  override def toString: String = s"Lambda($id)"
 }
 
 object Lambda {
-  def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O], ident: Ident): Lambda[I, O] = {
-    val param = Lambda.Param[I](ident)
+  private val dummyLambdaParam =
+    Input[Nothing](Ident.anonymous())(Tag.default[Nothing])
+  def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O]): Lambda[I, O] = {
+    val treeShape = f(dummyLambdaParam)
+    val id = new LambdaIdent(treeShape, None)
+    val param = Lambda.Param[I](id)
     new Lambda[I, O](param, f(param))
   }
-  final case class Param[I: Tag](ident: Ident) extends Expr[I] {
+
+  final case class Param[I: Tag](ident: LambdaIdent) extends Expr[I] {
     override def typ: Tag[I] = Tag[I]
+  }
+  final class LambdaIdent(val treeShape: Expr[Any], val name: Option[String]) {
+    override def hashCode(): Int = Objects.hash(treeShape, name)
+
+    override def equals(o: scala.Any): Boolean = o match {
+      case li: LambdaIdent => treeShape.equals(li.treeShape) && name == li.name
+      case _               => false
+    }
+
+    override def toString: String = name.getOrElse("Λ" + math.abs(hashCode()).toString)
   }
 }
 

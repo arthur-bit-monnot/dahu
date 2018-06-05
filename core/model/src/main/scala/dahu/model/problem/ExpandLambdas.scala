@@ -195,7 +195,8 @@ object ExpandLambdas {
 
     override def getTreeRoot(oid: OID): ID = {
       val queue = mutable.ArrayStack[(OID, PrePro)]()
-      queue.push((oid, contextualPreprocessor))
+      val init = contextualPreprocessor.prepro(oid, coalg)
+      queue.push(init)
       perRequest = 0
 
       while(queue.nonEmpty) {
@@ -276,7 +277,7 @@ object ExpandLambdas {
 //        }
 //        println("a")
 //      }
-      intIdsMap((oid, contextualPreprocessor))
+      intIdsMap(init)
     }
   }
 
