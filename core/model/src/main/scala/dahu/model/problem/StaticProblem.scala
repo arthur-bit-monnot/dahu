@@ -29,40 +29,42 @@ object StaticProblem {
 //    val TMP = provided.toList.map(lt.internalCoalgebra)
 //    println(TMP.map(_.typ))
     val ofValues = lt.mapExternal[cats.Id](_.value)
-    val dynamicsErased =
-      ofValues.mapInternalGen[StaticF](ctx => {
-        val rec = ctx.record
-        _ match {
-          case x: DynamicF[IDTop] =>
-            val default = rec(x.monoid.liftedIdentity)
-            val filter: IDTop => Boolean = {
-              x.accept match {
-                case Some(f) =>
-                  (i: IDTop) =>
-                    f(ctx.retrieve(i).typ)
-                case None =>
-                  _ =>
-                    true
+    val dynamicsErased: IlazyForest[X, StaticF, cats.Id, _] =
+      ofValues
+        .mapInternalGen[StaticF](ctx => {
+          val rec = ctx.record
+          _ match {
+            case x: DynamicF[IDTop] =>
+              val default = rec(x.monoid.liftedIdentity)
+              val filter: IDTop => Boolean = {
+                x.accept match {
+                  case Some(f) =>
+                    (i: IDTop) =>
+                      f(ctx.retrieve(i).typ)
+                  case None =>
+                    _ =>
+                      true
+                }
               }
-            }
-            val newProvided = provided.map(ctx.toNewId).withFilter(filter)
-            val lbd = ctx.retrieve(x.f)
-            def compute(oneProvided: IDTop): IDTop =
-              ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
+              val newProvided = provided.map(ctx.toNewId).withFilter(filter)
+              val lbd = ctx.retrieve(x.f)
+              def compute(oneProvided: IDTop): IDTop =
+                ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
 
-            val conditionals: Vec[IDTop] =
-              Vec(newProvided.map(i =>
-                rec(ITEF[IDTop](rec(PresentF(i)), compute(i), default, x.monoid.tpe))): _*)
+              val conditionals: Vec[IDTop] =
+                Vec(newProvided.map(i =>
+                  rec(ITEF[IDTop](rec(PresentF(i)), compute(i), default, x.monoid.tpe))): _*)
 
-            val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
-            value
-          case x: InputF[_] =>
-            x
-          case x: StaticF[IDTop] =>
-            x
-        }
-      })
-    LazyTree(dynamicsErased)(root)
+              val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
+              value
+            case x: InputF[_] =>
+              x
+            case x: StaticF[IDTop] =>
+              x
+          }
+        })
+
+    LazyTree(dynamicsErased.fixID)(root)
   }
 
   case class IR[@specialized(Int) A](value: A, provided: Bag[A])

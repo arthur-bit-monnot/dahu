@@ -48,18 +48,8 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       f: InternalMapGenLazyForest.Context[F, G, ID, IDTop] => F[IDTop] => G[IDTop])(
       implicit F: SFunctor[F],
       OF: Functor[Opt]
-  ) = //: IlazyForest[K, G, Opt, _] =
+  ): IlazyForest[K, G, Opt, _] =
     InternalMapGenLazyForest(this)(f)
-
-//  def mapContextualized[G[_]](
-//      f: LazyForestGenerator.Context[G, IDTop] => F[IDTop] => IDTop,
-//      contextTracker: ContextualLazyForestMap.ContextualPreprocessor[F, ID])(
-//      implicit TN: TreeNode[F],
-//      F: SFunctor[F],
-//      FO: Functor[Opt],
-//      ct: ClassTag[G[IDTop]]
-//  ) = //: IlazyForest[K, G, Opt, _] = TODO: this is need because LazyTree use an internal id
-//    new ContextualLazyForestMap[K, F, G, Opt, IDTop, ID](this, f, contextTracker)
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2, ID] =
     ExternalMappedLazyForest(this)(f)

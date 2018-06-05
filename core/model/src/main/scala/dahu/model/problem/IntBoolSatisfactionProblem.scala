@@ -117,39 +117,6 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
 
     def cst[K](n: Int): CellOpt[K] = CompatibleConstant(CstF(Value(n), Tag.ofInt), TagIsoInt.ofInt)
 
-    private def gatherConstraints(k: lt.ID): Set[lt.ID] = {
-      val cs = mutable.HashSet[lt.ID]()
-      val visited = mutable.HashSet[lt.ID]()
-      val stack = mutable.Stack[lt.ID]()
-
-      def push(i: lt.ID): Unit = {
-        if(!visited.contains(i)) stack.push(i)
-      }
-
-      push(k)
-      while(stack.nonEmpty) {
-        val cur = stack.pop()
-        visited += cur
-        lt.internalCoalgebra(cur) match {
-          case i @ CompatibleInput(_, tpe) =>
-            cs += lt.record(leq(cst(tpe.min), i))
-            cs += lt.record(leq(i, cst(tpe.max)))
-          case IntermediateExpression(e) =>
-            e.args.foreach(push)
-          case _ =>
-        }
-      }
-      cs.toSet
-    }
-
-    // the root value, is the conjunction of the original root and all constraints placed on inputs.
-    private val internalPrevRoot = lt.record(lt.getExt(rootNode))
-    private val rootValue = IntermediateExpression(
-      ComputationF(bool.And,
-                   (gatherConstraints(internalPrevRoot) + internalPrevRoot).toSeq,
-                   bool.And.tpe))
-    val root: lt.ID = lt.record(rootValue)
-
     type OptTotal[T] = Option[Total[T]]
     val t = lt.mapInternal[OptTotal]({
       case IntermediateExpression(e) => Some(e)
@@ -161,13 +128,10 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
     })
     val partialTree = new IlazyForest[X, Total, Option, lt.ID] {
       override def getTreeRoot(k: X): Option[lt.ID] = {
-        if(k == rootNode)
-          Some(root) // we modified the root to account for additional constraints,
-        else
-          (t.getExt(k): Option[Total[lt.ID]]) match {
-            case Some(_) => Some(t.getTreeRoot(k))
-            case None    => None
-          }
+        (t.getExt(k): Option[Total[lt.ID]]) match {
+          case Some(_) => Some(t.getTreeRoot(k))
+          case None    => None
+        }
       }
       override def internalCoalgebra(i: lt.ID): Total[lt.ID] = t.internalCoalgebra(i) match {
         case Some(e) => e
