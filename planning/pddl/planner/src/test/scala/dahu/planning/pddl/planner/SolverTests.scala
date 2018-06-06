@@ -18,14 +18,13 @@ object SolverTests extends TestSuite {
   }
 
   override def tests = Tests {
-
     "extraction" - {
       assertMatch(Extractor.extract("rovers_ipc5", "p01")) {
         case Right(_) =>
       }
     }
 
-    dahu.utils.debug.LOG_LEVEL = 2
+    dahu.utils.debug.LOG_LEVEL = 3
 
     "rovers_ipc5" - {
       "p01" - findPlan()

@@ -5,7 +5,7 @@ import utest._
 
 object FuzzedEvalTest extends TestSuite {
 
-  val instances = NumSolutionsTest.instances.filter(_._1 == "optionals/4-opt-comp")
+  val instances = NumSolutionsTest.instances
 
   override def tests = Tests {
 
