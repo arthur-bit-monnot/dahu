@@ -75,6 +75,7 @@ object Algebras {
       case SequenceF(members, _)          => members.mkString("[", ", ", "]")
       case ProductF(members, _)           => members.mkString("(", ", ", ")")
       case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
+      case x                              => x.toString
     }
   }
 

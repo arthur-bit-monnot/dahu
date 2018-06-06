@@ -33,8 +33,6 @@ object ExprF extends LowPriorityExprF {
         case DynamicF(fun, monoid, accept, typ) => DynamicF(f(fun), monoid, accept, typ)
         case DynamicProviderF(e, p, typ)        => DynamicProviderF(f(e), f(p), typ)
         case ApplyF(lambda, param, typ)         => ApplyF(f(lambda), f(param), typ)
-        case LambdaF(in, tree, id, typ)         => LambdaF(f(in), f(tree), id, typ)
-        case LambdaParamF(l, t)                 => LambdaParamF(l, t)
       }
   }
 
@@ -73,8 +71,6 @@ trait LowPriorityExprF {
       case DynamicF(f, _, _, _)             => Iterable(f)
       case DynamicProviderF(e, provided, _) => Iterable(e, provided)
       case ApplyF(lambda, param, _)         => Iterable(lambda, param)
-      case LambdaF(in, tree, _, _)          => Iterable(in, tree)
-      case _: LambdaParamF[A]               => Iterable.empty
     }
   }
 }
@@ -82,13 +78,12 @@ trait LowPriorityExprF {
 sealed trait NoProviderF[@sp(Int) F] extends ExprF[F]
 sealed trait StaticF[@sp(Int) F] extends NoProviderF[F]
 sealed trait NoApplyF[@sp(Int) F] extends StaticF[F]
-sealed trait NoLambdas[@sp(Int) F] extends NoApplyF[F]
 
 /** Pure expressions that always yield value if they are fed with pure expressions.
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[@sp(Int) F] extends NoLambdas[F]
+sealed trait Total[@sp(Int) F] extends NoApplyF[F] // StaticF without lambda application
 object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
@@ -99,6 +94,8 @@ object Total {
         case ProductF(members, typ)           => ProductF(members.map(f), typ)
         case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
         case SequenceF(members, typ)          => SequenceF(members.map(f), typ)
+        case LambdaF(in, tree, id, typ)       => LambdaF(f(in), f(tree), id, typ)
+        case LambdaParamF(l, t)               => LambdaParamF(l, t)
       }
   }
 
@@ -110,6 +107,8 @@ object Total {
       case ITEF(c, t, f, _)         => Iterable(c, t, f)
       case ProductF(as, _)          => as.toIterable
       case SequenceF(as, _)         => as.toIterable
+      case LambdaF(in, tree, _, _)  => Iterable(in, tree)
+      case _: LambdaParamF[A]       => Iterable.empty
     }
   }
 }
@@ -178,27 +177,27 @@ final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) ext
   override def toString: String = s"ite($cond, $onTrue, $onFalse)"
 }
 
-final case class PresentF[F](optional: F) extends ExprF[F] with NoLambdas[F] {
+final case class PresentF[F](optional: F) extends ExprF[F] with NoApplyF[F] {
   override def typ: Type = Tag[Boolean]
 
   override def toString: String = s"present($optional)"
 }
 
-final case class ValidF[@sp(Int) F](partial: F) extends NoLambdas[F] {
+final case class ValidF[@sp(Int) F](partial: F) extends NoApplyF[F] {
   override def typ: Type = Tag[Boolean]
 
   override def toString: String = s"valid($partial)"
 }
 
 /** An Optional expression, that evaluates to Some(value) if present == true and to None otherwise. */
-final case class OptionalF[@sp(Int) F](value: F, present: F, typ: Type) extends NoLambdas[F] {
+final case class OptionalF[@sp(Int) F](value: F, present: F, typ: Type) extends NoApplyF[F] {
   override def toString: String = s"$value? (presence: $present)"
 }
 
 /** A partial expression that only produces a value if its condition evaluates to True. */
 final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
     extends ExprF[F]
-    with NoLambdas[F] {
+    with NoApplyF[F] {
   override def toString: String = s"$value? (constraint: $condition)"
 }
 
@@ -215,7 +214,7 @@ final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) exte
   * `in` appears in the AST, and should be replaced with the parameter when applying the lambda.
   */
 final case class LambdaF[F](in: F, tree: F, id: Lambda.LambdaIdent, tpe: LambdaTag[_, _])
-    extends NoApplyF[F] {
+    extends Total[F] {
   // strangely, declaring this in the parameters results in AbstractMethodError when called
   override def typ: Type = tpe
 
@@ -226,6 +225,6 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
   override def toString: String = s"($lambda $param)"
 }
 
-final case class LambdaParamF[F](id: Lambda.LambdaIdent, typ: Type) extends NoApplyF[F] {
+final case class LambdaParamF[F](id: Lambda.LambdaIdent, typ: Type) extends Total[F] {
   override def toString: String = "???" + id.toString
 }

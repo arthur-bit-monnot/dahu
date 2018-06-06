@@ -392,6 +392,7 @@ object SatisfactionProblem {
               value.valid,
               utils.implies(condition.present, utils.and(condition.value, condition.valid)))
           )
+//        case x @ LambdaParamF(id, typ) => IR(utils.rec(x), utils.TRUE, utils.TRUE)
       }
       ir
     }
