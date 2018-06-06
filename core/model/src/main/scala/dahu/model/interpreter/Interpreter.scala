@@ -4,7 +4,7 @@ import cats.Foldable
 import cats.implicits._
 import cats.kernel.Monoid
 import dahu.utils._
-import dahu.model.input.{Ident, Present}
+import dahu.model.input.{Ident, Present, TypedIdent}
 import dahu.model.ir._
 import dahu.model.types._
 import dahu.utils.errors._
@@ -18,7 +18,7 @@ import scala.reflect.ClassTag
 
 object Interpreter {
 
-  def evalAlgebra(valueOf: Ident => Value): FAlgebra[Total, Value] = {
+  def evalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[Total, Value] = {
     case InputF(id, _)            => valueOf(id)
     case CstF(v, _)               => v
     case ComputationF(f, args, _) => Value(f.compute(args))
@@ -32,7 +32,7 @@ object Interpreter {
     case SequenceF(values, _) => Value(values)
   }
 
-  def partialEvalAlgebra(valueOf: Ident => Value): FAlgebra[NoApplyF, Result[Value]] = {
+  def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[NoApplyF, Result[Value]] = {
     case InputF(id, _) => Res(valueOf(id))
     case CstF(v, _)    => Res(v)
     case ComputationF(f, args, _) =>

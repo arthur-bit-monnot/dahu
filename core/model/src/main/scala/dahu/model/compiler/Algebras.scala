@@ -13,7 +13,7 @@ import scala.annotation.tailrec
 object Algebras {
 
   val coalgebra: FCoalgebra[ExprF, Expr[_]] = {
-    case x @ Input(name)                => InputF(name, x.typ)
+    case x @ Input(id)                  => InputF(id, id.typ)
     case x @ Cst(value)                 => CstF(Value(value), x.typ)
     case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
     case x @ SubjectTo(value, cond)     => Partial(value, cond, x.typ)

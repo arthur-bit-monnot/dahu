@@ -3,9 +3,9 @@ package dahu.model.ir
 import dahu.graphs.TreeNode
 import dahu.utils._
 import dahu.model.functions.Fun
-import dahu.model.input.{Ident, Lambda}
+import dahu.model.input.{Ident, Lambda, TypedIdent}
 import dahu.model.math.Monoid
-import dahu.model.types.{LambdaTag, ProductTag, SequenceTag, Tag, Type, Value}
+import dahu.model.types.{LambdaTag, ProductTag, SequenceTag, Tag, TagIsoInt, Type, Value}
 import shapeless.=:!=
 
 import scala.{specialized => sp}
@@ -93,8 +93,8 @@ object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
       fa match {
-        case x @ InputF(_, _)                 => x
-        case x @ CstF(_, _)                   => x
+        case x: InputF[A]                     => x
+        case x: CstF[A]                       => x
         case ComputationF(fun, args, typ)     => ComputationF(fun, args.map(f), typ)
         case ProductF(members, typ)           => ProductF(members.map(f), typ)
         case ITEF(cond, onTrue, onFalse, typ) => ITEF(f(cond), f(onTrue), f(onFalse), typ)
@@ -116,11 +116,14 @@ object Total {
 
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
-final case class InputF[@sp(Int) F](id: Ident, typ: Type) extends Total[F] {
+final case class InputF[@sp(Int) F](id: TypedIdent[Any], typ: Type) extends Total[F] {
   require(typ != null)
+  require(typ == id.typ || id.typ.isInstanceOf[TagIsoInt[_]] && typ == Tag.ofInt) // todo: this is a sanity check for current assumption but might not hold for valid future uses
   override def toString: String = s"$id"
 }
 object InputF {
+
+  def apply[F](id: Ident, typ: Type): InputF[F] = InputF(TypedIdent(id, typ), typ)
 
   /** The type parameter of InputF does not play any role beside allowing recursion scheme.
     * This implicit conversion, allows using it interchangeably without creating new objects. or casting manually*/

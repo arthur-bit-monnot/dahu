@@ -1,6 +1,6 @@
 package dahu.planning.planner
 
-import dahu.model.input.{Expr, Ident, Input}
+import dahu.model.input.{Expr, Ident, Input, TypedIdent}
 import dahu.planning.model.common._
 import dahu.planning.model.core._
 import dahu.planning.model.transforms.ActionInstantiation
@@ -19,7 +19,7 @@ object Action {
     counter += 1
     val act = ActionInstantiation.instance(template, s"${template.name}_$counter")
     val argsRewrite: Arg => Expr[Literal] = {
-      case a @ Arg(_, tpe) => Input(Ident(a))(ctx.specializedTags(tpe))
+      case a @ Arg(_, tpe) => Input(TypedIdent(Ident(a), ctx.specializedTags(tpe)))
     }
 
     val chronicle = act.content.foldLeft(Chronicle.empty(ctx)) {

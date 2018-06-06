@@ -9,7 +9,7 @@ object SolverTests extends TestSuite {
 
   private def fail(): Unit = assert(false)
 
-  def findPlan(runtime: Int = 15)(implicit testPath: utest.framework.TestPath) = {
+  def findPlan(runtime: Int = 15)(implicit testPath: utest.framework.TestPath): Unit = {
     val Seq(domName, pbName) = testPath.value.takeRight(2)
     val PddlProblem(dom, pb) = Extractor.extract(domName, pbName).getOrElse(fail())
     assertMatch(Main.solve(dom, pb, Config(maxRuntime = runtime.seconds))) {

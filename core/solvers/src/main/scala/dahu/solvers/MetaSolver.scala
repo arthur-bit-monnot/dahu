@@ -1,7 +1,7 @@
 package dahu.solvers
 
 import dahu.graphs.DAG
-import dahu.model.input.{Expr, Ident, Input}
+import dahu.model.input.{Expr, Ident, Input, TypedIdent}
 import dahu.model.interpreter.Interpreter
 import dahu.model.ir.Total
 import dahu.model.problem.API
@@ -37,7 +37,7 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
   def solutionEvaluator[A](ass: Expr[_] => Value): Expr[A] => Interpreter.Result[A] =
     e => {
       implicit val tn = Total.treeNodeInstance
-      val assignment: Map[Ident, Value] = DAG[cats.Id, Expr[Any]]
+      val assignment: Map[TypedIdent[Any], Value] = DAG[cats.Id, Expr[Any]]
         .descendantsAndSelf(e)
         .collect { case i: Input[Any] => i }
         .map(i => (i.id, ass(i)))

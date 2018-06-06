@@ -3,7 +3,7 @@ package dahu.model.interpreter
 import cats._
 import cats.implicits._
 import dahu.graphs.TreeNode
-import dahu.model.input.{Ident, Lambda}
+import dahu.model.input.{Ident, Lambda, TypedIdent}
 import dahu.model.ir._
 import dahu.model.types._
 import dahu.recursion.FAlgebra
@@ -83,11 +83,12 @@ object LambdaInterpreter {
   case class Pending[T](e: StaticF[Result[T]], stack: List[Lambda.LambdaIdent]) extends Result[T]
   case object Empty extends Result[Nothing]
 
-  def partialEvalAlgebra2(valueOf: Ident => Option[Value]): FAlgebra[StaticF, Result[Value]] =
+  def partialEvalAlgebra2(
+      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, Result[Value]] =
     partialEvalAlgebra(valueOf, _ => None)
 
   private def partialEvalAlgebra(
-      valueOf: Ident => Option[Value],
+      valueOf: TypedIdent[Any] => Option[Value],
       lambdaParamsBind: Lambda.LambdaIdent => Option[Value]): FAlgebra[StaticF, Result[Value]] =
     e => {
       val res = e match {

@@ -13,6 +13,10 @@ import utest._
 
 object Products extends TestSuite {
 
+  def liftNameMap(m: Any => Value): TypedIdent[Any] => Value = {
+    case TypedIdent(Ident(s), _) => m(s)
+  }
+
   def tests = Tests {
 
     "interval" - {
@@ -39,11 +43,13 @@ object Products extends TestSuite {
         API.eval(constrained, _ => Value(0)) ==> ConstraintViolated
         API.eval(constrained, _ => Value(1)) ==> ConstraintViolated
 
-        val inputs: Ident => Value = {
-          case Ident("s") => Value(0)
-          case Ident("e") => Value(1)
-          case _          => unexpected
+        val nameMaps: Any => Value = {
+          case "s" => Value(0)
+          case "e" => Value(1)
+          case _   => unexpected
         }
+
+        val inputs: TypedIdent[Any] => Value = liftNameMap(nameMaps)
 
         Interpreter.eval(ast)((vid: ast.VID) => inputs(ast.variables(vid).id)) ==> Some(
           Interval[cats.Id](0, 1))
@@ -58,11 +64,11 @@ object Products extends TestSuite {
         Interpreter.eval(ast)(_ => Value(1)) ==> Some(Interval[cats.Id](1, 1))
 
         val inputs: ast.VID => Value = x =>
-          ast.variables(x).id match {
-            case Ident("s") => Value(0)
-            case Ident("e") => Value(1)
-            case _          => unexpected
-        }
+          liftNameMap({
+            case "s" => Value(0)
+            case "e" => Value(1)
+            case _   => unexpected
+          })(ast.variables(x).id)
         Interpreter.eval(ast)(inputs) ==> Some(Interval[cats.Id](0, 1))
       }
     }
