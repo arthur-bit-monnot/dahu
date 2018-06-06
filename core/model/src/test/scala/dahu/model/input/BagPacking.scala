@@ -7,6 +7,7 @@ import dahu.model.problem.API
 import dahu.model.problem.API.evalTotal
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
+import dahu.model.validation.Validation
 import utest._
 
 object BagPacking extends TestSuite {
@@ -33,6 +34,17 @@ object BagPacking extends TestSuite {
 
   def tests = Tests {
 
+    "fuzzing" - {
+      "shallow" - {
+        "valid" - Validation.fuzzedEvalCheck(valid)
+        "utility" - Validation.fuzzedEvalCheck(utility)
+      }
+      "deep" - {
+        "valid" - Validation.deepFuzzedEvalCheck(valid)
+        "utility" - Validation.deepFuzzedEvalCheck(utility)
+      }
+    }
+
     "satisfaction" - {
       val ast = Algebras.parse(valid)
       "all-true" - {
@@ -53,7 +65,7 @@ object BagPacking extends TestSuite {
           Map("x1" -> true, "x2" -> true) -> Some(false),
         )
         for((inputs, expected) <- possibleBinds) {
-          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.toString))
+          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.id.toString))
           val result = Interpreter.eval(ast)(valueOf)
           result ==> expected
         }
@@ -80,7 +92,7 @@ object BagPacking extends TestSuite {
           Map("x1" -> true, "x2" -> true) -> Interpreter.ConstraintViolated
         )
         for((inputs, expected) <- possibleBinds) {
-          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.toString))
+          val valueOf: ast.VID => Value = id => Value(inputs(ast.variables(id).id.id.toString))
           val result = Interpreter.evalWithFailureCause(ast)(valueOf)
           result ==> expected
         }

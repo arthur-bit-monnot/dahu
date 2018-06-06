@@ -18,6 +18,11 @@ object NumSolutionsTest extends TestSuite {
     GraphColoring,
     Jobshop
   )
+  val instances =
+    for {
+      fam <- corpus
+      (instanceName, instance) <- fam.instancesMap.toIterable // conversion to iterable to preserve order when traversing LinkedHashMap
+    } yield (s"${fam.familyName}/$instanceName", instance)
 
   val solvers = Seq(
 //    CSPPartialSolver.builder,
@@ -51,11 +56,6 @@ object NumSolutionsTest extends TestSuite {
 
   def tests = Tests {
     "corpus" - {
-      val instances =
-        for {
-          fam <- corpus
-          (instanceName, instance) <- fam.instancesMap.toIterable // conversion to iterable to preserve order when traversing LinkedHashMap
-        } yield (s"${fam.familyName}/$instanceName", instance)
 
       "num-solutions-z3" - {
         val solver = Z3PartialSolver.builder
