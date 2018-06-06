@@ -5,7 +5,7 @@ import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
 import dahu.model.input.{Expr, Ident, TypedIdent}
-import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.{Interpreter, PEval}
 import dahu.model.ir.{ExprF, NoApplyF, StaticF, Total}
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
@@ -87,7 +87,7 @@ object API {
       .eval[Interpreter.Result[Value]](Interpreter.partialEvalAlgebra(inputs))
       .asInstanceOf[Interpreter.Result[T]]
 
-  def evalTotal(expr: Expr[_], inputs: TypedIdent[Any] => Value): IR[Value] =
+  def evalTotal(expr: Expr[_], inputs: TypedIdent[Any] => Value): IR[PEval[Any]] =
     API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs))
 
   implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {

@@ -1,7 +1,5 @@
 package dahu.utils
 
-import scala.reflect.ClassTag
-import scala.{specialized => sp}
 import spire.algebra._
 import spire.math.QuickSort
 import spire.syntax.all._
@@ -134,6 +132,16 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     cfor(0)(_ < l2, _ + 1) { i =>
       out(l1 + i) = buf(i)
     }
+    Vec.unsafe(out)
+  }
+
+  def :+(a: A): Vec[A] = {
+    val l = length
+    val out = new Array[A](length + 1)
+    cfor(0)(_ < l, _ + 1) { i =>
+      out(i) = this(i)
+    }
+    out(length) = a
     Vec.unsafe(out)
   }
 
@@ -494,7 +502,7 @@ object Vec {
 
   object Vec3 {
     def unapply[@specialized(Int) A](arg: Vec[A]): Option[(A, A, A)] =
-      if(arg.length == 2) Some((arg(0), arg(1), arg(2)))
+      if(arg.length == 3) Some((arg(0), arg(1), arg(2)))
       else None
   }
 
@@ -508,8 +516,15 @@ object Vec {
   }
 
   /******** Type classes *******/
-  implicit object sFunctorInstance extends SFunctor[Vec] {
+  implicit object sTraverseInstance extends STraverse[Vec] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Vec[A])(f: A => B): Vec[B] =
       fa.map(f)
+
+    override def traverse[G[_]: SApplicative, A, B: ClassTag](fa: Vec[A])(
+        f: A => G[B]): G[Vec[B]] = {
+      fa.foldLeft(SApplicative[G].pure(Vec[B]()))((acc, a) =>
+        SApplicative[G].map2(acc, f(a))(_ :+ _))
+    }
+
   }
 }

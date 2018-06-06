@@ -2,7 +2,7 @@ package dahu.solvers
 
 import dahu.graphs.DAG
 import dahu.model.input.{Expr, Ident, Input, TypedIdent}
-import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.{FEval, Interpreter}
 import dahu.model.ir.Total
 import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
@@ -44,10 +44,10 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
         .toMap
       val evaluation = pb.tree.cata(Interpreter.evalAlgebra(assignment))
       evaluation.get(e) match {
-        case IR(_, false, _)   => Interpreter.Empty
-        case IR(_, _, false)   => Interpreter.ConstraintViolated
-        case IR(v, true, true) => Interpreter.Res(v.asInstanceOf[A])
-        case _                 => unexpected("A bool expression did not eval to false/true")
+        case IR(_, FEval(false), _)                 => Interpreter.Empty
+        case IR(_, _, FEval(false))                 => Interpreter.ConstraintViolated
+        case IR(FEval(v), FEval(true), FEval(true)) => Interpreter.Res(v.asInstanceOf[A])
+        case _                                      => ???
       }
     }
 

@@ -6,6 +6,9 @@ import scala.reflect.ClassTag
 
 package object utils {
 
+  private[dahu] type sp = scala.specialized
+  private[dahu] type ClassTag[X] = scala.reflect.ClassTag[X]
+
   def allCombinations[T](inputSeq: Seq[Set[T]]): Set[List[T]] = {
     inputSeq.toList match {
       case Nil           => Set(Nil)
@@ -35,5 +38,16 @@ package object utils {
 
   def untagged[T <: SubInt, F[_]](v: F[T]): F[Int] = v.asInstanceOf[F[Int]]
   private def tagged[T <: SubInt, F[_]](v: F[Int]): F[T] = v.asInstanceOf[F[T]]
+
+  implicit final class SFunctorOps[F[_], A](private val lhs: F[A]) extends AnyVal {
+    def smap[@sp(Int) B: ClassTag](f: A => B)(implicit F: SFunctor[F]): F[B] =
+      F.smap(lhs)(f)
+  }
+
+  implicit final class SequenceOps[F[_], G[_], A](private val lhs: F[G[A]]) extends AnyVal {
+    def sequence(implicit T: STraverse[F], App: SApplicative[G], ct: ClassTag[A]): G[F[A]] =
+      T.sequence[G, A](lhs)
+
+  }
 
 }

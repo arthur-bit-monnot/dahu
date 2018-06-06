@@ -1,35 +1,51 @@
 package dahu.model.interpreter
 
-import cats.Foldable
 import cats.implicits._
 import cats.kernel.Monoid
 import dahu.utils._
-import dahu.model.input.{Ident, Present, TypedIdent}
+import dahu.model.input.{Lambda, TypedIdent}
 import dahu.model.ir._
 import dahu.model.types._
 import dahu.utils.errors._
 import dahu.recursion._
 import dahu.recursion.Recursion._
+import dahu.utils.Vec.Vec3
 
 import scala.annotation.tailrec
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
 object Interpreter {
 
-  def evalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[Total, Value] = {
-    case InputF(id, _)            => valueOf(id)
-    case CstF(v, _)               => v
-    case ComputationF(f, args, _) => Value(f.compute(args))
-    case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
+  def evalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[Total, PEval[Any]] = {
+    case InputF(id, _) => FEval(valueOf(id))
+    case CstF(v, _)    => FEval(v)
+    case ComputationF(f, args, _) =>
+      args.sequence
+        .map(as => Value(f.computeFromAny(as)))
+    case SequenceF(members, _) => PEval.sequence(members)
+    case ProductF(members, t) =>
+      members.sequence
+        .map(as => t.idProd.buildFromTerms(as))
     case ITEF(cond, onTrue, onFalse, _) =>
-      cond match {
-        case true  => onTrue
-        case false => onFalse
-        case _     => dahu.utils.errors.unexpected
+      Vec(cond, onTrue, onFalse).sequence
+        .map {
+          case Vec3(c, t, f) =>
+            c match {
+              case true  => t
+              case false => f
+              case _     => unexpected
+            }
+          case _ => unexpected
+        }
+    case LambdaParamF(id, tpe) =>
+      new PEval[Any] {
+        override def bind(bindId: Lambda.LambdaIdent, v: Any) =
+          if(bindId == id)
+            FEval(v)
+          else
+            this
       }
-    case SequenceF(values, _) => Value(values)
+    case LambdaF(in, tree, id, tpe) => PEFunc(id, tree)
   }
 
   def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[NoApplyF, Result[Value]] = {
@@ -69,8 +85,9 @@ object Interpreter {
       }
     case PresentF(v) =>
       v match {
-        case Empty => Res(Value(false)) //TODO, semantics for ConstraintViolated
-        case _     => Res(Value(true))
+        case Empty              => Res(Value(false))
+        case ConstraintViolated => ConstraintViolated
+        case _                  => Res(Value(true))
       }
     case ValidF(v) =>
       v match {
@@ -79,29 +96,6 @@ object Interpreter {
       }
     case _: LambdaF[_]      => ??? // TODO: generation of functions from lambda not implemented yet
     case _: LambdaParamF[_] => ???
-  }
-
-  def eval(ast: TotalSubAST[_])(root: ast.ID, inputs: ast.VID => Value): Value = {
-    val input: InputF[_] => Value = {
-      val map: Map[InputF[_], Value] =
-        ast.variables.domain.toIterable().map(i => (ast.variables(i), Value(inputs(i)))).toMap
-      x =>
-        map(x)
-    }
-    val alg: FAlgebra[Total, Value] = {
-      case x: InputF[_]             => input(x)
-      case CstF(v, _)               => v
-      case ComputationF(f, args, _) => Value(f.compute(args))
-      case SequenceF(members, _)    => Value(members)
-      case ProductF(members, t)     => Value(t.idProd.buildFromValues(members))
-      case ITEF(cond, onTrue, onFalse, _) =>
-        cond match {
-          case true  => onTrue
-          case false => onFalse
-          case _     => unexpected
-        }
-    }
-    hylo(ast.tree.asFunction, alg)(root)
   }
 
   /** Evaluates the given AST with the provided inputs.

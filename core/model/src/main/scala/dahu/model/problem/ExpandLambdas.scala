@@ -5,8 +5,7 @@ import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.model.ir._
 import dahu.model.problem.ContextualLazyForestMap.ContextualPreprocessor
-import dahu.utils.{Bag, SFunctor}
-import dahu.utils.SFunctor._
+import dahu.utils._
 import spire.sp
 
 import scala.collection.{immutable, mutable}

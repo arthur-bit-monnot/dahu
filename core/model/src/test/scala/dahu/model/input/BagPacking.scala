@@ -1,13 +1,14 @@
 package dahu.model.input
 
 import dahu.model.compiler.Algebras
-import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.{FEval, Interpreter}
 import dahu.model.interpreter.Interpreter.Res
 import dahu.model.problem.API
 import dahu.model.problem.API.evalTotal
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
 import dahu.model.validation.Validation
+import dahu.utils._
 import utest._
 
 object BagPacking extends TestSuite {
@@ -49,11 +50,11 @@ object BagPacking extends TestSuite {
       val ast = Algebras.parse(valid)
       "all-true" - {
         Interpreter.eval(ast)(_ => Value(true)) ==> Some(false)
-        evalTotal(valid, _ => Value(true))      ==> IR(false, true, true)
+        evalTotal(valid, _ => Value(true))      ==> IR(false, true, true).smap(FEval(_))
       }
       "all-false" - {
         Interpreter.eval(ast)(_ => Value(false)) ==> Some(true)
-        evalTotal(valid, _ => Value(false))      ==> IR(true, true, true)
+        evalTotal(valid, _ => Value(false))      ==> IR(true, true, true).smap(FEval(_))
       }
 
       "predefined-results" - {
@@ -76,11 +77,11 @@ object BagPacking extends TestSuite {
       val ast = Algebras.parse(problem)
       "all-true" - {
         Interpreter.eval(ast)(_ => Value(true)) ==> None
-        evalTotal(problem, _ => Value(true))    ==> IR(4.7, true, false)
+        evalTotal(problem, _ => Value(true))    ==> IR(4.7, true, false).smap(FEval(_))
       }
       "all-false" - {
         Interpreter.eval(ast)(_ => Value(false)) ==> Some(0.0)
-        evalTotal(problem, _ => Value(false))    ==> IR(0.0, true, true)
+        evalTotal(problem, _ => Value(false))    ==> IR(0.0, true, true).smap(FEval(_))
       }
 
       "predefined-results" - {

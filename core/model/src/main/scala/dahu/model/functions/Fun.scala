@@ -8,6 +8,7 @@ abstract class Fun[O: Tag] {
   final val outType: Tag[O] = Tag[O]
   require(outType != null)
   def compute(args: Vec[Value]): O
+  def computeFromAny(args: Vec[Any]): O = compute(args.asInstanceOf[Vec[Value]])
 
   def name: String
 

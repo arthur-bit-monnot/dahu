@@ -1,6 +1,7 @@
 package dahu.model.input
 
-import dahu.model.interpreter.Interpreter
+import dahu.model.interpreter.{FEval, Interpreter}
+import dahu.utils._
 import dahu.utils.debug._
 import dahu.utils.errors._
 import dahu.model.types._
@@ -54,8 +55,9 @@ object Products extends TestSuite {
         Interpreter.eval(ast)((vid: ast.VID) => inputs(ast.variables(vid).id)) ==> Some(
           Interval[cats.Id](0, 1))
 
-        API.eval(constrained, inputs)      ==> Res(Interval[cats.Id](0, 1))
+        API.eval(constrained, inputs) ==> Res(Interval[cats.Id](0, 1))
         API.evalTotal(constrained, inputs) ==> IR(Interval[cats.Id](0, 1), true, true)
+          .smap(FEval(_))
       }
       "eval (<=)" - {
         val constrained = prod.subjectTo(x => Interval.Start(x) <= Interval.End(x))

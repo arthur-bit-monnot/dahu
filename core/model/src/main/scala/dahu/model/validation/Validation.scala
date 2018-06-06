@@ -1,17 +1,13 @@
 package dahu.model.validation
 
 import cats._
-import cats.implicits._
 import dahu.model.input.{Expr, Ident, TypedIdent}
-import dahu.model.interpreter.{Interpreter, LambdaInterpreter}
+import dahu.model.interpreter.{FEval, Interpreter, LambdaInterpreter}
 import dahu.model.interpreter.LambdaInterpreter._
 import dahu.model.ir.StaticF
-import dahu.model.math.{bool, int}
-import dahu.model.problem.{API, LazyTree}
+import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
-import dahu.model.types.Tag._
 import dahu.model.types._
-import dahu.recursion.FAlgebra
 import dahu.utils.SFunctor
 
 import scala.collection.mutable
@@ -155,9 +151,11 @@ object Validation {
         val evaluated = ev.cata(Interpreter.evalAlgebra(in.andThen(_.get)))
         new Evaluator {
           override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e) match {
-            case IR(_, false, _) => LambdaInterpreter.Empty
-            case IR(_, _, false) => LambdaInterpreter.ConstraintViolated
-            case IR(v, _, _)     => LambdaInterpreter.Res(v.asInstanceOf[A])
+            case IR(_, FEval(false), _) => LambdaInterpreter.Empty
+            case IR(_, _, FEval(false)) => LambdaInterpreter.ConstraintViolated
+            case IR(FEval(v), FEval(true), FEval(true)) =>
+              LambdaInterpreter.Res(v.asInstanceOf[A])
+            case _ => ???
           }
           override def rep[A](e: Expr[A]): Any =
             SFunctor[IR].smap(ev.getTreeRoot(e))(i => evaluated.getInternal(i))

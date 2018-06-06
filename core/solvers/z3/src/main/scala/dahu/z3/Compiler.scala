@@ -28,13 +28,13 @@ object Compiler {
         res <- Try(alg(ITEF(c, t, f, tpe)))
       } yield res
     case ComputationF(f, args, t) =>
-      args.toList.sequence
+      args.sequence
         .flatMap(as => Try(alg(ComputationF(f, as, t))))
     case ProductF(members, t) =>
-      members.toList.sequence
+      members.sequence
         .flatMap(ms => Try(alg(ProductF(ms, t))))
     case SequenceF(members, t) =>
-      members.toList.sequence
+      members.sequence
         .flatMap(ms => Try(alg(SequenceF(ms, t))))
 
   }
