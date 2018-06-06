@@ -92,7 +92,7 @@ object Validation {
                 val intervalSize = t.max - t.min + 1
                 val v = rand.nextInt(intervalSize) + t.min
                 assert(t.min <= v && v <= t.max)
-                Some(Value(v))
+                Some(t.toValue(v))
               case x =>
                 dahu.utils.debug.warning(s"Fuzzer does not support this Tag: $x")
                 None
@@ -124,7 +124,7 @@ object Validation {
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra2(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e).map(_.asInstanceOf[A])
+          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e).asInstanceOf[Result[A]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
         }
@@ -139,7 +139,7 @@ object Validation {
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra2(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e).map(_.asInstanceOf[A])
+          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e).asInstanceOf[Result[A]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
         }
