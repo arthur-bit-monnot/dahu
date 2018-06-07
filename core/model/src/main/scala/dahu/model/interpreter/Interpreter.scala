@@ -16,9 +16,13 @@ import scala.reflect.ClassTag
 
 object Interpreter {
 
-  def evalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[Total, PEval[Any]] = {
-    case InputF(id, _) => FEval(valueOf(id))
-    case CstF(v, _)    => FEval(v)
+  def evalAlgebra(valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[Total, PEval[Any]] = {
+    case InputF(id, _) =>
+      valueOf(id) match {
+        case Some(v) => FEval(v)
+        case None    => Unknown(Set(id))
+      }
+    case CstF(v, _) => FEval(v)
     case ComputationF(f, args, _) =>
       args.sequence
         .map(as => Value(f.computeFromAny(as)))

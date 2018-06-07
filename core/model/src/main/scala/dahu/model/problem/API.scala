@@ -88,7 +88,7 @@ object API {
       .asInstanceOf[Interpreter.Result[T]]
 
   def evalTotal(expr: Expr[_], inputs: TypedIdent[Any] => Value): IR[PEval[Any]] =
-    API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs))
+    API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs.andThen(Some(_))))
 
   implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {
     def noDynamics: LazyTree[K, StaticF, Id, _] = eliminitateDynamics(tree)

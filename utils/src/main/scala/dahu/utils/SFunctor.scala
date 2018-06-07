@@ -1,8 +1,5 @@
 package dahu.utils
 
-import scala.reflect.ClassTag
-import scala.{specialized => sp}
-
 trait SFunctor[F[_]] {
 
   def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: F[A])(f: A => B): F[B]

@@ -7,9 +7,6 @@ import scala.reflect.ClassTag
 
 package object maps {
 
-  private[maps] type sp = scala.specialized
-  private[maps] type ClassTag[A] = scala.reflect.ClassTag[A]
-
   class Counter {
     type ID = Int with Wrapped[this.type]
     private var nextValue: Int = 0

@@ -42,7 +42,7 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
         .collect { case i: Input[Any] => i }
         .map(i => (i.id, ass(i)))
         .toMap
-      val evaluation = pb.tree.cata(Interpreter.evalAlgebra(assignment))
+      val evaluation = pb.tree.cata(Interpreter.evalAlgebra(assignment.get))
       evaluation.get(e) match {
         case IR(_, FEval(false), _)                 => Interpreter.Empty
         case IR(_, _, FEval(false))                 => Interpreter.ConstraintViolated

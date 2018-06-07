@@ -1,7 +1,5 @@
 package dahu.utils
 
-import scala.reflect.ClassTag
-
 object Graph {
 
   def tarjan[V: ClassTag](graph: Map[V, Set[V]]): Array[debox.Set[V]] = {

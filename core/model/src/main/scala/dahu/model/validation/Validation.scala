@@ -150,7 +150,7 @@ object Validation {
       private val parsed = API.parse(e)
       private val ev = API.makeTotal(API.expandLambdas(API.eliminitateDynamics(parsed))).tree.fixID
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
-        val evaluated = ev.cata(Interpreter.evalAlgebra(in.andThen(_.get)))
+        val evaluated = ev.cata(Interpreter.evalAlgebra(in))
         new Evaluator {
           override def eval[A](e: Expr[A]): Result[PEval[A]] = evaluated.get(e) match {
             case IR(_, FEval(false), _) => Empty

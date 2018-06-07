@@ -1,9 +1,7 @@
 package dahu.maps.growable
 
 import dahu.utils._
-import dahu.maps.{ArrayMap, ClassTag, SharedIMap}
-
-import scala.{specialized => sp}
+import dahu.maps.{ArrayMap, SharedIMap}
 
 final class GrowableBiMap[@sp V: ClassTag] private[maps] (
     private val mapFromInt: debox.Map[Int, V],

@@ -3,8 +3,6 @@ package dahu.utils
 import algebra.Order
 import spire.syntax.cfor._
 
-import scala.reflect.ClassTag
-
 object structures {
 
   object ArrayUtils {
