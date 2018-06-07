@@ -40,13 +40,13 @@ object DynamicTests extends TestSuite {
     "validation" - {
       import dahu.model.interpreter._
       "positive" - {
-        Validation.assertEvaluatesTo(result, _ => Some(1))(Res(FEval(1)))
-        Validation.assertEvaluatesTo(result, _ => Some(2))(Res(FEval(2)))
+        Validation.assertEvaluatesTo(result, _ => Some(1))(FEval(1))
+        Validation.assertEvaluatesTo(result, _ => Some(2))(FEval(2))
       }
       "negative" - {
-        Validation.assertEvaluatesTo(result, _ => Some(0))(ConstraintViolated)
-        Validation.assertEvaluatesTo(result, _ => Some(3))(ConstraintViolated)
-        Validation.assertEvaluatesTo(result, _ => Some(6))(ConstraintViolated)
+        Validation.assertEvaluatesTo(result, _ => Some(0))(PConstraintViolated)
+        Validation.assertEvaluatesTo(result, _ => Some(3))(PConstraintViolated)
+        Validation.assertEvaluatesTo(result, _ => Some(6))(PConstraintViolated)
       }
     }
 

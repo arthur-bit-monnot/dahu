@@ -9,114 +9,87 @@ import dahu.utils.Vec.Vec2
 import dahu.utils.errors._
 
 object LambdaInterpreter {
-  private type EvalStack[X] = Result[PEval[X]]
-  private implicit val stackedApp: SApplicative[EvalStack] = SApplicative[Result].compose[PEval]
-
-  private def stackSequenceMap[A: ClassTag, B: ClassTag](vfa: Vec[EvalStack[A]])(
-      f: Vec[A] => B): EvalStack[B] = {
-    val trav = STraverse[Vec].sequence[EvalStack, A](vfa)
-    stackedApp.smap(trav)(f)
-  }
-  private def flatten[A](fa: EvalStack[EvalStack[A]]): EvalStack[A] = fa match {
-    case Empty              => Empty
-    case ConstraintViolated => ConstraintViolated
-    case Res(v) =>
-      v match {
-        case FEval(x)                   => x
-        case LambdaParamPlaceHolder(id) => Res(LambdaParamPlaceHolder(id))
-        case Unknown(unboundVars)       => Res(Unknown(unboundVars))
-        case PEFunc(id, tree) =>
-          val flatTree = flatten(Res(tree))
-          SApplicative[Result].smap(flatTree)(t => PEFunc(id, t))
-        case Mapped(pe, f) => // pe: PEval[Y],  f: Y => EvalStack[A]
-          // ???(Mapped((pe': PEval[Y],  f': Y => A)
-          pe match {
-            case FEval(v)                   => f(v)
-            case LambdaParamPlaceHolder(id) => Res(LambdaParamPlaceHolder(id))
-            case Unknown(unboundVars)       => Res(Unknown(unboundVars))
-            case _                          => ???
-          }
-      }
-  }
-  def flatMap[A, B: ClassTag](fa: EvalStack[A])(f: A => EvalStack[B]): EvalStack[B] =
-    flatten(stackedApp.smap(fa)(f))
 
   def partialEvalAlgebra(
-      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, Result[PEval[Value]]] =
+      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, PEval[Value]] =
     e => {
-      val res: Result[PEval[Any]] = e match {
+      val res: PEval[Any] = e match {
 
         case ApplyF(lbd, param, _) =>
-          Vec(lbd, param).sequence
-            .map {
-              case Vec2(f: PEFunc[Value], p) => f(p)
-              case _                         => unexpected
-
-            }
+          assert(lbd.applicationStack.nonEmpty)
+          val x = lbd.apply(param)
+          x
 
         case LambdaF(p, ast, id, _) =>
-          assert(p.isInstanceOf[Res[_]])
-          ast.map(PEFunc(id, _))
+          ast match {
+            case PEmpty              => PEmpty
+            case PConstraintViolated => PConstraintViolated
+            case x                   => PEFunc(id, x)
+          }
 
-        case LambdaParamF(id, _) => Res(LambdaParamPlaceHolder(id))
+        case LambdaParamF(id, _) => LambdaParamPlaceHolder(id)
 
         case x @ InputF(id, _) =>
           valueOf(id) match {
-            case Some(v) => Res(FEval(v))
-            case None    => Res(Unknown(Set(id)))
+            case Some(v) => FEval(v)
+            case None    => Unknown(Set(id))
           }
-        case CstF(v, _) => Res(FEval(v))
+        case CstF(v, _) => FEval(v)
         case ComputationF(f, args, _) =>
-          stackSequenceMap(args) { as =>
+          args.sequence.smap { as =>
             f.compute(as)
           }
         case ProductF(members, t) =>
-          stackSequenceMap(members) { ms =>
+          members.sequence.smap { ms =>
             t.idProd.buildFromValues(ms)
           }
         case SequenceF(members, t) =>
-          stackSequenceMap(members)(identity)
+          members.sequence
         case ITEF(cond, onTrue, onFalse, _) =>
-          flatMap(cond) {
+          assert(cond.applicationStack.isEmpty)
+          assert(onTrue.applicationStack == onFalse.applicationStack)
+          FlatMapped[Value, Value](cond, {
             case true  => onTrue
             case false => onFalse
             case _     => dahu.utils.errors.unexpected
-          }
+          }, onTrue.applicationStack)
         case Partial(value, cond, _) =>
+          assert(cond.applicationStack.isEmpty)
           cond match {
-            case Empty              => value
-            case ConstraintViolated => ConstraintViolated
+            case PEmpty              => value
+            case PConstraintViolated => PConstraintViolated
             case _ =>
-              flatMap(cond) {
+              FlatMapped[Value, Value](cond, {
                 case true  => value
-                case false => ConstraintViolated
+                case false => PConstraintViolated
                 case _     => unexpected
-              }
+              }, value.applicationStack)
           }
         case OptionalF(value, present, _) =>
+          assert(present.applicationStack.isEmpty)
           present match {
-            case Empty              => value
-            case ConstraintViolated => ConstraintViolated
+            case PEmpty              => value
+            case PConstraintViolated => PConstraintViolated
             case _ =>
-              flatMap(present) {
+              FlatMapped[Value, Value](present, {
                 case true  => value
-                case false => Empty
+                case false => PEmpty
                 case x     => unexpected(s"Present does not evaluates to a boolean but to: $x")
-              }
+              }, value.applicationStack)
           }
         case PresentF(v) =>
           v match {
-            case Empty              => stackedApp.pure(false)
-            case ConstraintViolated => ConstraintViolated
-            case Res(_)             => stackedApp.pure(true)
+            case PEmpty              => FEval(false)
+            case PConstraintViolated => PConstraintViolated
+            case FEval(_)            => FEval(true)
           }
         case ValidF(v) =>
           v match {
-            case Empty              => Empty
-            case ConstraintViolated => stackedApp.pure(false)
-            case Res(_)             => stackedApp.pure(true)
+            case PEmpty              => PEmpty
+            case PConstraintViolated => FEval(false)
+            case FEval(_)            => FEval(true)
           }
       }
-      res.asInstanceOf[EvalStack[Value]]
+      res.asInstanceOf[PEval[Value]]
     }
 }

@@ -42,6 +42,8 @@ package object utils {
   implicit final class SFunctorOps[F[_], A](private val lhs: F[A]) extends AnyVal {
     def smap[@sp(Int) B: ClassTag](f: A => B)(implicit F: SFunctor[F]): F[B] =
       F.smap(lhs)(f)
+
+    def flatMap[B](f: A => F[B])(implicit M: SMonad[F]): F[B] = M.flatMap(lhs)(f)
   }
 
   implicit final class SequenceOps[F[_], G[_], A](private val lhs: F[G[A]]) extends AnyVal {

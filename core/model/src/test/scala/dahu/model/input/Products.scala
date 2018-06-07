@@ -1,6 +1,6 @@
 package dahu.model.input
 
-import dahu.model.interpreter.{FEval, Interpreter}
+import dahu.model.interpreter.{FEval, Interpreter, PConstraintViolated}
 import dahu.utils._
 import dahu.utils.debug._
 import dahu.utils.errors._
@@ -41,8 +41,8 @@ object Products extends TestSuite {
         Interpreter.eval(ast)(_ => Value(0)) ==> None
         Interpreter.eval(ast)(_ => Value(1)) ==> None
 
-        API.eval(constrained, _ => Value(0)) ==> ConstraintViolated
-        API.eval(constrained, _ => Value(1)) ==> ConstraintViolated
+        API.eval(constrained, _ => Value(0)) ==> PConstraintViolated
+        API.eval(constrained, _ => Value(1)) ==> PConstraintViolated
 
         val nameMaps: Any => Value = {
           case "s" => Value(0)
@@ -55,7 +55,7 @@ object Products extends TestSuite {
         Interpreter.eval(ast)((vid: ast.VID) => inputs(ast.variables(vid).id)) ==> Some(
           Interval[cats.Id](0, 1))
 
-        API.eval(constrained, inputs) ==> Res(Interval[cats.Id](0, 1))
+        API.eval(constrained, inputs) ==> FEval(Interval[cats.Id](0, 1))
         API.evalTotal(constrained, inputs) ==> IR(Interval[cats.Id](0, 1), true, true)
           .smap(FEval(_))
       }

@@ -25,14 +25,14 @@ object Interpreter {
     case CstF(v, _) => FEval(v)
     case ComputationF(f, args, _) =>
       args.sequence
-        .map(as => Value(f.computeFromAny(as)))
-    case SequenceF(members, _) => PEval.sequence(members)
+        .smap(as => Value(f.computeFromAny(as)))
+    case SequenceF(members, _) => members.sequence
     case ProductF(members, t) =>
       members.sequence
-        .map(as => t.idProd.buildFromTerms(as))
+        .smap(as => t.idProd.buildFromTerms(as))
     case ITEF(cond, onTrue, onFalse, _) =>
       Vec(cond, onTrue, onFalse).sequence
-        .map {
+        .smap {
           case Vec3(c, t, f) =>
             c match {
               case true  => t

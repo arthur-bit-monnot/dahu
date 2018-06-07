@@ -16,14 +16,14 @@ import scala.util.Random
 object Validation {
 
   /** Checks that all possible methods to evaluate `e` give the same result and return it. */
-  def checkedEval[A](e: Expr[A], in: TypedIdent[Any] => Option[Value]): Result[Any] = {
+  def checkedEval[A](e: Expr[A], in: TypedIdent[Any] => Option[Value]): PEval[Any] = {
     checkedEval(e, multiLayerFactory.build(e).evaluator(in))
   }
-  private def checkedEval[A](e: Expr[A], evaluator: Evaluator): Result[PEval[A]] = {
+  private def checkedEval[A](e: Expr[A], evaluator: Evaluator): PEval[A] = {
     evaluator.eval(e)
   }
 
-  def deepCheckedEval[A](e: Expr[A], layer: Evaluator): Result[Any] = {
+  def deepCheckedEval[A](e: Expr[A], layer: Evaluator): PEval[Any] = {
     Expr.dagInstance.topologicalOrderFromRoot(e).reverse.foreach { se =>
       layer.eval(se)
     }
@@ -32,22 +32,21 @@ object Validation {
 
   /** Checks that all expression yield the same result. */
   def checkedMultiEval[A](es: Iterable[Expr[A]],
-                          in: TypedIdent[Any] => Option[Value]): Result[Any] = {
+                          in: TypedIdent[Any] => Option[Value]): PEval[Any] = {
     val evals = es.toList.map(e => checkedEval(e, in))
     assert(allEquals(evals))
     evals.head
   }
 
   /** Checks that all methods for evaluating `e`, return `res` */
-  def assertEvaluatesTo[A](e: Expr[A], in: TypedIdent[Any] => Option[Any])(
-      res: Result[PEval[A]]): Unit = {
+  def assertEvaluatesTo[A](e: Expr[A], in: TypedIdent[Any] => Option[Any])(res: PEval[A]): Unit = {
     val v = checkedEval(e, in.asInstanceOf[TypedIdent[Any] => Option[Value]])
     assert(v == res, s"$v != $res")
   }
 
   /** Checks that all methods for evaluating `e`, return `res` */
   def assertAllEvaluateTo[A](es: Iterable[Expr[A]], in: TypedIdent[Any] => Option[Any])(
-      res: Result[PEval[A]]): Unit = {
+      res: PEval[A]): Unit = {
     val v = checkedMultiEval(es, in.asInstanceOf[TypedIdent[Any] => Option[Value]])
     assert(v == res, s"$v != $res")
   }
@@ -100,7 +99,7 @@ object Validation {
   }
 
   trait Evaluator {
-    def eval[A](e: Expr[A]): Result[PEval[A]]
+    def eval[A](e: Expr[A]): PEval[A]
     def rep[A](e: Expr[A]): Any
   }
   trait Layer {
@@ -120,8 +119,8 @@ object Validation {
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[PEval[A]] =
-            evaluated.get(e).asInstanceOf[Result[PEval[A]]]
+          override def eval[A](e: Expr[A]): PEval[A] =
+            evaluated.get(e).asInstanceOf[PEval[A]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
         }
@@ -136,8 +135,8 @@ object Validation {
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[PEval[A]] =
-            evaluated.get(e).asInstanceOf[Result[PEval[A]]]
+          override def eval[A](e: Expr[A]): PEval[A] =
+            evaluated.get(e).asInstanceOf[PEval[A]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
         }
@@ -152,18 +151,30 @@ object Validation {
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(Interpreter.evalAlgebra(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[PEval[A]] = evaluated.get(e) match {
-            case IR(_, FEval(false), _) => Empty
-            case IR(_, _, FEval(false)) => ConstraintViolated
+          override def eval[A](e: Expr[A]): PEval[A] = evaluated.get(e) match {
+            case IR(_, FEval(false), _) => PEmpty
+            case IR(_, _, FEval(false)) => PConstraintViolated
             case IR(FEval(v), FEval(true), FEval(true)) =>
-              Res(FEval(v.asInstanceOf[A]))
-            case _ => ???
+              FEval(v.asInstanceOf[A])
+            case _ => Pending // TODO, return a function.
           }
           override def rep[A](e: Expr[A]): Any =
             SFunctor[IR].smap(ev.getTreeRoot(e))(i => evaluated.getInternal(i))
         }
       }
     }
+  }
+
+  private def allEquivalent[A](l: List[PEval[A]]): Boolean = l match {
+    case Nil      => true
+    case a :: Nil => true
+    case a :: b :: tail =>
+      (a, b) match {
+        case _ if a == b  => allEquivalent(b :: tail)
+        case (Pending, _) => allEquivalent(b :: tail)
+        case (_, Pending) => allEquivalent(b :: tail)
+        case _            => false
+      }
   }
 
   val multiLayerFactory: LayerFactory = new LayerFactory {
@@ -174,16 +185,16 @@ object Validation {
           val evaluators = layers.map(_.evaluator(in))
 
           new Evaluator {
-            override def eval[A](e: Expr[A]): Result[PEval[A]] = {
-              val evals: List[Result[PEval[A]]] = evaluators.map(f => f.eval(e))
-              if(!allEquals(evals)) {
+            override def eval[A](e: Expr[A]): PEval[A] = {
+              val evals: List[PEval[A]] = evaluators.map(f => f.eval(e))
+              if(!allEquivalent(evals)) {
                 for(ev <- evaluators) {
                   println(ev)
                   println("  " + ev.rep(e))
                   println("  -> " + ev.eval(e))
                 }
               }
-              assert(allEquals(evals), s"Not all evaluations are equal: $evals")
+              assert(allEquivalent(evals), s"Not all evaluations are equal: $evals")
               evals.head
             }
 
