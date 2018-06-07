@@ -37,17 +37,11 @@ object Interpreter {
             }
           case _ => unexpected
         }
-    case LambdaParamF(id, tpe) =>
-      new PEval[Any] {
-        override def bind(bindId: Lambda.LambdaIdent, v: Any) =
-          if(bindId == id)
-            FEval(v)
-          else
-            this
-      }
+    case LambdaParamF(id, tpe)      => LambdaParamPlaceHolder(id)
     case LambdaF(in, tree, id, tpe) => PEFunc(id, tree)
   }
 
+  @deprecated("use the one in LambdaInterpreter instead", since = "now")
   def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[NoApplyF, Result[Value]] = {
     case InputF(id, _) => Res(valueOf(id))
     case CstF(v, _)    => Res(v)

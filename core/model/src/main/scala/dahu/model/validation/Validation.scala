@@ -3,7 +3,7 @@ package dahu.model.validation
 import cats._
 import dahu.model.input.{Expr, Ident, TypedIdent}
 import dahu.model.interpreter.{FEval, Interpreter, LambdaInterpreter}
-import dahu.model.interpreter.LambdaInterpreter._
+import dahu.model.interpreter._
 import dahu.model.ir.StaticF
 import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
@@ -16,15 +16,14 @@ import scala.util.Random
 object Validation {
 
   /** Checks that all possible methods to evaluate `e` give the same result and return it. */
-  def checkedEval[A](e: Expr[A],
-                     in: TypedIdent[Any] => Option[Value]): LambdaInterpreter.Result[Any] = {
+  def checkedEval[A](e: Expr[A], in: TypedIdent[Any] => Option[Value]): Result[Any] = {
     checkedEval(e, multiLayerFactory.build(e).evaluator(in))
   }
-  private def checkedEval[A](e: Expr[A], evaluator: Evaluator): Result[A] = {
+  private def checkedEval[A](e: Expr[A], evaluator: Evaluator): Result[PEval[A]] = {
     evaluator.eval(e)
   }
 
-  def deepCheckedEval[A](e: Expr[A], layer: Evaluator): LambdaInterpreter.Result[Any] = {
+  def deepCheckedEval[A](e: Expr[A], layer: Evaluator): Result[Any] = {
     Expr.dagInstance.topologicalOrderFromRoot(e).reverse.foreach { se =>
       layer.eval(se)
     }
@@ -40,14 +39,15 @@ object Validation {
   }
 
   /** Checks that all methods for evaluating `e`, return `res` */
-  def assertEvaluatesTo[A](e: Expr[A], in: TypedIdent[Any] => Option[Any])(res: Result[A]): Unit = {
+  def assertEvaluatesTo[A](e: Expr[A], in: TypedIdent[Any] => Option[Any])(
+      res: Result[PEval[A]]): Unit = {
     val v = checkedEval(e, in.asInstanceOf[TypedIdent[Any] => Option[Value]])
     assert(v == res, s"$v != $res")
   }
 
   /** Checks that all methods for evaluating `e`, return `res` */
   def assertAllEvaluateTo[A](es: Iterable[Expr[A]], in: TypedIdent[Any] => Option[Any])(
-      res: Result[A]): Unit = {
+      res: Result[PEval[A]]): Unit = {
     val v = checkedMultiEval(es, in.asInstanceOf[TypedIdent[Any] => Option[Value]])
     assert(v == res, s"$v != $res")
   }
@@ -100,7 +100,7 @@ object Validation {
   }
 
   trait Evaluator {
-    def eval[A](e: Expr[A]): LambdaInterpreter.Result[A]
+    def eval[A](e: Expr[A]): Result[PEval[A]]
     def rep[A](e: Expr[A]): Any
   }
   trait Layer {
@@ -118,9 +118,10 @@ object Validation {
       private val parsed = API.parse(e)
       private val ev = API.eliminitateDynamics(parsed).tree.fixID
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
-        val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra2(in))
+        val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e).asInstanceOf[Result[A]]
+          override def eval[A](e: Expr[A]): Result[PEval[A]] =
+            evaluated.get(e).asInstanceOf[Result[PEval[A]]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
         }
@@ -133,9 +134,10 @@ object Validation {
       private val parsed = API.parse(e)
       private val ev = API.expandLambdas(API.eliminitateDynamics(parsed)).tree.fixID
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
-        val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra2(in))
+        val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e).asInstanceOf[Result[A]]
+          override def eval[A](e: Expr[A]): Result[PEval[A]] =
+            evaluated.get(e).asInstanceOf[Result[PEval[A]]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
         }
@@ -150,11 +152,11 @@ object Validation {
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(Interpreter.evalAlgebra(in.andThen(_.get)))
         new Evaluator {
-          override def eval[A](e: Expr[A]): Result[A] = evaluated.get(e) match {
-            case IR(_, FEval(false), _) => LambdaInterpreter.Empty
-            case IR(_, _, FEval(false)) => LambdaInterpreter.ConstraintViolated
+          override def eval[A](e: Expr[A]): Result[PEval[A]] = evaluated.get(e) match {
+            case IR(_, FEval(false), _) => Empty
+            case IR(_, _, FEval(false)) => ConstraintViolated
             case IR(FEval(v), FEval(true), FEval(true)) =>
-              LambdaInterpreter.Res(v.asInstanceOf[A])
+              Res(FEval(v.asInstanceOf[A]))
             case _ => ???
           }
           override def rep[A](e: Expr[A]): Any =
@@ -172,8 +174,8 @@ object Validation {
           val evaluators = layers.map(_.evaluator(in))
 
           new Evaluator {
-            override def eval[A](e: Expr[A]): Result[A] = {
-              val evals: List[Result[A]] = evaluators.map(f => f.eval(e))
+            override def eval[A](e: Expr[A]): Result[PEval[A]] = {
+              val evals: List[Result[PEval[A]]] = evaluators.map(f => f.eval(e))
               if(!allEquals(evals)) {
                 for(ev <- evaluators) {
                   println(ev)

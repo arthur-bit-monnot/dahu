@@ -1,32 +1,47 @@
 package dahu.model.interpreter
 
+import cats.data.NonEmptySet
 import dahu.model.input.Lambda.LambdaIdent
+import dahu.model.input.TypedIdent
 import dahu.utils._
 
 /** A possibly partially evaluated expression.
   * The unevaluated leaves are identified by LambdaIdents. */
-trait PEval[+A] {
-  def bind(id: LambdaIdent, v: Any): PEval[A]
+sealed trait PEval[+A] {
+  def bind(id: LambdaIdent, v: PEval[Any]): PEval[A]
   def map[B](f: A => B): PEval[B] = Mapped(this, f)
 }
 
 final case class FEval[A](v: A) extends PEval[A] {
-  override def bind(id: LambdaIdent, bindValue: Any): FEval[A] = this
+  override def bind(id: LambdaIdent, bindValue: PEval[Any]): FEval[A] = this
   override def map[B](f: A => B): FEval[B] = FEval(f(v))
 }
 
 final case class PEFunc[A](id: LambdaIdent, tree: PEval[A]) extends PEval[A] {
-  override def bind(bindId: LambdaIdent, v: Any): PEval[A] = {
+  override def bind(bindId: LambdaIdent, v: PEval[Any]): PEval[A] = {
     if(bindId == id)
       tree.bind(id, v)
     else
       PEFunc(id, tree.bind(bindId, v))
   }
-  def apply(v: Any): PEval[A] = bind(id, v)
+  def apply(v: PEval[Any]): PEval[A] = bind(id, v)
+}
+
+final case class LambdaParamPlaceHolder[A](id: LambdaIdent) extends PEval[A] {
+  override def bind(bindId: LambdaIdent, v: PEval[Any]): PEval[A] =
+    if(id == bindId)
+      v.asInstanceOf[PEval[A]]
+    else
+      this
+}
+
+final case class Unknown(unboundVars: Set[TypedIdent[Any]]) extends PEval[Nothing] {
+  require(unboundVars.nonEmpty)
+  override def bind(id: LambdaIdent, v: PEval[Any]): Unknown = this
 }
 
 final case class Mapped[A, B](pe: PEval[A], f: A => B) extends PEval[B] {
-  override def bind(id: LambdaIdent, v: Any): PEval[B] =
+  override def bind(id: LambdaIdent, v: PEval[Any]): PEval[B] =
     pe.bind(id, v) match {
       case FEval(a) => FEval(f(a))
       case x        => Mapped(x, f)
@@ -41,11 +56,13 @@ object PEval {
       FEval(vs.map(_.asInstanceOf[FEval[A]].v))
     else {
       new PEval[Vec[A]] {
-        override def bind(id: LambdaIdent, v: Any): PEval[Vec[A]] =
+        override def bind(id: LambdaIdent, v: PEval[Any]): PEval[Vec[A]] =
           sequence(vs.map(_.bind(id, v)))
       }
     }
   }
+
+  implicit val classTagK: ClassTagK[PEval] = ClassTagK.ofClass[PEval]
 
   implicit val applicativeInstance: SApplicative[PEval] = new SApplicative[PEval] {
     override def pure[A: ClassTag](x: A): PEval[A] = FEval(x)
@@ -55,9 +72,10 @@ object PEval {
 
     override def ap[A, B: ClassTag](ff: PEval[A => B])(fa: PEval[A]): PEval[B] = ff match {
       case FEval(f) => fa.map(f)
-      case _ =>
+      case _ => // TODO: combination of UNknown should combine the unknown varaibles
         new PEval[B] {
-          override def bind(id: LambdaIdent, v: Any): PEval[B] = ap(ff.bind(id, v))(fa.bind(id, v))
+          override def bind(id: LambdaIdent, v: PEval[Any]): PEval[B] =
+            ap(ff.bind(id, v))(fa.bind(id, v))
         }
     }
   }

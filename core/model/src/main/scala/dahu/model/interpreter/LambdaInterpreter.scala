@@ -1,147 +1,83 @@
 package dahu.model.interpreter
 
-import cats._
-import cats.implicits._
-import dahu.graphs.TreeNode
-import dahu.model.input.{Ident, Lambda, TypedIdent}
+import dahu.model.input.TypedIdent
 import dahu.model.ir._
 import dahu.model.types._
 import dahu.recursion.FAlgebra
 import dahu.utils._
-import dahu.utils.SFunctor._
+import dahu.utils.Vec.Vec2
 import dahu.utils.errors._
 
-import scala.annotation.tailrec
-import scala.reflect.ClassTag
-
 object LambdaInterpreter {
+  private type EvalStack[X] = Result[PEval[X]]
+  private implicit val stackedApp: SApplicative[EvalStack] = SApplicative[Result].compose[PEval]
 
-  sealed trait Result[+A] {
-    def map[B](f: A => B): Result[B] = this match {
-      case Res(v)             => Res(f(v))
-      case ConstraintViolated => ConstraintViolated
-      case Empty              => Empty
-      case Pending(_, _)      => unexpected
-    }
-    def flatMap[B](f: A => Result[B]): Result[B] = this match {
-      case Res(v)             => f(v)
-      case ConstraintViolated => ConstraintViolated
-      case Empty              => Empty
-      case Pending(_, _)      => unexpected
-    }
-
+  private def stackSequenceMap[A: ClassTag, B: ClassTag](vfa: Vec[EvalStack[A]])(
+      f: Vec[A] => B): EvalStack[B] = {
+    val trav = STraverse[Vec].sequence[EvalStack, A](vfa)
+    stackedApp.smap(trav)(f)
   }
-  object Result {
-    def pure[A](a: A): Result[A] = Res(a)
-
-    def eval[A](fa: Result[A])(f: StaticF[Result[A]] => Result[A]): Result[A] = fa match {
-      case Res(v)                 => Res(v)
-      case ConstraintViolated     => ConstraintViolated
-      case Empty                  => Empty
-      case Pending(static, stack) => f(static.smap(eval[A](_)(f)))
-    }
-
-    def sequence[T: ClassTag](rs: Vec[Result[T]]): Result[Vec[T]] = {
-      val l = rs.toList
-      @tailrec def go(current: Result[List[T]], pending: List[Result[T]]): Result[List[T]] = {
-        pending match {
-          case head :: tail =>
-            val next = (current, head) match {
-              case (Empty, _)              => Empty
-              case (_, Empty)              => Empty
-              case (ConstraintViolated, _) => ConstraintViolated
-              case (_, ConstraintViolated) => ConstraintViolated
-              case (Res(list), Res(h))     => Res(h :: list)
-              case (Pending(_, _), _)      => unexpected
-              case (_, Pending(_, _))      => unexpected
-            }
-            go(next, tail)
-          case Nil =>
-            current.map(_.reverse) // todo: we should build the list in the correct order directly
-        }
+  private def flatten[A](fa: EvalStack[EvalStack[A]]): EvalStack[A] = fa match {
+    case Empty              => Empty
+    case ConstraintViolated => ConstraintViolated
+    case Res(v) =>
+      v match {
+        case FEval(x)                   => x
+        case LambdaParamPlaceHolder(id) => Res(LambdaParamPlaceHolder(id))
+        case Unknown(unboundVars)       => Res(Unknown(unboundVars))
+        case PEFunc(id, tree) =>
+          val flatTree = flatten(Res(tree))
+          SApplicative[Result].smap(flatTree)(t => PEFunc(id, t))
+        case Mapped(pe, f) => // pe: PEval[Y],  f: Y => EvalStack[A]
+          // ???(Mapped((pe': PEval[Y],  f': Y => A)
+          pe match {
+            case FEval(v)                   => f(v)
+            case LambdaParamPlaceHolder(id) => Res(LambdaParamPlaceHolder(id))
+            case Unknown(unboundVars)       => Res(Unknown(unboundVars))
+            case _                          => ???
+          }
       }
-      val res = go(pure(Nil), l)
-      res.map(Vec.fromSeq(_))
-    }
-    implicit def monoidInstance[T: Monoid](): Monoid[Result[T]] = new Monoid[Result[T]] {
-      override def empty: Result[T] = Res(Monoid[T].empty)
-
-      override def combine(x: Result[T], y: Result[T]): Result[T] = (x, y) match {
-        case (Empty, _)              => Empty
-        case (_, Empty)              => Empty
-        case (ConstraintViolated, _) => ConstraintViolated
-        case (_, ConstraintViolated) => ConstraintViolated
-        case (Res(xr), Res(yr))      => Res(xr |+| yr)
-        case (Pending(_, _), _)      => unexpected
-        case (_, Pending(_, _))      => unexpected
-      }
-    }
   }
+  def flatMap[A, B: ClassTag](fa: EvalStack[A])(f: A => EvalStack[B]): EvalStack[B] =
+    flatten(stackedApp.smap(fa)(f))
 
-  case object ConstraintViolated extends Result[Nothing]
-  case class Res[T](v: T) extends Result[T]
-  case class Pending[T](e: StaticF[Result[T]], stack: List[Lambda.LambdaIdent]) extends Result[T]
-  case object Empty extends Result[Nothing]
-
-  def partialEvalAlgebra2(
-      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, Result[Value]] =
-    partialEvalAlgebra(valueOf, _ => None)
-
-  private def partialEvalAlgebra(
-      valueOf: TypedIdent[Any] => Option[Value],
-      lambdaParamsBind: Lambda.LambdaIdent => Option[Value]): FAlgebra[StaticF, Result[Value]] =
+  def partialEvalAlgebra(
+      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, Result[PEval[Value]]] =
     e => {
-      val res = e match {
+      val res: Result[PEval[Any]] = e match {
 
-        case ApplyF(lbd @ Pending(_, in :: tail), Res(v), _) =>
-          val f: Lambda.LambdaIdent => Option[Value] = x => {
-            if(x == in) Some(v)
-            else lambdaParamsBind(x)
-          }
-          val tmp = Result.eval[Value](lbd)(partialEvalAlgebra(valueOf, f))
-          tmp match {
-            case Pending(x, y) => Pending(x, tail)
-            case x             => x
-          }
+        case ApplyF(lbd, param, _) =>
+          Vec(lbd, param).sequence
+            .map {
+              case Vec2(f: PEFunc[Value], p) => f(p)
+              case _                         => unexpected
 
-        case ApplyF(Res(value), Res(_), _) => Res(value)
-        case ApplyF(_, _, _)               => ???
+            }
 
-        case LambdaF(Pending(LambdaParamF(id, _), Nil), Pending(tree, callStack), id2, _) =>
-          assert(id == id2)
-          //      assert(callStack.isEmpty)
-          Pending(tree, id :: callStack)
-        case LambdaF(Res(_), Res(v), _, _) => Res(v)
-        case LambdaF(_, _, _, _)           => ???
+        case LambdaF(p, ast, id, _) =>
+          assert(p.isInstanceOf[Res[_]])
+          ast.map(PEFunc(id, _))
 
-        case x: LambdaParamF[_] =>
-          lambdaParamsBind(x.id) match {
-            case Some(v) => Res(v)
-            case None    => Pending(x, Nil)
-          }
+        case LambdaParamF(id, _) => Res(LambdaParamPlaceHolder(id))
 
-        case x if TreeNode[StaticF].children(x).exists(_.isInstanceOf[Pending[Value]]) =>
-          val tmp = TreeNode[StaticF].children(x).collect { case x @ Pending(_, _) => x }
-          assert(tmp.forall(_.stack.isEmpty))
-          Pending(x, Nil)
         case x @ InputF(id, _) =>
           valueOf(id) match {
-            case Some(v) => Res(v)
-            case None    => Pending(x, Nil)
+            case Some(v) => Res(FEval(v))
+            case None    => Res(Unknown(Set(id)))
           }
-        case CstF(v, _) => Res(v)
+        case CstF(v, _) => Res(FEval(v))
         case ComputationF(f, args, _) =>
-          Result
-            .sequence(args)
-            .map(as => Value(f.compute(as)))
+          stackSequenceMap(args) { as =>
+            f.compute(as)
+          }
         case ProductF(members, t) =>
-          Result
-            .sequence(members)
-            .map(as => Value(t.idProd.buildFromValues(as)))
+          stackSequenceMap(members) { ms =>
+            t.idProd.buildFromValues(ms)
+          }
         case SequenceF(members, t) =>
-          Result.sequence(members).map(Value(_))
+          stackSequenceMap(members)(identity)
         case ITEF(cond, onTrue, onFalse, _) =>
-          cond.flatMap {
+          flatMap(cond) {
             case true  => onTrue
             case false => onFalse
             case _     => dahu.utils.errors.unexpected
@@ -150,36 +86,37 @@ object LambdaInterpreter {
           cond match {
             case Empty              => value
             case ConstraintViolated => ConstraintViolated
-            case Res(true)          => value
-            case Res(false)         => ConstraintViolated
-            case Res(x)             => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-            case Pending(_, _)      => unexpected
+            case _ =>
+              flatMap(cond) {
+                case true  => value
+                case false => ConstraintViolated
+                case _     => unexpected
+              }
           }
         case OptionalF(value, present, _) =>
           present match {
             case Empty              => value
             case ConstraintViolated => ConstraintViolated
-            case Res(true)          => value
-            case Res(false)         => Empty
-            case Res(x)             => unexpected(s"Present does not evaluates to a boolean but to: $x")
-            case Pending(_, _)      => unexpected
+            case _ =>
+              flatMap(present) {
+                case true  => value
+                case false => Empty
+                case x     => unexpected(s"Present does not evaluates to a boolean but to: $x")
+              }
           }
         case PresentF(v) =>
           v match {
-            case Empty              => Res(Value(false))
+            case Empty              => stackedApp.pure(false)
             case ConstraintViolated => ConstraintViolated
-            case Res(_)             => Res(Value(true))
-            case Pending(_, _)      => unexpected
+            case Res(_)             => stackedApp.pure(true)
           }
         case ValidF(v) =>
           v match {
-            case Empty              => Res(Value(true))
-            case ConstraintViolated => Res(Value(false))
-            case Res(_)             => Res(Value(true))
-            case Pending(_, _)      => unexpected
+            case Empty              => Empty
+            case ConstraintViolated => stackedApp.pure(false)
+            case Res(_)             => stackedApp.pure(true)
           }
       }
-      res
+      res.asInstanceOf[EvalStack[Value]]
     }
-
 }
