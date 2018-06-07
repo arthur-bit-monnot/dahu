@@ -3,11 +3,9 @@ package dahu.planning.pddl.planner
 import dahu.model.validation.Validation
 import dahu.planning.pddl.parser.{Options, Parser, PddlPredef}
 import dahu.planning.pddl.problems.{Extractor, PddlProblem}
-import dahu.planning.planner.PlannerConfig
 import dahu.planning.planner.chronicles.Planner
 import utest._
 
-import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 object EncodingTests extends TestSuite {
@@ -36,7 +34,7 @@ object EncodingTests extends TestSuite {
       "blocks_ipc2" - {
         "p04-0" - checkEncoding()
       }
-      "rovers-ipc5" - {
+      "rovers_ipc5" - {
         "p01" - checkEncoding()
       }
     }

@@ -83,7 +83,7 @@ object SatisfactionProblem {
                   val iy = record(ComputationF(t2.unbox, Vec(y), t1.unbox.outType))
                   ComputationF(int.EQ, Vec(ix, iy), int.EQ.outType)
                 case _ =>
-                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
+//                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
                   orig
               }
 

@@ -145,3 +145,7 @@ object recursion extends ModuleTests {
 object utils extends ModuleTests {
  def ivyDeps = Agg(debox, cats)
 }
+
+object benchmarks extends ModuleTests {
+  override def moduleDeps = Seq(core.solvers.z3)
+}

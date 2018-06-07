@@ -35,7 +35,7 @@ class ActionInstantiationTest extends FunSuite {
             assert(instance.args.map(_.typ) == act.args.map(_.typ))
             assert(instance.template == act)
 
-            println(instance.content.mkString("\n"))
+//            println(instance.content.mkString("\n"))
           case None =>
             fail()
         }

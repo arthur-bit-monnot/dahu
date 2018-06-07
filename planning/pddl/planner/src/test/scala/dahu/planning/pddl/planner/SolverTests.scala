@@ -24,7 +24,7 @@ object SolverTests extends TestSuite {
       }
     }
 
-    dahu.utils.debug.LOG_LEVEL = 3
+    dahu.utils.debug.LOG_LEVEL = 2
 
     "rovers_ipc5" - {
       "p01" - findPlan()

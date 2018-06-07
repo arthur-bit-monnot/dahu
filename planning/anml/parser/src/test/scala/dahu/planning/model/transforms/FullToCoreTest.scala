@@ -23,7 +23,7 @@ class FullToCoreTest extends FunSuite {
     test("translation to core: " + anml) {
       Parser.parse(anml) match {
         case ParseSuccess(module) =>
-          println(FullToCore.trans(module).mkString("\n"))
+//          println(FullToCore.trans(module).mkString("\n"))
         case err =>
           fail(s"Could not parse anml string: $err")
       }
