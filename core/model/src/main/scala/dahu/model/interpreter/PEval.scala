@@ -60,7 +60,7 @@ final case class FlatMapped[A, B] private (pe: PEval[A],
                                            f: A => PEval[B],
                                            applicationStack: List[LambdaIdent])
     extends Pending[B] {
-  require(!pe.isInstanceOf[FEval[_]])
+  require(pe.isInstanceOf[Pending[_]])
   override def bind(id: LambdaIdent, v: PEval[Any]): PEval[B] =
     pe.bind(id, v) match {
       case FEval(a)            => f(a).bind(id, v)
@@ -82,6 +82,7 @@ object FlatMapped {
       case FEval(v)            => f(v)
       case PEmpty              => PEmpty
       case PConstraintViolated => PConstraintViolated
+      case x: Unknown          => x
       case _                   => new FlatMapped(pe, f, appStack)
     }
 }
@@ -103,7 +104,14 @@ object PEval {
 
     override def ap[A, B: ClassTag](ff: PEval[A => B])(fa: PEval[A]): PEval[B] = {
       (ff, fa) match {
-        case (FEval(f), FEval(a)) => FEval(f(a))
+        case (FEval(f), FEval(a))     => FEval(f(a))
+        case (PEmpty, _)              => PEmpty
+        case (_, PEmpty)              => PEmpty
+        case (PConstraintViolated, _) => PConstraintViolated
+        case (_, PConstraintViolated) => PConstraintViolated
+        case (Unknown(x), Unknown(y)) => Unknown(x ++ y)
+        case (l: Unknown, _)          => l
+        case (_, r: Unknown)          => r
         case _ =>
           FlatMapped[A => B, B](ff, f => smap(fa)(f), fa.applicationStack ++ ff.applicationStack)
       }
