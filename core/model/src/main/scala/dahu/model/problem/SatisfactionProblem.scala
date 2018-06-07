@@ -273,7 +273,7 @@ object SatisfactionProblem {
           retrieve(p) match {
             case ProductF(members, _) =>
               retrieve(members(fa.fieldPosition))
-            case x => x
+            case _ => x
           }
         case ComputationF(fa: FieldAccess[_, _], _, _) => unexpected
         case x                                         => x
