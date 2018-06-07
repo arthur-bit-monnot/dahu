@@ -29,7 +29,7 @@ object SatisfactionProblem {
                            record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
           self.optim(retrieve, record) andThen next.optim(retrieve, record)
 
-        override def toString: String = s"self >> next"
+        override def toString: String = s"$self >> $next"
       }
     }
 
@@ -318,12 +318,23 @@ object SatisfactionProblem {
 
   }
 
-  case class IR[@specialized(Int) A](value: A, present: A, valid: A)
+  final case class IR[@specialized(Int) A](value: A, present: A, valid: A)
   object IR {
     implicit val functorInstance: Functor[IR] = new Functor[IR] {
       override def map[A, B](fa: IR[A])(f: A => B): IR[B] =
         IR(f(fa.value), f(fa.present), f(fa.valid))
     }
+
+  }
+  final case class TotalValue[F[_], A](value: F[A], present: F[Boolean], valid: F[Boolean])
+  object TotalValue {
+    type TV[F[_]] = TotalValue[F, Value]
+    implicit val typeTag: Tag[Value] = Tag.default[Value]
+    implicit val productTag: ProductTag[TV] = ProductTag.ofProd[TV]
+
+    val Value: FieldAccess[TV, Value] = FieldAccess[TV, Value]("value", 0)
+    val Present: FieldAccess[TV, Boolean] = FieldAccess[TV, Boolean]("present", 1)
+    val Valid: FieldAccess[TV, Boolean] = FieldAccess[TV, Boolean]("valid", 2)
   }
 
   def compiler(
@@ -393,25 +404,19 @@ object SatisfactionProblem {
               value.valid,
               utils.implies(condition.present, utils.and(condition.value, condition.valid)))
           )
-        case LambdaParamF(id, typ) =>
+        case p @ LambdaParamF(id, typ) =>
+          val placeHolder = utils.rec(LambdaParamF(id, typ))
           IR(
-            value = utils.rec(LambdaParamF(id.qualified("value"), typ)),
-            present = utils.rec(LambdaParamF(id.qualified("present"), Tag.ofBoolean)),
-            valid = utils.rec(LambdaParamF(id.qualified("valid"), Tag.ofBoolean))
+            value = utils.rec(ComputationF(TotalValue.Value, Vec(placeHolder), typ)),
+            present = utils.rec(ComputationF(TotalValue.Present, Vec(placeHolder), Tag.ofBoolean)),
+            valid = utils.rec(ComputationF(TotalValue.Valid, Vec(placeHolder), Tag.ofBoolean))
           )
         case LambdaF(in, tree, id, tpe) =>
+          val presentValidTag = LambdaTag.LambdaTagImpl(tpe, Tag.ofBoolean)
           IR(
-            value = utils.rec(LambdaF(in.value, tree.value, id.qualified("value"), tpe)),
-            present = utils.rec(
-              LambdaF(in.present,
-                      tree.present,
-                      id.qualified("present"),
-                      LambdaTag.derive[Boolean, Boolean])),
-            valid = utils.rec(
-              LambdaF(in.valid,
-                      tree.valid,
-                      id.qualified("valid"),
-                      LambdaTag.derive[Boolean, Boolean]))
+            value = utils.rec(LambdaF(in.value, tree.value, id, tpe)),
+            present = utils.rec(LambdaF(in.value, tree.present, id, presentValidTag)),
+            valid = utils.rec(LambdaF(in.value, tree.valid, id, presentValidTag))
           )
       }
       ir

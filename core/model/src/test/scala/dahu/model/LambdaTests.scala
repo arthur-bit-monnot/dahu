@@ -1,12 +1,15 @@
 package dahu.model
 
 import cats.Id
+import dahu.utils._
 import dahu.model.functions.->:
 import dahu.model.input._
 import dahu.model.interpreter._
 import dahu.model.ir._
+import dahu.model.problem.SatisfactionProblem.{IR, TotalValue}
 import dahu.model.problem.{API, LazyTree}
 import dahu.model.types.Tag._
+import dahu.model.types.Value
 import dahu.model.validation.Validation
 import utest._
 
@@ -41,8 +44,20 @@ object LambdaTests extends TestSuite {
     "lambda-eval" - {
       case class App[A, B](lbd: Expr[A ->: B], in: A) {
 
-        def evalsTo(expected: PEval[B]): Unit =
-          API.eval(lbd, _ => ???).apply(FEval(in)) ==> expected
+        def evalsTo(expected: PEval[B]): Unit = {
+          val regular = API.eval(lbd, _ => ???).apply(FEval(in))
+          regular ==> expected
+          val irMatch: PartialFunction[Any, Unit] = expected match {
+            case PEmpty              => { case IR(_, FEval(false), _)                    => }
+            case PConstraintViolated => { case IR(_, FEval(true), FEval(false))          => }
+            case x                   => { case IR(y, FEval(true), FEval(true)) if x == y => }
+          }
+          val ev = API.evalTotal(lbd, _ => ???)
+          val it = TotalValue[cats.Id, Value](Value(in), true, true)
+
+          val ir = ev.smap(_.apply(FEval(it)))
+          assertMatch(ir)(irMatch)
+        }
 
         def evalsTo(b: B): Unit = evalsTo(FEval(b))
       }
@@ -63,7 +78,18 @@ object LambdaTests extends TestSuite {
         "invalid" - {
           App(partial, 0) evalsTo PConstraintViolated
         }
-
+      }
+      "optional" - {
+        val optional: Expr[Int ->: Boolean] =
+          Lambda(i => (Optional(i, i =!= 0): Expr[Int]) > Cst(5))
+        "present" - {
+          App(optional, 1) evalsTo false
+          App(optional, 5) evalsTo false
+          App(optional, 6) evalsTo true
+        }
+        "invalid" - {
+          App(optional, 0) evalsTo PEmpty
+        }
       }
 
     }
