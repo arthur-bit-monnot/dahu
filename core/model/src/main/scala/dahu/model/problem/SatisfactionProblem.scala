@@ -273,7 +273,7 @@ object SatisfactionProblem {
           retrieve(p) match {
             case ProductF(members, _) =>
               retrieve(members(fa.fieldPosition))
-            case _ => unexpected
+            case x => x
           }
         case ComputationF(fa: FieldAccess[_, _], _, _) => unexpected
         case x                                         => x
@@ -301,6 +301,7 @@ object SatisfactionProblem {
   final class Utils(val directRec: Total[IDTop] => IDTop, retrieve: IDTop => Total[IDTop]) {
     def rec(expr: Total[IDTop]): IDTop =
       directRec(Optimizations.optimizer.optim(retrieve, directRec)(expr))
+    def ret(i: IDTop): Total[IDTop] = retrieve(i)
 
     val TRUE: IDTop = rec(CstF(Value(true), Tag.ofBoolean))
     val FALSE: IDTop = rec(CstF(Value(false), Tag.ofBoolean))
@@ -392,7 +393,26 @@ object SatisfactionProblem {
               value.valid,
               utils.implies(condition.present, utils.and(condition.value, condition.valid)))
           )
-//        case x @ LambdaParamF(id, typ) => IR(utils.rec(x), utils.TRUE, utils.TRUE)
+        case LambdaParamF(id, typ) =>
+          IR(
+            value = utils.rec(LambdaParamF(id.qualified("value"), typ)),
+            present = utils.rec(LambdaParamF(id.qualified("present"), Tag.ofBoolean)),
+            valid = utils.rec(LambdaParamF(id.qualified("valid"), Tag.ofBoolean))
+          )
+        case LambdaF(in, tree, id, tpe) =>
+          IR(
+            value = utils.rec(LambdaF(in.value, tree.value, id.qualified("value"), tpe)),
+            present = utils.rec(
+              LambdaF(in.present,
+                      tree.present,
+                      id.qualified("present"),
+                      LambdaTag.derive[Boolean, Boolean])),
+            valid = utils.rec(
+              LambdaF(in.valid,
+                      tree.valid,
+                      id.qualified("valid"),
+                      LambdaTag.derive[Boolean, Boolean]))
+          )
       }
       ir
     }

@@ -290,7 +290,7 @@ object Lambda {
     Input[Nothing](TypedIdent(Ident.anonymous(), Tag.default[Nothing]))
   def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O]): Lambda[I, O] = {
     val treeShape = f(dummyLambdaParam)
-    val id = new LambdaIdent(treeShape, None)
+    val id = new LambdaIdent(treeShape, None, None)
     val param = Lambda.Param[I](id)
     new Lambda[I, O](param, f(param))
   }
@@ -298,15 +298,24 @@ object Lambda {
   final case class Param[I: Tag](ident: LambdaIdent) extends Expr[I] {
     override def typ: Tag[I] = Tag[I]
   }
-  final class LambdaIdent(val treeShape: Expr[Any], val name: Option[String]) {
-    override def hashCode(): Int = Objects.hash(treeShape, name)
+  final class LambdaIdent(val treeShape: Expr[Any],
+                          val name: Option[String],
+                          val qualifier: Option[String]) {
+    override def hashCode(): Int = Objects.hash(treeShape, name, qualifier)
 
     override def equals(o: scala.Any): Boolean = o match {
-      case li: LambdaIdent => treeShape.equals(li.treeShape) && name == li.name
-      case _               => false
+      case li: LambdaIdent =>
+        treeShape.equals(li.treeShape) && name == li.name && qualifier == li.qualifier
+      case _ => false
     }
 
-    override def toString: String = name.getOrElse("Λ" + math.abs(hashCode()).toString)
+    override def toString: String =
+      name.getOrElse("Λ" + math.abs(hashCode()).toString) + qualifier.map("-" + _).getOrElse("")
+
+    def qualified(str: String): LambdaIdent = {
+      assert(qualifier.isEmpty)
+      new LambdaIdent(treeShape, name, Some(str))
+    }
   }
 }
 
