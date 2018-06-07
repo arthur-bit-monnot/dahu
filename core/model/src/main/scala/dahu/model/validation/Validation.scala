@@ -4,11 +4,11 @@ import cats._
 import dahu.model.input.{Expr, Ident, TypedIdent}
 import dahu.model.interpreter.{FEval, Interpreter, LambdaInterpreter}
 import dahu.model.interpreter._
-import dahu.model.ir.StaticF
+import dahu.model.ir.{OptionalF, Partial, StaticF}
 import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
-import dahu.utils.SFunctor
+import dahu.utils._
 
 import scala.collection.mutable
 import scala.util.Random
@@ -156,7 +156,10 @@ object Validation {
             case IR(_, _, FEval(false)) => PConstraintViolated
             case IR(FEval(v), FEval(true), FEval(true)) =>
               FEval(v.asInstanceOf[A])
-            case _ => Pending // TODO, return a function.
+            case IR(v, p, vld) =>
+              val alg = LambdaInterpreter.partialEvalAlgebraAny(_ => None)
+              alg(Partial(alg(OptionalF(v, p, null)), vld, null))
+                .asInstanceOf[PEval[A]]
           }
           override def rep[A](e: Expr[A]): Any =
             SFunctor[IR].smap(ev.getTreeRoot(e))(i => evaluated.getInternal(i))
@@ -170,10 +173,10 @@ object Validation {
     case a :: Nil => true
     case a :: b :: tail =>
       (a, b) match {
-        case _ if a == b  => allEquivalent(b :: tail)
-        case (Pending, _) => allEquivalent(b :: tail)
-        case (_, Pending) => allEquivalent(b :: tail)
-        case _            => false
+        case _ if a == b        => allEquivalent(b :: tail)
+        case (_: Pending[_], _) => allEquivalent(b :: tail)
+        case (_, _: Pending[_]) => allEquivalent(b :: tail)
+        case _                  => false
       }
   }
 

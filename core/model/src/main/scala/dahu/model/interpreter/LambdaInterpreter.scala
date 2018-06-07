@@ -10,15 +10,17 @@ import dahu.utils.errors._
 
 object LambdaInterpreter {
 
+  def partialEvalAlgebraAny(
+      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, PEval[Any]] =
+    partialEvalAlgebra(valueOf).asInstanceOf[FAlgebra[StaticF, PEval[Any]]]
+
   def partialEvalAlgebra(
       valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, PEval[Value]] =
     e => {
       val res: PEval[Any] = e match {
 
         case ApplyF(lbd, param, _) =>
-          assert(lbd.applicationStack.nonEmpty)
-          val x = lbd.apply(param)
-          x
+          lbd.apply(param)
 
         case LambdaF(p, ast, id, _) =>
           ast match {
@@ -54,7 +56,7 @@ object LambdaInterpreter {
             case _     => dahu.utils.errors.unexpected
           }, onTrue.applicationStack)
         case Partial(value, cond, _) =>
-          assert(cond.applicationStack.isEmpty)
+          assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
           cond match {
             case PEmpty              => value
             case PConstraintViolated => PConstraintViolated
@@ -66,7 +68,8 @@ object LambdaInterpreter {
               }, value.applicationStack)
           }
         case OptionalF(value, present, _) =>
-          assert(present.applicationStack.isEmpty)
+          assert(
+            present.applicationStack.isEmpty || present.applicationStack == value.applicationStack)
           present match {
             case PEmpty              => value
             case PConstraintViolated => PConstraintViolated

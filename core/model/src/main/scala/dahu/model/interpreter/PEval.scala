@@ -30,13 +30,16 @@ final case class FEval[A](v: A) extends PEval[A] {
   override def applicationStack: Nil.type = Nil
 }
 
-case object Pending extends PEval[Nothing] { // TODO: we should be able to express with the other constructs
-  override def bind(id: LambdaIdent, v: PEval[Any]): PEval[Nothing] = this
+final case class Unknown(unboundVars: Set[TypedIdent[Any]]) extends PEval[Nothing] {
+  require(unboundVars.nonEmpty)
+  override def bind(id: LambdaIdent, v: PEval[Any]): Unknown = this
   override def apply(v: PEval[Any]): PEval[Nothing] = this
   override def applicationStack: Nil.type = Nil
 }
 
-final case class PEFunc[A](id: LambdaIdent, tree: PEval[A]) extends PEval[A] {
+sealed trait Pending[+A] extends PEval[A]
+
+final case class PEFunc[A](id: LambdaIdent, tree: PEval[A]) extends Pending[A] {
   override def bind(bindId: LambdaIdent, v: PEval[Any]): PEval[A] =
     if(bindId == id) tree.bind(id, v)
     else PEFunc(id, tree.bind(bindId, v))
@@ -45,7 +48,7 @@ final case class PEFunc[A](id: LambdaIdent, tree: PEval[A]) extends PEval[A] {
   override def applicationStack: List[LambdaIdent] = id :: tree.applicationStack
 }
 
-final case class LambdaParamPlaceHolder[A](id: LambdaIdent) extends PEval[A] {
+final case class LambdaParamPlaceHolder[A](id: LambdaIdent) extends Pending[A] {
   override def bind(bindId: LambdaIdent, v: PEval[Any]): PEval[A] =
     if(id == bindId) v.asInstanceOf[PEval[A]]
     else this
@@ -53,17 +56,10 @@ final case class LambdaParamPlaceHolder[A](id: LambdaIdent) extends PEval[A] {
   def applicationStack: Nil.type = Nil
 }
 
-final case class Unknown(unboundVars: Set[TypedIdent[Any]]) extends PEval[Nothing] {
-  require(unboundVars.nonEmpty)
-  override def bind(id: LambdaIdent, v: PEval[Any]): Unknown = this
-  override def apply(v: PEval[Any]): PEval[Nothing] = this
-  override def applicationStack: Nil.type = Nil
-}
-
 final case class FlatMapped[A, B] private (pe: PEval[A],
                                            f: A => PEval[B],
                                            applicationStack: List[LambdaIdent])
-    extends PEval[B] {
+    extends Pending[B] {
   require(!pe.isInstanceOf[FEval[_]])
   override def bind(id: LambdaIdent, v: PEval[Any]): PEval[B] =
     pe.bind(id, v) match {
@@ -86,7 +82,6 @@ object FlatMapped {
       case FEval(v)            => f(v)
       case PEmpty              => PEmpty
       case PConstraintViolated => PConstraintViolated
-      case Pending             => Pending
       case _                   => new FlatMapped(pe, f, appStack)
     }
 }
