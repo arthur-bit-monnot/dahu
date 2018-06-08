@@ -14,6 +14,7 @@ import dahu.model.types.Value
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
 import dahu.planning.model.core.{ActionTemplate, Statement}
+import dahu.planning.planner.chronicles.Counter
 import dahu.solvers.MetaSolver
 import dahu.utils.debug._
 import dahu.utils.errors._
@@ -58,13 +59,15 @@ object Planner {
   def solveIncrementalStep(model: core.CoreModel, step: Int, deadline: Deadline)(
       implicit cfg: PlannerConfig,
       predef: Predef): Option[Plan] = {
+    implicit val counter = new Counter
     if(deadline.isOverdue())
       return None
 
     info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)
     val result = model.foldLeft(Chronicle.empty(ctx)) {
-      case (chronicle, statement: Statement) => chronicle.extended(statement)(_ => unexpected)
+      case (chronicle, statement: Statement) =>
+        chronicle.extended(statement)(_ => unexpected, counter)
       case (chronicle, action: ActionTemplate) =>
         val actionInstances: Seq[Opt[Action[Expr]]] =
           if(cfg.symBreak) {

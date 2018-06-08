@@ -364,8 +364,72 @@ case class Chronicle(ctx: ProblemContext,
 
   import ctx._
 
-  def extended(e: InActionBlock)(implicit argRewrite: Arg => Tentative[Literal]): Chronicle = ???
+  def extended(e: InActionBlock)(implicit argRewrite: Arg => Tentative[Literal],
+                                 cnt: Counter): Chronicle =
+    e match {
+      case _: LocalVarDeclaration => this
+      case _: ArgDeclaration      => this
+//    case BindAssertion(c, v) => ???
+//      val cond = ConditionToken(
+//        itv = ClosedInterval(ctx.temporalOrigin, ctx.temporalHorizon),
+//        fluent = encode(c),
+//        value = encode(v)
+//      )
+//      copy(
+//        conditions = cond :: conditions
+//      )
 
+      case TimedAssignmentAssertion(itv, fluent, value) =>
+        val changeItv =
+          itv.map(encodeAsInt)
+        val persistenceEnd =
+          anonymousTp().subjectTo(changeItv.end <= _)
+        val token = EffectToken(
+          changeItv,
+          persistenceEnd = persistenceEnd,
+          fluent = encode(fluent),
+          value = encode(value)
+        )
+        copy(effects = token :: effects)
+
+      case TimedEqualAssertion(itv, f, v) =>
+        val persistenceItv =
+          itv.map(encodeAsInt)
+        val token = ConditionToken(
+          itv = persistenceItv,
+          fluent = encode(f),
+          value = encode(v)
+        )
+        copy(conditions = token :: conditions)
+
+      case TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
+        val start = encodeAsInt(s)
+        val changeEnd = encodeAsInt(e)
+        val persistenceEnd = anonymousTp().subjectTo(changeEnd <= _)
+        val cond = ConditionToken(ClosedInterval(start, start), encode(f), encode(v1))
+        val eff =
+          EffectToken(LeftOpenInterval(start, changeEnd), persistenceEnd, encode(f), encode(v2))
+        copy(
+          conditions = cond :: conditions,
+          effects = eff :: effects
+        )
+
+      case StaticAssignmentAssertion(lhs, rhs) => ???
+//        val eff = EffectToken(
+//          changeItv = ClosedInterval(ctx.temporalOrigin, ctx.temporalOrigin),
+//          persistenceEnd = ctx.temporalHorizon,
+//          fluent = encode(lhs),
+//          value = encode(rhs)
+//        )
+//        copy(
+//          effects = eff :: effects
+//        )
+      case StaticBooleanAssertion(e) =>
+        val c = ctx.boolUnbox(ctx.encode(e))
+        copy(
+          constraints = c :: constraints
+        )
+    }
   private def sameFluent(f1: Fluent, f2: Fluent): Tentative[Boolean] = {
     if(f1.template != f2.template)
       bool.False

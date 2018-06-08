@@ -4,6 +4,7 @@ import dahu.model.input.{Expr, Ident, Input, TypedIdent}
 import dahu.planning.model.common._
 import dahu.planning.model.core._
 import dahu.planning.model.transforms.ActionInstantiation
+import dahu.planning.planner.chronicles.Counter
 
 case class Action[F[_]](name: String,
                         start: F[Int],
@@ -12,18 +13,17 @@ case class Action[F[_]](name: String,
                         chronicle: Chronicle) {}
 
 object Action {
-  var counter = 0
 
-  def instance(template: ActionTemplate, ctx: ProblemContext)(
-      implicit predef: Predef): Action[Expr] = {
-    counter += 1
-    val act = ActionInstantiation.instance(template, s"${template.name}_$counter")
+  def instance(template: ActionTemplate, ctx: ProblemContext)(implicit predef: Predef,
+                                                              cnt: Counter): Action[Expr] = {
+    val id = cnt.next()
+    val act = ActionInstantiation.instance(template, s"${template.name}_$id")
     val argsRewrite: Arg => Expr[Literal] = {
       case a @ Arg(_, tpe) => Input(TypedIdent(Ident(a), ctx.specializedTags(tpe)))
     }
 
     val chronicle = act.content.foldLeft(Chronicle.empty(ctx)) {
-      case (c, s) => c.extended(s)(argsRewrite)
+      case (c, s) => c.extended(s)(argsRewrite, cnt)
     }
 
     Action(
