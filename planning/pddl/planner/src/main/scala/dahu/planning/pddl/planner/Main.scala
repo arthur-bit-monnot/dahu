@@ -79,9 +79,10 @@ object Main extends App {
         case None =>
           pb.getName.split('.') match {
             case Array(d, _, "pb", "pddl") => new File(pb.getParent, s"$d.dom.pddl")
+            case Array(d, "pb", "pddl")    => new File(pb.getParent, s"$d.dom.pddl")
             case _ =>
               System.err.println(
-                "No domain file provided and problem file is not of the form XXXX.YY.pb.pddl")
+                "No domain file provided and problem file is not of the form XXXX.YY.pb.pddl or XXXX.pb.pddl")
               sys.exit(1)
           }
       }
