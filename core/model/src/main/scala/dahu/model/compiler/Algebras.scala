@@ -48,34 +48,97 @@ object Algebras {
     case LambdaParamF(id, _)            => s"?$id"
   }
 
-  def format(e: Fix[Total]): String = cata(printAlgebraMultiLine)(e)
+  def format(e: Fix[Total]): String = cata(printAlgebraTree)(e).mkString(30)
 
-  val printAlgebraMultiLine: FAlgebra[Total, String] = x => {
-    def repeatChar(c: Char, n: Int): String = {
-      @tailrec
-      def repeatCharAcc(c: Char, n: Int, accum: String): String = {
-        if(n == 0) accum
-        else repeatCharAcc(c, n - 1, accum + c)
-      }
-      repeatCharAcc(c, n, "")
+  private class Writer(val maxExprSize: Int) {
+    def mkString: String = sb.mkString
+
+    private val sb = new StringBuilder
+    private var currentIdentation: Int = 0
+    private var currentLine: Int = 0
+
+    private def spaceLeft: Int = maxExprSize - (currentLine - currentIdentation)
+    private def write(str: String): Unit = {
+      assert(!str.contains("\n"))
+      sb.append(str)
+      currentLine += str.length
     }
-    def addIndent(str: String, n: Int) = str.replaceAll("\n", "\n" + repeatChar(' ', n))
-    def noNewline(c: ComputationF[String]) = c.fun.name + c.args.mkString("(", ", ", ")")
+    private def lineBreak(): Unit = {
+      if(currentLine != currentIdentation) {
+        sb.append("\n")
+        sb.append(" " * currentIdentation)
+        currentLine = currentIdentation
+      }
+    }
+    def add(t: StringTree): Unit = {
+      t match {
+        case StringLeaf(s) => write(s)
+        case Node(l, r) =>
+          add(l)
+          add(r)
+        case t @ TreeSeq(ns, sep, before, after) if t.length <= spaceLeft =>
+          write(before)
+          for(i <- ns.indices) {
+            add(ns(i))
+            if(i == ns.length - 1)
+              write(after)
+            else
+              write(sep)
+          }
+        case t @ TreeSeq(ns, sep, before, after) =>
+          write(before)
+          val prevIdent = currentIdentation
+          currentIdentation = currentLine
+          for(i <- ns.indices) {
+            add(ns(i))
+            if(i == ns.length - 1)
+              write(after)
+            else
+              write(sep)
+            lineBreak()
+          }
+          currentIdentation = prevIdent
+      }
+    }
+  }
+  sealed trait StringTree {
+    def length: Int
+    def ++(right: StringTree): StringTree = Node(this, right)
+    def ++(right: String): StringTree = Node(this, StringLeaf(right))
+
+    def mkString(maxExprSize: Int = 0): String = {
+      val writer = new Writer(maxExprSize)
+      writer.add(this)
+      writer.mkString
+    }
+  }
+  private final case class StringLeaf(v: String) extends StringTree {
+    override def length: Int = v.length
+  }
+  private final case class Node(l: StringTree, r: StringTree) extends StringTree {
+    override val length: Int = l.length + r.length
+  }
+  private final case class TreeSeq(ns: Vec[StringTree],
+                                   separator: String = ", ",
+                                   before: String = "(",
+                                   after: String = ")")
+      extends StringTree {
+    override def length: Int =
+      before.length + after.length + ns.foldLeft(0)((acc, a) => acc + a.length) + math.max(
+        ns.length - 1,
+        0) * separator.length
+  }
+  val printAlgebraTree: FAlgebra[Total, StringTree] = { (x: Total[StringTree]) =>
     x match {
-      case InputF(v, _) => "$" + v
-      case CstF(v, _)   => v.toString
+      case InputF(v, _) => StringLeaf("$" + v)
+      case CstF(v, _)   => StringLeaf(v.toString)
       case c @ ComputationF(f, args, _) =>
-        val argsIndent = f.name.length + 1
-        val tmp =
-          if(noNewline(c).length < 15)
-            noNewline(c)
-          else
-            f.name + args.mkString("(", ",\n", ")")
-        addIndent(tmp, argsIndent)
-      case SequenceF(members, _)          => members.mkString("[", ", ", "]")
-      case ProductF(members, _)           => members.mkString("(", ", ", ")")
-      case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
-      case x                              => x.toString
+        TreeSeq(args, before = f.name + "(", after = ")")
+      case SequenceF(members, _) => TreeSeq(members, before = "[", after = "]")
+      case ProductF(members, _)  => TreeSeq(members)
+      case ITEF(cond, onTrue, onFalse, _) =>
+        TreeSeq(Vec(cond, onTrue, onFalse), before = "ite(", after = ")") //s"ite($cond, $onTrue, $onFalse)"
+      case x => ???
     }
   }
 

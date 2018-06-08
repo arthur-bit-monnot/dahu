@@ -52,7 +52,9 @@ final case class Optional[T](value: Expr[T], present: Expr[Boolean]) extends Exp
 
 sealed abstract class Term[T] extends Expr[T]
 
-final case class TypedIdent[+T](id: Ident, typ: Tag[T])
+final case class TypedIdent[+T](id: Ident, typ: Tag[T]) {
+  override def toString: String = id.toString
+}
 
 /** Evaluation yields a Right[T] */
 final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {

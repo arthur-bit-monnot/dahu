@@ -4,6 +4,7 @@ import cats._
 import cats.implicits._
 import com.microsoft.z3._
 import dahu.graphs.TreeNode
+import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.problem.{IDTop, IlazyForest, IntBoolSatisfactionProblem, LazyTree}
@@ -48,6 +49,7 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
 }
 
 class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[X] {
+  implicit def treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
   private val ast = _ast.fixID
 
   private val intBoolPb = new IntBoolSatisfactionProblem[ast.ID](
@@ -58,7 +60,6 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
   private val ctx = new Context()
   private type OptTotal[T] = Option[Total[T]]
 
-  implicit val treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
   private val treeBuilder = new TreeBuilder(tree.tree, Compiler.partialAlgebra(ctx))
 
   // Total
