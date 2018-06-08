@@ -7,5 +7,3 @@ case class Operator[F[_]](name: F[String],
                           present: F[Boolean]) {
   override def toString = s"[$start, $end] $name($args)"
 }
-
-case class Plan(operators: Seq[Operator[cats.Id]])

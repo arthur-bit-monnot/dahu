@@ -6,6 +6,7 @@ import cats.effect.IO
 import dahu.utils.debug._
 import dahu.planning.planner._
 import dahu.planning.anml.parser.{Config => _, _}
+import dahu.planning.planner.chronicles.Plan
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, TimeoutException}

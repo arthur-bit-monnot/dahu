@@ -16,8 +16,9 @@ import scala.util.{Failure, Success}
 
 sealed trait Mode
 object Mode {
-  case object Planner extends Mode
-  case object Linter extends Mode
+  final case object Planner extends Mode
+  final case object Linter extends Mode
+  final case object PlannerCompare extends Mode
 
 }
 case class Config(mode: Mode = Mode.Planner,
@@ -65,6 +66,9 @@ object Main extends App {
       .text("Analyzes the domain and problem for common problems and possible optimizations.")
       .action((_, cfg) => cfg.copy(mode = Mode.Linter))
 
+    cmd("planner-compare")
+      .action((_, cfg) => cfg.copy(mode = Mode.PlannerCompare))
+
   }
 
   optionsParser.parse(args, Config()) match {
@@ -84,6 +88,13 @@ object Main extends App {
       cfg.mode match {
         case Mode.Planner => solve(Source.fromFile(dom), Source.fromFile(pb), cfg)
         case Mode.Linter  => lint(Source.fromFile(dom), Source.fromFile(pb), cfg)
+        case Mode.PlannerCompare =>
+          val domString = Source.fromFile(dom).mkString
+          val pbString = Source.fromFile(pb).mkString
+          println("\n====== OLD PLANNER ========\n")
+          solveOld(domString, pbString, cfg)
+          println("\n====== NEW PLANNER ========\n")
+          solve(domString, pbString, cfg)
       }
 
     case None => sys.exit(1)
@@ -118,6 +129,37 @@ object Main extends App {
     parser.parse(domain, problem) match {
       case Success(model) =>
         Planner.solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
+          case Some(plan) =>
+            val sol = PddlPlan(plan)
+            if(config.validate) {
+              if(Validator.validate(domain, problem, sol))
+                Right(plan)
+              else
+                Left("Invalid plan")
+            } else
+              Right(plan)
+          case None =>
+            println("\nFAIL")
+            Left("Failed to find a plan")
+        }
+      case Failure(err) =>
+        err.printStackTrace()
+        sys.exit(1)
+    }
+  }
+
+  def solveOld(domain: String, problem: String, config: Config): Either[String, Plan] = {
+    val pddlOptions = Options(discretization = config.discretization)
+    val parser = new Parser()(pddlOptions)
+
+    implicit val plannerConfig: PlannerConfig =
+      PlannerConfig(config.minInstances, config.maxInstances)
+    implicit val predef: PddlPredef = parser.predef
+
+    parser.parse(domain, problem) match {
+      case Success(model) =>
+        dahu.planning.planner.Planner
+          .solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)
             if(config.validate) {

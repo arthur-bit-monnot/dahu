@@ -14,8 +14,9 @@ import dahu.model.types.Value
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
 import dahu.planning.model.core.{ActionTemplate, Statement}
-import dahu.planning.planner.chronicles.Counter
+import dahu.planning.planner.chronicles.{Counter, Plan}
 import dahu.solvers.MetaSolver
+import dahu.utils._
 import dahu.utils.debug._
 import dahu.utils.errors._
 import dahu.z3.Z3PartialSolver
@@ -119,6 +120,8 @@ object Planner {
                   .asInstanceOf[Seq[Operator[cats.Id]]]
                   .filter(_.present)
                   .sortBy(_.start)
+                  .map(o => chronicles.OperatorF[cats.Id](o.name, o.args.toVec, o.start, o.end))
+                  .toVec
               ))
           case x => unexpected(x.toString)
         }
