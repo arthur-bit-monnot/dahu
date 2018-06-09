@@ -2,6 +2,40 @@ package dahu.utils
 
 object Graph {
 
+  def topologicalOrderLeavesToRoot[@sp(Int) A: ClassTag, F[_]](
+      root: A,
+      node: A => F[A],
+      children: F[A] => Iterable[A]): Iterable[A] = {
+    val queue = debox.Buffer[A]()
+    val processed = debox.Set[A]()
+    val order = debox.Buffer[A]()
+
+    @inline def push(i: A): Unit = {
+      if(!processed(i))
+        queue.append(i)
+    }
+    @inline def pop(): A = {
+      queue.remove(queue.length - 1)
+    }
+    push(root)
+
+    while(queue.nonEmpty) {
+      val a = pop()
+      if(!processed(a)) {
+        val fa = node(a)
+        val faChildren = children(fa)
+        if(faChildren.forall(i => processed(i))) {
+          processed += a
+          order.append(a)
+        } else {
+          push(a)
+          faChildren.foreach(push)
+        }
+      }
+    }
+    order.toIterable()
+  }
+
   def tarjan[V: ClassTag](graph: Map[V, Set[V]]): Array[debox.Set[V]] = {
     tarjan(
       debox.Map.fromIterable(graph.mapValues(s => debox.Set.fromIterable(s)))
