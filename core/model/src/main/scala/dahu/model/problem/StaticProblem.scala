@@ -105,6 +105,11 @@ object StaticProblem {
       IR(
         value = ctx.record((x: StaticF[IR[IDTop]]).smap(_.value)),
         provided = getProvided(x)
+//          .map { id: IDTop =>
+//            ctx.record(
+//              Partial(id, valid.value, ctx.retrieve(id).typ)
+//            )
+//          }
       )
     case x: StaticF[IR[IDTop]] =>
       IR(

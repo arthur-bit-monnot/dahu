@@ -5,8 +5,8 @@ import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.recursion.{Fix, Recursion}
-import dahu.utils.{BiMap, SFunctor, SubSubInt}
-import dahu.utils.SFunctor._
+import dahu.utils.{BiMap, Graph, SFunctor, SubSubInt}
+import dahu.utils._
 import shapeless.the
 
 import scala.collection.mutable
@@ -48,7 +48,7 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       f: InternalMapGenLazyForest.Context[F, G, ID, IDTop] => F[IDTop] => G[IDTop])(
       implicit F: SFunctor[F],
       OF: Functor[Opt]
-  ): IlazyForest[K, G, Opt, _] =
+  ) = //: IlazyForest[K, G, Opt, _] =
     InternalMapGenLazyForest(this)(f)
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2, ID] =
@@ -173,6 +173,48 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       override def get(k: K)(implicit F: Functor[Opt]): Opt[V] =
         self.getTreeRoot(k).map(getInternal)
     }
+
+  def transform[I <: IDTop](fGen: (I => F[I], F[I] => I) => (F[I] => F[I]))(
+      implicit TN: TreeNode[F],
+      F: Functor[Opt],
+      SF: SFunctor[F]): LazyForestLayer[K, F, Opt, _, ID] =
+    new LazyForestLayer[K, F, Opt, I, self.ID] {
+      val idMap = debox.Map[self.ID, I]()
+      val coalg = BiMap[I, F[I]]()
+      private var _nextID = 0
+      def nextID(): I = { _nextID += 1; (_nextID - 1).asInstanceOf[I] }
+      def record(fi: F[I]): I = {
+        if(!coalg.cocontains(fi)) {
+          coalg.add(nextID(), fi)
+        }
+        coalg.coget(fi)
+      }
+      val transform: F[I] => F[I] = fGen(coalg.get(_), record(_))
+      def processed(id: self.ID): Boolean = idMap.contains(id)
+      override def fromPreviousId(id: self.ID): I = {
+        if(!idMap.contains(id)) {
+          // note: this is suboptimal as we might compute the topo order can contain nodes that are discarded with the filter on to process
+          val toProcess = self.internalBottomUpTopologicalOrder(id)
+          toProcess.withFilter(!processed(_)).foreach { cur =>
+            assert(!idMap.contains(cur))
+            val fcur: F[self.ID] = self.internalCoalgebra(cur)
+            val fx: F[I] = fcur.smap(i => idMap(i))
+            val fy = transform(fx)
+            val y = record(fy)
+            idMap.update(cur, y)
+          }
+        }
+        idMap(id)
+      }
+
+      override def getTreeRoot(k: K): Opt[I] = self.getTreeRoot(k).map(fromPreviousId(_))
+
+      override def internalCoalgebra(i: I): F[I] = coalg.get(i)
+    }
+
+  def internalBottomUpTopologicalOrder(id: ID)(implicit TN: TreeNode[F]): Iterable[ID] = {
+    Graph.topologicalOrderLeavesToRoot[ID, F](id, internalCoalgebra(_), TN.children(_))
+  }
 }
 object IlazyForest {
   def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](
@@ -180,6 +222,12 @@ object IlazyForest {
       algebraGenerator: LazyForestGenerator.Context[FOut, IDTop] => FIn[Opt[IDTop]] => Opt[IDTop])(
       implicit ct: ClassTag[Opt[IDTop]]): IlazyForest[K, FOut, Opt, _] =
     new LazyForestGenerator[K, FIn, FOut, Opt, IDTop](coalgebra, algebraGenerator)
+}
+trait LazyForestLayer[K, F[_], Opt[_], OwnID <: IDTop, PrevID <: IDTop]
+    extends IlazyForest[K, F, Opt, OwnID] {
+  def fromPreviousId(id: PrevID): ID
+  override def fixID: LazyForestLayer[K, F, Opt, SubSubInt[IDTop, Marker], PrevID] =
+    this.asInstanceOf[LazyForestLayer[K, F, Opt, SubSubInt[IDTop, Marker], PrevID]]
 }
 
 class InternalMappedLazyForest[K, F[_], G[_], Opt[_], InternalID <: IDTop] private (
@@ -344,10 +392,6 @@ class InternalMapGenLazyForest[K, F[_]: SFunctor, G[_], Opt[_]: Functor, IDOrig 
                                          internalCoalgebra,
                                          orig.internalCoalgebra,
                                          id => oldToNewId(id)))
-
-  @inline private def processed(k: orig.ID): Boolean = {
-    idsMap.contains(k) && repMap.contains(idsMap.get(k))
-  }
 
   def get(k: K): Opt[G[ID]] = {
     orig.getTreeRoot(k).map(getFromOrigID)

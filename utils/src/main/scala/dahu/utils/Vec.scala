@@ -245,6 +245,13 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     }
     true
   }
+  def exists(f: A => Boolean): Boolean = {
+    cfor(0)(_ < length, _ + 1) { i =>
+      if(f(apply(i)))
+        return true
+    }
+    false
+  }
   def contains(a: A): Boolean = {
     cfor(0)(_ < length, _ + 1) { i =>
       if(a == apply(i))

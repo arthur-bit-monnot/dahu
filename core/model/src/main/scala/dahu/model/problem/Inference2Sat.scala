@@ -6,9 +6,12 @@ import algebra.Order
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.model.compiler.Algebras
+import dahu.model.compiler.Algebras.StringTree
 import dahu.model.ir.{ComputationF, CstF, Total}
 import dahu.model.math.bool
+import dahu.model.problem.SatisfactionProblem.Optimizations
 import dahu.model.types.Tag
+import dahu.recursion.Recursion
 import dahu.utils._
 
 import scala.annotation.switch
@@ -16,7 +19,7 @@ import scala.annotation.switch
 object Types {
   trait BoolDomMarker
   trait VarMarker
-  type Var = SInt[VarMarker]
+  type Var = IDTop //SInt[VarMarker]
 
   type Dom = SInt[BoolDomMarker]
   final val NOT_BOOL: Dom = (-3).asInstanceOf[Dom]
@@ -160,6 +163,8 @@ class Processor[X, ID <: IDTop] {
     }
   }
 
+  var root: Option[Var] = None
+
   def load(tree: LazyTree[X, Total, cats.Id, ID]): Unit = {
     val root = tree.tree.getTreeRoot(tree.root)
     val processingOrder = Graph.topologicalOrderLeavesToRoot[ID, Total](
@@ -180,19 +185,20 @@ class Processor[X, ID <: IDTop] {
         count(x) = count.getOrElse(x, 0) + 1
       }
     }
-    val printTree = tree.tree.cata(Algebras.printAlgebraTree)
-    count
-      .iterator()
-      .filter(_._2 > 1)
-      .toSeq
-      .sortBy(_._2)
-      .reverse
-      .foreach {
-        case (n, c) =>
-          println(s"\n$c $n")
-          println(printTree.getInternal(n).mkString(30))
-      }
-    updateDomain(bimap.get(root), TRUE)
+//    val printTree = tree.tree.cata(Algebras.printAlgebraTree)
+//    count
+//      .iterator()
+//      .filter(_._2 > 1)
+//      .toSeq
+//      .sortBy(_._2)
+//      .reverse
+//      .foreach {
+//        case (n, c) =>
+//          println(s"\n$c $n")
+//          println(printTree.getInternal(n).mkString(30))
+//      }
+    this.root = Some(bimap.get(root))
+    this.root.foreach(updateDomain(_, TRUE))
   }
 
   private def updateDomain(v: Var, newDom: Dom): Unit = {
@@ -233,12 +239,59 @@ class Processor[X, ID <: IDTop] {
         case _              =>
       }
     }
-    for(k <- implication.graph.keys.take(1)) {
-      println(coalg(k))
-      implication.graph(k).foreach(x => println("  " + coalg(x)))
-      implication.descendants(k).foreach(x => println("    " + coalg(x)))
-    }
+//    for(k <- implication.graph.keys.take(1)) {
+//      println(coalg(k))
+//      implication.graph(k).foreach(x => println("  " + coalg(x)))
+//      implication.descendants(k).foreach(x => println("    " + coalg(x)))
+//    }
     println("a")
+  }
+
+  def processingOrder =
+    Graph.topologicalOrderLeavesToRoot[Var, Total](root.get,
+                                                   id => coalg(id),
+                                                   fa => TreeNode[Total].children(fa))
+
+  def export(): Unit = {
+    def rec(expr: Total[Var]): Var =
+      record(Optimizations.optimizer.optim(i => coalg(i), record)(expr))
+    val TRUTH = rec(bool.TrueF)
+    val known = inferences.toIterable().toSet
+    val order = processingOrder
+    val x = debox.Map[Var, Var]()
+    for(v <- order) {
+      val res = {
+//        if(known(v)) {
+//          TRUTH
+//        } else {
+        val mapped = coalg(v).smap(x.apply)
+        coalg(v) match {
+          case ComputationF(bool.Or, args, t) if !known(v) =>
+            var implied = false
+            for(a <- args) {
+              val negA = inverse(a)
+              val implicationOfA = implication.descendants(a)
+              if(args.exists(implicationOfA(_)))
+                implied = true
+            }
+            if(implied)
+              TRUTH
+            else
+              rec(mapped)
+          case _ => rec(mapped)
+        }
+      }
+      x.update(v, res)
+    }
+//    val topConjuncts = Vec.fromSeq(root.get +: known.toSeq)
+//    val top = record(
+//      ComputationF(bool.And, topConjuncts, Tag.ofBoolean)
+//    )
+//    x.update(top, top)
+
+    val tree =
+      Recursion.hylo[Total, Var, StringTree](i => coalg(i), Algebras.printAlgebraTree)(x(root.get))
+    println(tree.mkString(50))
   }
 }
 
@@ -248,9 +301,67 @@ object Inference2Sat {
       tree: LazyTree[X, Total, cats.Id, _]): LazyTree[X, Total, cats.Id, _] = {
     val t = tree.fixID
 
-    val proc = new Processor[X, t.ID]
-    proc.load(t)
-    proc.process()
+    val root = t.tree.getTreeRoot(tree.root)
+    val topLevels = t.tree.getExt(tree.root) match {
+      case ComputationF(bool.And, known, _) => known.toSet
+    }
+    val TRUE = t.tree.getTreeRoot(bool.True.asInstanceOf[X])
+    val XX = t.tree.mapInternal[Total] { tot =>
+      tot.smap(i => if(topLevels.contains(i)) TRUE else i)
+    }
+//    println()
+    val printable = XX.cata(Algebras.printAlgebraTree)
+//    for(tl <- topLevels) {
+//      println("\n")
+//
+//    }
+//    println("STOP")
+
+    val YY = XX
+      .transform(Optimizations.optimizer.optim)
+      .fixID
+
+    val printableYY = YY.cata(Algebras.printAlgebraTree)
+    val clauses =
+      topLevels.iterator
+        .map(YY.fromPreviousId)
+        .filter(YY.internalCoalgebra(_) != bool.TrueF)
+        .map(printableYY.getInternal(_).mkString(90))
+        .toSeq
+        .sortBy(_.replace(" ", "").replace("\n", ""))
+    clauses.foreach(println)
+//    for(tl <-  if YY.internalCoalgebra(tl) != bool.TrueF) {
+//      println("\n")
+
+//      println(printableYY.getInternal(tl).mkString(80))
+//      println("------")
+//      println(printable.getInternal(tl).mkString(50))
+//      println(" =============== ")
+//    }
+    println("STOP2")
+//
+//    val idx = debox.Map[t.ID, IDTop]()
+//    val coalg = debox.Buffer[Total[IDTop]]()
+//    def record(fa: Total[IDTop]): IDTop = {
+//      coalg.append(fa)
+//      (coalg.length - 1).asInstanceOf[IDTop]
+//    }
+//    def map: t.ID => IDTop = (i: t.ID) => {
+//      val fi = t.tree.internalCoalgebra(i)
+//      if(i == root) {
+//        record(fi.smap(idx(_)))
+//      }
+//      if(topLevels.contains(i)) {
+//
+//        record(bool.TrueF)
+//
+//      }
+//    }
+
+//    val proc = new Processor[X, t.ID]
+//    proc.load(t)
+//    proc.process()
+//    proc.export()
 
     t
   }

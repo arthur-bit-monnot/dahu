@@ -141,6 +141,22 @@ object SatisfactionProblem {
       }
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+        // note: those two cases can be extended to vectors of arbitrary size
+        case original @ ComputationF(bool.Or, Vec2(a, b), _) =>
+          if(b == record(ComputationF(bool.Not, Vec(a), Tag.ofBoolean)))
+            bool.TrueF
+          else if(a == record(ComputationF(bool.Not, Vec(b), Tag.ofBoolean)))
+            bool.TrueF
+          else
+            original
+        case original @ ComputationF(bool.And, Vec2(a, b), _) =>
+          if(b == record(ComputationF(bool.Not, Vec(a), Tag.ofBoolean)))
+            bool.FalseF
+          else if(a == record(ComputationF(bool.Not, Vec(b), Tag.ofBoolean)))
+            bool.FalseF
+          else
+            original
+
         case ComputationF(int.EQ, Vec2(a1, a2), _) if a1 == a2  => bool.TrueF
         case ComputationF(int.LEQ, Vec2(a1, a2), _) if a1 == a2 => bool.TrueF
         case x @ ComputationF(int.EQ, Vec2(a1, a2), _) =>
@@ -280,6 +296,25 @@ object SatisfactionProblem {
       }
     }
 
+    object DistributeImplication extends Optimizer {
+      override def optim(retrieve: IDTop => Total[IDTop],
+                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+        case original @ ComputationF(bool.Or, Vec2(a, b), _) =>
+          def tryWith(a: IDTop, b: IDTop): Option[Total[IDTop]] =
+            (retrieve(a), retrieve(b)) match {
+              case (fa @ ComputationF(bool.Not, _, _), ComputationF(bool.And, conjs, _)) =>
+                val disjuncts =
+                  conjs.map(c => record(ComputationF(bool.Or, Vec(a, c), Tag.ofBoolean)))
+                Some(ComputationF(bool.And, disjuncts, Tag.ofBoolean))
+              case _ => None
+            }
+
+          tryWith(a, b).orElse(tryWith(b, a)).getOrElse(original)
+        case x => x
+      }
+
+    }
+
     private val optimizers = List(
       ExtractField,
       ElimUniversalEquality,
@@ -291,11 +326,13 @@ object SatisfactionProblem {
       ElimTautologies,
       ConstantFolding,
       SimplifyIfThenElse,
+      DistributeImplication,
       OrderArgs,
     )
-    val optimizer: Optimizer = (optimizers ++ optimizers).foldLeft[Optimizer](NoOpOptimizer) {
-      case (acc, next) => acc.andThen(next)
-    }
+    val optimizer: Optimizer =
+      (optimizers ++ optimizers ++ optimizers).foldLeft[Optimizer](NoOpOptimizer) {
+        case (acc, next) => acc.andThen(next)
+      }
   }
 
   final class Utils(val directRec: Total[IDTop] => IDTop, retrieve: IDTop => Total[IDTop]) {
