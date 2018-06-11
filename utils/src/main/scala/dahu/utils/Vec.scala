@@ -387,8 +387,10 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
       override def foreach[U](f: A => U): Unit = lhs.foreach(a => f(a))
     }
 
-  def toSet: Set[A] = toIterable.toSet
-  def toSeq: Seq[A] = toIterable.toSeq
+  def toSet: Set[A] = iterator().toSet
+  def toSeq: Seq[A] =
+    // mutable but exposed as a collection.Seq so we should be fine
+    mutable.WrappedArray.make(elems)
 
   /**
     * Create a Vector[A] from this buffer's elements.
