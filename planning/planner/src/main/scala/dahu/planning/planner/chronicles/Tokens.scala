@@ -105,14 +105,23 @@ object CondTokF {
   val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
   val Value = FieldAccess[CondTokF, Literal]("value", 2)
 
-  def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Boolean] =
-    Lambda[EffTok, Boolean](
-      (eff: Expr[EffTok]) => {
-        (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
-        (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-        (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
-      }
-    )
+  val supBy: Expr[CondTok ->: EffTok ->: Boolean] = Lambda[CondTok, EffTok ->: Boolean](
+    (cond: Expr[CondTok]) =>
+      Lambda[EffTok, Boolean](
+        (eff: Expr[EffTok]) => {
+          (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
+          (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
+          (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+        }
+    ))
+  def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Boolean] = supBy.partialApply(cond)
+//    Lambda[EffTok, Boolean](
+//      (eff: Expr[EffTok]) => {
+//        (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
+//        (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
+//        (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+//      }
+//    )
 }
 
 case class EffTokF[F[_]](startChange: F[Int],
@@ -198,14 +207,25 @@ object EffTokF {
   val Value = FieldAccess[EffTokF, Literal]("value", 3)
   val Id = FieldAccess[EffTokF, Int]("id", 4)
 
-  def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Boolean] =
-    Lambda[EffTok, Boolean](
-      (rhs: Expr[EffTok]) =>
-        //Id(lhs) >= Id(rhs) || // superseded by accept function
-        IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
-          IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
-          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
-    )
+  val nonThreatening: Expr[EffTok ->: EffTok ->: Boolean] =
+    Lambda[EffTok, EffTok ->: Boolean](
+      lhs =>
+        Lambda[EffTok, Boolean](
+          (rhs: Expr[EffTok]) =>
+            //Id(lhs) >= Id(rhs) || // superseded by accept function
+            IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+              IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
+              bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
+      ))
+
+  def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Boolean] = nonThreatening.partialApply(lhs)
+//    Lambda[EffTok, Boolean](
+//      (rhs: Expr[EffTok]) =>
+//        //Id(lhs) >= Id(rhs) || // superseded by accept function
+//        IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+//          IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
+//          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
+//    )
 
 }
 

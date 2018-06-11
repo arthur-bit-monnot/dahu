@@ -17,7 +17,7 @@ import DummyImplicits._
 case class SCondTokF[F[_]](fluent: F[Fluent], value: F[Literal])
 
 object SCondTokF {
-  implicit val productTag: ProductTag[CondTokF] = ProductTag.ofProd[CondTokF]
+  implicit val productTag: ProductTag[SCondTokF] = ProductTag.ofProd[SCondTokF]
 
   case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
       extends (Tag[SEffTok] => Boolean) {
@@ -50,13 +50,22 @@ object SCondTokF {
   val Fluent = FieldAccess[SCondTokF, FluentF[Id]]("fluent", 0)
   val Value = FieldAccess[SCondTokF, Literal]("value", 1)
 
-  def supportedBy(cond: Expr[SCondTok]): Expr[SEffTok ->: Boolean] =
-    Lambda[SEffTok, Boolean](
-      (eff: Expr[SEffTok]) => {
-        (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
-        (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
-      }
-    )
+  val supBy: Expr[SCondTok ->: SEffTok ->: Boolean] = Lambda[SCondTok, SEffTok ->: Boolean](
+    cond =>
+      Lambda[SEffTok, Boolean](
+        (eff: Expr[SEffTok]) => {
+          (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
+          (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
+        }
+    ))
+
+  def supportedBy(cond: Expr[SCondTok]): Expr[SEffTok ->: Boolean] = supBy.partialApply(cond)
+//    Lambda[SEffTok, Boolean](
+//      (eff: Expr[SEffTok]) => {
+//        (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
+//        (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
+//      }
+//    )
 }
 
 case class SEffTokF[F[_]](fluent: F[Fluent], value: F[Literal])
