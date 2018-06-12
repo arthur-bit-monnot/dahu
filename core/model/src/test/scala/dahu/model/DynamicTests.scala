@@ -72,5 +72,6 @@ object DynamicTests extends TestSuite {
 
 object DynTestApp extends App {
   import DynamicTests._
-  Group.process3(API.parse(result))
+  Group.process2(API.parse(result))
+
 }

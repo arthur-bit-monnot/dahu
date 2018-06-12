@@ -10,7 +10,7 @@ import dahu.graphs.TreeNode._
 import dahu.model.compiler.Algebras
 import dahu.model.input.Lambda.LambdaIdent
 import dahu.model.math.bool
-import dahu.model.problem.SatisfactionProblem.Utils
+import dahu.model.problem.SatisfactionProblem.{Prez, Utils}
 import dahu.model.types.Tag
 import dahu.recursion.{EnvT, FCoalgebra, Recursion}
 
@@ -183,9 +183,10 @@ object Group {
     //    def \(o: CtxDef[I]): CtxDef[I] = CtxDef(conditions -- o.conditions)
 
     def show: String = s"(${conditions.mkString("{", ",", "}")} $binds   $applyStak)"
-    override def toString: String = s"${conditions.mkString("{", ",", "}")}"
+    override def toString: String = show //s"${conditions.mkString("{", ",", "}")}"
   }
   case class Validity[I](ctx: CtxDef[I], e: Expr[I])
+
   def process2[K](_tree: LazyTree[K, ExprF, cats.Id, _]): Unit = {
     val tree = _tree.fixID
     type I = tree.ID
@@ -223,34 +224,44 @@ object Group {
 
     // I => G[I]
     // J => F[J] -- with J = (I, Set[i])
-    val cache = mutable.Map[CI, ExprF[I]]()
+    val cache = BiMap[CI, ExprF[I]]()
     def record(e: ExprF[I], ctx: CtxDef[I]): CI = {
-      val ci = (-(cache.size + 1), ctx).asInstanceOf[CI] // AAAARh
-      cache.update(ci, e)
-      ci
+      if(cache.cocontains(e))
+        cache.coget(e)
+      else {
+        val ci = (-(cache.size + 1), ctx).asInstanceOf[CI] // AAAARh
+        cache.add(ci, e)
+        ci
+      }
     }
     def genKey(i: I, c: CtxDef[I]): (I, CtxDef[I]) = {
       (i, lambdaDeps(i).filter(c))
     }
-//    sealed trait Node[F]
-    case class Orig[F](v: NoApplyF[F], cond: Set[F])
+    //    sealed trait Node[F]
+    //    case class Orig[F](v: NoApplyF[F])
+    //val memory = mutable.ArrayBuffer[(Set[I], CI)]()
     def trans(dyns: Vec[CI]): CI => NoApplyF[CI] = {
       case (i, si) => {
+        println((i, si))
+        if(i == 123)
+          println("BREAK")
         val fi =
           if(cache.contains((i, si)))
-            cache((i, si))
+            cache.get((i, si))
           else
             forest.internalCoalgebra(i)
-        fi match {
+        val res = fi match {
           case OptionalF(value, present, t) =>
+            // memory.append(((si + present).conditions, genKey(present, si)))
             OptionalF(genKey(value, si + present), genKey(present, si), t) //, (present, si), t)
           case ApplyF(lbd, param, t) =>
             NoopF(genKey(lbd, si.copy(applyStak = param :: si.applyStak)), t)
-          case LambdaF(in, ast, _, t) if si.applyStak.nonEmpty =>
+          case LambdaF(in, ast, _, t) => //if si.applyStak.nonEmpty =>
+            assert(si.applyStak.nonEmpty)
             val CtxDef(presence, binds, nextApply :: followingApply) = si
             NoopF(genKey(ast, CtxDef(presence, binds + ((in, nextApply)), followingApply)), t) // note type might not line up, should be tree.type
           case DynamicF(f, monoid, _, t) =>
-            val fed = dyns.map(d => record(ApplyF(f, d._1, Tag.default[Any]), d._2))
+            val fed = dyns.map(d => record(ApplyF(f, d._1, monoid.inTypes), d._2))
             ComputationF(monoid, fed, t)
           case DynamicProviderF(e, p, t) =>
 //            assert(dyns.contains((p, si)))
@@ -259,8 +270,15 @@ object Group {
             NoopF(genKey(si.binds(i), si), Tag.default[Any])
 //          case LambdaF(in, ast, _, t) =>
 //            ???
-          case fi: NoApplyF[I] => fi.smap(genKey(_, si))
+          case fi: NoApplyF[I] =>
+            fi.smap(genKey(_, si))
         }
+        println(s"$i $si  --  $res")
+        assert(res match {
+          case x: LambdaParamF[_] => false
+          case _                  => true
+        })
+        res
       }
     }
 
@@ -299,27 +317,44 @@ object Group {
     }
     val xx = mutable.Buffer[String]()
     val coalgFinal = mutable.Map[CI, ExprF[CI]]()
-    traverse(trans(dynamics.toVec))((root, CtxDef())) {
-      case ((i, ctx), fi) =>
-        coalgFinal += (((i, ctx), fi))
-        xx += s"$i ${ctx.show} -- $fi --  "
-    }
-    val AST = IlazyForest.ana(trans(dynamics.toVec))
-    val back = AST.idsMap.toSeq.groupBy(_._2).mapValues(_.map(_._1._2.conditions))
+//    traverse(trans(dynamics.toVec))((root, CtxDef())) {
+//      case ((i, ctx), fi) =>
+//        coalgFinal += (((i, ctx), fi))
+//        xx += s"$i ${ctx.show} -- $fi --  "
+//    }
+    val AST = IlazyForest.ana(trans(dynamics.toVec)).fixID
+    AST.forceEvaluation((root, CtxDef()))
+//    val back = AST.idsMap.toSeq.groupBy(_._2).mapValues(_.map(_._1._2.conditions))
 
     println("===========================================================")
     xx.sorted.foreach(println)
     println("STOP")
-    val contextualizedRoot: CI = (root, CtxDef())
-    val order = Graph.topologicalOrderTopDownPrioritized[CI, ExprF](
-      contextualizedRoot,
-      i => coalgFinal(i),
-      fa => fa.children.iterator,
-      k => Int.MaxValue - k._2.conditions.size)
+//    val contextualizedRoot: CI = (root, CtxDef())
+//    val order = Graph.topologicalOrderTopDownPrioritized[CI, ExprF](
+//      contextualizedRoot,
+//      i => AST.internalCoalgebra(i),
+//      fa => fa.children.iterator,
+//      k => Int.MaxValue - k._2.conditions.size)
 
-    order.foreach { ci =>
-      println(s"$ci    ------     ${coalgFinal(ci)}")
-    }
+//    order.foreach { ci =>
+//      println(s"$ci    ------     ${coalgFinal(ci)}")
+//    }
+    println(
+      AST.cata(Algebras.printAlgebraTree).get((root, CtxDef())).mkString(90)
+    )
+    val ASTRoot = AST.getTreeRoot((root, CtxDef()))
+
+    val withPrez = SatisfactionProblem.encodePresence(ASTRoot, AST.internalCoalgebra)
+    withPrez.forceEvaluation
+
+//    IlazyForest.ana[Prez[withPrez.ID], PrezConstrained](_.smap(withPrez.tree.internalCoalgebra))
+    // function: ID => ConstrainedF[ID]
+    //           K => IR[ID]
+
+    val eval = withPrez.eval(Algebras.printAlgebraTree)
+    println(eval.value.mkString(90))
+    println("================ ")
+    println(eval.present.mkString(90))
 //    type OptExprF[I] = (ExprF[I], ExprF[I])
 //    IlazyForest.build[CI, ExprF, OptExprF, cats.Id](k => coalgFinal(k))(ctx => {
 //      case x @ InputF(_, _) => ctx.record((x, bool.TrueF))
@@ -343,13 +378,15 @@ object Group {
       case _ if applicationStack.nonEmpty =>
         ctx
       case CtxDef(conds, binds, applyStak) if !binds.keys.forall(k => values.contains(k)) =>
-        CtxDef(conds, binds.filter { case (_, v) => values.contains(v) })
+        CtxDef(conds, binds.filter { case (v, _) => values.contains(v) })
       case _ =>
         ctx
     }
     private def filterContext(ctx: CtxDef[I]): CtxDef[I] =
-      if(pure) ctx.copy(conditions = Set[I]())
-      else ctx
+      if(pure)
+        ctx.copy(conditions = Set[I]())
+      else
+        ctx
 
     def filter(ctx: CtxDef[I]): CtxDef[I] = filterContext(filterParams(ctx))
   }

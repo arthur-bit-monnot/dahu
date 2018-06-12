@@ -52,6 +52,7 @@ object ExprF extends LowPriorityExprF {
     case x: ApplyF[A]           => ScalaRunTime._hashCode(x)
     case x: LambdaParamF[A]     => ScalaRunTime._hashCode(x)
     case x: SequenceF[A]        => ScalaRunTime._hashCode(x)
+    case x: NoopF[A]            => ScalaRunTime._hashCode(x)
   }
 }
 trait LowPriorityExprF {
@@ -78,12 +79,13 @@ trait LowPriorityExprF {
 sealed trait NoProviderF[@sp(Int) F] extends ExprF[F]
 sealed trait StaticF[@sp(Int) F] extends NoProviderF[F]
 sealed trait NoApplyF[@sp(Int) F] extends StaticF[F]
+sealed trait ConstrainedF[@sp(Int) F] extends NoApplyF[F]
 
 /** Pure expressions that always yield value if they are fed with pure expressions.
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[@sp(Int) F] extends NoApplyF[F] // StaticF without lambda application
+sealed trait Total[@sp(Int) F] extends ConstrainedF[F] // StaticF without lambda application
 object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
@@ -186,7 +188,7 @@ final case class PresentF[F](optional: F) extends ExprF[F] with NoApplyF[F] {
   override def toString: String = s"present($optional)"
 }
 
-final case class ValidF[@sp(Int) F](partial: F) extends NoApplyF[F] {
+final case class ValidF[@sp(Int) F](partial: F) extends ConstrainedF[F] {
   override def typ: Type = Tag[Boolean]
 
   override def toString: String = s"valid($partial)"
@@ -200,7 +202,7 @@ final case class OptionalF[@sp(Int) F](value: F, present: F, typ: Type) extends 
 /** A partial expression that only produces a value if its condition evaluates to True. */
 final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
     extends ExprF[F]
-    with NoApplyF[F] {
+    with ConstrainedF[F] {
   override def toString: String = s"$value? (constraint: $condition)"
 }
 

@@ -24,7 +24,7 @@ object StaticProblem {
 
   def underClosedWorldBase[X](root: X,
                               coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id, _] = {
-    val lt = IlazyForest.build(coalgebra, algebra).fixID
+    val lt = IlazyForest.build(coalgebra)(algebra).fixID
     val provided = lt.getTreeRoot(root).provided.toSeq.distinct
 //    val TMP = provided.toList.map(lt.internalCoalgebra)
 //    println(TMP.map(_.typ))

@@ -459,7 +459,7 @@ object SatisfactionProblem {
       ir
     }
 
-  // TODO: the StaticF is to wide as this method does not handle lambdas
+  // TODO: the StaticF is to wide as this method does not handle lambdaApplication
   def encode[X <: Int](root: X,
                        coalgebra: FCoalgebra[StaticF, X],
                        optimize: Boolean = true): LazyTree[X, Total, IR, _] = {
@@ -476,5 +476,122 @@ object SatisfactionProblem {
         .changedKey[X](k2 => t.tree.getTreeRoot(k2))
     LazyTree(total)(t.root)
   }
+//  type TMP[X] = (ConstrainedF[X], ConstrainedF[X])
+//  def encodePresence[X](
+//      _lt: IlazyForest[X, NoApplyF, cats.Id, _]): IlazyForest[X, TMP, cats.Id, _] = {
+//    val lt = _lt.fixID
+//    val XX = lt.mapInternal[TMP[lt.ID]](???)
+//    XX
+//  }
+
+  def encodePresence[X <: Int](root: X,
+                               coalgebra: FCoalgebra[NoApplyF, X],
+                               optimize: Boolean = true): LazyTree[X, ConstrainedF, Prez, _] = {
+    val lt = IlazyForest.build(coalgebra)(compilerPresence).fixID
+
+    LazyTree(lt)(root)
+  }
+
+  final class UtilsPrez(val directRec: ConstrainedF[IDTop] => IDTop,
+                        retrieve: IDTop => ConstrainedF[IDTop]) {
+    def rec(expr: ConstrainedF[IDTop]): IDTop = directRec(expr)
+    def ret(i: IDTop): ConstrainedF[IDTop] = retrieve(i)
+
+    val TRUE: IDTop = rec(CstF(Value(true), Tag.ofBoolean))
+    val FALSE: IDTop = rec(CstF(Value(false), Tag.ofBoolean))
+
+    def and(conjuncts: IDTop*): IDTop = and(Vec.unsafe(conjuncts.toArray))
+    def and(conjuncts: Vec[IDTop]): IDTop = {
+      val noTrue = conjuncts.filter(_ != TRUE)
+      if(noTrue.isEmpty) TRUE
+      else if(noTrue.size == 1) noTrue(0)
+      else rec(ComputationF(bool.And, noTrue, Tag.ofBoolean))
+    }
+    def or(disjuncts: IDTop*): IDTop =
+      rec(ComputationF(bool.Or, Vec.unsafe(disjuncts.toArray), Tag.ofBoolean))
+    def not(e: IDTop): IDTop =
+      rec(ComputationF(bool.Not, Seq(e), Tag.ofBoolean))
+
+    def implies(cond: IDTop, eff: IDTop): IDTop =
+      or(not(cond), eff)
+
+  }
+
+  final case class Prez[@sp(Int) F](value: F, present: F)
+  object Prez {
+    implicit object functorInstance extends Functor[Prez] {
+      override def map[A, B](fa: Prez[A])(f: A => B): Prez[B] = Prez(f(fa.value), f(fa.present))
+    }
+  }
+
+  def compilerPresence(context: LazyForestGenerator.Context[ConstrainedF, IDTop])
+    : StaticF[Prez[IDTop]] => Prez[IDTop] =
+    x => {
+      val utils = new UtilsPrez(context.record, context.retrieve)
+      val ir: Prez[IDTop] = x match {
+        case x: InputF[_] => Prez(utils.rec(x), utils.TRUE)
+        case x: CstF[_]   => Prez(utils.rec(x), utils.TRUE)
+        case ComputationF(f, args, t) =>
+          Prez(
+            value = utils.rec(ComputationF(f, args.map(a => a.value), t)),
+            present = utils.and(args.map(_.present))
+          )
+        case ProductF(members, t) =>
+          Prez(
+            value = utils.rec(ProductF(members.map(a => a.value), t)),
+            present = utils.and(members.map(_.present))
+          )
+        case SequenceF(members, t) =>
+          Prez(
+            value = utils.rec(SequenceF(members.map(a => a.value), t)),
+            present = utils.and(members.map(_.present))
+          )
+        case ITEF(cond, onTrue, onFalse, t) =>
+          Prez(
+            value = utils.rec(ITEF(cond.value, onTrue.value, onFalse.value, t)),
+            present = utils.and(cond.present,
+                                utils.implies(cond.value, onTrue.present),
+                                utils.implies(utils.not(cond.value), onFalse.present))
+          )
+        case OptionalF(value, present, _) =>
+          Prez(
+            value = value.value,
+            present = utils.and(value.present, present.present, present.value)
+          )
+        case PresentF(opt) =>
+          Prez(
+            value = opt.present,
+            present = utils.TRUE
+          )
+        case ValidF(part) =>
+          Prez(
+            value = utils.rec(ValidF(part.value)),
+            present = part.present
+          )
+        case Partial(value, condition, tpe) =>
+          Prez(
+            value = utils.rec(Partial(value.value, condition.value, tpe)),
+            present = utils.and(value.present, condition.present)
+          )
+        case p @ LambdaParamF(id, typ) =>
+          val placeHolder = utils.rec(LambdaParamF(id, typ))
+          Prez(
+            value = utils.rec(ComputationF(TotalValue.Value, Vec(placeHolder), typ)),
+            present = utils.rec(ComputationF(TotalValue.Present, Vec(placeHolder), Tag.ofBoolean))
+          )
+        case LambdaF(in, tree, id, tpe) =>
+          val presentValidTag = LambdaTag.LambdaTagImpl(tpe, Tag.ofBoolean)
+          Prez(
+            value = utils.rec(LambdaF(in.value, tree.value, id, tpe)),
+            present = utils.rec(LambdaF(in.value, tree.present, id, presentValidTag))
+          )
+        case NoopF(expr, _) =>
+          Prez(
+            value = expr.value,
+            present = expr.present
+          )
+      }
+      ir
+    }
 
 }

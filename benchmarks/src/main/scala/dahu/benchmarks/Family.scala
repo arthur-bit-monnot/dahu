@@ -3,6 +3,7 @@ package dahu.benchmarks
 import dahu.model.compiler.Algebras
 import dahu.model.input.Expr
 import dahu.model.interpreter.Interpreter
+import dahu.model.problem.{API, Group}
 import dahu.model.types.Value
 import dahu.solvers.{MetaSolver, PartialSolver}
 import dahu.solvers.constraints.CSPPartialSolver
@@ -28,6 +29,8 @@ abstract class Family(val familyName: String) {
   def defaultSolver: PartialSolver.Builder = Z3PartialSolver.builder
 
   def printSolutions[T](sat: Expr[T], maxSolutions: Option[Int] = None): Unit = {
+    Group.process2(API.parse(sat))
+    return
     val solver = MetaSolver.of(sat, defaultSolver)
     val sols = mutable.ArrayBuffer[String]()
 //    val solutionString = (f: solver.ast.Assignment) => {

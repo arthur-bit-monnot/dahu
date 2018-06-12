@@ -4,6 +4,8 @@ import scala.collection.mutable
 
 class BiMap[A, B] private (forward: mutable.Map[A, B], backward: mutable.Map[B, A]) {
 
+  def size: Int = forward.size
+
   def add(a: A, b: B): Unit = {
     require(!forward.contains(a))
     require(!backward.contains(b))
