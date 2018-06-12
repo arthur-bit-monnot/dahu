@@ -96,6 +96,7 @@ object Total {
         case SequenceF(members, typ)          => SequenceF(members.map(f), typ)
         case LambdaF(in, tree, id, typ)       => LambdaF(f(in), f(tree), id, typ)
         case LambdaParamF(l, t)               => LambdaParamF(l, t)
+        case NoopF(e, t)                      => NoopF(f(e), t)
       }
   }
 
@@ -108,6 +109,7 @@ object Total {
       case ProductF(as, _)          => as.toIterable
       case SequenceF(as, _)         => as.toIterable
       case LambdaF(in, tree, _, _)  => Iterable(in, tree)
+      case NoopF(e, _)              => Iterable(e)
       case _: LambdaParamF[A]       => Iterable.empty
     }
   }
@@ -141,8 +143,9 @@ object CstF {
 final case class ComputationF[@sp(Int) F](fun: Fun[_], args: Vec[F], typ: Type) extends Total[F] {
   require(typ != null)
   override def toString: String = {
-    if(fun.name == "box" || fun.name == "unbox") args(0).toString
-    else s"$fun(${args.mkString(", ")})"
+//    if(fun.name == "box" || fun.name == "unbox") args(0).toString
+//    else
+    s"$fun(${args.mkString(", ")})"
   }
 }
 object ComputationF {
@@ -227,4 +230,8 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
 
 final case class LambdaParamF[F](id: Lambda.LambdaIdent, typ: Type) extends Total[F] {
   override def toString: String = "???" + id.toString
+}
+
+final case class NoopF[F](e: F, typ: Type) extends Total[F] {
+  override def toString: String = s"noop($e)"
 }

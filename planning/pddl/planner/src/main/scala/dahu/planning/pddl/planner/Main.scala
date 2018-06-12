@@ -92,8 +92,8 @@ object Main extends App {
         case Mode.PlannerCompare =>
           val domString = Source.fromFile(dom).mkString
           val pbString = Source.fromFile(pb).mkString
-          println("\n====== OLD PLANNER ========\n")
-          solveOld(domString, pbString, cfg)
+//          println("\n====== OLD PLANNER ========\n")
+//          solveOld(domString, pbString, cfg)
           println("\n====== NEW PLANNER ========\n")
           solve(domString, pbString, cfg)
       }

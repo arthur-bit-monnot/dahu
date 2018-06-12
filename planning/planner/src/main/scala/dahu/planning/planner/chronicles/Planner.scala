@@ -8,7 +8,7 @@ import dahu.planning.planner.{PlannerConfig, ProblemContext}
 import dahu.z3.Z3PartialSolver
 import dahu.model.input.dsl._
 import dahu.model.interpreter.Interpreter.Res
-import dahu.model.problem.API
+import dahu.model.problem.{API, Group}
 import dahu.solvers.MetaSolver
 
 import scala.concurrent.duration.Deadline
@@ -91,6 +91,8 @@ object Planner {
       return None
 
     val expr = asChronicleExpr(model, num, symBreak)
+    Group.process2(API.parse(expr))
+    System.exit(1)
 
     //        println(result)
     val solution = Planner.solve(expr, deadline)

@@ -534,6 +534,5 @@ object Vec {
       fa.foldLeft(SApplicative[G].pure(Vec[B]()))((acc, a) =>
         SApplicative[G].map2(acc, f(a))(_ :+ _))
     }
-
   }
 }

@@ -7,6 +7,7 @@ import dahu.model.ir._
 import dahu.model.types.Value
 import dahu.recursion._
 import dahu.recursion.Recursion._
+import dahu.utils.Vec.Vec1
 
 import scala.annotation.tailrec
 
@@ -45,10 +46,11 @@ object Algebras {
     case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
     case LambdaF(in, tree, _, _)        => s"($in ↦ $tree)"
     case ApplyF(lambda, param, _)       => s"$lambda $param"
+    case NoopF(e, _)                    => e
     case LambdaParamF(id, _)            => s"?$id"
   }
 
-  def format(e: Fix[Total]): String = cata(printAlgebraTree)(e).mkString(30)
+  def format(e: Fix[Total]): String = cata(printAlgebraTree[Total])(e).mkString(30)
 
   private class Writer(val maxExprSize: Int) {
     def mkString: String = sb.mkString
@@ -128,25 +130,34 @@ object Algebras {
         ns.length - 1,
         0) * separator.length
   }
-  val printAlgebraTree: FAlgebra[Total, StringTree] = { (x: Total[StringTree]) =>
+  def printAlgebraTree[F[X] <: ExprF[X]]: FAlgebra[F, StringTree] = printAlgebraTreeImpl
+  private val printAlgebraTreeImpl: FAlgebra[ExprF, StringTree] = { (x: ExprF[StringTree]) =>
     x match {
-      case InputF(v, _) => StringLeaf("$" + v)
-      case CstF(v, _)   => StringLeaf(v.toString)
+      case InputF(v, _)                                                            => StringLeaf("$" + v)
+      case CstF(v, _)                                                              => StringLeaf(v.toString)
+      case c @ ComputationF(f, Vec1(a), _) if f.name == "box" || f.name == "unbox" => a
       case c @ ComputationF(f, args, _) =>
         TreeSeq(args, before = f.name + "(", after = ")")
       case SequenceF(members, _) => TreeSeq(members, before = "[", after = "]")
       case ProductF(members, _)  => TreeSeq(members)
       case ITEF(cond, onTrue, onFalse, _) =>
         TreeSeq(Vec(cond, onTrue, onFalse), before = "ite(", after = ")") //s"ite($cond, $onTrue, $onFalse)"
-      case x => ???
+      case ApplyF(lbd, param, _)          => TreeSeq(Vec(lbd, param))
+      case NoopF(e, _)                    => e
+      case Partial(value, condition, _)   => TreeSeq(Vec(value, condition), before = "subjectTo(")
+      case OptionalF(value, condition, _) => TreeSeq(Vec(value, condition), before = "optional(")
+      case PresentF(v)                    => TreeSeq(Vec(v), before = "present(")
+      case x: LambdaParamF[_]             => StringLeaf(x.toString)
+      case LambdaF(in, tree, _, _) =>
+        TreeSeq(Vec(in, tree), before = "Lbd:", separator = " -> ", after = "")
     }
   }
 
   def pprint(prg: Expr[_]): String =
     hylo(coalgebra, printAlgebra)(prg)
 
-  def pprint[T](coalgebra: FCoalgebra[ExprF, T], expr: T): String =
-    hylo(coalgebra, printAlgebra)(expr)
+  def pprint[T](coalgebra: FCoalgebra[ExprF, T], expr: T): StringTree =
+    hylo(coalgebra, printAlgebraTreeImpl)(expr)
 
   def parse[T](e: Expr[T]): AST[Expr[_]] =
     parse(e, coalgebra)

@@ -32,6 +32,8 @@ object dsl {
   implicit class Lambda2Ops[I1, I2, O](private val lambda: Expr[I1 ->: I2 ->: O]) extends AnyVal {
     def apply(arg1: Expr[I1], arg2: Expr[I2])(implicit to: Tag[O], ti2: Tag[I2]): Expr[O] =
       Apply(Apply(lambda, arg1), arg2)
+    def partialApply(arg: Expr[I1])(implicit to: Tag[O], ti2: Tag[I2]): Expr[I2 ->: O] =
+      Apply(lambda, arg)
   }
 
   def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
