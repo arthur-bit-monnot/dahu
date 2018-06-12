@@ -21,6 +21,9 @@ trait OpaqueForest[K, F[_], Opt[_]] {
 trait LazyMap[K, V, Opt[_], I <: IDTop] {
   def get(k: K)(implicit F: Functor[Opt]): Opt[V]
   def getInternal(i: I): V
+
+  def asFunction(implicit F: Functor[Opt]): K => Opt[V] = get
+  def asInternalFunction: I => V = getInternal
 }
 
 trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, F, Opt] { self =>
@@ -217,11 +220,23 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
   }
 }
 object IlazyForest {
-  def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](
-      coalgebra: K => FIn[K],
+  def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](coalgebra: K => FIn[K])(
       algebraGenerator: LazyForestGenerator.Context[FOut, IDTop] => FIn[Opt[IDTop]] => Opt[IDTop])(
       implicit ct: ClassTag[Opt[IDTop]]): IlazyForest[K, FOut, Opt, _] =
     new LazyForestGenerator[K, FIn, FOut, Opt, IDTop](coalgebra, algebraGenerator)
+
+  def ana[K, F[_]: SFunctor: TreeNode](coalgebra: K => F[K]) = { //: IlazyForest[K, F, cats.Id, _] = {
+    def algebra(ctx: LazyForestGenerator.Context[F, IDTop]): F[IDTop] => IDTop = ctx.record
+    new LazyForestGenerator[K, F, F, cats.Id, IDTop](coalgebra, algebra)
+  }
+
+  def anaGen[K, FIn[_]: SFunctor: TreeNode, FOut[_]](
+      t: K,
+      coalgebra: K => FIn[K],
+      algebra: LazyForestGenerator.Context[FOut, IDTop] => FIn[IDTop] => IDTop)
+    : IlazyForest[K, FOut, cats.Id, _] =
+    new LazyForestGenerator[K, FIn, FOut, cats.Id, IDTop](coalgebra, algebra)
+
 }
 trait LazyForestLayer[K, F[_], Opt[_], OwnID <: IDTop, PrevID <: IDTop]
     extends IlazyForest[K, F, Opt, OwnID] {
@@ -317,7 +332,7 @@ class LazyForestGenerator[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_], Intern
       InternalID])(implicit ct: ClassTag[Opt[InternalID]])
     extends IlazyForest[K, FOut, Opt, InternalID] {
 
-  private val idsMap = mutable.HashMap[K, Opt[ID]]()
+  val idsMap = mutable.HashMap[K, Opt[ID]]()
   private val repMap = mutable.ArrayBuffer[FOut[ID]]() // ID => H[ID]
   private val memo = mutable.HashMap[FOut[ID], ID]()
 

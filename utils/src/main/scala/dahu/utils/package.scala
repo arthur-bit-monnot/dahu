@@ -52,8 +52,8 @@ package object utils {
 
   }
 
-  implicit final class SeqOps[A](private val lhs: Seq[A]) extends AnyVal {
-    def toVec(implicit ct: ClassTag[A]): Vec[A] = Vec.fromSeq(lhs)
+  implicit final class IterableOps[A](private val lhs: Iterable[A]) extends AnyVal {
+    def toVec(implicit ct: ClassTag[A]): Vec[A] = Vec.fromIterable(lhs)
   }
 
 }

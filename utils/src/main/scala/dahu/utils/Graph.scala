@@ -36,6 +36,42 @@ object Graph {
     order.toIterable()
   }
 
+  def topologicalOrderTopDownPrioritized[@sp(Int) A: ClassTag, F[_]](
+      root: A,
+      node: A => F[A],
+      children: F[A] => Iterator[A],
+      secondaryPriority: A => Int
+  ): Iterable[A] = {
+    type Prio = Long
+    def left(p: Prio): Int = (p << 32).toInt
+    def right(p: Prio): Int = p.toInt
+    def makePrio(left: Int, right: Int): Prio = {
+      assert(left >= 0 && right >= 0)
+      right.toLong | (left.toLong >> 32)
+    }
+    val queue = new BinaryHeap[A]()
+    val processed = debox.Set[A]()
+    val order = debox.Buffer[A]()
+
+    @inline def push(i: A, basePriority: Int): Unit = {
+      if(!processed(i)) {
+        queue.push(i, makePrio(basePriority, secondaryPriority(i)))
+      }
+    }
+    push(root, 0)
+
+    while(!queue.isEmpty) {
+      val (a, prio) = queue.pop()
+      assert(!processed(a))
+      processed += a
+      order += a
+      val fa = node(a)
+      children(fa).foreach(c => push(c, left(prio) + 1))
+    }
+    val x = order.toIterable().filter(_.toString.contains("(135,"))
+    order.toIterable()
+  }
+
   def tarjan[V: ClassTag](graph: Map[V, Set[V]]): Array[debox.Set[V]] = {
     tarjan(
       debox.Map.fromIterable(graph.mapValues(s => debox.Set.fromIterable(s)))

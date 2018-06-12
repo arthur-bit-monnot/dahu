@@ -438,7 +438,7 @@ object SatisfactionProblem {
             value = value.value,
             present = value.present,
             valid = utils.and(
-              value.valid,
+              utils.implies(value.present, value.valid),
               utils.implies(condition.present, utils.and(condition.value, condition.valid)))
           )
         case p @ LambdaParamF(id, typ) =>
@@ -463,7 +463,7 @@ object SatisfactionProblem {
   def encode[X <: Int](root: X,
                        coalgebra: FCoalgebra[StaticF, X],
                        optimize: Boolean = true): LazyTree[X, Total, IR, _] = {
-    val lt = IlazyForest.build(coalgebra, compiler).fixID
+    val lt = IlazyForest.build(coalgebra)(compiler).fixID
 
     LazyTree(lt)(root)
   }

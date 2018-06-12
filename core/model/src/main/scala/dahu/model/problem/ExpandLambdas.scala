@@ -15,8 +15,8 @@ object ExpandLambdas {
 
   case class LambdaDeps[@sp(Int) I](params: Set[I],
                                     applicationStack: List[I],
-                                    forApply: Option[I],
-                                    static: Boolean) {
+                                    forApply: Option[I] = None,
+                                    static: Boolean = false) {
 
     def combine(o: LambdaDeps[I]): LambdaDeps[I] = {
       assert(applicationStack.isEmpty && o.applicationStack.isEmpty)
