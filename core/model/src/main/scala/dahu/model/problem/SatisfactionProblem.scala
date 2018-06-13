@@ -476,41 +476,38 @@ object SatisfactionProblem {
         .changedKey[X](k2 => t.tree.getTreeRoot(k2))
     LazyTree(total)(t.root)
   }
-//  type TMP[X] = (ConstrainedF[X], ConstrainedF[X])
-//  def encodePresence[X](
-//      _lt: IlazyForest[X, NoApplyF, cats.Id, _]): IlazyForest[X, TMP, cats.Id, _] = {
-//    val lt = _lt.fixID
-//    val XX = lt.mapInternal[TMP[lt.ID]](???)
-//    XX
-//  }
 
   def encodePresence[X <: Int](root: X,
                                coalgebra: FCoalgebra[NoApplyF, X],
                                optimize: Boolean = true): LazyTree[X, ConstrainedF, Prez, _] = {
-    val lt = IlazyForest.build(coalgebra)(compilerPresence).fixID
-
-    LazyTree(lt)(root)
+//    val lt = IlazyForest.build(coalgebra)(compilerPresence).fixID
+//    LazyTree(lt)(root)
+    ???
   }
 
-  final class UtilsPrez(val directRec: ConstrainedF[IDTop] => IDTop,
-                        retrieve: IDTop => ConstrainedF[IDTop]) {
-    def rec(expr: ConstrainedF[IDTop]): IDTop = directRec(expr)
-    def ret(i: IDTop): ConstrainedF[IDTop] = retrieve(i)
+  final class UtilsPrez(val directRec: OptConst[IDTop] => IDTop,
+                        retrieve: IDTop => OptConst[IDTop]) {
+    def rec(expr: OptConst[IDTop]): IDTop = directRec(expr)
+    def rec(e: ConstrainedF[IDTop], prez: IDTop): IDTop = rec(OptConst(e, Some(prez)))
+    def recPure(expr: ConstrainedF[IDTop]) = rec(OptConst.present(expr))
+    def ret(i: IDTop): OptConst[IDTop] = retrieve(i)
 
-    val TRUE: IDTop = rec(CstF(Value(true), Tag.ofBoolean))
-    val FALSE: IDTop = rec(CstF(Value(false), Tag.ofBoolean))
+    val TRUE: IDTop = rec(OptConst[IDTop](CstF(Value(true), Tag.ofBoolean), None))
+    val FALSE: IDTop = rec(OptConst[IDTop](CstF(Value(false), Tag.ofBoolean), None))
 
-    def and(conjuncts: IDTop*): IDTop = and(Vec.unsafe(conjuncts.toArray))
-    def and(conjuncts: Vec[IDTop]): IDTop = {
-      val noTrue = conjuncts.filter(_ != TRUE)
-      if(noTrue.isEmpty) TRUE
-      else if(noTrue.size == 1) noTrue(0)
-      else rec(ComputationF(bool.And, noTrue, Tag.ofBoolean))
+    def and(conjuncts: IDTop*): IDTop = andVec(Vec.unsafe(conjuncts.toArray))
+    def andVec(conjuncts: Vec[IDTop]): IDTop = {
+      conjuncts.filter(_ != TRUE) match {
+        case Vec()  => TRUE
+        case Vec(a) => a
+        case args   => recPure(ComputationF(bool.And, args, Tag.ofBoolean))
+      }
     }
+    def presence(i: IDTop): IDTop = ret(i).presence.getOrElse(TRUE)
     def or(disjuncts: IDTop*): IDTop =
-      rec(ComputationF(bool.Or, Vec.unsafe(disjuncts.toArray), Tag.ofBoolean))
+      recPure(ComputationF(bool.Or, Vec.unsafe(disjuncts.toArray), Tag.ofBoolean))
     def not(e: IDTop): IDTop =
-      rec(ComputationF(bool.Not, Seq(e), Tag.ofBoolean))
+      recPure(ComputationF(bool.Not, Vec(e), Tag.ofBoolean))
 
     def implies(cond: IDTop, eff: IDTop): IDTop =
       or(not(cond), eff)
@@ -523,73 +520,81 @@ object SatisfactionProblem {
       override def map[A, B](fa: Prez[A])(f: A => B): Prez[B] = Prez(f(fa.value), f(fa.present))
     }
   }
+  case class OptConst[F](value: ConstrainedF[F], presence: Option[F])
+  object OptConst {
+    def present[F](value: ConstrainedF[F]): OptConst[F] = OptConst(value, None)
+    def apply[F](value: ConstrainedF[F], prez: F): OptConst[F] = OptConst(value, Some(prez))
 
-  def compilerPresence(context: LazyForestGenerator.Context[ConstrainedF, IDTop])
-    : StaticF[Prez[IDTop]] => Prez[IDTop] =
+    implicit object FunctorInstance extends Functor[OptConst] {
+      override def map[A, B](fa: OptConst[A])(f: A => B): OptConst[B] =
+        OptConst(fa.value.smap(f), fa.presence.map(f))
+    }
+  }
+  def compilerPresence(context: LazyForestGenerator.Context[OptConst, IDTop])
+    : StaticF[cats.Id[IDTop]] => cats.Id[IDTop] =
     x => {
       val utils = new UtilsPrez(context.record, context.retrieve)
-      val ir: Prez[IDTop] = x match {
-        case x: InputF[_] => Prez(utils.rec(x), utils.TRUE)
-        case x: CstF[_]   => Prez(utils.rec(x), utils.TRUE)
-        case ComputationF(f, args, t) =>
-          Prez(
-            value = utils.rec(ComputationF(f, args.map(a => a.value), t)),
-            present = utils.and(args.map(_.present))
-          )
-        case ProductF(members, t) =>
-          Prez(
-            value = utils.rec(ProductF(members.map(a => a.value), t)),
-            present = utils.and(members.map(_.present))
-          )
-        case SequenceF(members, t) =>
-          Prez(
-            value = utils.rec(SequenceF(members.map(a => a.value), t)),
-            present = utils.and(members.map(_.present))
-          )
-        case ITEF(cond, onTrue, onFalse, t) =>
-          Prez(
-            value = utils.rec(ITEF(cond.value, onTrue.value, onFalse.value, t)),
-            present = utils.and(cond.present,
-                                utils.implies(cond.value, onTrue.present),
-                                utils.implies(utils.not(cond.value), onFalse.present))
-          )
-        case OptionalF(value, present, _) =>
-          Prez(
-            value = value.value,
-            present = utils.and(value.present, present.present, present.value)
-          )
+      import utils._
+
+      def allPresent(es: Vec[IDTop]): IDTop =
+        andVec(es.map(presence)) //.toList.flatMap(a => utils.ret(a).presence.toList): _*)
+      val ir: IDTop = x match {
+        case x: InputF[_] => recPure(x)
+        case x: CstF[_]   => recPure(x)
+        case x @ ComputationF(f, args, t) =>
+          rec(x, allPresent(args))
+        case x @ ProductF(members, t) =>
+          rec(x, allPresent(members))
+        case x @ SequenceF(members, t) =>
+          rec(x, allPresent(members))
+        case x @ ITEF(cond, onTrue, onFalse, t) =>
+          val present = and(presence(cond),
+                            implies(cond, presence(onTrue)),
+                            implies(not(cond), presence(onFalse)))
+          rec(x, present)
+//          Prez(
+//            value = utils.rec(ITEF(cond.value, onTrue.value, onFalse.value, t)),
+//            present = utils.and(cond.present,
+//                                utils.implies(cond.value, onTrue.present),
+//                                utils.implies(utils.not(cond.value), onFalse.present))
+//          )
+        case OptionalF(value, present, tpe) =>
+          rec(NoopF(value, tpe), and(present, presence(present)))
+//          Prez(
+//            value = value.value,
+//            present = utils.and(value.present, present.present, present.value)
+//          )
         case PresentF(opt) =>
-          Prez(
-            value = opt.present,
-            present = utils.TRUE
-          )
-        case ValidF(part) =>
-          Prez(
-            value = utils.rec(ValidF(part.value)),
-            present = part.present
-          )
-        case Partial(value, condition, tpe) =>
-          Prez(
-            value = utils.rec(Partial(value.value, condition.value, tpe)),
-            present = utils.and(value.present, condition.present)
-          )
-        case p @ LambdaParamF(id, typ) =>
-          val placeHolder = utils.rec(LambdaParamF(id, typ))
-          Prez(
-            value = utils.rec(ComputationF(TotalValue.Value, Vec(placeHolder), typ)),
-            present = utils.rec(ComputationF(TotalValue.Present, Vec(placeHolder), Tag.ofBoolean))
-          )
-        case LambdaF(in, tree, id, tpe) =>
-          val presentValidTag = LambdaTag.LambdaTagImpl(tpe, Tag.ofBoolean)
-          Prez(
-            value = utils.rec(LambdaF(in.value, tree.value, id, tpe)),
-            present = utils.rec(LambdaF(in.value, tree.present, id, presentValidTag))
-          )
+          presence(opt)
+        case x @ ValidF(part) => rec(x, presence(part))
+//          Prez(
+//            value = utils.rec(ValidF(part.value)),
+//            present = part.present
+//          )
+        case x @ Partial(value, condition, tpe) =>
+          rec(x, allPresent(Vec(value, condition)))
+//          Prez(
+//            value = utils.rec(Partial(value.value, condition.value, tpe)),
+//            present = utils.and(value.present, condition.present)
+//          )
+        case p @ LambdaParamF(id, typ) => ???
+//          val placeHolder = utils.rec(LambdaParamF(id, typ))
+//          Prez(
+//            value = utils.rec(ComputationF(TotalValue.Value, Vec(placeHolder), typ)),
+//            present = utils.rec(ComputationF(TotalValue.Present, Vec(placeHolder), Tag.ofBoolean))
+//          )
+        case LambdaF(in, tree, id, tpe) => ???
+//          val presentValidTag = LambdaTag.LambdaTagImpl(tpe, Tag.ofBoolean)
+//          Prez(
+//            value = utils.rec(LambdaF(in.value, tree.value, id, tpe)),
+//            present = utils.rec(LambdaF(in.value, tree.present, id, presentValidTag))
+//          )
         case NoopF(expr, _) =>
-          Prez(
-            value = expr.value,
-            present = expr.present
-          )
+          expr
+//          Prez(
+//            value = expr.value,
+//            present = expr.present
+//          )
       }
       ir
     }
