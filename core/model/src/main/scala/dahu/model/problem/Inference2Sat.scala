@@ -317,19 +317,19 @@ object Inference2Sat {
 //    }
 //    println("STOP")
 
-    val YY = XX
-      .transform(Optimizations.optimizer.optim)
-      .fixID
-
-    val printableYY = YY.cata(Algebras.printAlgebraTree)
-    val clauses =
-      topLevels.iterator
-        .map(YY.fromPreviousId)
-        .filter(YY.internalCoalgebra(_) != bool.TrueF)
-        .map(printableYY.getInternal(_).mkString(90))
-        .toSeq
-        .sortBy(_.replace(" ", "").replace("\n", ""))
-    clauses.foreach(println)
+//    val YY = XX
+//      .transform(Optimizations.optimizer.optim)
+//      .fixID
+//
+//    val printableYY = YY.cata(Algebras.printAlgebraTree)
+//    val clauses =
+//      topLevels.iterator
+//        .map(YY.fromPreviousId)
+//        .filter(YY.internalCoalgebra(_) != bool.TrueF)
+//        .map(printableYY.getInternal(_).mkString(90))
+//        .toSeq
+//        .sortBy(_.replace(" ", "").replace("\n", ""))
+//    clauses.foreach(println)
 //    for(tl <-  if YY.internalCoalgebra(tl) != bool.TrueF) {
 //      println("\n")
 

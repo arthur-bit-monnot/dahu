@@ -15,7 +15,7 @@ import dahu.utils.errors._
 import spire.math.Interval
 import spire.syntax.cfor._
 
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 
 object SatisfactionProblem {
 
@@ -314,7 +314,142 @@ object SatisfactionProblem {
           tryWith(a, b).orElse(tryWith(b, a)).getOrElse(original)
         case x => x
       }
+    }
 
+    object Not {
+      def apply[@sp(Int) A: ClassTag](a: A): ComputationF[A] =
+        ComputationF(bool.Not, Vec(a), Tag.ofBoolean)
+      def unapply[A](c: ComputationF[A]): Option[A] = c match {
+        case ComputationF(bool.Not, Vec(a), _) => Some(a)
+        case _                                 => None
+      }
+    }
+
+    object Or {
+      def apply[A](cs: Iterable[A]): ComputationF[A] =
+        ComputationF(bool.Or, Vec.fromIterable(cs), Tag.ofBoolean)
+      def apply[A](a: A, b: A): ComputationF[A] =
+        ComputationF(bool.Or, Vec(a, b), Tag.ofBoolean)
+
+      def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
+        case ComputationF(bool.Or, args, _) => Some(args.toSeq)
+        case _                              => None
+      }
+    }
+    object And {
+      def apply[A](cs: Iterable[A]): ComputationF[A] =
+        ComputationF(bool.And, Vec.fromIterable(cs), Tag.ofBoolean)
+      def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
+        case ComputationF(bool.And, args, _) => Some(args.toSeq)
+        case _                               => None
+      }
+    }
+
+    def containsAssumingSorted(a: Vec[IDTop], b: Vec[IDTop]): Boolean = ???
+
+    object SimplifyImplications extends Optimizer {
+      class ImplicationAccumulator(record: Total[IDTop] => IDTop) {
+        val FALSE = record(bool.FalseF)
+        val TRUE = record(bool.TrueF)
+        val conds = mutable.ArrayBuffer[Vec[IDTop]]()
+        val effs = mutable.ArrayBuffer[debox.Set[IDTop]]()
+        def add(condition: Vec[IDTop], effects: Vec[IDTop]): Unit = {
+          addToSame(condition, effects)
+        }
+        def addToSame(condition: Vec[IDTop], effects: Vec[IDTop]): Unit = {
+          var loc = -1
+          val size = conds.size
+          spire.syntax.cfor.cfor(0)(_ < size, _ + 1) { i =>
+            if(conds(i) == condition) {
+              loc = i
+              return
+            }
+          }
+          if(loc == -1) {
+            conds += condition
+            effs += debox.Set.fromArray(effects.toArray)
+          } else {
+            effs(loc).addAll(effects.toArray)
+          }
+        }
+        def makeAnd(effs: Iterable[IDTop]): IDTop = {
+          if(effs.isEmpty)
+            TRUE
+          else if(effs.size == 1)
+            effs.head
+          else
+            record(And(effs))
+        }
+        def makeNot(conds: Vec[IDTop]): IDTop = {
+          if(conds.size == 0)
+            FALSE
+          else if(conds.size == 1)
+            record(Not(conds(0)))
+          else
+            record(Not(record(makeAnd(conds.toIterable))))
+        }
+        def makeOr(a: IDTop, b: IDTop): IDTop =
+          if(a == TRUE || b == TRUE)
+            TRUE
+          else if(a == FALSE)
+            b
+          else if(b == FALSE)
+            a
+          else
+            record(Or(a, b))
+        def makeimplication(condition: Vec[IDTop], effs: debox.Set[IDTop]): IDTop = {
+          makeOr(makeNot(condition), makeAnd(effs.toIterable()))
+        }
+        def compile(): Total[IDTop] = {
+          val l = conds.length
+          val conjuncts = new Array[IDTop](l)
+          spire.syntax.cfor.cfor(0)(_ < conds.length, _ + 1) { i =>
+            conjuncts(i) = makeimplication(conds(i), effs(i))
+          }
+          And(conjuncts.toIterable)
+        }
+      }
+
+      override def optim(retrieve: IDTop => Total[IDTop],
+                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+        case original @ And(args @ _*) =>
+          def notConj(i: IDTop): Option[Vec[IDTop]] =
+            retrieve(i) match {
+              case Not(a) =>
+                retrieve(a) match {
+                  case And(args @ _*) => Some(args.toVec)
+                  case _              => Some(Vec(a))
+                }
+              case _ => None
+            }
+          def anyConj(i: IDTop): Vec[IDTop] =
+            retrieve(i) match {
+              case ComputationF(bool.And, args, _) => args
+              case _                               => Vec(i)
+            }
+          def asImplication(i: IDTop): (Vec[IDTop], Vec[IDTop]) = {
+            retrieve(i) match {
+              case Or(a, b) =>
+                notConj(a) match {
+                  case Some(conditions) =>
+                    (conditions, anyConj(b))
+                  case None =>
+                    notConj(b) match {
+                      case Some(condtions) => (condtions, anyConj(a))
+                      case None            => (Vec.empty, Vec(i))
+                    }
+                }
+
+              case _ => (Vec.empty, Vec(i))
+            }
+          }
+
+          val implications = args.map(asImplication).sortBy(_._1.size)
+          val acc = new ImplicationAccumulator(record)
+          implications.foreach(t => acc.add(t._1, t._2))
+          acc.compile()
+        case x => x
+      }
     }
 
     private val optimizers = List(
@@ -329,6 +464,7 @@ object SatisfactionProblem {
       ConstantFolding,
       SimplifyIfThenElse,
       DistributeImplication,
+      SimplifyImplications,
       OrderArgs,
     )
     val optimizer: Optimizer =

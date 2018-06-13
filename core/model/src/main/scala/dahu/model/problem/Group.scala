@@ -13,6 +13,7 @@ import dahu.model.types._
 import dahu.model.ir._
 import dahu.graphs.TreeNode._
 import dahu.model.compiler.Algebras
+import dahu.model.compiler.Algebras.StringTree
 import dahu.model.input.Lambda.LambdaIdent
 import dahu.model.math.bool
 import dahu.model.problem.SatisfactionProblem.{OptConst, Prez, Utils}
@@ -351,46 +352,27 @@ object Group {
 
     val withPrez = SatisfactionProblem.encodePresence(ASTRoot, AST.internalCoalgebra).fixID
     withPrez.forceEvaluation
+    val withPrezForest: IlazyForest[AST.ID, OptConst, cats.Id, withPrez.ID] =
+      withPrez.tree.castIDTo[withPrez.ID]
 
-    case class Constraint[A](context: Set[A], condition: Set[A]) {
-      def map[B](f: A => B): Constraint[B] = Constraint(context.map(f), condition.map(f))
+    case class Constraint[A](context: A, condition: A) {
+      def map[B](f: A => B): Constraint[B] = Constraint(f(context), f(condition))
       def format: String =
-        "context:\n" + context.mkString("", "\n", "") + "\nconstraints:\n" + condition.mkString(
-          "",
-          "\n",
-          "") + "\n"
+        s"""context:
+           [$context
+           |condition:
+           |$condition
+          """.stripMargin
     }
 
     case class ConstraintSet[A](constraints: Set[Constraint[A]]) {
-      def nestIn(additionalContext: A): ConstraintSet[A] =
-        ConstraintSet(ConstraintSet.regroup(constraints.map {
-          case Constraint(context, conditions) =>
-            Constraint(context + additionalContext, conditions)
-        }))
-      def combine(o: ConstraintSet[A]): ConstraintSet[A] =
-        ConstraintSet(ConstraintSet.regroup(constraints ++ o.constraints))
-
       def map[B](f: A => B): ConstraintSet[B] = ConstraintSet(constraints.map(_.map(f)))
 
       def format: String = constraints.map(_.format).mkString("", "\n", "")
     }
     object ConstraintSet {
-      private def regroup[A](e: Set[Constraint[A]]): Set[Constraint[A]] =
-        e.groupBy(_.context)
-          .mapValues(_.flatMap(_.condition))
-          .toSet
-          .map[Constraint[A], Set[Constraint[A]]](t => Constraint[A](t._1, t._2))
-
       private val emptySingleton: ConstraintSet[Any] = new ConstraintSet[Any](Set())
       def empty[F]: ConstraintSet[F] = emptySingleton.asInstanceOf[ConstraintSet[F]]
-
-      object MonoidInstance extends Monoid[ConstraintSet[Any]] {
-        override def empty: ConstraintSet[Any] = emptySingleton
-        override def combine(x: ConstraintSet[Any], y: ConstraintSet[Any]): ConstraintSet[Any] =
-          x combine y
-      }
-      implicit def monoid[F]: Monoid[ConstraintSet[F]] =
-        MonoidInstance.asInstanceOf[Monoid[ConstraintSet[F]]]
     }
 
     val constrained: LazyTree[AST.ID, ConstrainedF, cats.Id, withPrez.ID] =
@@ -406,21 +388,59 @@ object Group {
 
     val total: LazyTree[AST.ID, Total, cats.Id, withPrez.ID] =
       constrained.mapK[Total](forgetConstraints)
+    val totalForest: IlazyForest[AST.ID, Total, cats.Id, withPrez.ID] = total.tree
 
-    val optimized = total.tree.transform(SatisfactionProblem.Optimizations.optimizer.optim).fixID
-    val printableOptimized = optimized.cata(Algebras.printAlgebraTree)
+    val optimized: LazyForestLayer[AST.ID, Total, cats.Id, _, withPrez.ID] =
+      totalForest.transform(SatisfactionProblem.Optimizations.optimizer.optim).fixID
+    val printableOptimized: LazyMap[AST.ID, StringTree, cats.Id, optimized.ID] =
+      optimized
+        .cata(Algebras.printAlgebraTree)
+        .asInstanceOf[LazyMap[AST.ID, StringTree, cats.Id, optimized.ID]]
 
-    val withPrezForest = withPrez.tree //.fixID
-    val constraints = withPrezForest.cataLow2[ConstraintSet[withPrez.ID]] {
+    type OI = optimized.ID
+//    implicit def idTrans(i: withPrezForest.ID): optimized.ID = optimized.fromPreviousId(i)
+    val constraints = withPrezForest.cataLow2[ConstraintSet[optimized.ID]] {
       case OptConst(expr, context) =>
+        val TRUE = optimized.record(bool.TrueF)
+
+        def and(a: OI, b: OI): OI =
+          optimized.record(ComputationF(bool.And, Vec(a, b), Tag.ofBoolean))
+        def scopes(a: Constraint[OI]): Vec[OI] = optimized.internalCoalgebra(a.condition) match {
+          case _ if a.condition == true => Vec.empty
+          case ComputationF(bool.And, args, _) => args
+          case _ => Vec(a.condition)
+        }
+        def combine(a: ConstraintSet[optimized.ID],
+                    b: Constraint[optimized.ID]): ConstraintSet[optimized.ID] = {
+          val targetScope = scopes(b)
+          val constraints = a.constraints.map(x => (scopes(x), x)).toSeq.sortBy(_._1.size)
+          def smallerScope(a: Vec[OI], b: Vec[OI]) :Boolean = a.forall(ai => b.contains(ai))
+          val cs = constraints.find(c => smallerScope(scopes(c), targetScope) match {
+            case Some(ca) =>
+              a.constraints.filter(_ != ca) + Constraint(ca.context, and(ca.condition, b.condition))
+            case None => a.constraints + b
+          }
+          ConstraintSet(cs)
+        }
+        def merge(l: List[ConstraintSet[optimized.ID]]): ConstraintSet[optimized.ID] = l match {
+          case Nil            => ConstraintSet.empty
+          case a :: Nil       => a
+          case a :: b :: tail => merge(b.constraints.foldLeft(a)(combine(_, _)) :: tail)
+        }
+
         val base = expr match {
           case Partial((v1, _), (v2, c), _) =>
-            v1 |+| v2 |+| ConstraintSet(Set(Constraint(Set(), Set(c.asInstanceOf[withPrez.ID]))))
-          case _ => expr.children.map(_._1).fold(ConstraintSet.empty)(_ combine _)
+            val cOpt = optimized.fromPreviousId(c)
+            combine(merge(v1 :: v2 :: Nil), Constraint(TRUE, cOpt))
+//            v1 |+| v2 |+| ConstraintSet(Set(Constraint(TRUE, cOpt)))
+          case _ => merge(expr.children.map(_._1).toList) //.fold(ConstraintSet.empty)(_ combine _)
         }
         context match {
-          case Some((_, i)) => base.nestIn(i.asInstanceOf[withPrez.ID])
-          case None         => base
+          case Some((_, i)) =>
+            ConstraintSet(base.constraints.map {
+              case Constraint(ctx, cond) => Constraint(and(ctx, optimized.fromPreviousId(i)), cond)
+            })
+          case None => base
         }
     }
 
@@ -433,7 +453,7 @@ object Group {
     println(
       constraints
         .get(ASTRoot)
-        .map(i => printableOptimized.getInternal(optimized.fromPreviousId(i)).mkString(90))
+        .map(i => printableOptimized.getInternal(i).mkString(90))
         .format)
 //    println(eval.present.mkString(90))
 //    type OptExprF[I] = (ExprF[I], ExprF[I])

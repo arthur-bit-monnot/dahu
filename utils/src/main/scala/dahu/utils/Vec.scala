@@ -362,6 +362,9 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     */
   def toArray[B >: A]: Array[B] = elems.clone().asInstanceOf[Array[B]]
 
+  /** Returns the underlying array */
+  def toArrayUnsafe[B >: A]: Array[B] = elems.asInstanceOf[Array[B]]
+
   /**
     * Wrap this buffer in an Iterable[A] instance.
     *

@@ -18,7 +18,7 @@ trait OpaqueForest[K, F[_], Opt[_]] {
   sealed trait Marker
 }
 
-trait LazyMap[K, V, Opt[_], I <: IDTop] {
+trait LazyMap[K, V, Opt[_], I] {
   def get(k: K)(implicit F: Functor[Opt]): Opt[V]
   def getInternal(i: I): V
 
@@ -27,7 +27,7 @@ trait LazyMap[K, V, Opt[_], I <: IDTop] {
 }
 
 trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, F, Opt] { self =>
-  override final type ID = InternalID
+  override type ID = InternalID
   def getExt(k: K)(implicit F: Functor[Opt]): Opt[F[ID]] =
     F.map(getTreeRoot(k))(internalCoalgebra)
 
@@ -37,7 +37,7 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
 
   def fixID: IlazyForest[K, F, Opt, SubSubInt[IDTop, Marker]] =
     castIDTo[SubSubInt[IDTop, Marker]]
-  private def castIDTo[NewInternalID <: IDTop]: IlazyForest[K, F, Opt, NewInternalID] =
+  def castIDTo[NewInternalID <: IDTop]: IlazyForest[K, F, Opt, NewInternalID] =
     this.asInstanceOf[IlazyForest[K, F, Opt, NewInternalID]]
 
   def forceEvaluation(k: K): Unit = {
@@ -223,13 +223,14 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       val coalg = BiMap[I, F[I]]()
       private var _nextID = 0
       def nextID(): I = { _nextID += 1; (_nextID - 1).asInstanceOf[I] }
-      def record(fi: F[I]): I = {
+      def directRecord(fi: F[I]): I = {
         if(!coalg.cocontains(fi)) {
           coalg.add(nextID(), fi)
         }
         coalg.coget(fi)
       }
-      val transform: F[I] => F[I] = fGen(coalg.get(_), record(_))
+      override def record(fi: F[I]): I = directRecord(transform(fi))
+      val transform: F[I] => F[I] = fGen(coalg.get(_), directRecord(_))
       def processed(id: self.ID): Boolean = idMap.contains(id)
       override def fromPreviousId(id: self.ID): I = {
         if(!idMap.contains(id)) {
@@ -240,7 +241,7 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
             val fcur: F[self.ID] = self.internalCoalgebra(cur)
             val fx: F[I] = fcur.smap(i => idMap(i))
             val fy = transform(fx)
-            val y = record(fy)
+            val y = directRecord(fy)
             idMap.update(cur, y)
           }
         }
@@ -277,6 +278,7 @@ object IlazyForest {
 }
 trait LazyForestLayer[K, F[_], Opt[_], OwnID <: IDTop, PrevID <: IDTop]
     extends IlazyForest[K, F, Opt, OwnID] {
+  override type ID = OwnID
   def fromPreviousId(id: PrevID): ID
   override def fixID: LazyForestLayer[K, F, Opt, SubSubInt[IDTop, Marker], PrevID] =
     this.asInstanceOf[LazyForestLayer[K, F, Opt, SubSubInt[IDTop, Marker], PrevID]]
