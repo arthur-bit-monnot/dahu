@@ -5,8 +5,7 @@ import dahu.model.input.Ident
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._
-import dahu.utils.SFunctor
-import dahu.utils.Vec.Vec1
+import dahu.utils.{SFunctor, Vec}
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -86,10 +85,10 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
         case x @ ComputationF(f, args, t: TagIsoInt[_])
             if supportedFunctions.contains(f) && args.forall(x => sup(prev(x))) =>
           IntermediateExpression(ComputationF(f, args, t))
-        case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
+        case x @ ComputationF(f: Fun1[_, _], Vec(arg), t: TagIsoInt[_])
             if isUnbox(f) && sup(prev(arg)) && f != TagIsoInt.ofBoolean.unbox => //TODO double check
           prev(arg)
-        case x @ ComputationF(f: Fun1[_, _], Vec1(arg), t: TagIsoInt[_])
+        case x @ ComputationF(f: Fun1[_, _], Vec(arg), t: TagIsoInt[_])
             if isBox(f) && sup(prev(arg)) && f != TagIsoInt.ofBoolean.box => //TODO double check
           prev(arg)
         case x =>

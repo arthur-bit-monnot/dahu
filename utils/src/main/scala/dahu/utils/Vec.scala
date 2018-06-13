@@ -388,7 +388,7 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     }
 
   def toSet: Set[A] = iterator().toSet
-  def toSeq: Seq[A] =
+  def toSeq: IndexedSeq[A] =
     // mutable but exposed as a collection.Seq so we should be fine
     mutable.WrappedArray.make(elems)
 
@@ -497,23 +497,7 @@ object Vec {
     }
 
   /********** Extractors ********/
-  object Vec1 {
-    def unapply[@specialized(Int) A](arg: Vec[A]): Option[A] =
-      if(arg.length == 1) Some(arg(0))
-      else None
-  }
-
-  object Vec2 {
-    def unapply[@specialized(Int) A](arg: Vec[A]): Option[(A, A)] =
-      if(arg.length == 2) Some((arg(0), arg(1)))
-      else None
-  }
-
-  object Vec3 {
-    def unapply[@specialized(Int) A](arg: Vec[A]): Option[(A, A, A)] =
-      if(arg.length == 3) Some((arg(0), arg(1), arg(2)))
-      else None
-  }
+  def unapplySeq[A](arg: Vec[A]): Some[IndexedSeq[A]] = Some(arg.toSeq)
 
   /******** Ops **********/
   implicit class VecOfPairOps[A, B](private val arr: Vec[(A, B)]) extends AnyVal {

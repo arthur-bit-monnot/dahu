@@ -42,7 +42,7 @@ object SatisfactionProblem {
     object ElimUniversalEquality extends Optimizer {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
-        case orig @ ComputationF(f: any.EQ, Vec2(x, y), _) =>
+        case orig @ ComputationF(f: any.EQ, Vec(x, y), _) =>
           val fx = retrieve(x)
           val fy = retrieve(y)
           (fx, fy) match {
@@ -96,9 +96,9 @@ object SatisfactionProblem {
     object ElimReversible extends Optimizer {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
-        case orig @ ComputationF(f: Reversible[_, _], Vec1(arg), _) =>
+        case orig @ ComputationF(f: Reversible[_, _], Vec(arg), _) =>
           retrieve(arg) match {
-            case ComputationF(f2: Reversible[_, _], Vec1(arg2), _) if f2 == f.reverse =>
+            case ComputationF(f2: Reversible[_, _], Vec(arg2), _) if f2 == f.reverse =>
               retrieve(arg2)
             case ComputationF(f2: Box[_], _, _) =>
               println(f)
@@ -142,14 +142,14 @@ object SatisfactionProblem {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
         // note: those two cases can be extended to vectors of arbitrary size
-        case original @ ComputationF(bool.Or, Vec2(a, b), _) =>
+        case original @ ComputationF(bool.Or, Vec(a, b), _) =>
           if(b == record(ComputationF(bool.Not, Vec(a), Tag.ofBoolean)))
             bool.TrueF
           else if(a == record(ComputationF(bool.Not, Vec(b), Tag.ofBoolean)))
             bool.TrueF
           else
             original
-        case original @ ComputationF(bool.And, Vec2(a, b), _) =>
+        case original @ ComputationF(bool.And, Vec(a, b), _) =>
           if(b == record(ComputationF(bool.Not, Vec(a), Tag.ofBoolean)))
             bool.FalseF
           else if(a == record(ComputationF(bool.Not, Vec(b), Tag.ofBoolean)))
@@ -157,9 +157,9 @@ object SatisfactionProblem {
           else
             original
 
-        case ComputationF(int.EQ, Vec2(a1, a2), _) if a1 == a2  => bool.TrueF
-        case ComputationF(int.LEQ, Vec2(a1, a2), _) if a1 == a2 => bool.TrueF
-        case x @ ComputationF(int.EQ, Vec2(a1, a2), _) =>
+        case ComputationF(int.EQ, Vec(a1, a2), _) if a1 == a2  => bool.TrueF
+        case ComputationF(int.LEQ, Vec(a1, a2), _) if a1 == a2 => bool.TrueF
+        case x @ ComputationF(int.EQ, Vec(a1, a2), _) =>
           val dom1 = dom(retrieve(a1))
           val dom2 = dom(retrieve(a2))
           if(!(dom1 intersects dom1))
@@ -191,7 +191,7 @@ object SatisfactionProblem {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
         case x @ ComputationF(f: Monoid[_], args, _) if args.isEmpty => f.liftedIdentity
-        case x @ ComputationF(_: Monoid[_], Vec1(arg), _)            => retrieve(arg)
+        case x @ ComputationF(_: Monoid[_], Vec(arg), _)             => retrieve(arg)
         case x                                                       => x
       }
     }
@@ -285,7 +285,7 @@ object SatisfactionProblem {
     object ExtractField extends Optimizer {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
-        case x @ ComputationF(fa: FieldAccess[_, _], Vec1(p), _) =>
+        case x @ ComputationF(fa: FieldAccess[_, _], Vec(p), _) =>
           retrieve(p) match {
             case ProductF(members, _) =>
               retrieve(members(fa.fieldPosition))
@@ -299,7 +299,7 @@ object SatisfactionProblem {
     object DistributeImplication extends Optimizer {
       override def optim(retrieve: IDTop => Total[IDTop],
                          record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
-        case original @ ComputationF(bool.Or, Vec2(a, b), _) =>
+        case original @ ComputationF(bool.Or, Vec(a, b), _) =>
           def tryWith(a: IDTop, b: IDTop): Option[Total[IDTop]] =
             (retrieve(a), retrieve(b)) match {
               case (fa @ ComputationF(bool.Not, _, _), ComputationF(bool.And, conjs, _)) =>

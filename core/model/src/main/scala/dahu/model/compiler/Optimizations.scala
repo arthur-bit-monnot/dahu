@@ -81,9 +81,9 @@ object Optimizations {
     }
 
     val elimSingletonAndOr: PASS = namedPass("elim-singleton-and-or") {
-      case ComputationF(bool.And, Vec1(arg), _) => arg.unfix
-      case ComputationF(bool.Or, Vec1(arg), _)  => arg.unfix
-      case x                                    => x
+      case ComputationF(bool.And, Vec(arg), _) => arg.unfix
+      case ComputationF(bool.Or, Vec(arg), _)  => arg.unfix
+      case x                                   => x
     }
 
     val elimDuplicatesAndOr: PASS = namedPass("elim-duplicates-and-or") {
@@ -93,9 +93,9 @@ object Optimizations {
     }
 
     val elimTautologies: PASS = namedPass("elim-tautologies") {
-      case ComputationF(int.LEQ, Vec2(a1, a2), _) if a1 == a2 => TRUE.unfix
-      case ComputationF(int.EQ, Vec2(a1, a2), _) if a1 == a2  => TRUE.unfix
-      case x                                                  => x
+      case ComputationF(int.LEQ, Vec(a1, a2), _) if a1 == a2 => TRUE.unfix
+      case ComputationF(int.EQ, Vec(a1, a2), _) if a1 == a2  => TRUE.unfix
+      case x                                                 => x
     }
   }
 

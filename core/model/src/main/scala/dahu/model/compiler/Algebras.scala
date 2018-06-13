@@ -7,9 +7,6 @@ import dahu.model.ir._
 import dahu.model.types.Value
 import dahu.recursion._
 import dahu.recursion.Recursion._
-import dahu.utils.Vec.Vec1
-
-import scala.annotation.tailrec
 
 object Algebras {
 
@@ -133,9 +130,9 @@ object Algebras {
   def printAlgebraTree[F[X] <: ExprF[X]]: FAlgebra[F, StringTree] = printAlgebraTreeImpl
   private val printAlgebraTreeImpl: FAlgebra[ExprF, StringTree] = { (x: ExprF[StringTree]) =>
     x match {
-      case InputF(v, _)                                                            => StringLeaf("$" + v)
-      case CstF(v, _)                                                              => StringLeaf(v.toString)
-      case c @ ComputationF(f, Vec1(a), _) if f.name == "box" || f.name == "unbox" => a
+      case InputF(v, _)                                                           => StringLeaf("$" + v)
+      case CstF(v, _)                                                             => StringLeaf(v.toString)
+      case c @ ComputationF(f, Vec(a), _) if f.name == "box" || f.name == "unbox" => a
       case c @ ComputationF(f, args, _) =>
         TreeSeq(args, before = f.name + "(", after = ")")
       case SequenceF(members, _) => TreeSeq(members, before = "[", after = "]")

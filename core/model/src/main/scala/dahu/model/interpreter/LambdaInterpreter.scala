@@ -5,7 +5,6 @@ import dahu.model.ir._
 import dahu.model.types._
 import dahu.recursion.FAlgebra
 import dahu.utils._
-import dahu.utils.Vec.Vec2
 import dahu.utils.errors._
 
 object LambdaInterpreter {

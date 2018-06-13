@@ -40,16 +40,16 @@ object Compiler {
   }
 
   object Ints {
-    def unapply(args: Vec[Expr]): Option[List[IntExpr]] =
+    def unapplySeq(args: Vec[Expr]): Option[IndexedSeq[IntExpr]] =
       if(args.forall(_.isInstanceOf[IntExpr]))
-        Some(args.toList.asInstanceOf[List[IntExpr]])
+        Some(args.asInstanceOf[Vec[IntExpr]].toSeq)
       else
         None
   }
   object Bools {
-    def unapply(args: Vec[Expr]): Option[List[BoolExpr]] =
+    def unapplySeq(args: Vec[Expr]): Option[IndexedSeq[BoolExpr]] =
       if(args.forall(_.isInstanceOf[BoolExpr]))
-        Some(args.toList.asInstanceOf[List[BoolExpr]])
+        Some(args.asInstanceOf[Vec[BoolExpr]].toSeq)
       else
         None
   }
@@ -72,37 +72,32 @@ object Compiler {
         case b: BoolExpr => ctx.mkITE(b, onTrue, onFalse)
       }
 
-    case ComputationF(f: Fun1[_, _], Ints(lhs :: Nil), _) =>
+    case ComputationF(f: Fun1[_, _], Ints(lhs), _) =>
       f match {
         case int.Negate => ctx.mkUnaryMinus(lhs)
       }
-    case ComputationF(f: Fun1[_, _], Bools(lhs :: Nil), _) =>
+    case ComputationF(f: Fun1[_, _], Bools(lhs), _) =>
       f match {
         case bool.Not => ctx.mkNot(lhs)
       }
 
-    case ComputationF(f: Fun2[_, _, _], Ints(lhs :: rhs :: Nil), _) =>
+    case ComputationF(f: Fun2[_, _, _], Ints(lhs, rhs), _) =>
       f match {
         case int.LEQ => ctx.mkLe(lhs, rhs)
         case int.EQ  => ctx.mkEq(lhs, rhs)
       }
-    case ComputationF(f: Fun2[_, _, _], Bools(lhs :: rhs :: Nil), _) =>
+    case ComputationF(f: Fun2[_, _, _], Bools(lhs, rhs), _) =>
       f match {
         case int.EQ => ctx.mkEq(lhs, rhs)
       }
 
-    case ComputationF(f: FunN[_, _], Bools(args), t) =>
+    case ComputationF(f: FunN[_, _], Bools(args @ _*), _) =>
       f match {
         case bool.And => ctx.mkAnd(args: _*)
         case bool.Or  => ctx.mkOr(args: _*)
-        case bool.XOr =>
-          def xor(l: List[BoolExpr]): BoolExpr = l match {
-            case Nil    => ctx.mkBool(false)
-            case h :: t => ctx.mkXor(h, xor(t))
-          }
-          xor(args)
+        case bool.XOr => args.fold(ctx.mkBool(false))(ctx.mkXor)
       }
-    case ComputationF(f: FunN[_, _], Ints(args), t) =>
+    case ComputationF(f: FunN[_, _], Ints(args @ _*), _) =>
       f match {
         case int.Add   => ctx.mkAdd(args: _*)
         case int.Times => ctx.mkMul(args: _*)

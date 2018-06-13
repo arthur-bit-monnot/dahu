@@ -9,7 +9,6 @@ import dahu.model.types._
 import dahu.utils.errors._
 import dahu.recursion._
 import dahu.recursion.Recursion._
-import dahu.utils.Vec.Vec3
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
@@ -33,7 +32,7 @@ object Interpreter {
     case ITEF(cond, onTrue, onFalse, _) =>
       Vec(cond, onTrue, onFalse).sequence
         .smap {
-          case Vec3(c, t, f) =>
+          case Vec(c, t, f) =>
             c match {
               case true  => t
               case false => f
