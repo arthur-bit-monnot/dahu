@@ -1,6 +1,7 @@
 package dahu
 
 import algebra.Order
+import cats.~>
 
 import scala.reflect.ClassTag
 
@@ -54,6 +55,16 @@ package object utils {
 
   implicit final class IterableOps[A](private val lhs: Iterable[A]) extends AnyVal {
     def toVec(implicit ct: ClassTag[A]): Vec[A] = Vec.fromIterable(lhs)
+  }
+
+  /****** FunctionK manipulation ******/
+  /** An existential type.
+    * Essentially, Something can be freely substituted in Higher-Kinded types since it can never by inspected. */
+  type Something = Any // todo: make Something opaque
+
+  /** lifts an existentially typed Function1 to a FunctionK */
+  def lift[F[_], G[_]](f: F[Something] => G[Something]): F ~> G = new (F ~> G) {
+    override def apply[A](fa: F[A]): G[A] = f.asInstanceOf[F[A] => G[A]](fa)
   }
 
 }

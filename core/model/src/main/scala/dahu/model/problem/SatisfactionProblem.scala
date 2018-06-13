@@ -2,18 +2,20 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
+import dahu.graphs.TreeNode
+import dahu.graphs.TreeNode._
 import dahu.model.functions.{Box, Reversible, Unbox}
-import dahu.model.input.{Ident, Input}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.products.FieldAccess
 import dahu.model.types._
 import dahu.recursion._
-import dahu.utils.Vec._
 import dahu.utils.errors._
 import spire.math.Interval
 import spire.syntax.cfor._
+
+import scala.collection.immutable
 
 object SatisfactionProblem {
 
@@ -477,12 +479,12 @@ object SatisfactionProblem {
     LazyTree(total)(t.root)
   }
 
-  def encodePresence[X <: Int](root: X,
-                               coalgebra: FCoalgebra[NoApplyF, X],
-                               optimize: Boolean = true): LazyTree[X, ConstrainedF, Prez, _] = {
-//    val lt = IlazyForest.build(coalgebra)(compilerPresence).fixID
-//    LazyTree(lt)(root)
-    ???
+  def encodePresence[K](root: K,
+                        coalgebra: FCoalgebra[NoApplyF, K],
+                        optimize: Boolean = true): LazyTree[K, OptConst, cats.Id, _] = {
+    val _lt = IlazyForest.build[K, NoApplyF, OptConst, cats.Id](coalgebra)(compilerPresence)
+    val lt = _lt.fixID
+    LazyTree[K, OptConst, cats.Id, lt.ID](lt)(root)
   }
 
   final class UtilsPrez(val directRec: OptConst[IDTop] => IDTop,
@@ -525,9 +527,14 @@ object SatisfactionProblem {
     def present[F](value: ConstrainedF[F]): OptConst[F] = OptConst(value, None)
     def apply[F](value: ConstrainedF[F], prez: F): OptConst[F] = OptConst(value, Some(prez))
 
-    implicit object FunctorInstance extends Functor[OptConst] {
-      override def map[A, B](fa: OptConst[A])(f: A => B): OptConst[B] =
+    implicit object FunctorInstance extends SFunctor[OptConst] {
+      override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: OptConst[A])(f: A => B): OptConst[B] =
         OptConst(fa.value.smap(f), fa.presence.map(f))
+    }
+
+    implicit object TreeNodeInstance extends TreeNode[OptConst] {
+      override def children[K](n: OptConst[K]): immutable.Iterable[K] =
+        n.value.children ++ n.presence.toIterable
     }
   }
   def compilerPresence(context: LazyForestGenerator.Context[OptConst, IDTop])

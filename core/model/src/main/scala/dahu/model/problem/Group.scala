@@ -1,16 +1,21 @@
 package dahu.model.problem
 
+import cats._
+import cats.implicits._
+import cats.syntax._
 import algebra.Monoid
+import cats.arrow.FunctionK
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.utils._
 import dahu.model.input.{Expr, SubjectTo}
+import dahu.model.types._
 import dahu.model.ir._
 import dahu.graphs.TreeNode._
 import dahu.model.compiler.Algebras
 import dahu.model.input.Lambda.LambdaIdent
 import dahu.model.math.bool
-import dahu.model.problem.SatisfactionProblem.{Prez, Utils}
+import dahu.model.problem.SatisfactionProblem.{OptConst, Prez, Utils}
 import dahu.model.types.Tag
 import dahu.recursion.{EnvT, FCoalgebra, Recursion}
 
@@ -344,17 +349,93 @@ object Group {
     )
     val ASTRoot = AST.getTreeRoot((root, CtxDef()))
 
-    val withPrez = SatisfactionProblem.encodePresence(ASTRoot, AST.internalCoalgebra)
+    val withPrez = SatisfactionProblem.encodePresence(ASTRoot, AST.internalCoalgebra).fixID
     withPrez.forceEvaluation
 
-//    IlazyForest.ana[Prez[withPrez.ID], PrezConstrained](_.smap(withPrez.tree.internalCoalgebra))
-    // function: ID => ConstrainedF[ID]
-    //           K => IR[ID]
+    case class Constraint[A](context: Set[A], condition: Set[A]) {
+      def map[B](f: A => B): Constraint[B] = Constraint(context.map(f), condition.map(f))
+      def format: String =
+        "context:\n" + context.mkString("", "\n", "") + "\nconstraints:\n" + condition.mkString(
+          "",
+          "\n",
+          "") + "\n"
+    }
 
-    val eval = withPrez.eval(Algebras.printAlgebraTree)
-    println(eval.value.mkString(90))
+    case class ConstraintSet[A](constraints: Set[Constraint[A]]) {
+      def nestIn(additionalContext: A): ConstraintSet[A] =
+        ConstraintSet(ConstraintSet.regroup(constraints.map {
+          case Constraint(context, conditions) =>
+            Constraint(context + additionalContext, conditions)
+        }))
+      def combine(o: ConstraintSet[A]): ConstraintSet[A] =
+        ConstraintSet(ConstraintSet.regroup(constraints ++ o.constraints))
+
+      def map[B](f: A => B): ConstraintSet[B] = ConstraintSet(constraints.map(_.map(f)))
+
+      def format: String = constraints.map(_.format).mkString("", "\n", "")
+    }
+    object ConstraintSet {
+      private def regroup[A](e: Set[Constraint[A]]): Set[Constraint[A]] =
+        e.groupBy(_.context)
+          .mapValues(_.flatMap(_.condition))
+          .toSet
+          .map[Constraint[A], Set[Constraint[A]]](t => Constraint[A](t._1, t._2))
+
+      private val emptySingleton: ConstraintSet[Any] = new ConstraintSet[Any](Set())
+      def empty[F]: ConstraintSet[F] = emptySingleton.asInstanceOf[ConstraintSet[F]]
+
+      object MonoidInstance extends Monoid[ConstraintSet[Any]] {
+        override def empty: ConstraintSet[Any] = emptySingleton
+        override def combine(x: ConstraintSet[Any], y: ConstraintSet[Any]): ConstraintSet[Any] =
+          x combine y
+      }
+      implicit def monoid[F]: Monoid[ConstraintSet[F]] =
+        MonoidInstance.asInstanceOf[Monoid[ConstraintSet[F]]]
+    }
+
+    val constrained: LazyTree[AST.ID, ConstrainedF, cats.Id, withPrez.ID] =
+      withPrez.map[ConstrainedF] {
+        case OptConst(v, _) => v
+      }
+
+    val forgetConstraints: ConstrainedF ~> Total = lift {
+      case Partial(v, _, t)    => NoopF(v, t)
+      case ValidF(_)           => CstF(Value(true), Tag.ofBoolean)
+      case x: Total[Something] => x
+    }
+
+    val total: LazyTree[AST.ID, Total, cats.Id, withPrez.ID] =
+      constrained.mapK[Total](forgetConstraints)
+
+    val optimized = total.tree.transform(SatisfactionProblem.Optimizations.optimizer.optim).fixID
+    val printableOptimized = optimized.cata(Algebras.printAlgebraTree)
+
+    val withPrezForest = withPrez.tree //.fixID
+    val constraints = withPrezForest.cataLow2[ConstraintSet[withPrez.ID]] {
+      case OptConst(expr, context) =>
+        val base = expr match {
+          case Partial((v1, _), (v2, c), _) =>
+            v1 |+| v2 |+| ConstraintSet(Set(Constraint(Set(), Set(c.asInstanceOf[withPrez.ID]))))
+          case _ => expr.children.map(_._1).fold(ConstraintSet.empty)(_ combine _)
+        }
+        context match {
+          case Some((_, i)) => base.nestIn(i.asInstanceOf[withPrez.ID])
+          case None         => base
+        }
+    }
+
+    val eval = constrained.eval(Algebras.printAlgebraTree)
+    println(eval.mkString(90))
     println("================ ")
-    println(eval.present.mkString(90))
+    println(total.eval(Algebras.printAlgebraTree).mkString(90))
+    println("================ ")
+    val printableTotal = total.tree.cata(Algebras.printAlgebraTree)
+    println(
+      constraints
+        .get(ASTRoot)
+        .map(i => printableOptimized.getInternal(optimized.fromPreviousId(i)).mkString(90))
+        .format)
+//    println(eval.present.mkString(90))
 //    type OptExprF[I] = (ExprF[I], ExprF[I])
 //    IlazyForest.build[CI, ExprF, OptExprF, cats.Id](k => coalgFinal(k))(ctx => {
 //      case x @ InputF(_, _) => ctx.record((x, bool.TrueF))
