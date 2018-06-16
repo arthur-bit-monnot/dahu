@@ -19,6 +19,7 @@ class BiMap[A, B] private (forward: mutable.Map[A, B], backward: mutable.Map[B, 
   def contains(a: A): Boolean = forward.contains(a)
   def cocontains(b: B): Boolean = backward.contains(b)
 
+  def iterator: Iterator[(A, B)] = forward.iterator
 }
 
 object BiMap {
