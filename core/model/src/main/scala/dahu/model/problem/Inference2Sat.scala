@@ -253,8 +253,9 @@ class Processor[X, ID <: IDTop] {
                                                    fa => TreeNode[Total].children(fa))
 
   def export(): Unit = {
+    val optim = Optimizations.optimizer(i => coalg(i), record)
     def rec(expr: Total[Var]): Var =
-      record(Optimizations.optimizer.optim(i => coalg(i), record)(expr))
+      record(optim(expr))
     val TRUTH = rec(bool.TrueF)
     val known = inferences.toIterable().toSet
     val order = processingOrder
