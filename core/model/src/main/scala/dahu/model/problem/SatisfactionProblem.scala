@@ -8,6 +8,7 @@ import dahu.model.functions.{Box, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
+import dahu.model.problem.SatisfactionProblem.Optimizations.{OptimizationContext, Optimizer2}
 import dahu.model.products.FieldAccess
 import dahu.model.types._
 import dahu.recursion._
@@ -16,13 +17,48 @@ import spire.math.Interval
 import spire.syntax.cfor._
 
 import scala.collection.{immutable, mutable}
+import scala.runtime.BoxesRunTime
 
 object SatisfactionProblem {
 
   // TODO: move optimizations to distinct package
   object Optimizations {
+    final class OptimizationContext(val retrieve: IDTop => Total[IDTop],
+                                    val record: Total[IDTop] => IDTop) {
+      lazy val TRUE: IDTop = record(bool.TrueF)
+      val FALSE: IDTop = record(bool.FalseF)
+    }
+
+    abstract class Optimizer2(ctx: OptimizationContext) extends (Total[IDTop] => Total[IDTop]) {
+      def retrieve(i: IDTop) = ctx.retrieve(i)
+      def record(fi: Total[IDTop]): IDTop = {
+        if(current != null && current == fi)
+          throw RecursiveTransformation
+        else {
+          println()
+          println(current)
+          println(fi)
+          println(current == fi)
+          ctx.record(fi)
+        }
+      }
+
+      protected def optimImpl(fi: Total[IDTop]): Total[IDTop]
+
+      private var current: Total[IDTop] = null
+      def apply(fi: Total[IDTop]): Total[IDTop] = {
+        current = fi
+        try {
+          optimImpl(fi)
+        } catch {
+          case RecursiveTransformation => fi
+        }
+      }
+    }
+
     trait Optimizer {
       self =>
+
       def optim(retrieve: IDTop => Total[IDTop],
                 record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop]
 
@@ -41,9 +77,8 @@ object SatisfactionProblem {
         identity[Total[IDTop]]
     }
 
-    object ElimUniversalEquality extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class ElimUniversalEquality(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case orig @ ComputationF(f: any.EQ, Vec(x, y), _) =>
           val fx = retrieve(x)
           val fy = retrieve(y)
@@ -56,9 +91,7 @@ object SatisfactionProblem {
                 val pushedDown = xs.indices.map(i => {
                   val a = xs(i)
                   val b = ys(i)
-                  val recursed =
-                    optim(retrieve, record)(ComputationF(any.EQ, Vec(a, b), Tag.ofBoolean))
-                  record(recursed)
+                  record(ComputationF(any.EQ, Vec(a, b), Tag.ofBoolean))
                 })
                 ComputationF(bool.And, pushedDown, Tag.ofBoolean)
               }
@@ -68,9 +101,7 @@ object SatisfactionProblem {
               val pushedDown = xs.indices.map(i => {
                 val a = xs(i)
                 val b = ys(i)
-                val recursed =
-                  optim(retrieve, record)(ComputationF(any.EQ, Vec(a, b), Tag.ofBoolean))
-                record(recursed)
+                record(ComputationF(any.EQ, Vec(a, b), Tag.ofBoolean))
               })
               ComputationF(bool.And, pushedDown, Tag.ofBoolean)
             case (CstF(a, _), CstF(b, _)) =>
@@ -95,26 +126,21 @@ object SatisfactionProblem {
       }
     }
 
-    object ElimReversible extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class ElimReversible(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case orig @ ComputationF(f: Reversible[_, _], Vec(arg), _) =>
           retrieve(arg) match {
             case ComputationF(f2: Reversible[_, _], Vec(arg2), _) if f2 == f.reverse =>
               retrieve(arg2)
-            case ComputationF(f2: Box[_], _, _) =>
-              println(f)
-              println(f2)
-              ???
-            case _ => orig
+            case ComputationF(f2: Box[_], _, _) => ???
+            case _                              => orig
           }
         case x => x
       }
     }
 
-    object SimplifyIfThenElse extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class SimplifyIfThenElse(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case ITEF(_, onTrue, onFalse, _) if onTrue == onFalse => retrieve(onTrue)
         case orig @ ITEF(cond, onTrue, onFalse, t) if t == Tag.ofBoolean =>
           if(retrieve(onFalse) == bool.FalseF)
@@ -128,7 +154,7 @@ object SatisfactionProblem {
       }
     }
 
-    object ElimTautologies extends Optimizer {
+    final class ElimTautologies(ctx: OptimizationContext) extends Optimizer2(ctx) {
       def dom(t: Tag[_]): Interval[Int] = t match {
         case t: TagIsoInt[_] => Interval(t.min, t.max)
         case _               => Interval.all
@@ -141,8 +167,7 @@ object SatisfactionProblem {
         case x =>
           dom(x.typ)
       }
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         // note: those two cases can be extended to vectors of arbitrary size
         case original @ ComputationF(bool.Or, Vec(a, b), _) =>
           if(b == record(ComputationF(bool.Not, Vec(a), Tag.ofBoolean)))
@@ -176,9 +201,8 @@ object SatisfactionProblem {
 
     }
 
-    object ElimIdentity extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class ElimIdentity(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case x @ ComputationF(f: Monoid[_], args, tpe) =>
           val identity = record(f.liftedIdentity)
           if(args.contains(identity))
@@ -189,18 +213,17 @@ object SatisfactionProblem {
       }
     }
 
-    object ElimEmptyAndSingletonMonoid extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class ElimEmptyAndSingletonMonoid(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case x @ ComputationF(f: Monoid[_], args, _) if args.isEmpty => f.liftedIdentity
         case x @ ComputationF(_: Monoid[_], Vec(arg), _)             => retrieve(arg)
         case x                                                       => x
       }
     }
 
-    object ElimDuplicationsIdempotentMonoids extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class ElimDuplicationsIdempotentMonoids(ctx: OptimizationContext)
+        extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case ComputationF(f: IdempotentMonoid[_], args, tpe)
             if f.isInstanceOf[CommutativeMonoid[_]] =>
           ComputationF(f, args.distinct, tpe)
@@ -208,9 +231,8 @@ object SatisfactionProblem {
       }
     }
 
-    object FlattenMonoids extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class FlattenMonoids(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case x @ ComputationF(f: Monoid[_], args, tpe) =>
           val buff = debox.Buffer[IDTop]()
           cfor(0)(_ < args.length, _ + 1) { i =>
@@ -229,52 +251,47 @@ object SatisfactionProblem {
       }
     }
 
-    object ConstantFolding extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = o => {
-        val TRUE: IDTop = record(bool.TrueF)
-        val FALSE: IDTop = record(bool.FalseF)
+    final class ConstantFolding(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      import ctx.{FALSE, TRUE}
 
-        o match {
-          case ComputationF(bool.And, args, _) if args.contains(FALSE) => retrieve(FALSE)
-          case ComputationF(bool.Or, args, _) if args.contains(TRUE)   => retrieve(TRUE)
-          // commutative monoid, evaluate the combination of all constants args
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
+        case ComputationF(bool.And, args, _) if args.contains(FALSE) => retrieve(FALSE)
+        case ComputationF(bool.Or, args, _) if args.contains(TRUE)   => retrieve(TRUE)
+        // commutative monoid, evaluate the combination of all constants args
 
-          // any function, evaluate if all args are constant
-          case ComputationF(f, args, t) if args.forall(retrieve(_).isInstanceOf[CstF[_]]) =>
-            val params = args.map(i =>
-              retrieve(i) match {
-                case CstF(value, _) => value
-                case _              => unexpected
-            })
-            CstF(Value(f.compute(params)), t)
+        // any function, evaluate if all args are constant
+        case ComputationF(f, args, t) if args.forall(retrieve(_).isInstanceOf[CstF[_]]) =>
+          val params = args.map(i =>
+            retrieve(i) match {
+              case CstF(value, _) => value
+              case _              => unexpected
+          })
+          CstF(Value(f.compute(params)), t)
 
-          case ComputationF(f: CommutativeMonoid[_], args, tpe)
-              if args.count(retrieve(_).isInstanceOf[CstF[_]]) >= 2 =>
-            val buff = debox.Buffer[IDTop]()
-            var acc: Value = Value(f.identity)
-            cfor(0)(_ < args.length, _ + 1) { i =>
-              retrieve(args(i)) match {
-                case CstF(value, _) => acc = f.combineUnsafe(acc, value)
-                case _              => buff += args(i)
-              }
+        case ComputationF(f: CommutativeMonoid[_], args, tpe)
+            if args.count(retrieve(_).isInstanceOf[CstF[_]]) >= 2 =>
+          val buff = debox.Buffer[IDTop]()
+          var acc: Value = Value(f.identity)
+          cfor(0)(_ < args.length, _ + 1) { i =>
+            retrieve(args(i)) match {
+              case CstF(value, _) => acc = f.combineUnsafe(acc, value)
+              case _              => buff += args(i)
             }
-            buff += record(CstF(acc, f.outType))
-            ComputationF(f, Vec.unsafe(buff.toArray()), tpe)
+          }
+          buff += record(CstF(acc, f.outType))
+          ComputationF(f, Vec.unsafe(buff.toArray()), tpe)
 
-          case x @ ITEF(cond, onTrue, onFalse, _) =>
-            if(cond == TRUE) retrieve(onTrue)
-            else if(cond == FALSE) retrieve(onFalse)
-            else x
+        case x @ ITEF(cond, onTrue, onFalse, _) =>
+          if(cond == TRUE) retrieve(onTrue)
+          else if(cond == FALSE) retrieve(onFalse)
+          else x
 
-          case x => x
-        }
+        case x => x
       }
     }
 
-    object OrderArgs extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class OrderArgs(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case x @ ComputationF(f: CommutativeMonoid[_], args, tpe) =>
           if(args.isSorted)
             x
@@ -284,9 +301,8 @@ object SatisfactionProblem {
       }
     }
 
-    object ExtractField extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class ExtractField(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case x @ ComputationF(fa: FieldAccess[_, _], Vec(p), _) =>
           retrieve(p) match {
             case ProductF(members, _) =>
@@ -298,9 +314,8 @@ object SatisfactionProblem {
       }
     }
 
-    object DistributeImplication extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+    final class DistributeImplication(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case original @ ComputationF(bool.Or, Vec(a, b), _) =>
           def tryWith(a: IDTop, b: IDTop): Option[Total[IDTop]] =
             (retrieve(a), retrieve(b)) match {
@@ -326,9 +341,9 @@ object SatisfactionProblem {
     }
 
     object Or {
-      def apply[A](cs: Iterable[A]): ComputationF[A] =
+      def apply[A <: IDTop](cs: Iterable[A]): ComputationF[A] =
         ComputationF(bool.Or, Vec.fromIterable(cs), Tag.ofBoolean)
-      def apply[A](a: A, b: A): ComputationF[A] =
+      def apply[A: ClassTag](a: A, b: A): ComputationF[A] =
         ComputationF(bool.Or, Vec(a, b), Tag.ofBoolean)
 
       def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
@@ -337,34 +352,31 @@ object SatisfactionProblem {
       }
     }
     object And {
-      def apply[A](cs: Iterable[A]): ComputationF[A] =
-        ComputationF(bool.And, Vec.fromIterable(cs), Tag.ofBoolean)
+      def apply[A <: IDTop](cs: Iterable[A]): ComputationF[A] =
+        ComputationF(bool.And, Vec.fromIterable(cs).sorted, Tag.ofBoolean)
       def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
         case ComputationF(bool.And, args, _) => Some(args.toSeq)
         case _                               => None
       }
     }
 
-    def containsAssumingSorted(a: Vec[IDTop], b: Vec[IDTop]): Boolean = ???
-
-    object SimplifyImplications extends Optimizer {
+    final class SimplifyImplications(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      import ctx.{FALSE, TRUE}
       class ImplicationAccumulator(record: Total[IDTop] => IDTop) {
-        val FALSE = record(bool.FalseF)
-        val TRUE = record(bool.TrueF)
-        val conds = mutable.ArrayBuffer[Vec[IDTop]]()
-        val effs = mutable.ArrayBuffer[debox.Set[IDTop]]()
+        private val conds = mutable.ArrayBuffer[Vec[IDTop]]()
+        private val effs = mutable.ArrayBuffer[debox.Set[IDTop]]()
+        def isForced(i: IDTop): Boolean = {
+          if(conds.isEmpty || conds(0).size > 0)
+            false
+          else
+            effs(0)(i)
+        }
         def add(condition: Vec[IDTop], effects: Vec[IDTop]): Unit = {
-          addToSame(condition, effects)
+          addToSame(condition, effects.filter(i => !isForced(i)))
         }
         def addToSame(condition: Vec[IDTop], effects: Vec[IDTop]): Unit = {
-          var loc = -1
-          val size = conds.size
-          spire.syntax.cfor.cfor(0)(_ < size, _ + 1) { i =>
-            if(conds(i) == condition) {
-              loc = i
-              return
-            }
-          }
+          val loc = conds.indexOf(condition)
+
           if(loc == -1) {
             conds += condition
             effs += debox.Set.fromArray(effects.toArray)
@@ -386,7 +398,7 @@ object SatisfactionProblem {
           else if(conds.size == 1)
             record(Not(conds(0)))
           else
-            record(Not(record(makeAnd(conds.toIterable))))
+            record(Not(makeAnd(conds.toIterable)))
         }
         def makeOr(a: IDTop, b: IDTop): IDTop =
           if(a == TRUE || b == TRUE)
@@ -410,15 +422,14 @@ object SatisfactionProblem {
         }
       }
 
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] = {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case original @ And(args @ _*) =>
           def notConj(i: IDTop): Option[Vec[IDTop]] =
             retrieve(i) match {
               case Not(a) =>
                 retrieve(a) match {
-                  case And(args @ _*) => Some(args.toVec)
-                  case _              => Some(Vec(a))
+                  case And(notConj @ _*) => Some(notConj.toVec)
+                  case _                 => Some(Vec(a))
                 }
               case _ => None
             }
@@ -439,7 +450,6 @@ object SatisfactionProblem {
                       case None            => (Vec.empty, Vec(i))
                     }
                 }
-
               case _ => (Vec.empty, Vec(i))
             }
           }
@@ -451,31 +461,38 @@ object SatisfactionProblem {
         case x => x
       }
     }
-
-    private val optimizers = List(
-      ExtractField,
-      ElimUniversalEquality,
-      ElimReversible,
-      ElimIdentity,
-      ElimEmptyAndSingletonMonoid,
-      FlattenMonoids,
-      ElimDuplicationsIdempotentMonoids,
-      ElimTautologies,
-      ConstantFolding,
-      SimplifyIfThenElse,
-      DistributeImplication,
-      SimplifyImplications,
-      OrderArgs,
+    def optimizers(ctx: OptimizationContext): Seq[Optimizer2] = Seq(
+      new ExtractField(ctx),
+      new ElimUniversalEquality(ctx),
+      new ElimReversible(ctx),
+      new ElimIdentity(ctx),
+      new ElimEmptyAndSingletonMonoid(ctx),
+      new FlattenMonoids(ctx),
+      new ElimDuplicationsIdempotentMonoids(ctx),
+      new ElimTautologies(ctx),
+      new ConstantFolding(ctx),
+      new SimplifyIfThenElse(ctx),
+      new DistributeImplication(ctx),
+      new SimplifyImplications(ctx),
+      new DistributeImplication(ctx),
+      new OrderArgs(ctx),
     )
-    val optimizer: Optimizer =
-      (optimizers ++ optimizers ++ optimizers).foldLeft[Optimizer](NoOpOptimizer) {
+
+    def optimizer(retrieve: IDTop => Total[IDTop],
+                  record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
+      optimizer(new OptimizationContext(retrieve, record))
+    def optimizer(ctx: OptimizationContext): Total[IDTop] => Total[IDTop] = {
+      val opts: Seq[Total[IDTop] => Total[IDTop]] = optimizers(ctx)
+      (opts ++ opts).reduce[Total[IDTop] => Total[IDTop]] {
         case (acc, next) => acc.andThen(next)
       }
+    }
   }
 
   final class Utils(val directRec: Total[IDTop] => IDTop, retrieve: IDTop => Total[IDTop]) {
+    private val optim = Optimizations.optimizer(retrieve, directRec)
     def rec(expr: Total[IDTop]): IDTop =
-      directRec(Optimizations.optimizer.optim(retrieve, directRec)(expr))
+      directRec(optim(expr))
     def ret(i: IDTop): Total[IDTop] = retrieve(i)
 
     val TRUE: IDTop = rec(CstF(Value(true), Tag.ofBoolean))
