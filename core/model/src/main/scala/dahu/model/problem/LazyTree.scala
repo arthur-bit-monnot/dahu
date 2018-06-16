@@ -4,6 +4,8 @@ import cats._
 import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
+import dahu.model.ir.ComputationF
+import dahu.model.math.bool
 import dahu.recursion.{Fix, Recursion}
 import dahu.utils.{BiMap, Graph, SFunctor, SubSubInt}
 import dahu.utils._
@@ -225,12 +227,45 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
       def nextID(): I = { _nextID += 1; (_nextID - 1).asInstanceOf[I] }
       def directRecord(fi: F[I]): I = {
         if(!coalg.cocontains(fi)) {
+          println(s"REC: $fi")
+          if(fi.toString == "and(5, 7)")
+            println("OOO")
           coalg.add(nextID(), fi)
         }
         coalg.coget(fi)
       }
-      override def record(fi: F[I]): I = directRecord(transform(fi))
-      val transform: F[I] => F[I] = fGen(coalg.get(_), directRecord(_))
+      private val knownTransformations = mutable.HashMap[F[I], I]()
+      private val pendingTransformations = mutable.Set[F[I]]()
+      override def record(fi: F[I]): I = {
+        if(coalg.cocontains(fi))
+          coalg.coget(fi) // a normally already transformed value is already recorded, use its ID
+        else if(knownTransformations.contains(fi))
+          knownTransformations(fi)
+        else if(pendingTransformations.contains(fi))
+//          throw RecursiveTransformation
+          directRecord(fi) // transform was recursively invoked
+        else {
+//          if(fi.toString() == "not(0)")
+//            println("X")
+//          println("1 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
+          pendingTransformations += fi
+//          println("2 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
+          val fi2 = transform(fi)
+//          println("3 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
+          pendingTransformations -= fi
+//          println("4 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
+//          if(fi2.isInstanceOf[ComputationF[I]])
+//            fi2.asInstanceOf[ComputationF[I]] match {
+//              case ComputationF(bool.And, Vec(a), _) =>
+//                println("STRANGE")
+//              case _ =>
+//            }
+          val i = directRecord(fi2)
+          knownTransformations.update(fi, i)
+          i
+        }
+      }
+      val transform: F[I] => F[I] = fGen(coalg.get(_), record)
       def processed(id: self.ID): Boolean = idMap.contains(id)
       override def fromPreviousId(id: self.ID): I = {
         if(!idMap.contains(id)) {
@@ -257,6 +292,9 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
     Graph.topologicalOrderLeavesToRoot[ID, F](id, internalCoalgebra(_), TN.children(_))
   }
 }
+
+case object RecursiveTransformation extends Exception
+
 object IlazyForest {
   def build[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_]](coalgebra: K => FIn[K])(
       algebraGenerator: LazyForestGenerator.Context[FOut, IDTop] => FIn[Opt[IDTop]] => Opt[IDTop])(
