@@ -8,7 +8,7 @@ import dahu.utils.Vec
 
 import scala.reflect.ClassTag
 
-object double {
+package double {
 
   object Times extends CommutativeMonoid[Double] {
     override def tpe: Tag[Double] = Tag.ofDouble
@@ -50,7 +50,7 @@ object double {
 
 }
 
-object int {
+package int {
 
   object Times extends CommutativeMonoid[Int] {
     override def tpe: Tag[Int] = Tag.ofInt
@@ -87,7 +87,7 @@ object int {
   }
 }
 
-object bool {
+package bool {
 
   object And extends CommutativeMonoid[Boolean] with IdempotentMonoid[Boolean] {
     override def tpe: Tag[Boolean] = Tag.ofBoolean
@@ -113,17 +113,15 @@ object bool {
     override def of(in: Boolean): Boolean = !in
     override def reverse: Reversible[Boolean, Boolean] = this
   }
-
-  val True: Expr[Boolean] = Cst(true)
-  val TrueF: CstF[Any] = CstF(dahu.model.types.Value(true), Tag[Boolean])
-  val False: Expr[Boolean] = Cst(false)
-  val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
-
+}
+package object bool {
+  final val True: Expr[Boolean] = Cst(true)
+  final val TrueF: CstF[Any] = CstF(dahu.model.types.Value(true), Tag[Boolean])
+  final val False: Expr[Boolean] = Cst(false)
+  final val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
 }
 
-object sequence {
-
-  private implicit val intSeqTag: Tag[Vec[Int]] = SequenceTag[Int]
+package sequence {
 
   object EQ extends Fun2[Vec[Int], Vec[Int], Boolean] {
     override def of(in1: Vec[Int], in2: Vec[Int]): Boolean = in1 == in2
@@ -141,10 +139,9 @@ object sequence {
     override def of(in: Vec[A]): A = in.foldLeft(monoid.identity)((a, b) => monoid.combine(a, b))
     override def name: String = s"fold($monoid)"
   }
-
 }
 
-object any {
+package object any {
 
   private[this] implicit val anyTag: Tag[Any] = Tag.default[Any]
 
