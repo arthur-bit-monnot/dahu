@@ -455,7 +455,7 @@ object Vec {
   /**
     * Build a Buffer instance from the provided values.
     */
-  def apply[A: ClassTag](args: A*): Vec[A] = unsafe(args.toArray)
+  def apply[A: ClassTag](args: A*): Vec[A] = fromIterable(args)
 
   /**
     * Build a Buffer from the provided array.
