@@ -23,10 +23,11 @@ object SatisfactionProblem {
 
   // TODO: move optimizations to distinct package
   object Optimizations {
-    final class OptimizationContext(val retrieve: IDTop => Total[IDTop],
-                                    val record: Total[IDTop] => IDTop) {
+    trait OptimizationContext {
+      def retrieve(i: IDTop): Total[IDTop]
+      def record(fi: Total[IDTop]): IDTop
       lazy val TRUE: IDTop = record(bool.TrueF)
-      val FALSE: IDTop = record(bool.FalseF)
+      lazy val FALSE: IDTop = record(bool.FalseF)
     }
 
     abstract class Optimizer2(ctx: OptimizationContext) extends (Total[IDTop] => Total[IDTop]) {
@@ -35,10 +36,10 @@ object SatisfactionProblem {
         if(current != null && current == fi)
           throw RecursiveTransformation
         else {
-          println()
-          println(current)
-          println(fi)
-          println(current == fi)
+//          println()
+//          println(current)
+//          println(fi)
+//          println(current == fi)
           ctx.record(fi)
         }
       }
@@ -56,29 +57,30 @@ object SatisfactionProblem {
       }
     }
 
-    trait Optimizer {
-      self =>
-
-      def optim(retrieve: IDTop => Total[IDTop],
-                record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop]
-
-      def andThen(next: Optimizer): Optimizer = new Optimizer {
-        override def optim(retrieve: IDTop => Total[IDTop],
-                           record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
-          self.optim(retrieve, record) andThen next.optim(retrieve, record)
-
-        override def toString: String = s"$self >> $next"
-      }
-    }
-
-    object NoOpOptimizer extends Optimizer {
-      override def optim(retrieve: IDTop => Total[IDTop],
-                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
-        identity[Total[IDTop]]
-    }
+//    trait Optimizer {
+//      self =>
+//
+//      def optim(retrieve: IDTop => Total[IDTop],
+//                record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop]
+//
+//      def andThen(next: Optimizer): Optimizer = new Optimizer {
+//        override def optim(retrieve: IDTop => Total[IDTop],
+//                           record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
+//          self.optim(retrieve, record) andThen next.optim(retrieve, record)
+//
+//        override def toString: String = s"$self >> $next"
+//      }
+//    }
+//
+//    object NoOpOptimizer extends Optimizer {
+//      override def optim(retrieve: IDTop => Total[IDTop],
+//                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
+//        identity[Total[IDTop]]
+//    }
 
     final class ElimUniversalEquality(ctx: OptimizationContext) extends Optimizer2(ctx) {
       override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
+        case orig @ ComputationF(f: any.EQ, Vec(x, y), _) if x == y => bool.TrueF
         case orig @ ComputationF(f: any.EQ, Vec(x, y), _) =>
           val fx = retrieve(x)
           val fy = retrieve(y)
@@ -116,13 +118,14 @@ object SatisfactionProblem {
                   val iy = record(ComputationF(t2.unbox, Vec(y), t1.unbox.outType))
                   ComputationF(int.EQ, Vec(ix, iy), int.EQ.outType)
                 case _ =>
-//                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
+                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
                   orig
               }
 
           }
 
-        case x => x
+        case x =>
+          x
       }
     }
 
@@ -330,6 +333,31 @@ object SatisfactionProblem {
         case x => x
       }
     }
+    final class DistributeNot(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      def not(a: IDTop): IDTop = {
+        retrieve(a) match {
+          case Not(na) => na
+          case _       => record(Not(a))
+        }
+      }
+
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
+        case original @ Not(a) =>
+          retrieve(a) match {
+            case Or(disjs @ _*) =>
+              val conjs =
+                disjs.map(d => not(d))
+              And(conjs)
+
+            case And(conjs @ _*) =>
+              val disjs =
+                conjs.map(d => not(d))
+              Or(disjs)
+            case _ => original
+          }
+        case x => x
+      }
+    }
 
     object Not {
       def apply[@sp(Int) A: ClassTag](a: A): ComputationF[A] =
@@ -461,32 +489,55 @@ object SatisfactionProblem {
         case x => x
       }
     }
-    def optimizers(ctx: OptimizationContext): Seq[Optimizer2] = Seq(
-      new ExtractField(ctx),
-      new ElimUniversalEquality(ctx),
-      new ElimReversible(ctx),
-      new ElimIdentity(ctx),
-      new ElimEmptyAndSingletonMonoid(ctx),
-      new FlattenMonoids(ctx),
-      new ElimDuplicationsIdempotentMonoids(ctx),
-      new ElimTautologies(ctx),
-      new ConstantFolding(ctx),
-      new SimplifyIfThenElse(ctx),
-      new DistributeImplication(ctx),
-      new SimplifyImplications(ctx),
-      new DistributeImplication(ctx),
-      new OrderArgs(ctx),
-    )
 
-    def optimizer(retrieve: IDTop => Total[IDTop],
-                  record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
-      optimizer(new OptimizationContext(retrieve, record))
-    def optimizer(ctx: OptimizationContext): Total[IDTop] => Total[IDTop] = {
-      val opts: Seq[Total[IDTop] => Total[IDTop]] = optimizers(ctx)
-      (opts ++ opts).reduce[Total[IDTop] => Total[IDTop]] {
-        case (acc, next) => acc.andThen(next)
+    final class RecursiveOptimizerCombinator(subs: Seq[OptimizationContext => Optimizer2],
+                                             ctx: OptimizationContext)
+        extends Optimizer2(ctx) { self =>
+      private val subOptimizationContext = new OptimizationContext {
+        override def retrieve(i: IDTop): Total[IDTop] = ctx.retrieve(i)
+        override def record(fi: Total[IDTop]): IDTop = ctx.record(self.apply(fi))
+      }
+      private val subOptimizers = subs.map(_.apply(subOptimizationContext)).toBuffer
+
+      override protected def optimImpl(fi: Total[IDTop]): Total[IDTop] = {
+        subOptimizers.foldLeft(fi)((fi2, opt) => opt(fi2))
       }
     }
+
+    def optimizers: Seq[OptimizationContext => Optimizer2] = Seq(
+      ctx => new ExtractField(ctx),
+      ctx => new ElimUniversalEquality(ctx),
+      ctx => new ElimReversible(ctx),
+      ctx => new ElimIdentity(ctx),
+      ctx => new ElimEmptyAndSingletonMonoid(ctx),
+      ctx => new FlattenMonoids(ctx),
+      ctx => new ElimDuplicationsIdempotentMonoids(ctx),
+      ctx => new ElimTautologies(ctx),
+      ctx => new ConstantFolding(ctx),
+      ctx => new SimplifyIfThenElse(ctx),
+      ctx => new DistributeImplication(ctx),
+      ctx => new DistributeNot(ctx),
+//      ctx => new SimplifyImplications(ctx),
+//      ctx => new DistributeImplication(ctx),
+      ctx => new OrderArgs(ctx),
+    )
+
+    def optimizer(_retrieve: IDTop => Total[IDTop],
+                  _record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
+      new RecursiveOptimizerCombinator(
+        optimizers ++ optimizers,
+        new OptimizationContext {
+          override def retrieve(i: IDTop): Total[IDTop] = _retrieve(i)
+          override def record(fi: Total[IDTop]): IDTop = _record(fi)
+        }
+      )
+
+//    def optimizer(ctx: OptimizationContext): Total[IDTop] => Total[IDTop] = {
+//      val opts: Seq[Total[IDTop] => Total[IDTop]] = optimizers(ctx)
+//      (opts ++ opts).reduce[Total[IDTop] => Total[IDTop]] {
+//        case (acc, next) => acc.andThen(next)
+//      }
+//    }
   }
 
   final class Utils(val directRec: Total[IDTop] => IDTop, retrieve: IDTop => Total[IDTop]) {
@@ -565,16 +616,23 @@ object SatisfactionProblem {
                               utils.implies(utils.not(cond.value), onFalse.valid))
           )
         case OptionalF(value, present, _) =>
+          import utils._
           def isReallyValid(ir: IR[IDTop]) = utils.implies(ir.present, ir.valid)
           val validity =
             utils.and(utils.or(utils.not(present.value), isReallyValid(value)),
                       isReallyValid(present))
           val presence =
             utils.or(utils.and(value.present, present.present, present.value), utils.not(validity))
+//          val p2 = utils.or(utils.and(present.present, present.value, value.present),
+//                            utils.not(present.valid))
+          val absent =
+            or(not(value.present), not(present.present), and(not(present.value), present.valid))
+          val p2 = not(absent)
+          val val2 = utils.implies(p2, utils.and(value.valid, present.valid))
           IR(
             value = value.value,
-            present = presence,
-            valid = validity
+            present = p2,
+            valid = val2
           )
         case PresentF(opt) =>
           IR(
@@ -589,12 +647,15 @@ object SatisfactionProblem {
             valid = utils.TRUE
           )
         case Partial(value, condition, tpe) =>
+          val prez = utils.and(value.present, condition.present)
+          val valid = utils.implies(prez, utils.and(value.valid, condition.valid, condition.value))
           IR(
             value = value.value,
-            present = value.present,
-            valid = utils.and(
-              utils.implies(value.present, value.valid),
-              utils.implies(condition.present, utils.and(condition.value, condition.valid)))
+            present = prez, //value.present,
+            valid = valid
+//              utils.and(
+//              utils.implies(value.present, value.valid),
+//              utils.implies(condition.present, utils.and(condition.value, condition.valid)))
           )
         case p @ LambdaParamF(id, typ) =>
           val placeHolder = utils.rec(LambdaParamF(id, typ))
@@ -731,7 +792,7 @@ object SatisfactionProblem {
 //            value = utils.rec(ValidF(part.value)),
 //            present = part.present
 //          )
-        case x @ Partial(value, condition, tpe) =>
+        case x @ Partial(value, condition, tpe) => // TODO: are we present even if condition is absent?
           rec(x, allPresent(Vec(value, condition)))
 //          Prez(
 //            value = utils.rec(Partial(value.value, condition.value, tpe)),

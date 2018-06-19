@@ -57,7 +57,7 @@ object LambdaInterpreter {
         case Partial(value, cond, _) =>
           assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
           cond match {
-            case PEmpty              => value
+            case PEmpty              => PEmpty
             case PConstraintViolated => PConstraintViolated
             case _ =>
               FlatMapped[Value, Value](cond, {
@@ -70,7 +70,7 @@ object LambdaInterpreter {
           assert(
             present.applicationStack.isEmpty || present.applicationStack == value.applicationStack)
           present match {
-            case PEmpty              => value
+            case PEmpty              => PEmpty
             case PConstraintViolated => PConstraintViolated
             case _ =>
               FlatMapped[Value, Value](present, {

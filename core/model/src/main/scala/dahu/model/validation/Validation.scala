@@ -191,6 +191,7 @@ object Validation {
             override def eval[A](e: Expr[A]): PEval[A] = {
               val evals: List[PEval[A]] = evaluators.map(f => f.eval(e))
               if(!allEquivalent(evals)) {
+                println()
                 for(ev <- evaluators) {
                   println(ev)
                   println("  " + ev.rep(e))

@@ -7,7 +7,14 @@ import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.problem.SatisfactionProblem.IR
-import dahu.model.problem.{IDTop, IlazyForest, Inference2Sat, IntBoolSatisfactionProblem, LazyTree}
+import dahu.model.problem.{
+  IDTop,
+  IlazyForest,
+  Inference2Sat,
+  IntBoolSatisfactionProblem,
+  LazyTree,
+  SatisfactionProblem
+}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.SFunctor
@@ -51,15 +58,16 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
 class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[X] {
   implicit def treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
   private val ast = _ast.fixID
-  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
+//  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
 
   private val intBoolPb = new IntBoolSatisfactionProblem[ast.ID](
     ast.tree.getTreeRoot(ast.root).valid,
     ast.tree.internalCoalgebra)
   private val tree = intBoolPb.tree.fixID
-
+  private val t2 = tree.tree.transform(SatisfactionProblem.Optimizations.optimizer)
+  private val printable = t2.cata(Algebras.printAlgebraTree)
   println()
-  println(tree.eval(Algebras.printAlgebraTree).get.mkString(50))
+  println(printable.get(tree.root).get.mkString(120))
   println("e")
   private val ctx = new Context()
   private type OptTotal[T] = Option[Total[T]]

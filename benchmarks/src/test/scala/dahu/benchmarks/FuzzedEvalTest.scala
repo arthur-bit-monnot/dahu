@@ -5,7 +5,7 @@ import utest._
 
 object FuzzedEvalTest extends TestSuite {
 
-  val instances = NumSolutionsTest.instances
+  val instances = NumSolutionsTest.instances.filter(_._1.contains("0-simple-graph"))
 
   override def tests = Tests {
 

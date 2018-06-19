@@ -57,15 +57,16 @@ object Algebras {
     private var currentLine: Int = 0
 
     private def spaceLeft: Int = maxExprSize - (currentLine - currentIdentation)
+    private def append(str: String): Unit = sb.append(str)
     private def write(str: String): Unit = {
       assert(!str.contains("\n"))
-      sb.append(str)
+      append(str)
       currentLine += str.length
     }
     private def lineBreak(): Unit = {
       if(currentLine != currentIdentation) {
-        sb.append("\n")
-        sb.append(" " * currentIdentation)
+        append("\n")
+        append(" " * currentIdentation)
         currentLine = currentIdentation
       }
     }
