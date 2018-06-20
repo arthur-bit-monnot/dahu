@@ -8,7 +8,6 @@ import dahu.model.functions.{Box, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
-import dahu.model.problem.SatisfactionProblem.Optimizations.{OptimizationContext, Optimizer2}
 import dahu.model.products.FieldAccess
 import dahu.model.types._
 import dahu.recursion._
@@ -17,7 +16,6 @@ import spire.math.Interval
 import spire.syntax.cfor._
 
 import scala.collection.{immutable, mutable}
-import scala.runtime.BoxesRunTime
 
 object SatisfactionProblem {
 
@@ -686,7 +684,7 @@ object SatisfactionProblem {
       override def map[A, B](fa: Prez[A])(f: A => B): Prez[B] = Prez(f(fa.value), f(fa.present))
     }
   }
-  case class OptConst[F](value: ConstrainedF[F], presence: Option[F])
+  final case class OptConst[F](value: ConstrainedF[F], presence: Option[F])
   object OptConst {
     def present[F](value: ConstrainedF[F]): OptConst[F] = OptConst(value, None)
     def apply[F](value: ConstrainedF[F], prez: F): OptConst[F] = OptConst(value, Some(prez))
@@ -730,7 +728,7 @@ object SatisfactionProblem {
 //                                utils.implies(utils.not(cond.value), onFalse.present))
 //          )
         case OptionalF(value, present, tpe) =>
-          rec(NoopF(value, tpe), and(present, presence(present)))
+          rec(NoopF(value, tpe), and(present, presence(value)))
 //          Prez(
 //            value = value.value,
 //            present = utils.and(value.present, present.present, present.value)
@@ -743,7 +741,7 @@ object SatisfactionProblem {
 //            present = part.present
 //          )
         case x @ Partial(value, condition, tpe) => // TODO: are we present even if condition is absent?
-          rec(x, allPresent(Vec(value, condition)))
+          rec(x, presence(value))
 //          Prez(
 //            value = utils.rec(Partial(value.value, condition.value, tpe)),
 //            present = utils.and(value.present, condition.present)

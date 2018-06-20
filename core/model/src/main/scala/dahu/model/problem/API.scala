@@ -17,7 +17,7 @@ import scala.util.Try
 
 object API {
 
-  def parse(expr: Expr[_]): LazyTree[Expr[_], ExprF, Id, _] =
+  def parse(expr: Expr[Any]): LazyTree[Expr[_], ExprF, Id, _] =
     parse(expr, Algebras.coalgebra).forceEvaluation
 
   def parse[K, F[_]: SFunctor: TreeNode](root: K, coalgebra: K => F[K]): LazyTree[K, F, Id, _] =

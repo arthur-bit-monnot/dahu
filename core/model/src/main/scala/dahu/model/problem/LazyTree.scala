@@ -59,6 +59,12 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): IlazyForest[K, F, Opt2, ID] =
     ExternalMappedLazyForest(this)(f)
 
+  def mapFull[G[_], Opt2[_]](f: FullMapGenLazyForest.Generator[F, G, Opt, Opt2, ID])(
+      implicit F: SFunctor[F],
+      OF: Functor[Opt]
+  ) = //: IlazyForest[K, G, Opt, _] =
+    new FullMapGenLazyForest[K, F, G, Opt, Opt2, ID](this)(f)
+
   def build(id: ID)(implicit F: SFunctor[F], ct: ClassTag[F[Fix[F]]]): Fix[F] = {
     Recursion.ana(i => internalCoalgebra(i))(id)
   }
@@ -282,10 +288,48 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
         }
         idMap(id)
       }
-
       override def getTreeRoot(k: K): Opt[I] = self.getTreeRoot(k).map(fromPreviousId(_))
 
       override def internalCoalgebra(i: I): F[I] = coalg.get(i)
+    }
+
+  def transform2[I <: IDTop, G[_]](fGen: (I => G[I], G[I] => I) => (F[I] => G[I]))(
+      implicit TN: TreeNode[F],
+      F: Functor[Opt],
+      SF: SFunctor[F]): LazyForestLayer[K, G, Opt, _, ID] =
+    new LazyForestLayer[K, G, Opt, I, self.ID] {
+      private val idMap = debox.Map[self.ID, I]()
+      private val coalg = BiMap[I, G[I]]()
+      private var _nextID = 0
+      def nextID(): I = { _nextID += 1; (_nextID - 1).asInstanceOf[I] }
+      override def record(fi: G[I]): I = {
+        if(!coalg.cocontains(fi)) {
+          coalg.add(nextID(), fi)
+        }
+        coalg.coget(fi)
+      }
+
+      val transform: F[I] => G[I] = fGen(coalg.get(_), record)
+      def processed(id: self.ID): Boolean = idMap.contains(id)
+      override def fromPreviousId(id: self.ID): I = {
+        if(!idMap.contains(id)) {
+          // note: this is suboptimal as we might compute the topo order can contain nodes that are discarded with the filter on to process
+          val toProcess = self.internalBottomUpTopologicalOrder(id)
+          toProcess.withFilter(!processed(_)).foreach { cur =>
+            assert(!idMap.contains(cur))
+            val fcur: F[self.ID] = self.internalCoalgebra(cur)
+            val fx: F[I] = fcur.smap(i => idMap(i))
+            val fy = transform(fx)
+            val y = record(fy)
+            idMap.update(cur, y)
+          }
+        }
+        idMap(id)
+      }
+
+      override def getTreeRoot(k: K): Opt[I] = self.getTreeRoot(k).map(fromPreviousId(_))
+
+      override def internalCoalgebra(i: I): G[I] = coalg.get(i)
     }
 
   def internalBottomUpTopologicalOrder(id: ID)(implicit TN: TreeNode[F]): Iterable[ID] = {
@@ -539,4 +583,69 @@ object InternalMapGenLazyForest {
                                                            val retrieve: ID => G[ID],
                                                            val retrieveOld: IDOld => F[IDOld],
                                                            val toNewId: IDOld => ID)
+}
+
+//TODO: make constructor private
+class FullMapGenLazyForest[K, F[_]: SFunctor, G[_], Opt[_]: Functor, Opt2[_], IDOrig <: IDTop](
+    val orig: IlazyForest[K, F, Opt, IDOrig])(
+    fFactory: FullMapGenLazyForest.Generator[F, G, Opt, Opt2, IDOrig])
+    extends IlazyForest[K, G, Opt2, IDTop] {
+
+  private val functor = implicitly[SFunctor[F]]
+
+  private val idsMap = BiMap[orig.ID, ID]()
+  private val repMap = mutable.HashMap[ID, G[ID]]()
+  private var nextID = 0
+  private def getNewID(): ID = { nextID += 1; (nextID - 1).asInstanceOf[ID] }
+
+  private[problem] def record(ga: G[ID]): ID = {
+    val id = getNewID()
+    repMap += ((id, ga))
+    id
+  }
+  private val ctx = new InternalMapGenLazyForest.Context(record,
+                                                         internalCoalgebra,
+                                                         orig.internalCoalgebra,
+                                                         id => oldToNewId(id))
+  val fi: F[ID] => G[ID] = fFactory.internalMap(ctx)
+  val fe: Opt[IDOrig] => Opt2[ID] = fFactory.externalMap(ctx)
+
+  def get(k: K): Opt[G[ID]] = {
+    orig.getTreeRoot(k).map(getFromOrigID)
+  }
+
+  def oldToNewId(origID: orig.ID): ID = {
+    if(!idsMap.contains(origID)) {
+      val id = getNewID()
+      idsMap.add(origID, id)
+    }
+    idsMap.get(origID)
+  }
+
+  def getFromOrigID(origID: orig.ID): G[ID] = {
+    internalCoalgebra(oldToNewId(origID))
+  }
+
+  override def internalCoalgebra(i: ID): G[ID] = {
+    if(!repMap.contains(i)) {
+      assert(idsMap.cocontains(i))
+      val origID = idsMap.coget(i)
+      val fk = orig.internalCoalgebra(origID)
+      val fa = functor.smap(fk)(oldToNewId)
+      val ga = fi(fa)
+      repMap += ((i, ga))
+    }
+    repMap(i)
+  }
+
+  override def getTreeRoot(k: K): Opt2[ID] = fe(orig.getTreeRoot(k))
+}
+
+object FullMapGenLazyForest {
+
+  trait Generator[F[_], G[_], Opt[_], Opt2[_], I <: IDTop] {
+
+    def internalMap(ctx: InternalMapGenLazyForest.Context[F, G, I, IDTop])(fi: F[IDTop]): G[IDTop]
+    def externalMap(ctx: InternalMapGenLazyForest.Context[F, G, I, IDTop])(oi: Opt[I]): Opt2[IDTop]
+  }
 }

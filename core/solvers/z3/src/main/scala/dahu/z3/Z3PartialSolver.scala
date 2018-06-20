@@ -60,15 +60,18 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
   private val ast = _ast.fixID
 //  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
 
+//  private val t2 = ast.tree.transform(SatisfactionProblem.Optimizations.optimizer)
+//  private val printable = t2.cata(Algebras.printAlgebraTree)
+//  println()
+//  println(printable.get(ast.root).valid.mkString(120))
+//  println("e")
+//  System.exit(0)
+
   private val intBoolPb = new IntBoolSatisfactionProblem[ast.ID](
     ast.tree.getTreeRoot(ast.root).valid,
     ast.tree.internalCoalgebra)
   private val tree = intBoolPb.tree.fixID
-  private val t2 = tree.tree.transform(SatisfactionProblem.Optimizations.optimizer)
-  private val printable = t2.cata(Algebras.printAlgebraTree)
-  println()
-  println(printable.get(tree.root).get.mkString(120))
-  println("e")
+
   private val ctx = new Context()
   private type OptTotal[T] = Option[Total[T]]
 

@@ -16,10 +16,12 @@ import dahu.model.compiler.Algebras
 import dahu.model.compiler.Algebras.StringTree
 import dahu.model.input.Lambda.LambdaIdent
 import dahu.model.math.bool
-import dahu.model.problem.SatisfactionProblem.{OptConst, Prez, Utils}
+import dahu.model.problem.SatisfactionProblem.{IR, OptConst, Prez, Utils}
+import dahu.model.problem.syntax.{And, Not, Or}
 import dahu.model.types.Tag
 import dahu.recursion.{EnvT, FCoalgebra, Recursion}
 
+import scala.collection.immutable.Set
 import scala.collection.{immutable, mutable}
 import scala.reflect.ClassTag
 
@@ -178,7 +180,7 @@ object Group {
 //      }
 //    }
   }
-  case class Expr[I](f: ExprF[I], ctx: CtxDef[I])
+//  case class Expr[I](f: ExprF[I], ctx: CtxDef[I])
 
   case class CtxDef[I](conditions: Set[I] = Set[I](),
                        binds: Map[I, I] = Map[I, I](),
@@ -523,6 +525,148 @@ object Group {
 //    memo.map { case (k, v) => s"$k   --    $v" }.toSeq.sorted.foreach(println)
     curAcc
   }
+
+//  sealed trait Opt[I] {
+//    def ++(o: Opt[I]): Opt[I] = (this, o) match {
+//      case (Mult(s), _) if s.isEmpty => o
+//      case (_, Mult(s)) if s.isEmpty => this
+//      case _                         => Mult(Set(this, o))
+//    }
+//  }
+  type Opt[I] = Set[I]
+  object Opt {
+    def empty[I]: Opt[I] = Set()
+  }
+  def process4(e: Expr[Any]): Unit = {
+    val parsed = API.parse(e)
+    val noDynamics = API.eliminitateDynamics[Expr[Any]](parsed)
+    val noLambdas = API.expandLambdas[Expr[Any]](noDynamics).tree.fixID
+    type I = noLambdas.ID
+    val root: I = noLambdas.getTreeRoot(e)
+
+    val presenceAnnotation = noLambdas.cataLow2[Opt[I]] {
+      case InputF(_, _)       => Opt.empty
+      case CstF(_, _)         => Opt.empty
+      case PresentF(_)        => Opt.empty
+      case OptionalF(v, p, _) => v._1 ++ Set(p._2)
+      case Partial(v, c, _)   => v._1
+      case ITEF(c, t, f, _)   =>
+        // assert(c._1 == t._1 && f._1.isEmpty) TODO
+        Opt.empty
+      case x => x.children.map(_._1).foldLeft(Opt.empty[I])(_ ++ _)
+    }
+
+    def constraints(root: I): Seq[(Set[I], I)] = {
+      val contexts = mutable.Map[I, Set[Set[I]]]()
+      val identifiedConstraints = mutable.Map[I, Set[Set[I]]]()
+      contexts.update(root, Set(presenceAnnotation.getInternal(root)))
+
+      noLambdas.internalBottomUpTopologicalOrder(root).toSeq.reverse.foreach { i =>
+        val fi = noLambdas.internalCoalgebra(i)
+        val ctx = contexts(i)
+        fi.children.foreach { child =>
+          val baseContext = presenceAnnotation.getInternal(child)
+          val newContexts = ctx.map(_ ++ baseContext)
+          val previousFullContexts = contexts.getOrElse(child, Set())
+          contexts.update(child, newContexts ++ previousFullContexts)
+          assert(contexts(child).map(_.size).min >= baseContext.size)
+        }
+        assert(contexts(i).map(_.size).min >= presenceAnnotation.getInternal(i).size)
+        fi match {
+          case Partial(_, c, _) =>
+            val baseContext = presenceAnnotation.getInternal(c)
+            val newContexts = ctx.map(_ ++ baseContext)
+            identifiedConstraints.update(c,
+                                         identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
+          //          if(ctx.forall(_.size >= 1))
+          //            println(s"${noLambdas.internalCoalgebra(c)}  in  $ctx")
+          case _ =>
+        }
+      //      if(identifiedConstraints.contains(i) && ctx.forall(_.size >= 2)) {
+      //        println(presenceAnnotation.getInternal(i))
+      //        println(noLambdas.internalCoalgebra(i))
+      //        println(ctx)
+      //        println()
+      //      }
+      }
+
+      def minimize(ssi: Set[Set[I]]): Set[Set[I]] = {
+        val x = ssi.toSeq.sortBy(_.size)
+        val filtered = mutable.Buffer[Set[I]]()
+        for(i <- x.indices) {
+          var valid = true
+
+          for(j <- 0 until i) {
+            if(x(j).forall(x(i).contains))
+              valid = false
+          }
+          if(valid)
+            filtered += x(i)
+        }
+        filtered.toSet
+      }
+
+      val minimized = identifiedConstraints.mapValues(minimize)
+      minimized.toSeq.sortBy(_._2.map(_.size).sum).foreach {
+        case (i, ctxs) => println(s"$i: ${noLambdas.internalCoalgebra(i)} -- ${ctxs}")
+      }
+      minimized.toSeq.flatMap { case (i, ssi) => ssi.toSeq.map((_, i)) }
+    }
+
+    val asNodes = noLambdas.mapInternal[Node] {
+      case x: Total[I]        => Tot(x)
+      case PresentF(x)        => Prezence(presenceAnnotation.getInternal(x))
+      case ValidF(x)          => Constraints(constraints(x))
+      case OptionalF(x, _, t) => Tot(NoopF(x, t))
+      case Partial(x, _, t)   => Tot(NoopF(x, t))
+    }
+    val finalTree =
+      asNodes
+        .mapFull[Total, IR](new FullMapGenLazyForest.Generator[Node, Total, cats.Id, IR, I] {
+          override def internalMap(ctx: InternalMapGenLazyForest.Context[Node, Total, I, IDTop])(
+              fi: Node[IDTop]): Total[IDTop] = fi match {
+            case Tot(x)      => x
+            case Prezence(z) => And(z)
+            case Constraints(cs) =>
+              val conjuncts = cs.map {
+                case (conds, eff) =>
+                  val disjuncts: Set[IDTop] = conds.map(c => ctx.record(Not(c))) + eff
+                  ctx.record(Or(disjuncts))
+              }
+              And(conjuncts)
+          }
+
+          override def externalMap(ctx: InternalMapGenLazyForest.Context[Node, Total, I, IDTop])(
+              oi: Id[I]): IR[IDTop] = {
+            val prez = Prezence(presenceAnnotation.getInternal(oi).map(ctx.toNewId))
+            val validity = Node.Functor.smap(Constraints(constraints(oi)))(ctx.toNewId)
+
+            IR(value = ctx.toNewId(oi),
+               present = ctx.record(internalMap(ctx)(prez)),
+               valid = ctx.record(internalMap(ctx)(validity)))
+          }
+        })
+        .fixID
+    println(finalTree.getTreeRoot(e))
+    val optimized = finalTree.transform(SatisfactionProblem.Optimizations.optimizer).fixID
+    val printable = optimized.cata(Algebras.printAlgebraTree)
+    println(printable.get(e).valid.mkString(100))
+  }
+  sealed trait Node[I]
+  object Node {
+    implicit object Functor extends SFunctor[Node] {
+      override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Node[A])(f: A => B): Node[B] = {
+        fa match {
+          case Constraints(t) => Constraints(t.map { case (si, i) => (si.map(f), f(i)) })
+          case Tot(t)         => Tot(t.smap(f))
+          case Prezence(t)    => Prezence(t.map(f))
+        }
+      }
+    }
+  }
+  final case class Tot[I](t: Total[I]) extends Node[I]
+  final case class Prezence[I](t: Set[I]) extends Node[I]
+  final case class Constraints[I](t: Seq[(Set[I], I)]) extends Node[I]
 
   def process3[K](_tree: LazyTree[K, ExprF, cats.Id, _]): Unit = {
 //    import dahu.recursion._
