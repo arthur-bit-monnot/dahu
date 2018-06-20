@@ -23,6 +23,7 @@ object SatisfactionProblem {
 
   // TODO: move optimizations to distinct package
   object Optimizations {
+    import syntax._
     trait OptimizationContext {
       def retrieve(i: IDTop): Total[IDTop]
       def record(fi: Total[IDTop]): IDTop
@@ -36,10 +37,6 @@ object SatisfactionProblem {
         if(current != null && current == fi)
           throw RecursiveTransformation
         else {
-//          println()
-//          println(current)
-//          println(fi)
-//          println(current == fi)
           ctx.record(fi)
         }
       }
@@ -56,27 +53,6 @@ object SatisfactionProblem {
         }
       }
     }
-
-//    trait Optimizer {
-//      self =>
-//
-//      def optim(retrieve: IDTop => Total[IDTop],
-//                record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop]
-//
-//      def andThen(next: Optimizer): Optimizer = new Optimizer {
-//        override def optim(retrieve: IDTop => Total[IDTop],
-//                           record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
-//          self.optim(retrieve, record) andThen next.optim(retrieve, record)
-//
-//        override def toString: String = s"$self >> $next"
-//      }
-//    }
-//
-//    object NoOpOptimizer extends Optimizer {
-//      override def optim(retrieve: IDTop => Total[IDTop],
-//                         record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
-//        identity[Total[IDTop]]
-//    }
 
     final class ElimUniversalEquality(ctx: OptimizationContext) extends Optimizer2(ctx) {
       override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
@@ -118,7 +94,7 @@ object SatisfactionProblem {
                   val iy = record(ComputationF(t2.unbox, Vec(y), t1.unbox.outType))
                   ComputationF(int.EQ, Vec(ix, iy), int.EQ.outType)
                 case _ =>
-                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
+//                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
                   orig
               }
 
@@ -304,13 +280,22 @@ object SatisfactionProblem {
       }
     }
 
+    final class ElimNoops(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
+        case NoopF(e, _) => ctx.retrieve(e)
+        case _           => fi
+      }
+    }
+
     final class ExtractField(ctx: OptimizationContext) extends Optimizer2(ctx) {
       override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case x @ ComputationF(fa: FieldAccess[_, _], Vec(p), _) =>
           retrieve(p) match {
             case ProductF(members, _) =>
               retrieve(members(fa.fieldPosition))
-            case _ => x
+            case unmatched =>
+//              debug.warning(s"Field was not extracted: $fa of $unmatched")
+              x
           }
         case ComputationF(fa: FieldAccess[_, _], _, _) => unexpected
         case x                                         => x
@@ -356,35 +341,6 @@ object SatisfactionProblem {
             case _ => original
           }
         case x => x
-      }
-    }
-
-    object Not {
-      def apply[@sp(Int) A: ClassTag](a: A): ComputationF[A] =
-        ComputationF(bool.Not, Vec(a), Tag.ofBoolean)
-      def unapply[A](c: ComputationF[A]): Option[A] = c match {
-        case ComputationF(bool.Not, Vec(a), _) => Some(a)
-        case _                                 => None
-      }
-    }
-
-    object Or {
-      def apply[A <: IDTop](cs: Iterable[A]): ComputationF[A] =
-        ComputationF(bool.Or, Vec.fromIterable(cs), Tag.ofBoolean)
-      def apply[A: ClassTag](a: A, b: A): ComputationF[A] =
-        ComputationF(bool.Or, Vec(a, b), Tag.ofBoolean)
-
-      def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
-        case ComputationF(bool.Or, args, _) => Some(args.toSeq)
-        case _                              => None
-      }
-    }
-    object And {
-      def apply[A <: IDTop](cs: Iterable[A]): ComputationF[A] =
-        ComputationF(bool.And, Vec.fromIterable(cs).sorted, Tag.ofBoolean)
-      def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
-        case ComputationF(bool.And, args, _) => Some(args.toSeq)
-        case _                               => None
       }
     }
 
@@ -505,6 +461,7 @@ object SatisfactionProblem {
     }
 
     def optimizers: Seq[OptimizationContext => Optimizer2] = Seq(
+      ctx => new ElimNoops(ctx),
       ctx => new ExtractField(ctx),
       ctx => new ElimUniversalEquality(ctx),
       ctx => new ElimReversible(ctx),
@@ -531,13 +488,6 @@ object SatisfactionProblem {
           override def record(fi: Total[IDTop]): IDTop = _record(fi)
         }
       )
-
-//    def optimizer(ctx: OptimizationContext): Total[IDTop] => Total[IDTop] = {
-//      val opts: Seq[Total[IDTop] => Total[IDTop]] = optimizers(ctx)
-//      (opts ++ opts).reduce[Total[IDTop] => Total[IDTop]] {
-//        case (acc, next) => acc.andThen(next)
-//      }
-//    }
   }
 
   final class Utils(val directRec: Total[IDTop] => IDTop, retrieve: IDTop => Total[IDTop]) {
