@@ -91,8 +91,6 @@ object Planner {
       return None
 
     val expr = asChronicleExpr(model, num, symBreak)
-    Group.process4(expr)
-    System.exit(1)
 
     //        println(result)
     val solution = Planner.solve(expr, deadline)

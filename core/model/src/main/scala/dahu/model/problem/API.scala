@@ -37,7 +37,7 @@ object API {
     val parsed = parse(root, coalgebra)
     val noDynamics = eliminitateDynamics[K](parsed)
     val noLambdas = expandLambdas[K](noDynamics)
-    makeTotal(noLambdas)
+    Group.makeTotal(noLambdas)
   }
 
   @deprecated("intended for debug only", since = "forever")

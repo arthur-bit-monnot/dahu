@@ -526,23 +526,14 @@ object Group {
     curAcc
   }
 
-//  sealed trait Opt[I] {
-//    def ++(o: Opt[I]): Opt[I] = (this, o) match {
-//      case (Mult(s), _) if s.isEmpty => o
-//      case (_, Mult(s)) if s.isEmpty => this
-//      case _                         => Mult(Set(this, o))
-//    }
-//  }
   type Opt[I] = Set[I]
   object Opt {
     def empty[I]: Opt[I] = Set()
   }
-  def process4(e: Expr[Any]): Unit = {
-    val parsed = API.parse(e)
-    val noDynamics = API.eliminitateDynamics[Expr[Any]](parsed)
-    val noLambdas = API.expandLambdas[Expr[Any]](noDynamics).tree.fixID
+
+  def makeTotal[K](_noLambdas: LazyTree[K, NoApplyF, cats.Id, _]): LazyTree[K, Total, IR, _] = {
+    val noLambdas = _noLambdas.tree.fixID
     type I = noLambdas.ID
-    val root: I = noLambdas.getTreeRoot(e)
 
     val presenceAnnotation = noLambdas.cataLow2[Opt[I]] {
       case InputF(_, _)       => Opt.empty
@@ -550,12 +541,16 @@ object Group {
       case PresentF(_)        => Opt.empty
       case OptionalF(v, p, _) => v._1 ++ Set(p._2)
       case Partial(v, c, _)   => v._1
-      case ITEF(c, t, f, _)   =>
-        // assert(c._1 == t._1 && f._1.isEmpty) TODO
-        Opt.empty
+      case ITEF(c, t, f, _) =>
+        Opt.empty //TODO: relies on the very questionable assumption that after an ITE, the result is always present.
       case x => x.children.map(_._1).foldLeft(Opt.empty[I])(_ ++ _)
     }
 
+    /** extract constraints applicable to `root`
+      * The constraint is of the form `({c1...cn}, v)` which corresponds to a clause
+      * `or(not(c1), ..., not(cn), v)`
+      * c1...cn correspond to the context (optional objects) in which the constraint `v` appears
+      */
     def constraints(root: I): Seq[(Set[I], I)] = {
       val contexts = mutable.Map[I, Set[Set[I]]]()
       val identifiedConstraints = mutable.Map[I, Set[Set[I]]]()
@@ -578,18 +573,11 @@ object Group {
             val newContexts = ctx.map(_ ++ baseContext)
             identifiedConstraints.update(c,
                                          identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
-          //          if(ctx.forall(_.size >= 1))
-          //            println(s"${noLambdas.internalCoalgebra(c)}  in  $ctx")
           case _ =>
         }
-      //      if(identifiedConstraints.contains(i) && ctx.forall(_.size >= 2)) {
-      //        println(presenceAnnotation.getInternal(i))
-      //        println(noLambdas.internalCoalgebra(i))
-      //        println(ctx)
-      //        println()
-      //      }
       }
 
+      /** minimizes a set of contexts, a context (Set[I]) is only kept if it doesn't contain any other context. */
       def minimize(ssi: Set[Set[I]]): Set[Set[I]] = {
         val x = ssi.toSeq.sortBy(_.size)
         val filtered = mutable.Buffer[Set[I]]()
@@ -606,10 +594,7 @@ object Group {
         filtered.toSet
       }
 
-      val minimized = identifiedConstraints.mapValues(minimize)
-      minimized.toSeq.sortBy(_._2.map(_.size).sum).foreach {
-        case (i, ctxs) => println(s"$i: ${noLambdas.internalCoalgebra(i)} -- ${ctxs}")
-      }
+      val minimized = identifiedConstraints.mapValues(ssi => minimize(ssi))
       minimized.toSeq.flatMap { case (i, ssi) => ssi.toSeq.map((_, i)) }
     }
 
@@ -647,10 +632,10 @@ object Group {
           }
         })
         .fixID
-    println(finalTree.getTreeRoot(e))
     val optimized = finalTree.transform(SatisfactionProblem.Optimizations.optimizer).fixID
-    val printable = optimized.cata(Algebras.printAlgebraTree)
-    println(printable.get(e).valid.mkString(100))
+//    val printable = optimized.cata(Algebras.printAlgebraTree)
+//    println(printable.get(e).valid.mkString(100))
+    LazyTree(optimized)(_noLambdas.root).forceEvaluation
   }
   sealed trait Node[I]
   object Node {
@@ -667,98 +652,4 @@ object Group {
   final case class Tot[I](t: Total[I]) extends Node[I]
   final case class Prezence[I](t: Set[I]) extends Node[I]
   final case class Constraints[I](t: Seq[(Set[I], I)]) extends Node[I]
-
-  def process3[K](_tree: LazyTree[K, ExprF, cats.Id, _]): Unit = {
-//    import dahu.recursion._
-//    val tree = API.expandLambdas(API.eliminitateDynamics(_tree)).fixID
-//    val forest = tree.tree
-//    val treeRoot = tree.tree.getTreeRoot(tree.root)
-//    type ID = tree.tree.ID
-//    type Opt[I] = (I, Set[I])
-//
-//    type Node[I] = (NoApplyF[I], I)
-//    val coalg: FCoalgebra[NoApplyF, Opt[ID]] = {
-//      case (i, si) => {
-//        val fi = tree.tree.internalCoalgebra(i)
-//        fi match {
-//          case x: OptionalF[_] => x.smap((_, si + i))
-//          case x               => x.smap((_, si))
-//        }
-//      }
-//    }
-//    val contexts = traverseAcc(coalg)((treeRoot, Set()), List[(Any, Set[ID])]()) {
-//      case ((i, x: InputF[_]), l) =>
-//        (x, i._2) :: l
-//      case ((i, x: CstF[_]), l) =>
-//        (x, i._2) :: l
-//      case (_, l) => l
-//    }
-//    val contextMap = contexts.groupBy(_._1).mapValues(_.map(_._2).toSet).toMap //.foreach(println)
-//    case class IR[@sp(Int) K](value: K, presence: K)
-
-//    forest.mapInternalGen[IR](ctx => {
-//      def formatCond(ssi: Set[Set[ID]]): Total[IDTop] = {
-//        val disjuncts =
-//          ssi.map(si =>
-//            ctx.record(ComputationF(bool.And, si.map(x => ctx.toNewId).toVec, Tag.ofBoolean)))
-//        ComputationF(bool.Or, disjuncts.toVec, Tag.ofBoolean)
-//      }
-//      _ match {
-//        case x @ InputF(v, t) => IR(ctx.record(x), formatCond(contextMap(x)))
-//      }
-//    })
-//    type OptExpr[K] = (NoApplyF[K], Option[K])
-//    val coalg2: FCoalgebra[OptExpr, ID] = {
-//      case (i, si) => {
-//        val fi = tree.tree.internalCoalgebra(i)
-//        fi match {
-//          case OptionalF(v, p, t) => (NoopF(v, t), Some(p))
-//          case x                  => x.smap((_, si))
-//        }
-//      }
-//    }
-//
-//    case class Group()
-//    val attCoalg = coalg.toAttributeCoalgebra
-//    val attAlg: AttributeAlgebra[Opt[ID], NoApplyF, Set[ID]] = {
-//      case EnvT(ctx,  default) => default.children.fold(ctx._2)(_ ++ _)
-//      case EnvT(ctx, PresentF(_)) => Set()
-//      case EnvT(ctx, ITEF())
-//    }
-//    val ana = IlazyForest.ana(attCoalg).fixID
-//    type ANAEnv[X] = EnvT[Opt[ID], NoApplyF, X]
-//    type X[I] = (Total[I], Total[I])
-//    ana.mapInternalGen[X](ctx => {
-//      def format(c: Set[ana.ID]): Total[IDTop] =
-//        ComputationF(bool.And, c.map(ctx.toNewId).toVec, Tag.ofBoolean)
-//      val ret: ANAEnv[IDTop] => X[IDTop] = {
-//        case EnvT(ctx, default: Total[IDTop]) => (default, format(ctx._2))
-//        case EnvT(ctx, PresentF(x))           => (???, ???)
-//      }
-//      ret
-//    })
-//      IlazyForest
-//        .ana[Opt[ID], NoApplyF] {
-//          case (i, si) => {
-//            val fi = tree.tree.internalCoalgebra(i)
-//            fi match {
-//              case x: OptionalF[_] => x.smap((_, si + i))
-//              case x               => x.smap((_, si))
-//            }
-//          }
-//        }
-//        .fixID
-//    val cata = ana.
-
-//    val accumulator = mutable.Map[IDTop, mutable.Set[IDTop]]()
-//    val cata = ana.mapInternal[Node]({
-//      case Partial(value, condition, _) =>  ana.
-//    })
-//
-//    println(
-//      ana.cata(Algebras.printAlgebraTree).get((treeRoot, Set())).mkString(90)
-//    )
-
-  }
-
 }
