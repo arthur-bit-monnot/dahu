@@ -65,9 +65,9 @@ object Planner {
               case (last :: rest, _) =>
                 // not first, enforce that this action is only present if the last one is and that its start no earliest that the last one
                 val act = ActionF.optionalInstance(action, ctx)
-                val presence = (Present(act): Expr[Boolean]) implies Present(last)
-                val after = act.start >= last.start
-                val withSymBreak = act.subjectTo(_ => presence && after)
+                val withSymBreak = act
+                  .subjectTo(_ => Present(last))
+                  .subjectTo(_.start >= last.start)
                 withSymBreak :: last :: rest
             }
 
