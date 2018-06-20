@@ -222,78 +222,7 @@ trait IlazyForest[K, F[_], Opt[_], InternalID <: IDTop] extends OpaqueForest[K, 
         self.getTreeRoot(k).map(getInternal)
     }
 
-  def transform[I <: IDTop](fGen: (I => F[I], F[I] => I) => (F[I] => F[I]))(
-      implicit TN: TreeNode[F],
-      F: Functor[Opt],
-      SF: SFunctor[F]): LazyForestLayer[K, F, Opt, _, ID] =
-    new LazyForestLayer[K, F, Opt, I, self.ID] {
-      val idMap = debox.Map[self.ID, I]()
-      val coalg = BiMap[I, F[I]]()
-      private var _nextID = 0
-      def nextID(): I = { _nextID += 1; (_nextID - 1).asInstanceOf[I] }
-      def directRecord(fi: F[I]): I = {
-        if(!coalg.cocontains(fi)) {
-          println(s"REC: $fi")
-          if(fi.toString == "and(5, 7)")
-            println("OOO")
-          coalg.add(nextID(), fi)
-        }
-        coalg.coget(fi)
-      }
-      private val knownTransformations = mutable.HashMap[F[I], I]()
-      private val pendingTransformations = mutable.Set[F[I]]()
-      override def record(fi: F[I]): I = {
-        if(coalg.cocontains(fi))
-          coalg.coget(fi) // a normally already transformed value is already recorded, use its ID
-        else if(knownTransformations.contains(fi))
-          knownTransformations(fi)
-        else if(pendingTransformations.contains(fi))
-//          throw RecursiveTransformation
-          directRecord(fi) // transform was recursively invoked
-        else {
-//          if(fi.toString() == "not(0)")
-//            println("X")
-//          println("1 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
-          pendingTransformations += fi
-//          println("2 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
-          val fi2 = transform(fi)
-//          println("3 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
-          pendingTransformations -= fi
-//          println("4 " + fi + "  " + pendingTransformations + " ---- " + coalg.iterator.toList)
-//          if(fi2.isInstanceOf[ComputationF[I]])
-//            fi2.asInstanceOf[ComputationF[I]] match {
-//              case ComputationF(bool.And, Vec(a), _) =>
-//                println("STRANGE")
-//              case _ =>
-//            }
-          val i = directRecord(fi2)
-          knownTransformations.update(fi, i)
-          i
-        }
-      }
-      val transform: F[I] => F[I] = fGen(coalg.get(_), record)
-      def processed(id: self.ID): Boolean = idMap.contains(id)
-      override def fromPreviousId(id: self.ID): I = {
-        if(!idMap.contains(id)) {
-          // note: this is suboptimal as we might compute the topo order can contain nodes that are discarded with the filter on to process
-          val toProcess = self.internalBottomUpTopologicalOrder(id)
-          toProcess.withFilter(!processed(_)).foreach { cur =>
-            assert(!idMap.contains(cur))
-            val fcur: F[self.ID] = self.internalCoalgebra(cur)
-            val fx: F[I] = fcur.smap(i => idMap(i))
-            val fy = transform(fx)
-            val y = directRecord(fy)
-            idMap.update(cur, y)
-          }
-        }
-        idMap(id)
-      }
-      override def getTreeRoot(k: K): Opt[I] = self.getTreeRoot(k).map(fromPreviousId(_))
-
-      override def internalCoalgebra(i: I): F[I] = coalg.get(i)
-    }
-
-  def transform2[I <: IDTop, G[_]](fGen: (I => G[I], G[I] => I) => (F[I] => G[I]))(
+  def transform[I <: IDTop, G[_]](fGen: (I => G[I], G[I] => I) => (F[I] => G[I]))(
       implicit TN: TreeNode[F],
       F: Functor[Opt],
       SF: SFunctor[F]): LazyForestLayer[K, G, Opt, _, ID] =
