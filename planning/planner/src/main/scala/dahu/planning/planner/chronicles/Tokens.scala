@@ -97,7 +97,7 @@ object CondTokF {
     val accept = Accept(func, args, v)
 
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
-      .alwaysSubjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
+      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
 
   }
 
@@ -149,13 +149,12 @@ object EffTokF {
   private def nextID(): Int = { lastID += 1; lastID }
   def ofExpr(startChange: Expr[Int],
              endChange: Expr[Int],
-             endPersistenceOpt: Option[Expr[Int]],
+             endPersistenceBase: Expr[Int],
              fluent: Expr[Fluent],
              value: Expr[Literal])(implicit cnt: Counter): Expr[EffTok] = {
     val id = cnt.next()
     val endPersistence: Expr[Int] =
-      endPersistenceOpt
-        .getOrElse(Input[Int](Ident("___" + cnt.next())))
+      endPersistenceBase
         .alwaysSubjectTo(_ >= endChange)
     val tag = fluent match {
       case Product(FluentF(cf @ Cst(f), Sequence(args))) =>

@@ -575,14 +575,14 @@ object Group {
             val newContexts = ctx.map(_ ++ baseContext)
             identifiedConstraints.update(c,
                                          identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
-          case UniversalPartial(_, c, _) =>
-            // TODO: same as partial, we should reactivate the other one but it's semantics are not fully supported by the interpreter.
-            val baseContext = presenceAnnotation.getInternal(c)
-            val newContexts = ctx.map(_ ++ baseContext)
-            identifiedConstraints.update(c,
-                                         identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
-//            case UniversalPartial(_, c, _) => // real implementation
-//              identifiedConstraints.update(c, Set(Set()))
+//          case UniversalPartial(_, c, _) =>
+//            // TODO: same as partial, we should reactivate the other one but it's semantics are not fully supported by the interpreter.
+//            val baseContext = presenceAnnotation.getInternal(c)
+//            val newContexts = ctx.map(_ ++ baseContext)
+//            identifiedConstraints.update(c,
+//                                         identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
+          case UniversalPartial(_, c, _) => // real implementation
+            identifiedConstraints.update(c, Set(Set()))
           case _ =>
         }
       }

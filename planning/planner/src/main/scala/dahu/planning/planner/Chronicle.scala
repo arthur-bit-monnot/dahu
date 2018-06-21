@@ -74,7 +74,8 @@ case class ProblemContext(intTag: BoxedInt[Literal],
           case predef.Start => temporalOrigin
           case predef.End   => temporalHorizon
           case _ =>
-            Input[Int](Ident(lv)).subjectTo(tp => temporalOrigin <= tp && tp <= temporalHorizon)
+            Input[Int](Ident(lv)).alwaysSubjectTo(tp =>
+              temporalOrigin <= tp && tp <= temporalHorizon)
         }
         intBox(intTag, e)
       case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integers) =>
@@ -148,7 +149,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   val temporalOrigin = Cst(0)
   val temporalHorizon: Tentative[Int] = Input[Int](Ident("__END__")).subjectTo(temporalOrigin <= _)
   def anonymousTp()(implicit cnt: Counter): Tentative[Int] =
-    Input[Int](Ident("____" + cnt.next())).subjectTo(tp =>
+    Input[Int](Ident("____" + cnt.next())).alwaysSubjectTo(tp =>
       temporalOrigin <= tp && tp <= temporalHorizon)
 
   def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Literal]): Fluent =

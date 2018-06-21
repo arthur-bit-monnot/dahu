@@ -48,9 +48,13 @@ case class ChronicleFactory(ctx: ProblemContext,
 
       case core.TimedAssignmentAssertion(itv, fluent, value) =>
         val changeItv = encode(itv)
-        val persistenceEnd = anonymousTp().subjectTo(changeItv.end <= _)
+        val persistenceEnd = anonymousTp().alwaysSubjectTo(changeItv.end <= _)
         val token =
-          EffTokF.ofExpr(changeItv.start, changeItv.end, None, encode(fluent), ctx.encode(value))
+          EffTokF.ofExpr(changeItv.start,
+                         changeItv.end,
+                         persistenceEnd,
+                         encode(fluent),
+                         ctx.encode(value))
         copy(effects = token :: effects)
 
       case core.TimedEqualAssertion(itv, f, v) =>
@@ -63,7 +67,9 @@ case class ChronicleFactory(ctx: ProblemContext,
         val cond =
           CondTokF.ofExpr(start, start, encode(f), ctx.encode(v1))
         val changeItv = encode(LeftOpenInterval(s, e))
-        val eff = EffTokF.ofExpr(changeItv.start, changeItv.end, None, encode(f), ctx.encode(v2))
+        val persistenceEnd = anonymousTp().alwaysSubjectTo(changeItv.end <= _)
+        val eff =
+          EffTokF.ofExpr(changeItv.start, changeItv.end, persistenceEnd, encode(f), ctx.encode(v2))
         copy(
           conditions = cond :: conditions,
           effects = eff :: effects
