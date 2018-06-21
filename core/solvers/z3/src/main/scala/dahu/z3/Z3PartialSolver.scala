@@ -7,18 +7,12 @@ import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.problem.SatisfactionProblem.IR
-import dahu.model.problem.{
-  IDTop,
-  IlazyForest,
-  Inference2Sat,
-  IntBoolSatisfactionProblem,
-  LazyTree,
-  SatisfactionProblem
-}
+import dahu.model.problem.{Context => _, _}
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.SFunctor
 import dahu.utils.errors._
+import dahu.utils._
 
 import scala.collection.mutable
 import scala.concurrent.duration.Deadline
@@ -61,7 +55,7 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
 //  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
 
 //  private val t2 = ast.tree.transform(SatisfactionProblem.Optimizations.optimizer)
-//  private val printable = t2.cata(Algebras.printAlgebraTree)
+//  private val printable = ast.tree.cata(Algebras.printAlgebraTree)
 //  println()
 //  println(printable.get(ast.root).valid.mkString(120))
 //  println("e")

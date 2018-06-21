@@ -129,26 +129,24 @@ object Algebras {
         0) * separator.length
   }
   def printAlgebraTree[F[X] <: ExprF[X]]: FAlgebra[F, StringTree] = printAlgebraTreeImpl
-  private val printAlgebraTreeImpl: FAlgebra[ExprF, StringTree] = { (x: ExprF[StringTree]) =>
-    x match {
-      case InputF(v, _)                                                           => StringLeaf("$" + v)
-      case CstF(v, _)                                                             => StringLeaf(v.toString)
-      case c @ ComputationF(f, Vec(a), _) if f.name == "box" || f.name == "unbox" => a
-      case c @ ComputationF(f, args, _) =>
-        TreeSeq(args, before = f.name + "(", after = ")")
-      case SequenceF(members, _) => TreeSeq(members, before = "[", after = "]")
-      case ProductF(members, _)  => TreeSeq(members)
-      case ITEF(cond, onTrue, onFalse, _) =>
-        TreeSeq(Vec(cond, onTrue, onFalse), before = "ite(", after = ")") //s"ite($cond, $onTrue, $onFalse)"
-      case ApplyF(lbd, param, _)          => TreeSeq(Vec(lbd, param))
-      case NoopF(e, _)                    => e
-      case Partial(value, condition, _)   => TreeSeq(Vec(value, condition), before = "subjectTo(")
-      case OptionalF(value, condition, _) => TreeSeq(Vec(value, condition), before = "optional(")
-      case PresentF(v)                    => TreeSeq(Vec(v), before = "present(")
-      case x: LambdaParamF[_]             => StringLeaf(x.toString)
-      case LambdaF(in, tree, _, _) =>
-        TreeSeq(Vec(in, tree), before = "Lbd:", separator = " -> ", after = "")
-    }
+  private val printAlgebraTreeImpl: FAlgebra[ExprF, StringTree] = {
+    case InputF(v, _)                                                           => StringLeaf("$" + v)
+    case CstF(v, _)                                                             => StringLeaf(v.toString)
+    case c @ ComputationF(f, Vec(a), _) if f.name == "box" || f.name == "unbox" => a
+    case c @ ComputationF(f, args, _) =>
+      TreeSeq(args, before = f.name + "(", after = ")")
+    case SequenceF(members, _) => TreeSeq(members, before = "[", after = "]")
+    case ProductF(members, _)  => TreeSeq(members)
+    case ITEF(cond, onTrue, onFalse, _) =>
+      TreeSeq(Vec(cond, onTrue, onFalse), before = "ite(", after = ")") //s"ite($cond, $onTrue, $onFalse)"
+    case ApplyF(lbd, param, _)          => TreeSeq(Vec(lbd, param))
+    case NoopF(e, _)                    => e
+    case Partial(value, condition, _)   => TreeSeq(Vec(value, condition), before = "subjectTo(")
+    case OptionalF(value, condition, _) => TreeSeq(Vec(value, condition), before = "optional(")
+    case PresentF(v)                    => TreeSeq(Vec(v), before = "present(")
+    case x: LambdaParamF[_]             => StringLeaf(x.toString)
+    case LambdaF(in, tree, _, _) =>
+      TreeSeq(Vec(in, tree), before = "Lbd:", separator = " -> ", after = "")
   }
 
   def pprint(prg: Expr[_]): String =
