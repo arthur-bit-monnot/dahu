@@ -7,6 +7,7 @@ import dahu.planning.model.transforms.ActionInstantiation
 import dahu.planning.planner.chronicles.Counter
 
 case class Action[F[_]](name: String,
+                        id: Int,
                         start: F[Int],
                         end: F[Int],
                         args: List[F[Literal]],
@@ -28,6 +29,7 @@ object Action {
 
     Action(
       act.template.name,
+      id,
       ctx.intUnbox(ctx.encode(act.start)(argsRewrite)),
       ctx.intUnbox(ctx.encode(act.end)(argsRewrite)),
       act.args.toList.map(argsRewrite),

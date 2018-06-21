@@ -509,6 +509,10 @@ object Opt {
 
   def present[A](a: A): Opt[A] = Opt(a, Cst(true))
 
-  def optional[A](a: A): Opt[A] = Opt(a, Input[Boolean]())
+  def optional[A](a: A): Opt[A] = a match {
+    case x: Action[_] =>
+      Opt(a, Input[Boolean](x.name + "_" + x.id + ".prez"))
+    case _ => Opt(a, Input[Boolean]())
+  }
 
 }

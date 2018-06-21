@@ -46,6 +46,6 @@ object ActionF {
   def optionalInstance(template: ActionTemplate,
                        ctx: ProblemContext)(implicit predef: Predef, cnt: Counter): Expr[Action] = {
     val act = instance(template, ctx)
-    Optional(Product(act), Input[Boolean](Ident("prez?" + cnt.next())))
+    Optional(Product(act), Input[Boolean](Ident(act.name + "_prez?" + cnt.next())))
   }
 }
