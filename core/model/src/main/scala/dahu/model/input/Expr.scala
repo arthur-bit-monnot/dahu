@@ -88,6 +88,8 @@ object Input {
 final case class Cst[T](value: T, typ: Tag[T]) extends Term[T] {
   require(typ != null)
   override val hash: Int = ScalaRunTime._hashCode(this)
+
+  override def toString: String = value.toString
 }
 
 object Cst {
