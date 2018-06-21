@@ -29,6 +29,7 @@ object Interpreter {
     case ProductF(members, t) =>
       members.sequence
         .smap(as => t.idProd.buildFromTerms(as))
+    case NoopF(x, _) => x
     case ITEF(cond, onTrue, onFalse, _) =>
       Vec(cond, onTrue, onFalse).sequence
         .smap {
@@ -48,6 +49,7 @@ object Interpreter {
   def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[NoApplyF, Result[Value]] = {
     case InputF(id, _) => Res(valueOf(id))
     case CstF(v, _)    => Res(v)
+    case NoopF(v, _)   => v
     case ComputationF(f, args, _) =>
       Result
         .sequence(args)
