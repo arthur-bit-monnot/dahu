@@ -524,6 +524,7 @@ class FullMapGenLazyForest[K, F[_]: SFunctor, G[_], Opt[_]: Functor, Opt2[_], ID
 
   private val idsMap = BiMap[orig.ID, ID]()
   private val repMap = mutable.HashMap[ID, G[ID]]()
+  private val optMap = mutable.Map[Opt[IDOrig], Opt2[ID]]()
   private var nextID = 0
   private def getNewID(): ID = { nextID += 1; (nextID - 1).asInstanceOf[ID] }
 
@@ -536,8 +537,8 @@ class FullMapGenLazyForest[K, F[_]: SFunctor, G[_], Opt[_]: Functor, Opt2[_], ID
                                                          internalCoalgebra,
                                                          orig.internalCoalgebra,
                                                          id => oldToNewId(id))
-  val fi: F[ID] => G[ID] = fFactory.internalMap(ctx)
-  val fe: Opt[IDOrig] => Opt2[ID] = fFactory.externalMap(ctx)
+  private val fi: F[ID] => G[ID] = fFactory.internalMap(ctx)
+  private val fe: Opt[IDOrig] => Opt2[ID] = fFactory.externalMap(ctx)
 
   def get(k: K): Opt[G[ID]] = {
     orig.getTreeRoot(k).map(getFromOrigID)
@@ -567,7 +568,10 @@ class FullMapGenLazyForest[K, F[_]: SFunctor, G[_], Opt[_]: Functor, Opt2[_], ID
     repMap(i)
   }
 
-  override def getTreeRoot(k: K): Opt2[ID] = fe(orig.getTreeRoot(k))
+  override def getTreeRoot(k: K): Opt2[ID] = {
+    val fi = orig.getTreeRoot(k)
+    optMap.getOrElseUpdate(fi, fe(fi))
+  }
 }
 
 object FullMapGenLazyForest {
