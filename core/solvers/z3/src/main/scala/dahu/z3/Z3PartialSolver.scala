@@ -136,12 +136,14 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
       case None =>
     }
 
-    dahu.utils.debug.info("  Solving with Z3...")
+    debug.info("  Solving with Z3...")
     solver.check() match {
       case Status.SATISFIABLE =>
+        debug.info("  Satisfiable model found.")
         model = solver.getModel
         Some(id => eval(id, model))
       case _ =>
+        debug.info("  no model found.")
         None
     }
   }
