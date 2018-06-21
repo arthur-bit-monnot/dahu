@@ -384,9 +384,10 @@ object Group {
       }
 
     val forgetConstraints: ConstrainedF ~> Total = lift {
-      case Partial(v, _, t)    => NoopF(v, t)
-      case ValidF(_)           => CstF(Value(true), Tag.ofBoolean)
-      case x: Total[Something] => x
+      case Partial(v, _, t)          => NoopF(v, t)
+      case UniversalPartial(v, _, t) => NoopF(v, t)
+      case ValidF(_)                 => CstF(Value(true), Tag.ofBoolean)
+      case x: Total[Something]       => x
     }
 
     val total: LazyTree[AST.ID, Total, cats.Id, withPrez.ID] =
@@ -573,6 +574,8 @@ object Group {
             val newContexts = ctx.map(_ ++ baseContext)
             identifiedConstraints.update(c,
                                          identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
+          case UniversalPartial(_, c, _) =>
+            identifiedConstraints.update(c, Set(Set()))
           case _ =>
         }
       }
@@ -599,11 +602,12 @@ object Group {
     }
 
     val asNodes = noLambdas.mapInternal[Node] {
-      case x: Total[I]        => Tot(x)
-      case PresentF(x)        => Prezence(presenceAnnotation.getInternal(x))
-      case ValidF(x)          => Constraints(constraints(x))
-      case OptionalF(x, _, t) => Tot(NoopF(x, t))
-      case Partial(x, _, t)   => Tot(NoopF(x, t))
+      case x: Total[I]               => Tot(x)
+      case PresentF(x)               => Prezence(presenceAnnotation.getInternal(x))
+      case ValidF(x)                 => Constraints(constraints(x))
+      case OptionalF(x, _, t)        => Tot(NoopF(x, t))
+      case Partial(x, _, t)          => Tot(NoopF(x, t))
+      case UniversalPartial(x, _, t) => Tot(NoopF(x, t))
     }
     val finalTree =
       asNodes

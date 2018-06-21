@@ -11,21 +11,22 @@ import dahu.recursion.Recursion._
 object Algebras {
 
   val coalgebra: FCoalgebra[ExprF, Expr[_]] = {
-    case x @ Input(id)                  => InputF(id, id.typ)
-    case x @ Cst(value)                 => CstF(Value(value), x.typ)
-    case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
-    case x @ SubjectTo(value, cond)     => Partial(value, cond, x.typ)
-    case x @ Product(value)             => ProductF(x.members, x.typ)
-    case x @ Sequence(members)          => SequenceF(members, x.typ)
-    case x @ Optional(value, present)   => OptionalF(value, present, x.typ)
-    case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
-    case Present(partial)               => PresentF(partial)
-    case Valid(partial)                 => ValidF(partial)
-    case x @ Dynamic(f, monoid, accept) => DynamicF(f, monoid, accept, x.typ)
-    case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
-    case x: Lambda[_, _]                => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
-    case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
-    case x @ Lambda.Param(id)           => LambdaParamF(id, x.typ)
+    case x @ Input(id)                       => InputF(id, id.typ)
+    case x @ Cst(value)                      => CstF(Value(value), x.typ)
+    case x: Computation[_]                   => ComputationF(x.f, x.args, x.typ)
+    case x @ SubjectTo(value, cond)          => Partial(value, cond, x.typ)
+    case x @ UniversalSubjectTo(value, cond) => UniversalPartial(value, cond, x.typ)
+    case x @ Product(value)                  => ProductF(x.members, x.typ)
+    case x @ Sequence(members)               => SequenceF(members, x.typ)
+    case x @ Optional(value, present)        => OptionalF(value, present, x.typ)
+    case x @ ITE(cond, onTrue, onFalse)      => ITEF(cond, onTrue, onFalse, x.typ)
+    case Present(partial)                    => PresentF(partial)
+    case Valid(partial)                      => ValidF(partial)
+    case x @ Dynamic(f, monoid, accept)      => DynamicF(f, monoid, accept, x.typ)
+    case x @ DynamicProvider(e, p)           => DynamicProviderF(e, p, x.typ)
+    case x: Lambda[_, _]                     => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
+    case x @ Apply(lambda, param)            => ApplyF(lambda, param, x.typ)
+    case x @ Lambda.Param(id)                => LambdaParamF(id, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {

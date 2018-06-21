@@ -37,7 +37,7 @@ object IntervalF {
     Product(ofExprUnwrapped(start, end))
 
   def ofExprUnwrapped(start: Expr[Int], end: Expr[Int]): IntervalF[Expr] =
-    IntervalF[Expr](start, end.subjectTo(_ >= start))
+    IntervalF[Expr](start, end.alwaysSubjectTo(_ >= start))
 
   val Start: FieldAccess[IntervalF, Int] = FieldAccess("start", 0)
   val End: FieldAccess[IntervalF, Int] = FieldAccess("end", 1)
@@ -97,7 +97,7 @@ object CondTokF {
     val accept = Accept(func, args, v)
 
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
-      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
+      .alwaysSubjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
 
   }
 
@@ -154,7 +154,9 @@ object EffTokF {
              value: Expr[Literal])(implicit cnt: Counter): Expr[EffTok] = {
     val id = cnt.next()
     val endPersistence: Expr[Int] =
-      endPersistenceOpt.getOrElse(Input[Int](Ident("___" + cnt.next()))).subjectTo(_ >= endChange)
+      endPersistenceOpt
+        .getOrElse(Input[Int](Ident("___" + cnt.next())))
+        .alwaysSubjectTo(_ >= endChange)
     val tag = fluent match {
       case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
         EffProductTag(f, args.map {
@@ -168,7 +170,7 @@ object EffTokF {
     }
     val tok =
       Product(
-        new EffTokF[Expr](startChange.subjectTo(_ <= endChange),
+        new EffTokF[Expr](startChange.alwaysSubjectTo(_ <= endChange),
                           IntervalF.ofExpr(endChange, endPersistence),
                           fluent,
                           value,

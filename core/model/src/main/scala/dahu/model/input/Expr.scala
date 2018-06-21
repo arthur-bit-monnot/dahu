@@ -20,23 +20,24 @@ sealed trait Expr[+T] {
 object Expr {
 
   implicit def dagInstance: DAG[Id, Expr[Any]] = new DAG[Id, Expr[Any]] {
-    override def algebra: Expr[Any] => Id[Expr[Any]] = x => x
-    override def children(graph: Id[Expr[Any]]): Iterable[Expr[Any]] = graph match {
-      case SubjectTo(value, condition) => Iterable(value, condition)
-      case x: Product[_]               => x.members.toIterable
-      case x: Input[_]                 => Iterable.empty
-      case x: Cst[_]                   => Iterable.empty
-      case x: Computation[_]           => x.args
-      case Optional(value, present)    => Iterable(value, present)
-      case ITE(cond, onTrue, onFalse)  => Iterable(cond, onTrue, onFalse)
-      case Dynamic(l, _, _)            => Iterable(l)
-      case DynamicProvider(e, prov)    => Iterable(e, prov)
-      case Apply(l, i)                 => Iterable(l, i)
-      case x: Lambda[_, _]             => Iterable(x.parameterizedTree, x.inputVar)
-      case Lambda.Param(_)             => Iterable.empty
-      case Present(v)                  => Iterable(v)
-      case Valid(v)                    => Iterable(v)
-      case Sequence(ms)                => ms.toIterable
+    override def algebra(a: Expr[Any]): Id[Expr[Any]] = a
+    override def foreachChild(graph: Id[Expr[Any]])(f: Expr[Any] => Unit): Unit = graph match {
+      case x: Computation[_]                    => x.args.foreach(f)
+      case SubjectTo(value, condition)          => f(value); f(condition)
+      case UniversalSubjectTo(value, condition) => f(value); f(condition)
+      case x: Product[_]                        => x.members.foreach(f)
+      case x: Input[_]                          =>
+      case x: Cst[_]                            =>
+      case Optional(value, present)             => f(value); f(present)
+      case ITE(cond, onTrue, onFalse)           => f(cond); f(onTrue); f(onFalse)
+      case Dynamic(l, _, _)                     => f(l)
+      case DynamicProvider(e, prov)             => f(e); f(prov)
+      case Apply(l, i)                          => f(l); f(i)
+      case x: Lambda[_, _]                      => f(x.parameterizedTree); f(x.inputVar)
+      case Lambda.Param(_)                      =>
+      case Present(v)                           => f(v)
+      case Valid(v)                             => f(v)
+      case Sequence(ms)                         => ms.foreach(f)
     }
   }
 }
@@ -44,6 +45,14 @@ object Expr {
 /** Evaluation: eval(condition).flatMap(eval(value)) */
 final case class SubjectTo[T](value: Expr[T], condition: Expr[Boolean]) extends Expr[T] {
   override def typ: Tag[T] = value.typ
+}
+
+/** The `value` expression is always subject to this constraint, regardless of the context in which it is used
+  * (even if it only accessed in an optional object).
+  * This is typically useful to model domains of variables. */
+final case class UniversalSubjectTo[T](value: Expr[T], condition: Expr[Boolean]) extends Expr[T] {
+  override def typ: Tag[T] = value.typ
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 final case class Optional[T](value: Expr[T], present: Expr[Boolean]) extends Expr[T] {
@@ -63,7 +72,7 @@ final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {
 object Input {
   def apply[T](id: TypedIdent[T]): Expr[T] = {
     val in = new Input[T](id)
-    SubjectTo(in, in.typ.isValid(in))
+    UniversalSubjectTo(in, in.typ.isValid(in))
   }
   def apply[T: Tag](id: Ident): Expr[T] = Input[T](TypedIdent(id, Tag[T]))
   def apply[T: Tag](name: String): Expr[T] = Input[T](TypedIdent(Ident(name), Tag[T]))

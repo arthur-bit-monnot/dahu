@@ -120,6 +120,8 @@ object dsl {
 
     def subjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
       SubjectTo(lhs, cond(lhs))
+    def alwaysSubjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
+      UniversalSubjectTo(lhs, cond(lhs))
   }
 
   implicit final class SubjectToOps[T](private val lhs: SubjectTo[T]) extends AnyVal {

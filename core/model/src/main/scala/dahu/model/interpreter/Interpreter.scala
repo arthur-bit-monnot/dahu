@@ -74,6 +74,14 @@ object Interpreter {
         case Res(x)             => unexpected(s"Condition does not evaluates to a boolean but to: $x")
         case ConstraintViolated => ConstraintViolated
       }
+    case UniversalPartial(value, cond, _) =>
+      cond match {
+        case Empty              => value
+        case Res(true)          => value
+        case Res(false)         => ConstraintViolated
+        case Res(x)             => unexpected(s"Condition does not evaluates to a boolean but to: $x")
+        case ConstraintViolated => ConstraintViolated
+      }
     case OptionalF(value, present, _) =>
       present match {
         case Res(true)          => value

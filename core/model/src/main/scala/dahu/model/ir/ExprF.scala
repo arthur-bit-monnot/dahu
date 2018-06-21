@@ -23,11 +23,10 @@ object ExprF extends LowPriorityExprF {
   implicit val functor: SFunctor[ExprF] = new SFunctor[ExprF] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: ExprF[A])(f: A => B): ExprF[B] =
       fa match {
-        case fa: Total[A] => Total.functor.smap(fa)(f)
-        case Partial(value, condition, typ) =>
-          Partial(f(value), f(condition), typ)
-        case OptionalF(value, present, typ) =>
-          OptionalF(f(value), f(present), typ)
+        case fa: Total[A]                       => Total.functor.smap(fa)(f)
+        case Partial(v, c, typ)                 => Partial(f(v), f(c), typ)
+        case UniversalPartial(v, c, typ)        => UniversalPartial(f(v), f(c), typ)
+        case OptionalF(v, p, typ)               => OptionalF(f(v), f(p), typ)
         case PresentF(v)                        => PresentF(f(v))
         case ValidF(v)                          => ValidF(f(v))
         case DynamicF(fun, monoid, accept, typ) => DynamicF(f(fun), monoid, accept, typ)
@@ -41,6 +40,7 @@ object ExprF extends LowPriorityExprF {
     case x: InputF[A]           => ScalaRunTime._hashCode(x)
     case x: CstF[A]             => ScalaRunTime._hashCode(x)
     case x: Partial[A]          => ScalaRunTime._hashCode(x)
+    case x: UniversalPartial[A] => ScalaRunTime._hashCode(x)
     case x: OptionalF[A]        => ScalaRunTime._hashCode(x)
     case x: PresentF[A]         => ScalaRunTime._hashCode(x)
     case x: ValidF[A]           => ScalaRunTime._hashCode(x)
@@ -64,14 +64,15 @@ trait LowPriorityExprF {
 
   implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
     override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
-      case x: Total[A]                      => Total.treeNodeInstance.children(x)
-      case Partial(value, condition, typ)   => Iterable(value, condition)
-      case OptionalF(value, present, typ)   => Iterable(value, present)
-      case PresentF(v)                      => Iterable(v)
-      case ValidF(v)                        => Iterable(v)
-      case DynamicF(f, _, _, _)             => Iterable(f)
-      case DynamicProviderF(e, provided, _) => Iterable(e, provided)
-      case ApplyF(lambda, param, _)         => Iterable(lambda, param)
+      case x: Total[A]                           => Total.treeNodeInstance.children(x)
+      case Partial(value, condition, typ)        => Iterable(value, condition)
+      case UniversalPartial(value, condition, _) => Iterable(value, condition)
+      case OptionalF(value, present, typ)        => Iterable(value, present)
+      case PresentF(v)                           => Iterable(v)
+      case ValidF(v)                             => Iterable(v)
+      case DynamicF(f, _, _, _)                  => Iterable(f)
+      case DynamicProviderF(e, provided, _)      => Iterable(e, provided)
+      case ApplyF(lambda, param, _)              => Iterable(lambda, param)
     }
   }
 }
@@ -204,6 +205,12 @@ final case class Partial[@sp(Int) F](value: F, condition: F, typ: Type)
     extends ExprF[F]
     with ConstrainedF[F] {
   override def toString: String = s"$value? (constraint: $condition)"
+}
+
+final case class UniversalPartial[@sp(Int) F](value: F, condition: F, typ: Type)
+    extends ExprF[F]
+    with ConstrainedF[F] {
+  override def toString: String = s"$value? (constraint!: $condition)"
 }
 
 final case class DynamicF[@sp(Int) F](f: F,
