@@ -7,8 +7,11 @@ case class PddlProblem(domain: String, problem: String)
 object Extractor {
 
   def extract(domain: String, problem: String): Either[String, PddlProblem] = {
-    val domPath = s"$domain/$domain.dom.pddl"
-    val pbPath = s"$domain/$domain.$problem.pb.pddl"
+    val (domPath, pbPath) =
+      if(domain == "tests")
+        (s"tests/$problem.dom.pddl", s"tests/$problem.pb.pddl")
+      else
+        (s"$domain/$domain.dom.pddl", s"$domain/$domain.$problem.pb.pddl")
 
     for {
       dom <- loadFromResource(domPath)
