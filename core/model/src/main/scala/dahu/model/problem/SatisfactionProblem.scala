@@ -341,6 +341,32 @@ object SatisfactionProblem {
         case x => x
       }
     }
+    final class GroupImplications(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
+        case original @ And(as @ _*) =>
+          val implications = mutable.ArrayBuffer[(IDTop, IDTop)]()
+          val others = mutable.ArrayBuffer[IDTop]()
+          for(a <- as) {
+            retrieve(a) match {
+              case Or(x, y) =>
+                (retrieve(x), retrieve(y)) match {
+                  case (Not(lhs), _) => implications += ((lhs, y))
+                  case (_, Not(rhs)) => implications += ((rhs, x))
+                  case _             => others += a
+                }
+              case _ => others += a
+            }
+
+          }
+          val gp = implications.groupBy(_._1).toSeq.sortBy(t => retrieve(t._1).toString)
+          val implictationConjuncts = gp.map {
+            case (lhs, rhss) =>
+              record(Or(lhs, record(And(rhss.map(_._2)))))
+          }
+          And(others.sortBy(retrieve(_).toString) ++ implictationConjuncts)
+        case x => x
+      }
+    }
 
     final class SimplifyImplications(ctx: OptimizationContext) extends Optimizer2(ctx) {
       import ctx.{FALSE, TRUE}
@@ -486,6 +512,13 @@ object SatisfactionProblem {
           override def record(fi: Total[IDTop]): IDTop = _record(fi)
         }
       )
+
+    def implicationGrouper(_retrieve: IDTop => Total[IDTop],
+                           _record: Total[IDTop] => IDTop): Total[IDTop] => Total[IDTop] =
+      new GroupImplications(new OptimizationContext {
+        override def retrieve(i: IDTop): Total[IDTop] = _retrieve(i)
+        override def record(fi: Total[IDTop]): IDTop = _record(fi)
+      })
   }
 
   final class Utils(val directRec: Total[IDTop] => IDTop, retrieve: IDTop => Total[IDTop]) {
