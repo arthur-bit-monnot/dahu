@@ -1,21 +1,23 @@
 package dahu.model.input
 
+import java.util
 import java.util.Objects
 
 import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
-import dahu.model.types.Tag.{Type, _}
 import dahu.model.functions._
-import dahu.model.ir.LambdaParamF
-import dahu.model.math.{bool, Monoid}
+import dahu.model.math.Monoid
 import dahu.model.types._
 
 import scala.reflect.ClassTag
+import scala.runtime.ScalaRunTime
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
 sealed trait Expr[+T] {
-  def typ: Tag[T] //@uncheckedVariance
+  def typ: Tag[T]
+  def hash: Int
+  override final def hashCode(): Int = hash
 }
 object Expr {
 
@@ -45,6 +47,7 @@ object Expr {
 /** Evaluation: eval(condition).flatMap(eval(value)) */
 final case class SubjectTo[T](value: Expr[T], condition: Expr[Boolean]) extends Expr[T] {
   override def typ: Tag[T] = value.typ
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 /** The `value` expression is always subject to this constraint, regardless of the context in which it is used
@@ -57,6 +60,7 @@ final case class UniversalSubjectTo[T](value: Expr[T], condition: Expr[Boolean])
 
 final case class Optional[T](value: Expr[T], present: Expr[Boolean]) extends Expr[T] {
   override def typ: Tag[T] = value.typ
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 sealed abstract class Term[T] extends Expr[T]
@@ -68,6 +72,7 @@ final case class TypedIdent[+T](id: Ident, typ: Tag[T]) {
 /** Evaluation yields a Right[T] */
 final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {
   override def typ: Tag[T] = id.typ
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 object Input {
   def apply[T](id: TypedIdent[T]): Expr[T] = {
@@ -82,6 +87,7 @@ object Input {
 // TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult
 final case class Cst[T](value: T, typ: Tag[T]) extends Term[T] {
   require(typ != null)
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 object Cst {
@@ -95,26 +101,38 @@ object Cst {
 
 final case class ITE[T](cond: Expr[Boolean], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
   override def typ: Tag[T] = onTrue.typ
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 final case class Present(value: Expr[_]) extends Term[Boolean] {
   override def typ: Tag[Boolean] = Tag.ofBoolean
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 final case class Valid(value: Expr[_]) extends Term[Boolean] {
   override def typ: Tag[Boolean] = Tag.ofBoolean
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 sealed abstract class Computation[O] extends Expr[O] {
   override def typ: Tag[O] = f.outType
   def f: Fun[O]
   def args: Seq[Expr[Any]] // TODO: make args a Vec
+  override final lazy val hash: Int = Objects.hash(f, args)
 
+  override final def equals(o: scala.Any): Boolean = o match {
+    case o: Computation[_] =>
+      if(this eq o) true
+      else if(this.hash != o.hash) false
+      else f == o.f && args == o.args
+    case _ => false
+  }
   override def toString: String = s"$f(${args.mkString(", ")})"
 }
 
 final case class Sequence[T: Tag](members: Vec[Expr[T]])(implicit ct: ClassTag[Vec[T]])
     extends Expr[Vec[T]] {
   override def typ: SequenceTag[T] = SequenceTag[T]
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 object Sequence {
   def apply[T: Tag](members: Seq[Expr[T]])(implicit classTag: ClassTag[Vec[T]]): Sequence[T] =
@@ -129,8 +147,10 @@ final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) ex
   }
   def buildFromVals(terms: Vec[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
   def buildFromExpr(terms: Vec[Expr[Any]]): T[Expr] = tt.exprProd.buildFromTerms(terms)
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 object Product {
+  // TODO: remove
   def fromSeq[T](seq: Seq[Expr[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
     : Product[ProductTag.Sequence[?[_], T]] =
     new Product[ProductTag.Sequence[?[_], T]](seq)(ev)
@@ -271,11 +291,13 @@ final case class Dynamic[Provided, Out: Tag](f: Expr[Provided ->: Out],
                                              accept: Option[Tag[Provided] => Boolean])
     extends Expr[Out] {
   override def typ: Tag[Out] = Tag[Out]
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provided])
     extends Expr[A] {
   override def typ: Tag[A] = e.typ
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameterizedTree: Expr[O])
@@ -286,7 +308,7 @@ final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameteri
 
   override def typ: LambdaTag[I, O] = LambdaTag[I, O]
 
-  override def hashCode(): Int = Objects.hash(inputVar, parameterizedTree)
+  override val hash: Int = Objects.hash(inputVar, parameterizedTree)
 
   override def equals(o: scala.Any): Boolean = o match {
     case l: Lambda[_, _] => inputVar == l.inputVar && parameterizedTree == l.parameterizedTree
@@ -308,6 +330,7 @@ object Lambda {
 
   final case class Param[I: Tag](ident: LambdaIdent) extends Expr[I] {
     override def typ: Tag[I] = Tag[I]
+    override val hash: Int = ScalaRunTime._hashCode(this)
   }
   final class LambdaIdent(val treeShape: Expr[Any],
                           val name: Option[String],
@@ -332,4 +355,5 @@ object Lambda {
 
 final case class Apply[I, O: Tag](l: Expr[I ->: O], in: Expr[I]) extends Expr[O] {
   override def typ: Tag[O] = Tag[O]
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
