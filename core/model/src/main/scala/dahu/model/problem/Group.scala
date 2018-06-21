@@ -91,9 +91,9 @@ class Group[K, I <: IDTop](val scope: Scope[K, I],
             _limits.add((value, Scope(scope.ctx + present, Some(this))))
           case Partial(value, condition, _) =>
             _validityConditions.add(condition)
-            fi.children.foreach(push)
+            fi.foreachChild(push)
           case _ =>
-            fi.children.foreach(push)
+            fi.foreachChild(push)
         }
 
       }
@@ -105,6 +105,7 @@ object Group {
 
   implicit def treeNode[A, F[_]: TreeNode]: TreeNode[EnvT[A, F, ?]] = new TreeNode[EnvT[A, F, ?]] {
     override def children[K](n: EnvT[A, F, K]): immutable.Iterable[K] = n.lower.children
+    override def foreachChild[K](n: EnvT[A, F, K])(f: K => Unit): Unit = n.lower.foreachChild(f)
   }
 
   implicit class SetOps[K, V](private val lhs: mutable.Map[K, V]) extends AnyVal {
@@ -223,10 +224,8 @@ object Group {
         case (_, OptionalF(value, cond, _)) =>
           LambdaDeps(value.params ++ cond.params, value.applicationStack, false)
         case (_, x) =>
-          if(x.children.exists(c => c.applicationStack.nonEmpty))
-            println("break")
-          val bindings = x.children.map(_.params).fold(Map())(_ ++ _)
-          val pure = x.children.map(_.pure).fold(true)(_ && _)
+          val bindings = x.childrenFolLeft(Map[LambdaIdent, I]())(_ ++ _.params) //x.children.map(_.params).fold(Map())(_ ++ _)
+          val pure = x.forallChildren(_.pure)
           LambdaDeps(bindings, List(), pure)
       }
       .asInternalFunction
@@ -303,8 +302,7 @@ object Group {
           val fcur = coalg(cur)
           memo(cur) = fcur
           onNew(cur, fcur)
-          for(child <- fcur.children)
-            queue += child
+          fcur.foreachChild(queue += _)
         }
       }
 //      memo.map { case (k, v) => s"$k   --    $v" }.toSeq.sorted.foreach(println)
@@ -519,8 +517,7 @@ object Group {
         val fcur = coalg(cur)
         memo(cur) = fcur
         curAcc = fAcc((cur, fcur), curAcc)
-        for(child <- fcur.children)
-          queue += child
+        fcur.foreachChild(queue += _)
       }
     }
 //    memo.map { case (k, v) => s"$k   --    $v" }.toSeq.sorted.foreach(println)
@@ -544,7 +541,9 @@ object Group {
       case Partial(v, c, _)   => v._1
       case ITEF(c, t, f, _) =>
         Opt.empty //TODO: relies on the very questionable assumption that after an ITE, the result is always present.
-      case x => x.children.map(_._1).foldLeft(Opt.empty[I])(_ ++ _)
+      case x =>
+        // x.children.map(_._1).foldLeft(Opt.empty[I])(_ ++ _)
+        x.childrenFolLeft(Opt.empty[I])(_ ++ _._1)
     }
 
     /** extract constraints applicable to `root`
@@ -560,7 +559,7 @@ object Group {
       noLambdas.internalBottomUpTopologicalOrder(root).toSeq.reverse.foreach { i =>
         val fi = noLambdas.internalCoalgebra(i)
         val ctx = contexts(i)
-        fi.children.foreach { child =>
+        fi.foreachChild { child =>
           val baseContext = presenceAnnotation.getInternal(child)
           val newContexts = ctx.map(_ ++ baseContext)
           val previousFullContexts = contexts.getOrElse(child, Set())

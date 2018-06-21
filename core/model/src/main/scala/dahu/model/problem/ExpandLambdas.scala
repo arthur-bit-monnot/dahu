@@ -41,6 +41,11 @@ object ExpandLambdas {
   implicit val treeNode: TreeNode[N] = new TreeNode[N] {
     override def children[K](n: N[K]): immutable.Iterable[K] =
       Bag.Cons(TreeNode[StaticF].children(n.e), n.deps.subs)
+
+    override def foreachChild[K](n: N[K])(f: K => Unit): Unit = {
+      n.e.foreachChild(f)
+      n.deps.subs.foreach(f)
+    }
   }
   implicit val sfunctorInstance: SFunctor[N] = new SFunctor[N] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: N[A])(f: A => B): N[B] =
@@ -82,8 +87,7 @@ object ExpandLambdas {
         )
       case (_, x: StaticF[LambdaDeps[I]]) =>
         TreeNode[StaticF]
-          .children(x)
-          .foldLeft(LambdaDeps.empty[I])((a, b) => a.combine(b))
+          .childrenFoldLeft(x)(LambdaDeps.empty[I])((a, b) => a.combine(b))
     }
   }
 
@@ -231,10 +235,9 @@ object ExpandLambdas {
 //              println(
 //                s"${used.size.toDouble / all.size}  ${used.size} / ${all.size}    $used    //  $all")
 //          }
-          val fkChildren = fk.children.toSet
 
-          if(fkChildren.forall(c => (c == next) || intIdsMap.contains(c))) {
-            if(fkChildren.contains(next)) {
+          if(fk.forallChildren(c => (c == next) || intIdsMap.contains(c))) {
+            if(fk.childrenContains(next)) {
               val FUTURE_ID: ID = repMap.length.asInstanceOf[ID]
               val fing = fk.smap(c => if(c == next) FUTURE_ID else intIdsMap(c))
               val foutg = algebra(fing)
@@ -253,7 +256,7 @@ object ExpandLambdas {
             }
           } else {
             queue.push((cur, ctx))
-            fkChildren.foreach(c => {
+            fk.foreachChild(c => {
               if(c != next)
                 queue.push(c)
             })

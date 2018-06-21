@@ -424,13 +424,13 @@ class LazyForestGenerator[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_], Intern
     while(queue.nonEmpty) {
       val cur = queue.pop()
       val fk = coalgebra(cur)
-      if(the[TreeNode[FIn]].children(fk).forall(processed)) {
+      if(fk.forallChildren(processed)) {
         val fg = the[SFunctor[FIn]].smap(fk)(idsMap)
         val g: Opt[ID] = algebra(fg)
         idsMap += ((cur, g))
       } else {
         queue.push(cur)
-        queue.pushAll(the[TreeNode[FIn]].children(fk))
+        fk.foreachChild(queue.push(_))
       }
     }
     idsMap(key)

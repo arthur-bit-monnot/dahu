@@ -74,6 +74,17 @@ trait LowPriorityExprF {
       case DynamicProviderF(e, provided, _)      => Iterable(e, provided)
       case ApplyF(lambda, param, _)              => Iterable(lambda, param)
     }
+    override def foreachChild[A](fa: ExprF[A])(f: A => Unit): Unit = fa match {
+      case x: Total[A]                           => Total.treeNodeInstance.foreachChild(x)(f)
+      case Partial(value, condition, typ)        => f(value); f(condition)
+      case UniversalPartial(value, condition, _) => f(value); f(condition)
+      case OptionalF(value, present, typ)        => f(value); f(present)
+      case PresentF(v)                           => f(v)
+      case ValidF(v)                             => f(v)
+      case DynamicF(lbd, _, _, _)                => f(lbd)
+      case DynamicProviderF(e, provided, _)      => f(e); f(provided)
+      case ApplyF(lambda, param, _)              => f(lambda); f(param)
+    }
   }
 }
 
@@ -114,6 +125,17 @@ object Total {
       case LambdaF(in, tree, _, _)  => Iterable(in, tree)
       case NoopF(e, _)              => Iterable(e)
       case _: LambdaParamF[A]       => Iterable.empty
+    }
+    override def foreachChild[A](fa: Total[A])(f: A => Unit): Unit = fa match {
+      case ComputationF(_, args, _) => args.foreach(f)
+      case _: CstF[A]               =>
+      case _: InputF[A]             =>
+      case ITEF(c, t, onFalse, _)   => f(c); f(t); f(onFalse)
+      case ProductF(as, _)          => as.foreach(f)
+      case SequenceF(as, _)         => as.foreach(f)
+      case LambdaF(in, tree, _, _)  => f(in); f(tree)
+      case NoopF(e, _)              => f(e)
+      case _: LambdaParamF[A]       =>
     }
   }
 }

@@ -697,6 +697,11 @@ object SatisfactionProblem {
     implicit object TreeNodeInstance extends TreeNode[OptConst] {
       override def children[K](n: OptConst[K]): immutable.Iterable[K] =
         n.value.children ++ n.presence.toIterable
+
+      override def foreachChild[K](n: OptConst[K])(f: K => Unit): Unit = {
+        n.value.foreachChild(f)
+        n.presence.foreach(f)
+      }
     }
   }
   def compilerPresence(context: LazyForestGenerator.Context[OptConst, IDTop])
