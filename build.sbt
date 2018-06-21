@@ -162,8 +162,13 @@ lazy val z3 = project
 
 lazy val benchmarks = project
   .in(file("benchmarks"))
-  .dependsOn(utils, solvers, z3)
+  .dependsOn(utils, solvers, z3, pddlPlanner, anmlPlanner, pddlProblems)
   .settings(commonSettings ++ utestSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "fastparse" % "1.0.0",
+      "com.lihaoyi" %% "ammonite-ops" % "1.1.1",
+      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
+  ))
 
 lazy val planner = project
   .in(file("planning/planner"))

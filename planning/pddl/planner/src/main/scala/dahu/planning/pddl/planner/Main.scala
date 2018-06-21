@@ -10,6 +10,7 @@ import dahu.planning.planner.PlannerConfig
 import dahu.planning.planner.chronicles._
 import dahu.utils.Vec
 
+import scala.concurrent.duration.Duration.Infinite
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.util.{Failure, Success}
@@ -31,7 +32,7 @@ case class Config(mode: Mode = Mode.Planner,
                   symBreak: Boolean = true,
                   useXorForSupport: Boolean = true,
                   numThreads: Int = 1,
-                  maxRuntime: FiniteDuration = 1800.seconds,
+                  maxRuntime: Duration = 1800.seconds,
                   warmupTimeSec: Int = 0,
                   discretization: Int = 1000)
 
@@ -129,7 +130,11 @@ object Main extends App {
 
     parser.parse(domain, problem) match {
       case Success(model) =>
-        Planner.solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
+        val deadline = config.maxRuntime match {
+          case x: FiniteDuration => Deadline.now + x
+          case _: Infinite       => Deadline.now + 10.days
+        }
+        Planner.solveIncremental(model, config.maxInstances, deadline) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)
             if(config.validate) {
@@ -140,7 +145,6 @@ object Main extends App {
             } else
               Right(plan)
           case None =>
-            println("\nFAIL")
             Left("Failed to find a plan")
         }
       case Failure(err) =>
@@ -159,8 +163,12 @@ object Main extends App {
 
     parser.parse(domain, problem) match {
       case Success(model) =>
+        val deadline = config.maxRuntime match {
+          case x: FiniteDuration => Deadline.now + x
+          case _: Infinite       => Deadline.now + 10.days
+        }
         dahu.planning.planner.Planner
-          .solveIncremental(model, config.maxInstances, Deadline.now + config.maxRuntime) match {
+          .solveIncremental(model, config.maxInstances, deadline) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)
             if(config.validate) {
@@ -171,7 +179,6 @@ object Main extends App {
             } else
               Right(plan)
           case None =>
-            println("\nFAIL")
             Left("Failed to find a plan")
         }
       case Failure(err) =>
