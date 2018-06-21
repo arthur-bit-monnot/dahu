@@ -66,6 +66,18 @@ object LambdaInterpreter {
                 case _     => unexpected
               }, value.applicationStack)
           }
+        case UniversalPartial(value, cond, _) =>
+          assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
+          cond match {
+            case PEmpty              => PEmpty
+            case PConstraintViolated => PConstraintViolated
+            case _ =>
+              FlatMapped[Value, Value](cond, {
+                case true  => value
+                case false => PConstraintViolated
+                case _     => unexpected
+              }, value.applicationStack)
+          }
         case OptionalF(value, present, _) =>
           assert(
             present.applicationStack.isEmpty || present.applicationStack == value.applicationStack)

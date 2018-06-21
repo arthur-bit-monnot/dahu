@@ -30,14 +30,14 @@ object API {
     ExpandLambdas.expandLambdas[K](tree).forceEvaluation
 
   def makeTotal[K](t: LazyTree[K, NoApplyF, Id, _]): LazyTree[K, Total, IR, _] = {
-    SatisfactionProblem.encode(t).forceEvaluation
+    Group.makeTotal(t).forceEvaluation
   }
 
   def parseAndProcess[K](root: K, coalgebra: K => ExprF[K]): LazyTree[K, Total, IR, _] = {
     val parsed = parse(root, coalgebra)
     val noDynamics = eliminitateDynamics[K](parsed)
     val noLambdas = expandLambdas[K](noDynamics)
-    Group.makeTotal(noLambdas)
+    makeTotal(noLambdas)
   }
 
   @deprecated("intended for debug only", since = "forever")
