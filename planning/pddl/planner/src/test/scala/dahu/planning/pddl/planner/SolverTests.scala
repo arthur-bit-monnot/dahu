@@ -11,8 +11,11 @@ object SolverTests extends TestSuite {
 
   def findPlan(runtime: Int = 15)(implicit testPath: utest.framework.TestPath): Unit = {
     val Seq(domName, pbName) = testPath.value.takeRight(2)
+    solve(domName, pbName, runtime.seconds)
+  }
+  def solve(domName: String, pbName: String, runtime: FiniteDuration): Unit = {
     val PddlProblem(dom, pb) = Extractor.extract(domName, pbName).getOrElse(fail())
-    assertMatch(Main.solve(dom, pb, Config(maxRuntime = runtime.seconds))) {
+    assertMatch(Main.solve(dom, pb, Config(maxRuntime = runtime))) {
       case Right(plan) =>
     }
   }
@@ -24,7 +27,14 @@ object SolverTests extends TestSuite {
       }
     }
 
-    dahu.utils.debug.LOG_LEVEL = 2
+    dahu.utils.debug.LOG_LEVEL = 3
+
+    "warmup" - {
+      solve("rovers_ipc5", "p01", 10.seconds)
+      solve("blocks_ipc2", "p04-0", 10.seconds)
+      solve("rovers_ipc5", "p01", 10.seconds)
+      solve("blocks_ipc2", "p04-0", 10.seconds)
+    }
 
     "rovers_ipc5" - {
       "p01" - findPlan()

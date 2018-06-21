@@ -16,7 +16,7 @@ import dahu.model.compiler.Algebras
 import dahu.model.compiler.Algebras.StringTree
 import dahu.model.input.Lambda.LambdaIdent
 import dahu.model.math.bool
-import dahu.model.problem.SatisfactionProblem.{IR, OptConst, Prez, Utils}
+import dahu.model.problem.SatisfactionProblem._
 import dahu.model.problem.syntax.{And, Not, Or}
 import dahu.model.types.Tag
 import dahu.recursion.{EnvT, FCoalgebra, Recursion}
@@ -559,14 +559,16 @@ object Group {
       noLambdas.internalBottomUpTopologicalOrder(root).toSeq.reverse.foreach { i =>
         val fi = noLambdas.internalCoalgebra(i)
         val ctx = contexts(i)
+
         fi.foreachChild { child =>
           val baseContext = presenceAnnotation.getInternal(child)
           val newContexts = ctx.map(_ ++ baseContext)
           val previousFullContexts = contexts.getOrElse(child, Set())
           contexts.update(child, newContexts ++ previousFullContexts)
-          assert(contexts(child).map(_.size).min >= baseContext.size)
+        // assert4(contexts(child).map(_.size).min >= baseContext.size)
         }
-        assert(contexts(i).map(_.size).min >= presenceAnnotation.getInternal(i).size)
+        // assert(contexts(i).map(_.size).min >= presenceAnnotation.getInternal(i).size)
+
         fi match {
           case Partial(_, c, _) =>
             val baseContext = presenceAnnotation.getInternal(c)
@@ -574,7 +576,13 @@ object Group {
             identifiedConstraints.update(c,
                                          identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
           case UniversalPartial(_, c, _) =>
-            identifiedConstraints.update(c, Set(Set()))
+            // TODO: same as partial, we should reactivate the other one but it's semantics are not fully supported by the interpreter.
+            val baseContext = presenceAnnotation.getInternal(c)
+            val newContexts = ctx.map(_ ++ baseContext)
+            identifiedConstraints.update(c,
+                                         identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
+//            case UniversalPartial(_, c, _) => // real implementation
+//              identifiedConstraints.update(c, Set(Set()))
           case _ =>
         }
       }
@@ -626,18 +634,24 @@ object Group {
 
           override def externalMap(ctx: InternalMapGenLazyForest.Context[Node, Total, I, IDTop])(
               oi: Id[I]): IR[IDTop] = {
-            val prez = Prezence(presenceAnnotation.getInternal(oi).map(ctx.toNewId))
-            val validity = Node.Functor.smap(Constraints(constraints(oi)))(ctx.toNewId)
 
-            IR(value = ctx.toNewId(oi),
-               present = ctx.record(internalMap(ctx)(prez)),
-               valid = ctx.record(internalMap(ctx)(validity)))
+            ctx.retrieveOld(oi) match {
+              // TODO: we should produce 3 different versions of the lambda and inset a placehold instread of the parameter
+              case Tot(p @ LambdaParamF(id, typ))  => ???
+              case Tot(LambdaF(in, tree, id, tpe)) => ???
+              case _ =>
+                val prez = Prezence(presenceAnnotation.getInternal(oi).map(ctx.toNewId))
+                val validity = Node.Functor.smap(Constraints(constraints(oi)))(ctx.toNewId)
+
+                IR(value = ctx.toNewId(oi),
+                   present = ctx.record(internalMap(ctx)(prez)),
+                   valid = ctx.record(internalMap(ctx)(validity)))
+            }
           }
+
         })
         .fixID
     val optimized = finalTree.transform(SatisfactionProblem.Optimizations.optimizer).fixID
-//    val printable = optimized.cata(Algebras.printAlgebraTree)
-//    println(printable.get(e).valid.mkString(100))
     LazyTree(optimized)(_noLambdas.root).forceEvaluation
   }
   sealed trait Node[I]

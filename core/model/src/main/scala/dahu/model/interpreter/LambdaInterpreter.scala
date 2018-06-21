@@ -57,20 +57,23 @@ object LambdaInterpreter {
         case Partial(value, cond, _) =>
           assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
           cond match {
-            case PEmpty              => PEmpty
-            case PConstraintViolated => PConstraintViolated
+            case PEmpty => value
+            case PConstraintViolated =>
+              FlatMapped[Value, Value](value, _ => PConstraintViolated, value.applicationStack)
             case _ =>
               FlatMapped[Value, Value](cond, {
-                case true  => value
-                case false => PConstraintViolated
-                case _     => unexpected
+                case true => value
+                case false =>
+                  FlatMapped[Value, Value](value, _ => PConstraintViolated, value.applicationStack)
+                case _ => unexpected
               }, value.applicationStack)
           }
         case UniversalPartial(value, cond, _) =>
           assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
           cond match {
-            case PEmpty              => PEmpty
-            case PConstraintViolated => PConstraintViolated
+            case PEmpty => value
+            case PConstraintViolated =>
+              FlatMapped[Value, Value](value, _ => PConstraintViolated, value.applicationStack)
             case _ =>
               FlatMapped[Value, Value](cond, {
                 case true  => value
