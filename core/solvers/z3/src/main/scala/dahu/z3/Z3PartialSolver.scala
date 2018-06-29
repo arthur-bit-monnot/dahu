@@ -54,8 +54,8 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
   private val ast = _ast.fixID
 //  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
 
-//  private val t2 = ast.tree.transform(SatisfactionProblem.Optimizations.optimizer)
-//  private val printable = ast.tree.cata(Algebras.printAlgebraTree)
+//  private val t2 = ast.tree.transform(SatisfactionProblem.Optimizations.implicationGrouper)
+//  private val printable = t2.cata(Algebras.printAlgebraTree)
 //  println()
 //  println(printable.get(ast.root).valid.mkString(120))
 //  println("e")

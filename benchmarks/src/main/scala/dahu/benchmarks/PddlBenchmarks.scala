@@ -20,17 +20,18 @@ object PddlBenchmarks extends CaseApp[PddlBenchmarksOptions] {
     "%.2f".formatLocal(java.util.Locale.US, d.toMillis.toFloat / 1000)
 
   val defaults = Seq(
-//    "blocks_ipc2" -> "p04-0",
-//    "blocks_ipc2" -> "p04-1",
+    "tests" -> "blocks_01",
+    "blocks_ipc2" -> "p04-0",
+    "blocks_ipc2" -> "p04-1",
     "blocks_ipc2" -> "p05-0",
-//    "blocks_ipc2" -> "p05-1",
-//    "rovers_ipc5" -> "p01",
-//    "rovers_ipc5" -> "p02",
-//    "rovers_ipc5" -> "p03",
-//    "rcll" -> "001-R1-C0",
-//    "rcll" -> "001-R2-C0",
-//    "rcll" -> "002-R1-C0",
-//    "rcll" -> "002-R2-C0",
+    "blocks_ipc2" -> "p05-1",
+    "rovers_ipc5" -> "p01",
+    "rovers_ipc5" -> "p02",
+    "rovers_ipc5" -> "p03",
+    "rcll" -> "001-R1-C0",
+    "rcll" -> "001-R2-C0",
+    "rcll" -> "002-R1-C0",
+    "rcll" -> "002-R2-C0",
   )
 
   override def run(options: PddlBenchmarksOptions, remainingArgs: RemainingArgs): Unit = {
@@ -41,7 +42,7 @@ object PddlBenchmarks extends CaseApp[PddlBenchmarksOptions] {
 
     println("Starting")
     for((d, p) <- defaults) {
-      println("old: " + solveOld(d, p).format)
+//      println("old: " + solveOld(d, p).format)
       println("new: " + solve(d, p).format)
     }
   }
@@ -56,7 +57,7 @@ object PddlBenchmarks extends CaseApp[PddlBenchmarksOptions] {
   def solve(domName: String, pbName: String)(implicit opts: PddlBenchmarksOptions): Run = {
     val PddlProblem(dom, pb) = Extractor.extract(domName, pbName).getOrElse(fail())
     val start = System.currentTimeMillis().millis
-    val res = Main.solve(dom, pb, Config(maxRuntime = opts.runtime.seconds, minInstances = 4))
+    val res = Main.solve(dom, pb, Config(maxRuntime = opts.runtime.seconds, minInstances = 2))
     val end = System.currentTimeMillis().millis
     System.gc()
 
@@ -69,7 +70,7 @@ object PddlBenchmarks extends CaseApp[PddlBenchmarksOptions] {
   def solveOld(domName: String, pbName: String)(implicit opts: PddlBenchmarksOptions): Run = {
     val PddlProblem(dom, pb) = Extractor.extract(domName, pbName).getOrElse(fail())
     val start = System.currentTimeMillis().millis
-    val res = Main.solveOld(dom, pb, Config(maxRuntime = opts.runtime.seconds, minInstances = 4))
+    val res = Main.solveOld(dom, pb, Config(maxRuntime = opts.runtime.seconds, minInstances = 2))
     val end = System.currentTimeMillis().millis
     System.gc()
 
