@@ -418,19 +418,24 @@ class LazyForestGenerator[K, FIn[_]: TreeNode: SFunctor, FOut[_], Opt[_], Intern
   override def internalCoalgebra(i: ID): FOut[ID] = repMap(i)
 
   override def getTreeRoot(key: K): Opt[ID] = {
+    if(processed(key))
+      return idsMap(key)
+
     val queue = mutable.Stack[K]()
     queue.push(key)
 
     while(queue.nonEmpty) {
       val cur = queue.pop()
-      val fk = coalgebra(cur)
-      if(fk.forallChildren(processed)) {
-        val fg = the[SFunctor[FIn]].smap(fk)(idsMap)
-        val g: Opt[ID] = algebra(fg)
-        idsMap += ((cur, g))
-      } else {
-        queue.push(cur)
-        fk.foreachChild(queue.push(_))
+      if(!processed(cur)) {
+        val fk = coalgebra(cur)
+        if(fk.forallChildren(processed)) {
+          val fg = the[SFunctor[FIn]].smap(fk)(idsMap)
+          val g: Opt[ID] = algebra(fg)
+          idsMap += ((cur, g))
+        } else {
+          queue.push(cur)
+          fk.foreachChild(queue.push(_))
+        }
       }
     }
     idsMap(key)
