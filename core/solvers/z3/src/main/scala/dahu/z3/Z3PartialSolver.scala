@@ -49,7 +49,8 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
   }
 }
 
-class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[X] {
+class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
+    extends PartialSolver[X, AstID] {
   implicit def treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
   private val ast = _ast.fixID
 //  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
@@ -72,17 +73,22 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
   private val treeBuilder = new TreeBuilder(tree.tree, Compiler.partialAlgebra(ctx))
 
   // Total
-  def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
+  private def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
+    asExprInternal(ast.tree.getTreeRoot(id).value)
+  }
+  private def asExprInternal(id: AstID): Option[com.microsoft.z3.Expr] = {
     tree.tree
-      .getTreeRoot(ast.tree.getTreeRoot(id).value)
+      .getTreeRoot(id)
       .map(internalID => treeBuilder.buildInternal(internalID))
   }
-  def eval(id: X, model: com.microsoft.z3.Model): Option[Value] = {
-    asExpr(id) match {
+  def eval(id: X, model: com.microsoft.z3.Model): Option[Value] =
+    evalInternal(ast.tree.getTreeRoot(id).value, model)
+  def evalInternal(id: AstID, model: com.microsoft.z3.Model): Option[Value] = {
+    asExprInternal(id) match {
       case Some(e) =>
         model.eval(e, false) match {
           case i: IntNum =>
-            ast.tree.getExt(id).value.typ match {
+            ast.tree.internalCoalgebra(id).typ match {
               case t: TagIsoInt[_] =>
                 //Some(t.toValue(i.getInt))
                 val v = i.getInt
@@ -125,6 +131,14 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
   private var model: Model = null
 
   override def nextSatisfyingAssignment(deadline: Option[Deadline]): Option[X => Option[Value]] = {
+    nextSatisfyingAssignmentInternal(deadline) match {
+      case Some(f) => Some((x: X) => f(ast.tree.getTreeRoot(x).value))
+      case None    => None
+    }
+  }
+
+  def nextSatisfyingAssignmentInternal(
+      deadline: Option[Deadline]): Option[AstID => Option[Value]] = {
     assert(model == null, "Z3 only support extraction of a single solution")
 
     deadline match {
@@ -141,7 +155,7 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
       case Status.SATISFIABLE =>
         debug.info("  Satisfiable model found.")
         model = solver.getModel
-        Some(id => eval(id, model))
+        Some(id => evalInternal(id, model))
       case _ =>
         debug.info("  no model found.")
         None
@@ -153,7 +167,8 @@ class Z3PartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[
 object Z3PartialSolver {
 
   object builder extends PartialSolver.Builder {
-    override def apply[X](ast: LazyTree[X, Total, IR, _]): Z3PartialSolver[X] =
-      new Z3PartialSolver[X](ast)
+    override def apply[X, AstID <: IDTop](
+        ast: LazyTree[X, Total, IR, AstID]): Z3PartialSolver[X, AstID] =
+      new Z3PartialSolver[X, AstID](ast)
   }
 }

@@ -11,11 +11,15 @@ import dahu.utils.errors._
 
 import scala.concurrent.duration.Deadline
 
-class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
-  val pb = API.parseAndProcess(e).fixID
+class MetaSolver(val e: Expr[Any], val builder: PartialSolver.Builder) {
+  val _pb = API.parseAndProcess(e) // provides a stable identifier
+  val pb = _pb.fixID
   lazy val valuesTree = pb.mapExternal[cats.Id](_.value)
 
-  val solver = builder(pb)
+  val solver: PartialSolver[Expr[_], pb.ID] = builder[Expr[Any], pb.ID](pb)
+
+  private def toValueKey(e: Expr[_]): pb.tree.ID = pb.tree.getTreeRoot(e).value
+  private def toValidKey(e: Expr[_]): pb.tree.ID = pb.tree.getTreeRoot(e).valid
 
   def defaultDomain(k: Expr[_]): Stream[Value] = k.typ match {
     case t: TagIsoInt[_] =>
@@ -25,9 +29,9 @@ class MetaSolver(val e: Expr[_], val builder: PartialSolver.Builder) {
   }
 
   def nextSolution(deadline: Option[Deadline] = None): Option[Expr[_] => Value] =
-    solver.nextSatisfyingAssignment(deadline) match {
+    solver.nextSatisfyingAssignmentInternal(deadline) match {
       case Some(assignment) =>
-        val total = (x: Expr[_]) => assignment(x).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
+        val total = (x: Expr[_]) => assignment(toValueKey(x)).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
         Some(total)
       case None => None
     }

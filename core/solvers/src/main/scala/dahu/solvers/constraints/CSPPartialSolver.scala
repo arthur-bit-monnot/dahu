@@ -2,8 +2,7 @@ package dahu.solvers.constraints
 
 import dahu.constraints.interval.Interval
 import dahu.model.ir.{Total, TotalSubAST}
-import dahu.model.problem.IntBoolSatisfactionProblem
-import dahu.model.problem.LazyTree
+import dahu.model.problem.{IDTop, IntBoolSatisfactionProblem, LazyTree}
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types.{TagIsoInt, Value}
 import dahu.solvers.PartialSolver
@@ -12,7 +11,8 @@ import dahu.utils.errors._
 
 import scala.concurrent.duration.Deadline
 
-class CSPPartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver[X] {
+class CSPPartialSolver[X, AstID <: IDTop](_ast: LazyTree[X, Total, IR, AstID])
+    extends PartialSolver[X, AstID] {
 
 //  val intBoolPb = new IntBoolSatisfactionProblem[X](ast)
 //
@@ -39,12 +39,16 @@ class CSPPartialSolver[X](_ast: LazyTree[X, Total, IR, _]) extends PartialSolver
 //      case None => None
 //    }
   }
+
+  override def nextSatisfyingAssignmentInternal(
+      deadlineMs: Option[Deadline]): Option[AstID => Option[Value]] = ???
 }
 
 object CSPPartialSolver {
 
   object builder extends PartialSolver.Builder {
-    override def apply[X](ast: LazyTree[X, Total, IR, _]): CSPPartialSolver[X] =
+    override def apply[X, AstID <: IDTop](
+        ast: LazyTree[X, Total, IR, AstID]): CSPPartialSolver[X, AstID] =
       new CSPPartialSolver(ast)
   }
 }
