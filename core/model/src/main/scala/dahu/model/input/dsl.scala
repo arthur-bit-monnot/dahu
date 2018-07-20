@@ -18,7 +18,7 @@ object dsl {
   }
 
   implicit class Fun2Ops[I1, I2, O: Tag](f: Fun2[I1, I2, O]) {
-    def apply(i1: Expr[I1], i2: Expr[I2]): Computation2[I1, I2, O] =
+    def apply(i1: Expr[I1], i2: Expr[I2]): Expr[O] =
       Computation(f, i1, i2)
   }
   implicit class FunNOps[I1, O: Tag](f: FunN[I1, O]) {
