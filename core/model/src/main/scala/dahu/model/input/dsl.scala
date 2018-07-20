@@ -13,23 +13,25 @@ import scala.reflect.ClassTag
 
 object dsl {
 
-  implicit class Fun1Ops[I, O](private val lhs: Fun1[I, O]) extends AnyVal {
+  implicit final class Fun1Ops[I, O](private val lhs: Fun1[I, O]) extends AnyVal {
     def apply(arg: Expr[I]): Expr[O] = Computation1(lhs, arg)
   }
 
-  implicit class Fun2Ops[I1, I2, O: Tag](f: Fun2[I1, I2, O]) {
+  implicit final class Fun2Ops[I1, I2, O](private val f: Fun2[I1, I2, O]) extends AnyVal {
     def apply(i1: Expr[I1], i2: Expr[I2]): Expr[O] =
       Computation(f, i1, i2)
   }
-  implicit class FunNOps[I1, O: Tag](f: FunN[I1, O]) {
+  implicit final class FunNOps[I1, O](private val f: FunN[I1, O]) extends AnyVal {
     def apply(i1: Expr[I1]*): Expr[O] =
       Computation(f, i1)
   }
 
-  implicit class LambdaOps[I, O](private val lambda: Expr[I ->: O]) extends AnyVal {
+  implicit final class LambdaOps[I, O](private val lambda: Expr[I ->: O]) extends AnyVal {
     def apply(arg: Expr[I])(implicit ev: Tag[O]): Expr[O] = Apply(lambda, arg)
   }
-  implicit class Lambda2Ops[I1, I2, O](private val lambda: Expr[I1 ->: I2 ->: O]) extends AnyVal {
+
+  implicit final class Lambda2Ops[I1, I2, O](private val lambda: Expr[I1 ->: I2 ->: O])
+      extends AnyVal {
     def apply(arg1: Expr[I1], arg2: Expr[I2])(implicit to: Tag[O], ti2: Tag[I2]): Expr[O] =
       Apply(Apply(lambda, arg1), arg2)
     def partialApply(arg: Expr[I1])(implicit to: Tag[O], ti2: Tag[I2]): Expr[I2 ->: O] =
