@@ -52,7 +52,6 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
 class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
     extends PartialSolver[X, AstID] {
   implicit def treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
-  private val ast = _ast.fixID
 //  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
 
 //  private val t2 = ast.tree.transform(SatisfactionProblem.Optimizations.implicationGrouper)
@@ -66,11 +65,20 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
     ast.tree.getTreeRoot(ast.root).valid,
     ast.tree.internalCoalgebra)
   private val tree = intBoolPb.tree.fixID
+//  tree.forceEvaluation
+//  println(tree.fullTree)
+//  ast.tree
+//  for(id <- ast.tree.internalBottomUpTopologicalOrder(ast.tree.getTreeRoot(ast.root).valid)) {
+//    println(id + " " + tree.tree.getTreeRoot(id))
+//  }
+//  println("\n ---- \n")
 
   private val ctx = new Context()
   private type OptTotal[T] = Option[Total[T]]
 
   private val treeBuilder = new TreeBuilder(tree.tree, Compiler.partialAlgebra(ctx))
+
+  def addClause(e: Any): Unit = ???
 
   // Total
   private def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
@@ -161,6 +169,9 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
         None
     }
   }
+
+  override def internalRepresentation(node: AstID): partial.NodeTag =
+    intBoolPb.representation(node)
 
 }
 

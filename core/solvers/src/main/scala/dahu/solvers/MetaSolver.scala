@@ -11,12 +11,16 @@ import dahu.utils.errors._
 
 import scala.concurrent.duration.Deadline
 
-class MetaSolver(val e: Expr[Any], val builder: PartialSolver.Builder) {
+class MetaSolver(val e: Expr[Any],
+                 val rootSolverFactory: PartialSolver.Builder,
+                 val secondarySolverFactories: List[PartialSolver.Builder]) {
   val _pb = API.parseAndProcess(e) // provides a stable identifier
   val pb = _pb.fixID
   lazy val valuesTree = pb.mapExternal[cats.Id](_.value)
 
-  val solver: PartialSolver[Expr[_], pb.ID] = builder[Expr[Any], pb.ID](pb)
+  val solver: PartialSolver[Expr[Any], pb.ID] = rootSolverFactory(pb)
+  val subSolvers: List[PartialSolver[Expr[Any], pb.ID]] =
+    secondarySolverFactories.map(factory => factory(pb))
 
   private def toValueKey(e: Expr[_]): pb.tree.ID = pb.tree.getTreeRoot(e).value
   private def toValidKey(e: Expr[_]): pb.tree.ID = pb.tree.getTreeRoot(e).valid
@@ -31,6 +35,11 @@ class MetaSolver(val e: Expr[Any], val builder: PartialSolver.Builder) {
   def nextSolution(deadline: Option[Deadline] = None): Option[Expr[_] => Value] =
     solver.nextSatisfyingAssignmentInternal(deadline) match {
       case Some(assignment) =>
+        for(i <- pb.tree.internalBottomUpTopologicalOrder(toValidKey(pb.root))) {
+          println(
+            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb.tree
+              .internalCoalgebra(i))
+        }
         val total = (x: Expr[_]) => assignment(toValueKey(x)).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
         Some(total)
       case None => None
@@ -72,6 +81,8 @@ class MetaSolver(val e: Expr[Any], val builder: PartialSolver.Builder) {
 }
 
 object MetaSolver {
-  def of(expr: Expr[_], builder: PartialSolver.Builder): MetaSolver =
-    new MetaSolver(expr, builder)
+  def of(expr: Expr[_],
+         builder: PartialSolver.Builder,
+         secondaryBuilders: List[PartialSolver.Builder] = Nil): MetaSolver =
+    new MetaSolver(expr, builder, secondaryBuilders)
 }

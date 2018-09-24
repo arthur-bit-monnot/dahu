@@ -6,7 +6,6 @@ import dahu.model.interpreter.Interpreter
 import dahu.model.problem.{API, Group}
 import dahu.model.types.Value
 import dahu.solvers.{MetaSolver, PartialSolver}
-import dahu.solvers.constraints.CSPPartialSolver
 import dahu.z3.Z3PartialSolver
 
 import scala.collection.mutable

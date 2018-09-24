@@ -219,6 +219,16 @@ lazy val rcllPlanner = project
     )
   )
 
+lazy val tampPlanner = project
+  .in(file("planning/tamp"))
+  .dependsOn(solvers, z3)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.scopt" %% "scopt" % "3.7.0",
+      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
+    ))
+
 resolvers += Resolver.sonatypeRepo("releases")
 
 exportJars := true

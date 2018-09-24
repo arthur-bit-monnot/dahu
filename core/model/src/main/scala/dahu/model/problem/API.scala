@@ -79,7 +79,7 @@ object API {
     total
   }
 
-  def parseAndProcess(expr: Expr[_]): LazyTree[Expr[_], Total, IR, _] =
+  def parseAndProcess(expr: Expr[_]): LazyTree[Expr[Any], Total, IR, _] =
     parseAndProcess(expr, Algebras.coalgebra)
 
   def eval[T](expr: Expr[T], inputs: TypedIdent[Any] => Value): PEval[T] =
