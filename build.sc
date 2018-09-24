@@ -69,6 +69,7 @@ object deps {
   val debox = ivy"org.spire-math::debox:0.8.0"
   val pddl4j = ivy"fr.uga:pddl4j:3.6.0"
   val ammoniteOps = ivy"com.lihaoyi::ammonite-ops:1.1.0"
+  val caseApp = ivy"com.github.alexarchambault::case-app:2.0.0-M3"
 
   val utest = ivy"com.lihaoyi::utest:0.6.4"
   val scalatest = ivy"org.scalatest::scalatest:3.0.5"
@@ -147,5 +148,6 @@ object utils extends ModuleTests {
 }
 
 object benchmarks extends ModuleTests {
-  override def moduleDeps = Seq(core.solvers.z3)
+  override def moduleDeps = Seq(core.solvers.z3, planning.pddl.planner, planning.pddl.problems, planning.anml.planner)
+  override def ivyDeps = Agg(caseApp)
 }
