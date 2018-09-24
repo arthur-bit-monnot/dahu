@@ -3,3 +3,5 @@ target/
 out/
 .ensime*
 *.log
+.bloop/
+.idea_modules/
