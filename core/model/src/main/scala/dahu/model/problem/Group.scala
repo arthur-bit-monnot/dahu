@@ -26,7 +26,7 @@ import scala.collection.{immutable, mutable}
 import scala.reflect.ClassTag
 
 case class Context[I <: IDTop](as: Seq[I] = Seq[I]()) {
-  def +(i: I): Context[I] = Context(as :+ i)
+  def +(i: I): Context[I] = Context[I](as :+ i)
   def nesting: Int = as.size
 
   override def toString: String = as.mkString("Ctx(", ", ", ")")
