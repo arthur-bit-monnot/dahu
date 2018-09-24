@@ -59,21 +59,21 @@ trait EmptyModule extends mill.Module {}
 
 
 object deps {
-  val cats = ivy"org.typelevel::cats-core:1.1.0"
-  val catsFree = ivy"org.typelevel::cats-free:1.1.0"
-  val catsEffect = ivy"org.typelevel::cats-effect:1.0.0-RC"
-  val spire = ivy"org.typelevel::spire:0.14.1"
+  val cats = ivy"org.typelevel::cats-core:1.4.0"
+  val catsFree = ivy"org.typelevel::cats-free:1.4.0"
+  val catsEffect = ivy"org.typelevel::cats-effect:1.0.0"
+  val spire = ivy"org.typelevel::spire:0.16.0"
   val shapeless = ivy"com.chuusai::shapeless:2.3.3"
   val fastparse = ivy"com.lihaoyi::fastparse:1.0.0"
   val scopt = ivy"com.github.scopt::scopt:3.7.0"
   val debox = ivy"org.spire-math::debox:0.8.0"
   val pddl4j = ivy"fr.uga:pddl4j:3.6.0"
-  val ammoniteOps = ivy"com.lihaoyi::ammonite-ops:1.1.0"
+  val ammoniteOps = ivy"com.lihaoyi::ammonite-ops:1.2.1"
   val caseApp = ivy"com.github.alexarchambault::case-app:2.0.0-M3"
 
-  val utest = ivy"com.lihaoyi::utest:0.6.4"
+  val utest = ivy"com.lihaoyi::utest:0.6.5"
   val scalatest = ivy"org.scalatest::scalatest:3.0.5"
-  val scalacheck = ivy"org.scalacheck::scalacheck:1.13.5"
+  val scalacheck = ivy"org.scalacheck::scalacheck:1.14.0"
 }
 import deps._
 
