@@ -105,7 +105,6 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
             unsupported()
         }
     }
-    println(s"$node -> $res")
     rec(res)
   }
   private val lt =

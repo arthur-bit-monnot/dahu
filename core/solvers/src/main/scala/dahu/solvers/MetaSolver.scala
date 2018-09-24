@@ -35,11 +35,11 @@ class MetaSolver(val e: Expr[Any],
   def nextSolution(deadline: Option[Deadline] = None): Option[Expr[_] => Value] =
     solver.nextSatisfyingAssignmentInternal(deadline) match {
       case Some(assignment) =>
-        for(i <- pb.tree.internalBottomUpTopologicalOrder(toValidKey(pb.root))) {
-          println(
-            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb.tree
-              .internalCoalgebra(i))
-        }
+//        for(i <- pb.tree.internalBottomUpTopologicalOrder(toValidKey(pb.root))) {
+//          println(
+//            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb.tree
+//              .internalCoalgebra(i))
+//        }
         val total = (x: Expr[_]) => assignment(toValueKey(x)).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
         Some(total)
       case None => None
