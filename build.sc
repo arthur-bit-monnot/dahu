@@ -8,11 +8,11 @@ trait Module extends SbtModule {
   
  def compileIvyDeps = Agg(
    ivy"org.spire-math::kind-projector:0.9.6",
-   ivy"io.tryp:::splain:0.3.1"
+//   ivy"io.tryp:::splain:0.3.1"
  )
  def scalacPluginIvyDeps = Agg(
    ivy"org.spire-math::kind-projector:0.9.6",
-   ivy"io.tryp:::splain:0.3.1"
+//   ivy"io.tryp:::splain:0.3.1"
  )
 
  def scalacOptions = Seq(
@@ -67,7 +67,7 @@ object deps {
   val fastparse = ivy"com.lihaoyi::fastparse:1.0.0"
   val scopt = ivy"com.github.scopt::scopt:3.7.0"
   val debox = ivy"org.spire-math::debox:0.8.0"
-  val pddl4j = ivy"fr.uga:pddl4j:3.6.0"
+  val pddl4j = ivy"com.github.pellierd:pddl4j:3.7.2"
   val ammoniteOps = ivy"com.lihaoyi::ammonite-ops:1.2.1"
   val caseApp = ivy"com.github.alexarchambault::case-app:2.0.0-M3"
 

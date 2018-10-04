@@ -59,7 +59,7 @@ lazy val root = project
   .in(file("."))
   .aggregate(utils, recursion, model, solvers, benchmarks, anmlParser)
   .settings(
-    scalaVersion := "2.12.4",
+    scalaVersion := "2.12.6",
     publish := {},
     publishLocal := {}
   )
@@ -101,7 +101,7 @@ lazy val pddlParser = project
   .dependsOn(planningModel, utils)
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "fr.uga" % "pddl4j" % "3.6.0"
+    "com.github.pellierd" % "pddl4j" % "3.7.2"
   ))
 
 lazy val pddlProblems = project
