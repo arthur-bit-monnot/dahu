@@ -8,7 +8,7 @@ import cats.arrow.FunctionK
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.utils._
-import dahu.model.input.{Expr, SubjectTo}
+import dahu.model.input.Expr
 import dahu.model.types._
 import dahu.model.ir._
 import dahu.graphs.TreeNode._
@@ -24,6 +24,8 @@ import dahu.recursion.{EnvT, FCoalgebra, Recursion}
 import scala.collection.immutable.Set
 import scala.collection.{immutable, mutable}
 import scala.reflect.ClassTag
+
+// TODO: (pure) check is still
 
 case class Context[I <: IDTop](as: Seq[I] = Seq[I]()) {
   def +(i: I): Context[I] = Context[I](as :+ i)
@@ -85,17 +87,7 @@ class Group[K, I <: IDTop](val scope: Scope[K, I],
       if(!_members(i)) { // if not processed already
         _members.add(i)
         val fi = forest.internalCoalgebra(i)
-        fi match {
-          case OptionalF(value, present, _) =>
-            push(present)
-            _limits.add((value, Scope(scope.ctx + present, Some(this))))
-          case Partial(value, condition, _) =>
-            _validityConditions.add(condition)
-            fi.foreachChild(push)
-          case _ =>
-            fi.foreachChild(push)
-        }
-
+        fi.foreachChild(push)
       }
     }
   }
@@ -219,10 +211,6 @@ object Group {
           LambdaDeps(params, remainindApp, lbd.pure && param.pure)
         case (_, x) if x.children.isEmpty   => LambdaDeps.empty
         case (_, x) if x.children.size == 1 => x.children.head
-        case (_, Partial(value, cond, _)) =>
-          LambdaDeps(value.params ++ cond.params, value.applicationStack, false)
-        case (_, OptionalF(value, cond, _)) =>
-          LambdaDeps(value.params ++ cond.params, value.applicationStack, false)
         case (_, x) =>
           val bindings = x.childrenFolLeft(Map[LambdaIdent, I]())(_ ++ _.params) //x.children.map(_.params).fold(Map())(_ ++ _)
           val pure = x.forallChildren(_.pure)
@@ -259,9 +247,6 @@ object Group {
           else
             forest.internalCoalgebra(i)
         val res = fi match {
-          case OptionalF(value, present, t) =>
-            // memory.append(((si + present).conditions, genKey(present, si)))
-            OptionalF(genKey(value, si + present), genKey(present, si), t) //, (present, si), t)
           case ApplyF(lbd, param, t) =>
             NoopF(genKey(lbd, si.copy(applyStak = param :: si.applyStak)), t)
           case LambdaF(in, ast, _, t) => //if si.applyStak.nonEmpty =>
@@ -311,8 +296,6 @@ object Group {
     val traverser: CI => ExprF[CI] = {
       case (i, si) => {
         forest.internalCoalgebra(i) match {
-          case OptionalF(value, present, t) =>
-            OptionalF((value, si + present), (present, si), t) //, (present, si), t)
           case fi => fi.smap((_, si))
         }
       }
@@ -382,10 +365,7 @@ object Group {
       }
 
     val forgetConstraints: ConstrainedF ~> Total = lift {
-      case Partial(v, _, t)          => NoopF(v, t)
-      case UniversalPartial(v, _, t) => NoopF(v, t)
-      case ValidF(_)                 => CstF(Value(true), Tag.ofBoolean)
-      case x: Total[Something]       => x
+      case x: Total[Something] => x
     }
 
     val total: LazyTree[AST.ID, Total, cats.Id, withPrez.ID] =
@@ -437,11 +417,6 @@ object Group {
 //        }
 
         val base = expr match {
-          case Partial((v1, _), (v2, c), _) =>
-            val cOpt = optimized.fromPreviousId(c)
-            and(and(v1, v2), cOpt)
-//            combine(merge(v1 :: v2 :: Nil), Constraint(TRUE, cOpt))
-//            v1 |+| v2 |+| ConstraintSet(Set(Constraint(TRUE, cOpt)))
           case _ => expr.children.map(_._1).fold(TRUE)(and)
         }
         context match {
@@ -534,11 +509,8 @@ object Group {
     type I = noLambdas.ID
 
     val presenceAnnotation = noLambdas.cataLow2[Opt[I]] {
-      case InputF(_, _)       => Opt.empty
-      case CstF(_, _)         => Opt.empty
-      case PresentF(_)        => Opt.empty
-      case OptionalF(v, p, _) => v._1 ++ Set(p._2)
-      case Partial(v, c, _)   => v._1
+      case InputF(_, _) => Opt.empty
+      case CstF(_, _)   => Opt.empty
       case ITEF(c, t, f, _) =>
         Opt.empty //TODO: relies on the very questionable assumption that after an ITE, the result is always present.
       case x =>
@@ -570,19 +542,6 @@ object Group {
         // assert(contexts(i).map(_.size).min >= presenceAnnotation.getInternal(i).size)
 
         fi match {
-          case Partial(_, c, _) =>
-            val baseContext = presenceAnnotation.getInternal(c)
-            val newContexts = ctx.map(_ ++ baseContext)
-            identifiedConstraints.update(c,
-                                         identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
-//          case UniversalPartial(_, c, _) =>
-//            // TODO: same as partial, we should reactivate the other one but it's semantics are not fully supported by the interpreter.
-//            val baseContext = presenceAnnotation.getInternal(c)
-//            val newContexts = ctx.map(_ ++ baseContext)
-//            identifiedConstraints.update(c,
-//                                         identifiedConstraints.getOrElse(c, Set()) ++ newContexts)
-          case UniversalPartial(_, c, _) => // real implementation
-            identifiedConstraints.update(c, Set(Set()))
           case _ =>
         }
       }
@@ -609,12 +568,7 @@ object Group {
     }
 
     val asNodes = noLambdas.mapInternal[Node] {
-      case x: Total[I]               => Tot(x)
-      case PresentF(x)               => Prezence(presenceAnnotation.getInternal(x))
-      case ValidF(x)                 => Constraints(constraints(x))
-      case OptionalF(x, _, t)        => Tot(NoopF(x, t))
-      case Partial(x, _, t)          => Tot(NoopF(x, t))
-      case UniversalPartial(x, _, t) => Tot(NoopF(x, t))
+      case x: Total[I] => Tot(x)
     }
     val finalTree =
       asNodes

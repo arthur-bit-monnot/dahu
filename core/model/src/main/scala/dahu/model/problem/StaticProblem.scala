@@ -51,9 +51,9 @@ object StaticProblem {
               def compute(oneProvided: IDTop): IDTop =
                 ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
 
-              val conditionals: Vec[IDTop] =
-                Vec(newProvided.map(i =>
-                  rec(ITEF[IDTop](rec(PresentF(i)), compute(i), default, x.monoid.tpe))): _*)
+              val conditionals: Vec[IDTop] = ??? // TODO: (pure)
+//                Vec(newProvided.map(i =>
+//                  rec(ITEF[IDTop](rec(PresentF(i)), compute(i), default, x.monoid.tpe))): _*)
 
               val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
               value
@@ -90,26 +90,6 @@ object StaticProblem {
       IR(
         value = v.value,
         provided = getProvided(x) + provided.value
-      )
-    case x @ OptionalF(value, present, typ) =>
-      IR(
-        value = ctx.record((x: StaticF[IR[IDTop]]).smap(_.value)),
-        provided = getProvided(x)
-          .map { id: IDTop =>
-            ctx.record(
-              OptionalF(id, present.value, ctx.retrieve(id).typ)
-            )
-          }
-      )
-    case x @ Partial(value, valid, typ) =>
-      IR(
-        value = ctx.record((x: StaticF[IR[IDTop]]).smap(_.value)),
-        provided = getProvided(x)
-//          .map { id: IDTop =>
-//            ctx.record(
-//              Partial(id, valid.value, ctx.retrieve(id).typ)
-//            )
-//          }
       )
     case x: StaticF[IR[IDTop]] =>
       IR(

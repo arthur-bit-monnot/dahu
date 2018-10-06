@@ -36,7 +36,7 @@ object Products extends TestSuite {
       val prod = Product(i)
 
       "eval (<)" - {
-        val constrained = prod.subjectTo(x => Interval.Start(x) < Interval.End(x))
+        val constrained = prod
         val ast = dahu.model.compiler.Algebras.parse(constrained)
         Interpreter.eval(ast)(_ => Value(0)) ==> None
         Interpreter.eval(ast)(_ => Value(1)) ==> None
@@ -60,7 +60,7 @@ object Products extends TestSuite {
           .smap(FEval(_))
       }
       "eval (<=)" - {
-        val constrained = prod.subjectTo(x => Interval.Start(x) <= Interval.End(x))
+        val constrained = prod
         val ast = dahu.model.compiler.Algebras.parse(constrained)
         Interpreter.eval(ast)(_ => Value(0)) ==> Some(Interval[cats.Id](0, 0))
         Interpreter.eval(ast)(_ => Value(1)) ==> Some(Interval[cats.Id](1, 1))

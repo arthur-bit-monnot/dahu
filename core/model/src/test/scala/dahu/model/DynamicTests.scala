@@ -15,8 +15,11 @@ import dahu.model.validation.Validation
 import dahu.recursion.FAlgebra
 import utest._
 
+/** TODO: (pure)
 object DynamicTests extends TestSuite {
   import dsl._
+
+
 
   def equal(i: Expr[Int]): Expr[Int ->: Boolean] =
     Lambda[Int, Boolean]((j: Expr[Int]) => i === j)
@@ -75,3 +78,4 @@ object DynTestApp extends App {
   Group.process2(API.parse(result))
 
 }
+  */

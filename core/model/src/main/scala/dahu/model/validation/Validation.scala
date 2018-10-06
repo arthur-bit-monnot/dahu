@@ -4,7 +4,7 @@ import cats._
 import dahu.model.input.{Expr, Ident, TypedIdent}
 import dahu.model.interpreter.{FEval, Interpreter, LambdaInterpreter}
 import dahu.model.interpreter._
-import dahu.model.ir.{OptionalF, Partial, StaticF}
+import dahu.model.ir.StaticF
 import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
@@ -156,10 +156,10 @@ object Validation {
             case IR(_, _, FEval(false)) => PConstraintViolated
             case IR(FEval(v), FEval(true), FEval(true)) =>
               FEval(v.asInstanceOf[A])
-            case IR(v, p, vld) =>
-              val alg = LambdaInterpreter.partialEvalAlgebraAny(_ => None)
-              alg(Partial(alg(OptionalF(v, p, null)), vld, null))
-                .asInstanceOf[PEval[A]]
+            case IR(v, p, vld) => ??? //TODO: (pure)
+//              val alg = LambdaInterpreter.partialEvalAlgebraAny(_ => None)
+//              alg(Partial(alg(OptionalF(v, p, null)), vld, null))
+//                .asInstanceOf[PEval[A]]
           }
           override def rep[A](e: Expr[A]): Any =
             SFunctor[IR].smap(ev.getTreeRoot(e))(i => evaluated.getInternal(i))

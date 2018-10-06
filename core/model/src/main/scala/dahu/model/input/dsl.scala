@@ -80,14 +80,6 @@ object dsl {
   implicit def toOrderableLikeOps[A: Orderable](a: A) = new core.algebra.Orderable.OrderableOps(a)
   implicit def toBoolLikeOps[A: BoolLike](a: A) = new core.algebra.BoolLike.BoolLikeOps(a)
 
-  implicit final class ToSubjectToOps[F[_], T](private val lhs: F[T])(
-      implicit ev: F[T] <:< Expr[T]) {
-
-    def subjectTo(cond: F[T] => Expr[Boolean]): Expr[T] =
-      SubjectTo(lhs, cond(lhs))
-
-  }
-
   implicit class UnboxOps[A](private val lhs: Expr[A]) extends AnyVal {
     def unboxed(implicit tag: TagIsoInt[A]): Expr[Int] =
       Computation(tag.unbox, lhs)
@@ -98,11 +90,6 @@ object dsl {
       sequence.Fold(monoid).apply(lhs)
   }
 
-  implicit class ProductOps[T[_[_]]](private val lhs: Product[T]) extends AnyVal {
-
-    def subjectTo(cond: Product[T] => Expr[Boolean]): SubjectTo[T[cats.Id]] =
-      SubjectTo(lhs, cond(lhs))
-  }
   private def named[A, B](f: A => B, name: String): A => B = new Function[A, B] {
     override def apply(v1: A): B = f(v1)
     override def toString(): String = name
@@ -111,31 +98,8 @@ object dsl {
   implicit class GeneralOps[T](private val lhs: Expr[T]) {
     private implicit def tagT: Tag[T] = lhs.typ
 
-    def explicitlyOptional: Expr[Option[T]] =
-      ITE(Present(lhs), lhs.map(named[T, Option[T]](x => Option(x), "Some")), Cst(Option.empty))
-
-    def recover(onConstraintViolated: Expr[T]): Expr[T] =
-      ITE(Valid(lhs), lhs, onConstraintViolated)
-
     def map[B](f: Fun1[T, B]): Expr[B] = Computation1(f, lhs)
     def map[B: Tag](f: T => B): Expr[B] = Computation1(Fun1.embed(f), lhs)
-
-    def subjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
-      SubjectTo(lhs, cond(lhs))
-    def alwaysSubjectTo(cond: Expr[T] => Expr[Boolean]): Expr[T] =
-      UniversalSubjectTo(lhs, cond(lhs))
-  }
-
-  implicit final class SubjectToOps[T](private val lhs: SubjectTo[T]) extends AnyVal {
-    implicit private[this] def tag: Tag[T] = lhs.typ
-
-    /** Swallows a violated constraint and uses the provided value instead. */
-    def recover(onFailure: Expr[T]): ITE[T] =
-      ITE(
-        lhs.condition,
-        lhs.value,
-        onFailure
-      )
 
   }
 

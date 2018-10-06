@@ -57,7 +57,9 @@ lazy val utestSettings = Seq(
 
 lazy val root = project
   .in(file("."))
-  .aggregate(utils, recursion, model, solvers, benchmarks, anmlParser)
+  .aggregate(utils, recursion, model,
+    //solvers, benchmarks,
+    anmlParser)
   .settings(
     scalaVersion := "2.12.6",
     publish := {},
@@ -144,90 +146,90 @@ lazy val model = project
       "com.chuusai" %% "shapeless" % "2.3.3",
     ))
 
-lazy val solvers = project
-  .in(file("core/solvers"))
-  .dependsOn(utils, model)
-  .settings(name := "dahu-solvers")
-  .settings(commonSettings ++ utestSettings: _*)
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
-    ))
-
-lazy val z3 = project
-  .in(file("core/solvers/z3"))
-  .dependsOn(utils, model, solvers)
-  .settings(name := "dahu-z3")
-  .settings(commonSettings ++ utestSettings: _*)
-
-lazy val benchmarks = project
-  .in(file("benchmarks"))
-  .dependsOn(utils, solvers, z3, pddlPlanner, anmlPlanner, pddlProblems)
-  .settings(commonSettings ++ utestSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "fastparse" % "1.0.0",
-      "com.lihaoyi" %% "ammonite-ops" % "1.1.1",
-      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
-  ))
-
-lazy val planner = project
-  .in(file("planning/planner"))
-  .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
-  .settings(commonSettings ++ utestSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %% "cats-effect" % "1.0.0-RC"
-  ))
-
-lazy val anmlPlanner = project
-  .in(file("planning/anml/planner"))
-  .dependsOn(anmlParser, planner)
-  .settings(commonSettings ++ utestSettings: _*)
-  .settings(
-    mainClass in assembly := Some("dahu.planning.anml.planner.Main"),
-    assemblyJarName in assembly := "dahu-anml-planner.jar"
-  )
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.github.scopt" %% "scopt" % "3.7.0",
-      "org.typelevel" %% "cats-effect" % "1.0.0-RC"
-    ))
-
-lazy val pddlPlanner = project
-  .in(file("planning/pddl/planner"))
-  .dependsOn(pddlParser, planner)
-  .settings(commonSettings ++ utestSettings: _*)
-  .settings(
-    mainClass in assembly := Some("dahu.planning.pddl.planner.Main"),
-    assemblyJarName in assembly := "dahu-pddl-planner.jar"
-  )
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.github.scopt" %% "scopt" % "3.7.0",
-      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
-    ))
-
-lazy val rcllPlanner = project
-  .in(file("planning/rcll"))
-  .dependsOn(pddlPlanner)
-  .settings(commonSettings: _*)
-  .settings(
-    name := "rcll-parser",
-    libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "fastparse" % "1.0.0",
-      "com.lihaoyi" %% "ammonite-ops" % "1.1.1",
-      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
-    )
-  )
-
-lazy val tampPlanner = project
-  .in(file("planning/tamp"))
-  .dependsOn(solvers, z3)
-  .settings(commonSettings ++ utestSettings: _*)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.github.scopt" %% "scopt" % "3.7.0",
-      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
-    ))
+//lazy val solvers = project
+//  .in(file("core/solvers"))
+//  .dependsOn(utils, model)
+//  .settings(name := "dahu-solvers")
+//  .settings(commonSettings ++ utestSettings: _*)
+//  .settings(
+//    libraryDependencies ++= Seq(
+//      "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
+//    ))
+//
+//lazy val z3 = project
+//  .in(file("core/solvers/z3"))
+//  .dependsOn(utils, model, solvers)
+//  .settings(name := "dahu-z3")
+//  .settings(commonSettings ++ utestSettings: _*)
+//
+//lazy val benchmarks = project
+//  .in(file("benchmarks"))
+//  .dependsOn(utils, solvers, z3, pddlPlanner, anmlPlanner, pddlProblems)
+//  .settings(commonSettings ++ utestSettings: _*)
+//  .settings(libraryDependencies ++= Seq(
+//      "com.lihaoyi" %% "fastparse" % "1.0.0",
+//      "com.lihaoyi" %% "ammonite-ops" % "1.1.1",
+//      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
+//  ))
+//
+//lazy val planner = project
+//  .in(file("planning/planner"))
+//  .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
+//  .settings(commonSettings ++ utestSettings: _*)
+//  .settings(libraryDependencies ++= Seq(
+//    "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+//  ))
+//
+//lazy val anmlPlanner = project
+//  .in(file("planning/anml/planner"))
+//  .dependsOn(anmlParser, planner)
+//  .settings(commonSettings ++ utestSettings: _*)
+//  .settings(
+//    mainClass in assembly := Some("dahu.planning.anml.planner.Main"),
+//    assemblyJarName in assembly := "dahu-anml-planner.jar"
+//  )
+//  .settings(
+//    libraryDependencies ++= Seq(
+//      "com.github.scopt" %% "scopt" % "3.7.0",
+//      "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+//    ))
+//
+//lazy val pddlPlanner = project
+//  .in(file("planning/pddl/planner"))
+//  .dependsOn(pddlParser, planner)
+//  .settings(commonSettings ++ utestSettings: _*)
+//  .settings(
+//    mainClass in assembly := Some("dahu.planning.pddl.planner.Main"),
+//    assemblyJarName in assembly := "dahu-pddl-planner.jar"
+//  )
+//  .settings(
+//    libraryDependencies ++= Seq(
+//      "com.github.scopt" %% "scopt" % "3.7.0",
+//      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
+//    ))
+//
+//lazy val rcllPlanner = project
+//  .in(file("planning/rcll"))
+//  .dependsOn(pddlPlanner)
+//  .settings(commonSettings: _*)
+//  .settings(
+//    name := "rcll-parser",
+//    libraryDependencies ++= Seq(
+//      "com.lihaoyi" %% "fastparse" % "1.0.0",
+//      "com.lihaoyi" %% "ammonite-ops" % "1.1.1",
+//      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
+//    )
+//  )
+//
+//lazy val tampPlanner = project
+//  .in(file("planning/tamp"))
+//  .dependsOn(solvers, z3)
+//  .settings(commonSettings ++ utestSettings: _*)
+//  .settings(
+//    libraryDependencies ++= Seq(
+//      "com.github.scopt" %% "scopt" % "3.7.0",
+//      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
+//    ))
 
 resolvers += Resolver.sonatypeRepo("releases")
 

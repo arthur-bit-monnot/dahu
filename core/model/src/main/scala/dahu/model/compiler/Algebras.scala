@@ -11,35 +11,26 @@ import dahu.recursion.Recursion._
 object Algebras {
 
   val coalgebra: FCoalgebra[ExprF, Expr[_]] = {
-    case x @ Input(id)                       => InputF(id, id.typ)
-    case x @ Cst(value)                      => CstF(Value(value), x.typ)
-    case x: Computation[_]                   => ComputationF(x.f, x.args, x.typ)
-    case x @ SubjectTo(value, cond)          => Partial(value, cond, x.typ)
-    case x @ UniversalSubjectTo(value, cond) => UniversalPartial(value, cond, x.typ)
-    case x @ Product(value)                  => ProductF(x.members, x.typ)
-    case x @ Sequence(members)               => SequenceF(members, x.typ)
-    case x @ Optional(value, present)        => OptionalF(value, present, x.typ)
-    case x @ ITE(cond, onTrue, onFalse)      => ITEF(cond, onTrue, onFalse, x.typ)
-    case Present(partial)                    => PresentF(partial)
-    case Valid(partial)                      => ValidF(partial)
-    case x @ Dynamic(f, monoid, accept)      => DynamicF(f, monoid, accept, x.typ)
-    case x @ DynamicProvider(e, p)           => DynamicProviderF(e, p, x.typ)
-    case x: Lambda[_, _]                     => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
-    case x @ Apply(lambda, param)            => ApplyF(lambda, param, x.typ)
-    case x @ Lambda.Param(id)                => LambdaParamF(id, x.typ)
+    case x @ Input(id)                  => InputF(id, id.typ)
+    case x @ Cst(value)                 => CstF(Value(value), x.typ)
+    case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
+    case x @ Product(value)             => ProductF(x.members, x.typ)
+    case x @ Sequence(members)          => SequenceF(members, x.typ)
+    case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
+    case x @ Dynamic(f, monoid, accept) => DynamicF(f, monoid, accept, x.typ)
+    case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
+    case x: Lambda[_, _]                => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
+    case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
+    case x @ Lambda.Param(id)           => LambdaParamF(id, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
     case InputF(v, _)                   => "$" + v
     case CstF(v, _)                     => v.toString
     case ComputationF(f, args, _)       => f.name + args.mkString("(", ",", ")")
-    case Partial(value, cond, _)        => s"$value ?($cond)"
     case SequenceF(members, _)          => members.mkString("[", ", ", "]")
     case ProductF(members, _)           => members.mkString("(", ", ", ")")
-    case OptionalF(value, present, _)   => s"($value (presence: $present))"
     case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
-    case PresentF(partial)              => s"present($partial)"
-    case ValidF(partial)                => s"valid($partial)"
     case DynamicF(f, monoid, accept, _) => s"dyn($f // $monoid)"
     case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
     case LambdaF(in, tree, _, _)        => s"($in ↦ $tree)"
@@ -140,12 +131,9 @@ object Algebras {
     case ProductF(members, _)  => TreeSeq(members)
     case ITEF(cond, onTrue, onFalse, _) =>
       TreeSeq(Vec(cond, onTrue, onFalse), before = "ite(", after = ")") //s"ite($cond, $onTrue, $onFalse)"
-    case ApplyF(lbd, param, _)          => TreeSeq(Vec(lbd, param))
-    case NoopF(e, _)                    => e
-    case Partial(value, condition, _)   => TreeSeq(Vec(value, condition), before = "subjectTo(")
-    case OptionalF(value, condition, _) => TreeSeq(Vec(value, condition), before = "optional(")
-    case PresentF(v)                    => TreeSeq(Vec(v), before = "present(")
-    case x: LambdaParamF[_]             => StringLeaf(x.toString)
+    case ApplyF(lbd, param, _) => TreeSeq(Vec(lbd, param))
+    case NoopF(e, _)           => e
+    case x: LambdaParamF[_]    => StringLeaf(x.toString)
     case LambdaF(in, tree, _, _) =>
       TreeSeq(Vec(in, tree), before = "Lbd:", separator = " -> ", after = "")
   }

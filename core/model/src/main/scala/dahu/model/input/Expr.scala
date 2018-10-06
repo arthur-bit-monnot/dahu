@@ -1,6 +1,5 @@
 package dahu.model.input
 
-import java.util
 import java.util.Objects
 
 import cats.Id
@@ -24,43 +23,19 @@ object Expr {
   implicit def dagInstance: DAG[Id, Expr[Any]] = new DAG[Id, Expr[Any]] {
     override def algebra(a: Expr[Any]): Id[Expr[Any]] = a
     override def foreachChild(graph: Id[Expr[Any]])(f: Expr[Any] => Unit): Unit = graph match {
-      case x: Computation[_]                    => x.args.foreach(f)
-      case SubjectTo(value, condition)          => f(value); f(condition)
-      case UniversalSubjectTo(value, condition) => f(value); f(condition)
-      case x: Product[_]                        => x.members.foreach(f)
-      case x: Input[_]                          =>
-      case x: Cst[_]                            =>
-      case Optional(value, present)             => f(value); f(present)
-      case ITE(cond, onTrue, onFalse)           => f(cond); f(onTrue); f(onFalse)
-      case Dynamic(l, _, _)                     => f(l)
-      case DynamicProvider(e, prov)             => f(e); f(prov)
-      case Apply(l, i)                          => f(l); f(i)
-      case x: Lambda[_, _]                      => f(x.parameterizedTree); f(x.inputVar)
-      case Lambda.Param(_)                      =>
-      case Present(v)                           => f(v)
-      case Valid(v)                             => f(v)
-      case Sequence(ms)                         => ms.foreach(f)
+      case x: Computation[_]          => x.args.foreach(f)
+      case x: Product[_]              => x.members.foreach(f)
+      case x: Input[_]                =>
+      case x: Cst[_]                  =>
+      case ITE(cond, onTrue, onFalse) => f(cond); f(onTrue); f(onFalse)
+      case Dynamic(l, _, _)           => f(l)
+      case DynamicProvider(e, prov)   => f(e); f(prov)
+      case Apply(l, i)                => f(l); f(i)
+      case x: Lambda[_, _]            => f(x.parameterizedTree); f(x.inputVar)
+      case Lambda.Param(_)            =>
+      case Sequence(ms)               => ms.foreach(f)
     }
   }
-}
-
-/** Evaluation: eval(condition).flatMap(eval(value)) */
-final case class SubjectTo[T](value: Expr[T], condition: Expr[Boolean]) extends Expr[T] {
-  override def typ: Tag[T] = value.typ
-  override val hash: Int = ScalaRunTime._hashCode(this)
-}
-
-/** The `value` expression is always subject to this constraint, regardless of the context in which it is used
-  * (even if it only accessed in an optional object).
-  * This is typically useful to model domains of variables. */
-final case class UniversalSubjectTo[T](value: Expr[T], condition: Expr[Boolean]) extends Expr[T] {
-  override def typ: Tag[T] = value.typ
-  override val hash: Int = ScalaRunTime._hashCode(this)
-}
-
-final case class Optional[T](value: Expr[T], present: Expr[Boolean]) extends Expr[T] {
-  override def typ: Tag[T] = value.typ
-  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 sealed abstract class Term[T] extends Expr[T]
@@ -75,10 +50,6 @@ final case class Input[T](id: TypedIdent[T]) extends Term[T] {
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
 object Input {
-  def apply[T](id: TypedIdent[T]): Expr[T] = {
-    val in = new Input[T](id)
-    UniversalSubjectTo(in, in.typ.isValid(in))
-  }
   def apply[T: Tag](id: Ident): Expr[T] = Input[T](TypedIdent(id, Tag[T]))
   def apply[T: Tag](name: String): Expr[T] = Input[T](TypedIdent(Ident(name), Tag[T]))
   def apply[T: Tag](): Expr[T] = Input[T](TypedIdent(Ident.anonymous(), Tag[T]))
@@ -103,15 +74,6 @@ object Cst {
 
 final case class ITE[T](cond: Expr[Boolean], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
   override def typ: Tag[T] = onTrue.typ
-  override val hash: Int = ScalaRunTime._hashCode(this)
-}
-
-final case class Present(value: Expr[_]) extends Term[Boolean] {
-  override def typ: Tag[Boolean] = Tag.ofBoolean
-  override val hash: Int = ScalaRunTime._hashCode(this)
-}
-final case class Valid(value: Expr[_]) extends Term[Boolean] {
-  override def typ: Tag[Boolean] = Tag.ofBoolean
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
 

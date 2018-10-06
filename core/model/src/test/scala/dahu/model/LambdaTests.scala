@@ -13,6 +13,7 @@ import dahu.model.types.Value
 import dahu.model.validation.Validation
 import utest._
 
+/** TODO: (pure)
 object LambdaTests extends TestSuite {
   import dsl._
 
@@ -96,3 +97,4 @@ object LambdaTests extends TestSuite {
   }
 
 }
+  */

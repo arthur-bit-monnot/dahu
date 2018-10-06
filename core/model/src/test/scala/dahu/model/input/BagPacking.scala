@@ -11,7 +11,10 @@ import dahu.model.validation.Validation
 import dahu.utils._
 import utest._
 
+/** TODO: (pure)
 object BagPacking extends TestSuite {
+
+
 
   import dsl._
 
@@ -101,4 +104,6 @@ object BagPacking extends TestSuite {
 
     }
   }
+
 }
+  */

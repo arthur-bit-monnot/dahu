@@ -66,41 +66,6 @@ object Interpreter {
         case false => onFalse
         case _     => dahu.utils.errors.unexpected
       }
-    case Partial(value, cond, _) =>
-      cond match {
-        case Empty              => value
-        case Res(true)          => value
-        case Res(false)         => ConstraintViolated
-        case Res(x)             => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-        case ConstraintViolated => ConstraintViolated
-      }
-    case UniversalPartial(value, cond, _) =>
-      cond match {
-        case Empty              => value
-        case Res(true)          => value
-        case Res(false)         => ConstraintViolated
-        case Res(x)             => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-        case ConstraintViolated => ConstraintViolated
-      }
-    case OptionalF(value, present, _) =>
-      present match {
-        case Res(true)          => value
-        case Res(false)         => Empty
-        case Res(x)             => unexpected(s"Present does not evaluates to a boolean but to: $x")
-        case Empty              => ???
-        case ConstraintViolated => ConstraintViolated
-      }
-    case PresentF(v) =>
-      v match {
-        case Empty              => Res(Value(false))
-        case ConstraintViolated => ConstraintViolated
-        case _                  => Res(Value(true))
-      }
-    case ValidF(v) =>
-      v match {
-        case ConstraintViolated => Res(Value(false)) //TODO: semantics for Empty
-        case _                  => Res(Value(true))
-      }
     case _: LambdaF[_]      => ??? // TODO: generation of functions from lambda not implemented yet
     case _: LambdaParamF[_] => ???
   }
@@ -180,41 +145,12 @@ object Interpreter {
     val alg: AttributeAlgebra[ast.ID, ExprF, Result[Value]] = {
       case EnvT(_, x: InputF[_]) => Res(input(x))
       case EnvT(_, CstF(v, _))   => Res(v)
-      case EnvT(_, PresentF(v)) =>
-        v match {
-          case Empty => Res(Value(false))
-          case _     => Res(Value(true))
-        }
-      case EnvT(_, ValidF(v)) =>
-        v match {
-          case ConstraintViolated => Res(Value(false))
-          case _                  => Res(Value(true))
-        }
       case EnvT(_, ComputationF(f, args, _)) =>
         Result
           .sequence(args)
           .map(actualArgs => Value(f.compute(actualArgs)))
       case EnvT(_, ProductF(members, t)) =>
         Result.sequence(members).map(ms => Value(t.idProd.buildFromValues(ms)))
-      case EnvT(id, Partial(value, cond, _)) =>
-        cond match {
-          case Empty =>
-            value
-          case Res(true) =>
-            value
-          case Res(false) =>
-            ConstraintViolated
-
-          case Res(x) => unexpected(s"Condition does not evaluates to a boolean but to: $x")
-          case x      => x
-        }
-      case EnvT(_, OptionalF(value, present, _)) =>
-        present match {
-          case Res(true)  => value.map(x => Value(x))
-          case Res(false) => Empty
-          case Res(x)     => unexpected(s"Present does not evaluates to a boolean but to: $x")
-          case x          => x
-        }
       case EnvT(_, ITEF(cond, onTrue, onFalse, _)) =>
         cond.flatMap {
           case true  => onTrue

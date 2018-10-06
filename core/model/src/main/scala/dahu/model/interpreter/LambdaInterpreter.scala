@@ -54,58 +54,6 @@ object LambdaInterpreter {
             case false => onFalse
             case _     => dahu.utils.errors.unexpected
           }, onTrue.applicationStack)
-        case Partial(value, cond, _) =>
-          assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
-          cond match {
-            case PEmpty => value
-            case PConstraintViolated =>
-              FlatMapped[Value, Value](value, _ => PConstraintViolated, value.applicationStack)
-            case _ =>
-              FlatMapped[Value, Value](cond, {
-                case true => value
-                case false =>
-                  FlatMapped[Value, Value](value, _ => PConstraintViolated, value.applicationStack)
-                case _ => unexpected
-              }, value.applicationStack)
-          }
-        case UniversalPartial(value, cond, _) =>
-          assert(cond.applicationStack.isEmpty || cond.applicationStack == value.applicationStack)
-          cond match {
-            case PEmpty => value
-            case PConstraintViolated =>
-              FlatMapped[Value, Value](value, _ => PConstraintViolated, value.applicationStack)
-            case _ =>
-              FlatMapped[Value, Value](cond, {
-                case true  => value
-                case false => PConstraintViolated
-                case _     => unexpected
-              }, value.applicationStack)
-          }
-        case OptionalF(value, present, _) =>
-          assert(
-            present.applicationStack.isEmpty || present.applicationStack == value.applicationStack)
-          present match {
-            case PEmpty              => PEmpty
-            case PConstraintViolated => PConstraintViolated
-            case _ =>
-              FlatMapped[Value, Value](present, {
-                case true  => value
-                case false => PEmpty
-                case x     => unexpected(s"Present does not evaluates to a boolean but to: $x")
-              }, value.applicationStack)
-          }
-        case PresentF(v) =>
-          v match {
-            case PEmpty              => FEval(false)
-            case PConstraintViolated => PConstraintViolated
-            case FEval(_)            => FEval(true)
-          }
-        case ValidF(v) =>
-          v match {
-            case PEmpty              => PEmpty
-            case PConstraintViolated => FEval(false)
-            case FEval(_)            => FEval(true)
-          }
       }
       res.asInstanceOf[PEval[Value]]
     }

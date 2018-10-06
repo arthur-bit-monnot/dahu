@@ -596,48 +596,6 @@ object SatisfactionProblem {
                               utils.implies(cond.value, onTrue.valid),
                               utils.implies(utils.not(cond.value), onFalse.valid))
           )
-        case OptionalF(value, present, _) =>
-          import utils._
-          def isReallyValid(ir: IR[IDTop]) = utils.implies(ir.present, ir.valid)
-          val validity =
-            utils.and(utils.or(utils.not(present.value), isReallyValid(value)),
-                      isReallyValid(present))
-          val presence =
-            utils.or(utils.and(value.present, present.present, present.value), utils.not(validity))
-//          val p2 = utils.or(utils.and(present.present, present.value, value.present),
-//                            utils.not(present.valid))
-          val absent =
-            or(not(value.present), not(present.present), and(not(present.value), present.valid))
-          val p2 = not(absent)
-          val val2 = utils.implies(p2, utils.and(value.valid, present.valid))
-          IR(
-            value = value.value,
-            present = p2,
-            valid = val2
-          )
-        case PresentF(opt) =>
-          IR(
-            value = opt.present,
-            present = utils.TRUE,
-            valid = opt.valid
-          )
-        case ValidF(part) =>
-          IR(
-            value = part.valid,
-            present = part.present,
-            valid = utils.TRUE
-          )
-        case Partial(value, condition, tpe) =>
-          val prez = utils.and(value.present, condition.present)
-          val valid = utils.implies(prez, utils.and(value.valid, condition.valid, condition.value))
-          IR(
-            value = value.value,
-            present = prez, //value.present,
-            valid = valid
-//              utils.and(
-//              utils.implies(value.present, value.valid),
-//              utils.implies(condition.present, utils.and(condition.value, condition.valid)))
-          )
         case p @ LambdaParamF(id, typ) =>
           val placeHolder = utils.rec(LambdaParamF(id, typ))
           IR(
@@ -764,25 +722,6 @@ object SatisfactionProblem {
 //            present = utils.and(cond.present,
 //                                utils.implies(cond.value, onTrue.present),
 //                                utils.implies(utils.not(cond.value), onFalse.present))
-//          )
-        case OptionalF(value, present, tpe) =>
-          rec(NoopF(value, tpe), and(present, presence(value)))
-//          Prez(
-//            value = value.value,
-//            present = utils.and(value.present, present.present, present.value)
-//          )
-        case PresentF(opt) =>
-          presence(opt)
-        case x @ ValidF(part) => rec(x, presence(part))
-//          Prez(
-//            value = utils.rec(ValidF(part.value)),
-//            present = part.present
-//          )
-        case x @ Partial(value, condition, tpe) => // TODO: are we present even if condition is absent?
-          rec(x, presence(value))
-//          Prez(
-//            value = utils.rec(Partial(value.value, condition.value, tpe)),
-//            present = utils.and(value.present, condition.present)
 //          )
         case p @ LambdaParamF(id, typ) => ???
 //          val placeHolder = utils.rec(LambdaParamF(id, typ))
