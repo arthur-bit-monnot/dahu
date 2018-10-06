@@ -7,7 +7,7 @@ import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.functions._
-import dahu.model.math.Monoid
+import dahu.model.math.{bool, Monoid}
 import dahu.model.types._
 
 import scala.reflect.ClassTag
@@ -70,7 +70,7 @@ final case class TypedIdent[+T](id: Ident, typ: Tag[T]) {
 }
 
 /** Evaluation yields a Right[T] */
-final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {
+final case class Input[T](id: TypedIdent[T]) extends Term[T] {
   override def typ: Tag[T] = id.typ
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
