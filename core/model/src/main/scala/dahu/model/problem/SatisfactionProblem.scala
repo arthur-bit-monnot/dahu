@@ -643,8 +643,8 @@ object SatisfactionProblem {
   final class UtilsPrez(val directRec: OptConst[IDTop] => IDTop,
                         retrieve: IDTop => OptConst[IDTop]) {
     def rec(expr: OptConst[IDTop]): IDTop = directRec(expr)
-    def rec(e: ConstrainedF[IDTop], prez: IDTop): IDTop = rec(OptConst(e, Some(prez)))
-    def recPure(expr: ConstrainedF[IDTop]) = rec(OptConst.present(expr))
+    def rec(e: Total[IDTop], prez: IDTop): IDTop = rec(OptConst(e, Some(prez)))
+    def recPure(expr: Total[IDTop]) = rec(OptConst.present(expr))
     def ret(i: IDTop): OptConst[IDTop] = retrieve(i)
 
     val TRUE: IDTop = rec(OptConst[IDTop](CstF(Value(true), Tag.ofBoolean), None))
@@ -675,10 +675,10 @@ object SatisfactionProblem {
       override def map[A, B](fa: Prez[A])(f: A => B): Prez[B] = Prez(f(fa.value), f(fa.present))
     }
   }
-  final case class OptConst[F](value: ConstrainedF[F], presence: Option[F])
+  final case class OptConst[F](value: Total[F], presence: Option[F])
   object OptConst {
-    def present[F](value: ConstrainedF[F]): OptConst[F] = OptConst(value, None)
-    def apply[F](value: ConstrainedF[F], prez: F): OptConst[F] = OptConst(value, Some(prez))
+    def present[F](value: Total[F]): OptConst[F] = OptConst(value, None)
+    def apply[F](value: Total[F], prez: F): OptConst[F] = OptConst(value, Some(prez))
 
     implicit object FunctorInstance extends SFunctor[OptConst] {
       override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: OptConst[A])(f: A => B): OptConst[B] =

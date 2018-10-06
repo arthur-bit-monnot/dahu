@@ -29,7 +29,6 @@ object Expr {
       case x: Cst[_]                  =>
       case ITE(cond, onTrue, onFalse) => f(cond); f(onTrue); f(onFalse)
       case Dynamic(l, _, _)           => f(l)
-      case DynamicProvider(e, prov)   => f(e); f(prov)
       case Apply(l, i)                => f(l); f(i)
       case x: Lambda[_, _]            => f(x.parameterizedTree); f(x.inputVar)
       case Lambda.Param(_)            =>
@@ -258,10 +257,9 @@ final case class Dynamic[Provided, Out: Tag](f: Expr[Provided ->: Out],
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
-final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provided])
-    extends Expr[A] {
-  override def typ: Tag[A] = e.typ
-  override val hash: Int = ScalaRunTime._hashCode(this)
+final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provided]) {
+  def typ: Tag[A] = e.typ
+  val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameterizedTree: Expr[O])

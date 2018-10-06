@@ -78,18 +78,13 @@ object StaticProblem {
   def getProvided(e: ExprF[IR[IDTop]]): Bag[IDTop] =
     Bag.fromIterables(TreeNode[ExprF].children(e).map(_.provided))
 
-  def algebra(ctx: LazyForestGenerator.Context[NoProviderF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
+  def algebra(ctx: LazyForestGenerator.Context[ExprF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
     case x: InputF[_] => IR(ctx.record(x), Bag.empty)
     case x: CstF[_]   => IR(ctx.record(x), Bag.empty)
     case x @ DynamicF(_, _, _, _) =>
       IR(
         value = ctx.record(x.smap(_.value)),
         provided = getProvided(x)
-      )
-    case x @ DynamicProviderF(v, provided, _) =>
-      IR(
-        value = v.value,
-        provided = getProvided(x) + provided.value
       )
     case x: StaticF[IR[IDTop]] =>
       IR(

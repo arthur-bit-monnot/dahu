@@ -256,9 +256,6 @@ object Group {
           case DynamicF(f, monoid, _, t) =>
             val fed = dyns.map(d => record(ApplyF(f, d._1, monoid.inTypes), d._2))
             ComputationF(monoid, fed, t)
-          case DynamicProviderF(e, p, t) =>
-//            assert(dyns.contains((p, si)))
-            NoopF(genKey(e, si), t)
           case _ if si.binds.contains(i) =>
             NoopF(genKey(si.binds(i), si), Tag.default[Any])
 //          case LambdaF(in, ast, _, t) =>
@@ -302,8 +299,7 @@ object Group {
     }
 
     val dynamics = traverseAcc[List[CI], CI, ExprF](traverser)((root, CtxDef()), Nil) {
-      case ((_, DynamicProviderF(_, x, _)), acc) => x :: acc
-      case (_, acc)                              => acc
+      case (_, acc) => acc
     }
     val xx = mutable.Buffer[String]()
     val coalgFinal = mutable.Map[CI, ExprF[CI]]()
@@ -359,12 +355,12 @@ object Group {
       def empty[F]: ConstraintSet[F] = emptySingleton.asInstanceOf[ConstraintSet[F]]
     }
 
-    val constrained: LazyTree[AST.ID, ConstrainedF, cats.Id, withPrez.ID] =
-      withPrez.map[ConstrainedF] {
+    val constrained: LazyTree[AST.ID, Total, cats.Id, withPrez.ID] =
+      withPrez.map[Total] {
         case OptConst(v, _) => v
       }
 
-    val forgetConstraints: ConstrainedF ~> Total = lift {
+    val forgetConstraints: Total ~> Total = lift {
       case x: Total[Something] => x
     }
 

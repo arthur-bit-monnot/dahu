@@ -18,7 +18,6 @@ object Algebras {
     case x @ Sequence(members)          => SequenceF(members, x.typ)
     case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
     case x @ Dynamic(f, monoid, accept) => DynamicF(f, monoid, accept, x.typ)
-    case x @ DynamicProvider(e, p)      => DynamicProviderF(e, p, x.typ)
     case x: Lambda[_, _]                => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
     case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
     case x @ Lambda.Param(id)           => LambdaParamF(id, x.typ)
@@ -32,7 +31,6 @@ object Algebras {
     case ProductF(members, _)           => members.mkString("(", ", ", ")")
     case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
     case DynamicF(f, monoid, accept, _) => s"dyn($f // $monoid)"
-    case DynamicProviderF(e, p, _)      => s"($e (providing: $p))"
     case LambdaF(in, tree, _, _)        => s"($in ↦ $tree)"
     case ApplyF(lambda, param, _)       => s"$lambda $param"
     case NoopF(e, _)                    => e

@@ -25,24 +25,22 @@ object ExprF extends LowPriorityExprF {
       fa match {
         case fa: Total[A]                       => Total.functor.smap(fa)(f)
         case DynamicF(fun, monoid, accept, typ) => DynamicF(f(fun), monoid, accept, typ)
-        case DynamicProviderF(e, p, typ)        => DynamicProviderF(f(e), f(p), typ)
         case ApplyF(lambda, param, typ)         => ApplyF(f(lambda), f(param), typ)
       }
   }
 
   def hash[@sp(Int) A](exprF: ExprF[A]): Int = exprF match {
-    case x: ComputationF[A]     => ScalaRunTime._hashCode(x)
-    case x: InputF[A]           => ScalaRunTime._hashCode(x)
-    case x: CstF[A]             => ScalaRunTime._hashCode(x)
-    case x: ITEF[A]             => ScalaRunTime._hashCode(x)
-    case x: ProductF[A]         => ScalaRunTime._hashCode(x)
-    case x: DynamicF[A]         => ScalaRunTime._hashCode(x)
-    case x: DynamicProviderF[A] => ScalaRunTime._hashCode(x)
-    case x: LambdaF[A]          => ScalaRunTime._hashCode(x)
-    case x: ApplyF[A]           => ScalaRunTime._hashCode(x)
-    case x: LambdaParamF[A]     => ScalaRunTime._hashCode(x)
-    case x: SequenceF[A]        => ScalaRunTime._hashCode(x)
-    case x: NoopF[A]            => ScalaRunTime._hashCode(x)
+    case x: ComputationF[A] => ScalaRunTime._hashCode(x)
+    case x: InputF[A]       => ScalaRunTime._hashCode(x)
+    case x: CstF[A]         => ScalaRunTime._hashCode(x)
+    case x: ITEF[A]         => ScalaRunTime._hashCode(x)
+    case x: ProductF[A]     => ScalaRunTime._hashCode(x)
+    case x: DynamicF[A]     => ScalaRunTime._hashCode(x)
+    case x: LambdaF[A]      => ScalaRunTime._hashCode(x)
+    case x: ApplyF[A]       => ScalaRunTime._hashCode(x)
+    case x: LambdaParamF[A] => ScalaRunTime._hashCode(x)
+    case x: SequenceF[A]    => ScalaRunTime._hashCode(x)
+    case x: NoopF[A]        => ScalaRunTime._hashCode(x)
   }
 }
 trait LowPriorityExprF {
@@ -54,30 +52,26 @@ trait LowPriorityExprF {
 
   implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
     override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
-      case x: Total[A]                      => Total.treeNodeInstance.children(x)
-      case DynamicF(f, _, _, _)             => Iterable(f)
-      case DynamicProviderF(e, provided, _) => Iterable(e, provided)
-      case ApplyF(lambda, param, _)         => Iterable(lambda, param)
+      case x: Total[A]              => Total.treeNodeInstance.children(x)
+      case DynamicF(f, _, _, _)     => Iterable(f)
+      case ApplyF(lambda, param, _) => Iterable(lambda, param)
     }
     override def foreachChild[A](fa: ExprF[A])(f: A => Unit): Unit = fa match {
-      case x: Total[A]                      => Total.treeNodeInstance.foreachChild(x)(f)
-      case DynamicF(lbd, _, _, _)           => f(lbd)
-      case DynamicProviderF(e, provided, _) => f(e); f(provided)
-      case ApplyF(lambda, param, _)         => f(lambda); f(param)
+      case x: Total[A]              => Total.treeNodeInstance.foreachChild(x)(f)
+      case DynamicF(lbd, _, _, _)   => f(lbd)
+      case ApplyF(lambda, param, _) => f(lambda); f(param)
     }
   }
 }
 
-sealed trait NoProviderF[@sp(Int) F] extends ExprF[F]
-sealed trait StaticF[@sp(Int) F] extends NoProviderF[F]
+sealed trait StaticF[@sp(Int) F] extends ExprF[F]
 sealed trait NoApplyF[@sp(Int) F] extends StaticF[F]
-sealed trait ConstrainedF[@sp(Int) F] extends NoApplyF[F]
 
 /** Pure expressions that always yield value if they are fed with pure expressions.
   *
   * A Fix[Pure] can always be evaluated to its value.
   * */
-sealed trait Total[@sp(Int) F] extends ConstrainedF[F] // StaticF without lambda application
+sealed trait Total[@sp(Int) F] extends NoApplyF[F] // StaticF without lambda application
 object Total {
   implicit val functor: SFunctor[Total] = new SFunctor[Total] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: Total[A])(f: A => B): Total[B] =
@@ -189,9 +183,9 @@ final case class DynamicF[@sp(Int) F](f: F,
                                       monoid: Monoid[_],
                                       accept: Option[Type => Boolean],
                                       typ: Type)
-    extends NoProviderF[F]
+    extends ExprF[F]
 
-final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) extends ExprF[F]
+final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) //extends ExprF[F]
 
 /**
   * Lambda is composed of an AST `tree` and a variable `in`.
