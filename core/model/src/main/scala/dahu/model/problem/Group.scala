@@ -50,22 +50,22 @@ object ContextSet {
   implicit def monoidInstance[I <: IDTop]: Monoid[ContextSet[I]] =
     MonoidInstance.asInstanceOf[Monoid[ContextSet[I]]]
 }
-case class Scope[K, I <: IDTop](ctx: Context[I], parent: Option[Group[K, I]]) {
+case class GScope[K, I <: IDTop](ctx: Context[I], parent: Option[Group[K, I]]) {
   def nesting: Int = ctx.nesting
 }
 
-class Group[K, I <: IDTop](val scope: Scope[K, I],
+class Group[K, I <: IDTop](val scope: GScope[K, I],
                            forest: IlazyForest[K, ExprF, cats.Id, I],
                            roots: Set[I]) {
 
   private[this] val _members = mutable.Set[I]()
-  private[this] val _limits = mutable.Set[(I, Scope[K, I])]()
+  private[this] val _limits = mutable.Set[(I, GScope[K, I])]()
   private[this] val _validityConditions = mutable.Set[I]()
 
   roots.foreach(recursivelyAdd)
 
   lazy val members: Set[I] = _members.toSet
-  lazy val limits: Set[(I, Scope[K, I])] = _limits.toSet
+  lazy val limits: Set[(I, GScope[K, I])] = _limits.toSet
 
   private def parentHas(i: I): Boolean =
     scope.parent.exists(p => p.members.contains(i) || p.parentHas(i))
@@ -112,10 +112,10 @@ object Group {
     val forest = tree.tree
     val root = forest.getTreeRoot(tree.root)
 
-    object Queue extends Iterator[(Scope[K, I], Set[I])] {
-      def append(x: (I, Scope[K, I])): Unit = append(x._1, x._2)
-      def append(i: I, scope: Scope[K, I]): Unit = pending.append((i, scope))
-      private[this] var pending = mutable.ArrayBuffer[(I, Scope[K, I])]()
+    object Queue extends Iterator[(GScope[K, I], Set[I])] {
+      def append(x: (I, GScope[K, I])): Unit = append(x._1, x._2)
+      def append(i: I, scope: GScope[K, I]): Unit = pending.append((i, scope))
+      private[this] var pending = mutable.ArrayBuffer[(I, GScope[K, I])]()
       override def hasNext: Boolean = pending.nonEmpty
       override def next() = {
         val ctx = pending.iterator.map(_._2).minBy(_.nesting)
@@ -124,7 +124,7 @@ object Group {
         (ctx, roots)
       }
     }
-    val rootContext = Scope[K, I](Context[I](), None)
+    val rootContext = GScope[K, I](Context[I](), None)
     Queue.append(root, rootContext)
 
     val groups: Seq[Group[K, I]] = (for((ctx, roots) <- Queue) yield {

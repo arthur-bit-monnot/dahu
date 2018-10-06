@@ -1,14 +1,13 @@
 package dahu.model.problem
 
 import dahu.model.functions._
-import dahu.model.input.Ident
+import dahu.model.input.{Ident, Scope}
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._
 import dahu.utils.{SFunctor, Vec}
 import dahu.utils.errors._
 
-import scala.collection.mutable
 import scala.reflect.ClassTag
 
 package intbool.internal {
@@ -98,9 +97,9 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
         dahu.utils.debug.warning(s"unsupported: $x2")
         x.typ match {
           case Tag.ofBoolean =>
-            SupportedInput(InputF(Ident.anonymous(), Tag.ofBoolean))
+            SupportedInput(InputF(Ident.anonymous(Scope.root), Tag.ofBoolean))
           case t: TagIsoInt[_] =>
-            CompatibleInput(InputF(Ident.anonymous(), Tag.ofInt), t)
+            CompatibleInput(InputF(Ident.anonymous(Scope.root), Tag.ofInt), t)
           case _ =>
             unsupported()
         }

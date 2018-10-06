@@ -7,44 +7,26 @@ import dahu.model.input.dsl._
 
 import scala.collection.mutable.{ArrayBuffer => Buff}
 
-trait Context {
-  def id: String
-  def prez: Expr[Boolean]
-
-  def subId(localId: String): String = id match {
-    case "" => localId
-    case x  => x + "." + localId
-  }
-
-  override def toString: String = "@" + id
-}
-case object RootContext extends Context {
-  override def id = ""
-  override def prez: Expr[Boolean] = bool.True
-}
-case class SubContext(name: String, parent: Context) extends Context {
-  override val id: String = parent.subId(name)
-  override val prez: Expr[Boolean] =
-    new Input[Boolean](TypedIdent(Ident(subId("prez?")), Tag[Boolean]))
-}
-
-case class CExpr[+A](e: Expr[A], ctx: Context)
+case class CExpr[+A](e: Expr[A], ctx: Scope)
 
 trait Struct {
-  def context: Context
-  final def prez: Expr[Boolean] = context.prez
-  def vars: Seq[CExpr[Any]]
+  def scope: Scope
+  final def prez: Expr[Boolean] = scope.present
+  def vars: Seq[Expr[Any]]
   def constraints: Seq[CExpr[Boolean]]
   def subs: Seq[Struct]
 
   override def toString: String = {
     val sb = new StringBuilder()
     sb.append("Vars\n")
-    for(CExpr(e, c) <- vars) {
+    for(e <- vars) {
       sb.append("  ")
-      sb.append(e)
-      sb.append(" ")
-      sb.append(c)
+      e match {
+        case Input(TypedIdent(id, typ)) =>
+          sb.append(id.lid + " :" + typ.typ + " [" + id.scope + "]")
+        case _ =>
+          sb.append(e)
+      }
       sb.append("\n")
     }
     sb.append("Constraints:\n")
@@ -57,7 +39,7 @@ trait Struct {
     }
 
     for(sub <- subs) {
-      sb.append("\nSub: " + sub.context + "\n")
+      sb.append("\nSub: " + sub.scope + "\n")
       sb.append(sub.toString)
     }
     sb.toString()
@@ -68,7 +50,7 @@ trait Struct {
       for(v <- s.vars) in.vars += v
       for(c <- s.constraints) in.constraints += c
     }
-    val s = new Structure(context)
+    val s = new Structure(scope)
     mergeVarsAndConstraints(this, s)
     for(sub <- subs) {
       mergeVarsAndConstraints(sub.flattened, s)
@@ -78,38 +60,36 @@ trait Struct {
   }
 }
 
-final class Structure(val context: Context) extends Struct {
+final class Structure(val scope: Scope) extends Struct {
 
   var isSealed: Boolean = false
-  val vars: Buff[CExpr[Any]] = Buff()
+  val vars: Buff[Expr[Any]] = Buff()
   val constraints: Buff[CExpr[Boolean]] = Buff()
   val subs: Buff[Struct] = Buff()
 
   def seal(): Struct = { isSealed = true; this }
 
-  def addVar[T: Tag](name: String): CExpr[T] = {
-    assert(!isSealed)
-    val in = new Input[T](TypedIdent(Ident(context.subId(name)), Tag[T]))
-    val v = CExpr(in, context)
+  def addVar[T: Tag](name: String): Expr[T] = {
+    assert(!isSealed) // todo: check existence
+    val v = Input[T](name, scope)
     vars += v
     v
   }
-  def addVar[T](e: Expr[T]): CExpr[T] = {
+  def addVar[T](v: Expr[T]): Expr[T] = {
     assert(!isSealed)
-    val v = CExpr(e, context)
     vars += v
     v
   }
   def addConstraint(c: Expr[Boolean]): CExpr[Boolean] = {
     assert(!isSealed)
-    val cc = CExpr[Boolean](c, context)
+    val cc = CExpr[Boolean](c, scope)
     constraints += cc
     cc
   }
 
   def addSub(name: String): Structure = {
-    val subContext = SubContext(name, context)
-    addVar(subContext.prez)
+    val subPrez = addVar[Boolean](s"$name?")
+    val subContext = scope.subScope(name, subPrez)
     val s = new Structure(subContext)
     subs += s
     s
@@ -117,7 +97,7 @@ final class Structure(val context: Context) extends Struct {
 }
 
 object Structure {
-  def newRoot(): Structure = new Structure(RootContext)
+  def newRoot(): Structure = new Structure(Scope.root)
 }
 
 object Test extends App {
@@ -130,7 +110,7 @@ object Test extends App {
   val x = csp.addSub("X")
   x.addVar[Int]("a")
 
-  csp.addConstraint(a.e <= b.e)
+  csp.addConstraint(a <= b)
 
   println(csp)
 

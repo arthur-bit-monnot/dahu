@@ -15,7 +15,7 @@ import utest._
 object Products extends TestSuite {
 
   def liftNameMap(m: Any => Value): TypedIdent[Any] => Value = {
-    case TypedIdent(Ident(s), _) => m(s)
+    case TypedIdent(Ident(_, s), _) => m(s)
   }
 
   def tests = Tests {
@@ -32,7 +32,7 @@ object Products extends TestSuite {
         implicitly[ProductTag[Interval]].ignoreResult
       }
 
-      val i = Interval[Expr](Input[Int]("s"), Input[Int]("e"))
+      val i = Interval[Expr](Input[Int]("s", Scope.root), Input[Int]("e", Scope.root))
       val prod = Product(i)
 
       "eval (<)" - {

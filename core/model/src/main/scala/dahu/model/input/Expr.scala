@@ -39,10 +39,6 @@ object Expr {
 
 sealed abstract class Term[T] extends Expr[T]
 
-final case class TypedIdent[+T](id: Ident, typ: Tag[T]) {
-  override def toString: String = id.toString
-}
-
 /** Evaluation yields a Right[T] */
 final case class Input[T](id: TypedIdent[T]) extends Term[T] {
   override def typ: Tag[T] = id.typ
@@ -50,8 +46,9 @@ final case class Input[T](id: TypedIdent[T]) extends Term[T] {
 }
 object Input {
   def apply[T: Tag](id: Ident): Expr[T] = Input[T](TypedIdent(id, Tag[T]))
-  def apply[T: Tag](name: String): Expr[T] = Input[T](TypedIdent(Ident(name), Tag[T]))
-  def apply[T: Tag](): Expr[T] = Input[T](TypedIdent(Ident.anonymous(), Tag[T]))
+  def apply[T: Tag](name: String, scope: Scope): Expr[T] =
+    Input[T](TypedIdent(Ident(scope, name), Tag[T]))
+  def apply[T: Tag](scope: Scope): Expr[T] = Input[T](TypedIdent(Ident.anonymous(scope), Tag[T]))
 }
 
 // TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult
@@ -282,7 +279,7 @@ final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameteri
 
 object Lambda {
   private val dummyLambdaParam =
-    Input[Nothing](TypedIdent(Ident.anonymous(), Tag.default[Nothing]))
+    Input[Nothing](TypedIdent(Ident.anonymous(Scope.root), Tag.default[Nothing]))
   def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O]): Lambda[I, O] = {
     val treeShape = f(dummyLambdaParam)
     val id = new LambdaIdent(treeShape, None, None)

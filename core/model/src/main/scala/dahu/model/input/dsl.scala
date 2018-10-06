@@ -44,10 +44,6 @@ object dsl {
   implicit def double2Cst(value: Double): Expr[Double] = Cst(value)
   implicit def int2Cst(value: Int): Expr[Int] = Cst(value)
 
-  implicit class InputHelper(val sc: StringContext) extends AnyVal {
-    def d(args: Any*): Expr[Double] = Input[Double](sc.s(args: _*))
-  }
-
   implicit val boolLike: BoolLike[Expr[Boolean]] = new BoolLike[Expr[Boolean]] {
     override def and(a: Expr[Boolean], b: Expr[Boolean]): Expr[Boolean] =
       Computation(bool.And, Seq(a, b))
