@@ -6,7 +6,7 @@ import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
 import dahu.model.input.{Expr, Ident, TypedIdent}
 import dahu.model.interpreter.{Interpreter, LambdaInterpreter, PEval, Result}
-import dahu.model.ir.{ExprF, NoApplyF, StaticF, Total}
+import dahu.model.ir.{ExprF, StaticF, Total}
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
 import dahu.utils.SFunctor
@@ -23,19 +23,19 @@ object API {
   def parse[K, F[_]: SFunctor: TreeNode](root: K, coalgebra: K => F[K]): LazyTree[K, F, Id, _] =
     LazyTree.parse(root, coalgebra).forceEvaluation
 
-  def eliminitateDynamics[K](tree: LazyTree[K, ExprF, Id, _]): LazyTree[K, StaticF, Id, _] =
+  def eliminateDynamics[K](tree: LazyTree[K, ExprF, Id, _]): LazyTree[K, StaticF, Id, _] =
     StaticProblem.underClosedWorld[K](tree).forceEvaluation
 
-  def expandLambdas[K](tree: LazyTree[K, StaticF, Id, _]): LazyTree[K, NoApplyF, Id, _] =
+  def expandLambdas[K](tree: LazyTree[K, StaticF, Id, _]): LazyTree[K, Total, Id, _] =
     ExpandLambdas.expandLambdas[K](tree).forceEvaluation
 
-  def makeTotal[K](t: LazyTree[K, NoApplyF, Id, _]): LazyTree[K, Total, IR, _] = {
+  def makeTotal[K](t: LazyTree[K, Total, Id, _]): LazyTree[K, Total, IR, _] = {
     Group.makeTotal(t).forceEvaluation
   }
 
   def parseAndProcess[K](root: K, coalgebra: K => ExprF[K]): LazyTree[K, Total, IR, _] = {
     val parsed = parse(root, coalgebra)
-    val noDynamics = eliminitateDynamics[K](parsed)
+    val noDynamics = eliminateDynamics[K](parsed)
     val noLambdas = expandLambdas[K](noDynamics)
     makeTotal(noLambdas)
   }
@@ -57,14 +57,14 @@ object API {
     println("\nParsed")
     parsed.fullTree
     printAll[ExprF, Id](parsed)
-    val noDynamics = eliminitateDynamics[Expr[_]](parsed)
+    val noDynamics = eliminateDynamics[Expr[_]](parsed)
     println("\nno dynamics")
     noDynamics.fullTree
     printAll[StaticF, Id](noDynamics)
     val noLambdas = expandLambdas[Expr[_]](noDynamics)
     println("no-lambdas")
     noLambdas.fullTree
-    printAll[NoApplyF, Id](noLambdas)
+    printAll[Total, Id](noLambdas)
     val total = makeTotal(noLambdas)
     println("\nTotal")
     val x = total.mapExternal[Id](_.valid).fullTree
@@ -91,13 +91,13 @@ object API {
     API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs.andThen(Some(_))))
 
   implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {
-    def noDynamics: LazyTree[K, StaticF, Id, _] = eliminitateDynamics(tree)
+    def noDynamics: LazyTree[K, StaticF, Id, _] = eliminateDynamics(tree)
   }
   implicit class ExpandLambdasOps[K](private val tree: LazyTree[K, StaticF, Id, _]) extends AnyVal {
-    def expandLambdas: LazyTree[K, NoApplyF, Id, _] =
+    def expandLambdas: LazyTree[K, Total, Id, _] =
       API.expandLambdas(tree)
   }
-  implicit class MakeTotalOps[K](private val tree: LazyTree[K, NoApplyF, Id, _]) extends AnyVal {
+  implicit class MakeTotalOps[K](private val tree: LazyTree[K, Total, Id, _]) extends AnyVal {
     def totalSubParts: LazyTree[K, Total, IR, _] = API.makeTotal(tree)
   }
 

@@ -41,6 +41,11 @@ object dsl {
   def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
     new ITE[T](cond, t, f)
 
+  def forall[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
+    Dynamic(f, bool.And, None)
+  def exists[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
+    Dynamic(f, bool.Or, None)
+
   implicit def double2Cst(value: Double): Expr[Double] = Cst(value)
   implicit def int2Cst(value: Int): Expr[Int] = Cst(value)
 

@@ -7,7 +7,8 @@ import dahu.utils.Vec
 
 import scala.reflect.ClassTag
 
-trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
+// note: assumption on sealness is made in the implemenation of equals/hashCode
+sealed trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
   def exprProd: ProductExpr[P, Expr]
   def idProd: ProductExpr[P, cats.Id]
 
@@ -23,16 +24,23 @@ object ProductTag {
   implicit def ofProd[P[_[_]]](implicit pe1: ProductExpr[P, Expr],
                                pe2: ProductExpr[P, cats.Id],
                                tt: universe.WeakTypeTag[P[cats.Id]]): ProductTag[P] =
-    new ProductTag[P] {
+    new ProductTagImpl[P](pe1, pe2, tt.tpe)
 
-      override def exprProd: ProductExpr[P, Expr] = pe1
-      override def idProd: ProductExpr[P, Id] = pe2
-
-      override def typ: Tag.Type = tt.tpe
+  private final class ProductTagImpl[P[_[_]]](override val exprProd: ProductExpr[P, Expr],
+                                              override val idProd: ProductExpr[P, Id],
+                                              override val typ: Tag.Type)
+      extends ProductTag[P] {
+    override def hashCode(): Int = typ.hashCode()
+    override def equals(o: Any): Boolean = o match {
+      case x: ProductTagImpl[_] => typ == x.typ
+      case _                    => false
     }
+    override def toString: String = s"ProductTag($typ)"
+  }
 
   type Sequence[F[_], A] = Seq[F[A]]
 
+  // TODO: remove, we have native sequences
   implicit def ofSeq[A](
       implicit tt: universe.WeakTypeTag[Seq[cats.Id[A]]]): ProductTag[Sequence[?[_], A]] =
     new ProductTag[Sequence[?[_], A]] {

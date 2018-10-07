@@ -4,11 +4,83 @@ import cats.{Functor, Id}
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
 import dahu.model.ir._
+import dahu.model.math.bool
 import dahu.recursion.FCoalgebra
 import dahu.utils.{Bag, SFunctor, Vec}
 import dahu.utils.SFunctor._
 
 object StaticProblem {
+
+  def closeTheWorld[X, I <: IDTop](t: LazyTree[X, ExprF, cats.Id, I],
+                                   provided: Seq[(X, X)]): LazyTree[X, StaticF, cats.Id, _] = {
+
+    val providedInternalized = provided.map {
+      case (x, y) => (t.tree.getTreeRoot(x), t.tree.getTreeRoot(y))
+    }
+    closeTheWorldIntern(t, providedInternalized)
+  }
+
+  def closeTheWorldIntern[X, I <: IDTop](
+      t: LazyTree[X, ExprF, cats.Id, I],
+      provided: Seq[(I, I)]): LazyTree[X, StaticF, cats.Id, _] = {
+
+    val dynamicsErased: IlazyForest[X, StaticF, cats.Id, _] =
+      t.tree
+        .mapInternalGen[StaticF](ctx => {
+          val rec = ctx.record
+          _ match {
+            case x: DynamicF[IDTop] =>
+              val default = rec(x.monoid.liftedIdentity) // TODO (optim): cache out of the loop
+
+              // TODO: filter should not use type equality but a more general type intersection mechanism
+              val filter: IDTop => Boolean = {
+                x.accept match {
+                  case Some(f) =>
+                    (i: IDTop) =>
+                      {
+                        val t = ctx.retrieve(i).typ
+                        t == x.acceptedType && f(t)
+                      }
+                  case None =>
+                    (i: IDTop) =>
+                      if(x.acceptedType != ctx.retrieve(i).typ) {
+                        val tmp = ctx.retrieve(i).typ
+                        println(x.acceptedType)
+                        println(tmp)
+                        false
+                      } else {
+                        true
+                      }
+
+                }
+              }
+//              val newProvided = provided.map(ctx.toNewId).withFilter(filter)
+              // TODO (optim): cache out of the loop (with WeakRef?)
+              val allNewProvided: Seq[(IDTop, IDTop)] = provided.map {
+                case (exp, scope) => (ctx.toNewId(exp), ctx.toNewId(scope))
+              }
+              val newProvided = allNewProvided.withFilter { case (i, p) => filter(i) }
+              val lbd = ctx.retrieve(x.f)
+              def compute(oneProvided: IDTop): IDTop =
+                ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
+
+              val conditionals: Seq[IDTop] =
+                newProvided.map {
+                  case (i, prez) =>
+                    rec(ITEF[IDTop](prez, compute(i), default, x.monoid.tpe))
+                }
+
+              val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
+              value
+            case x: InputF[_] =>
+              x
+            case x: StaticF[IDTop] =>
+              x
+          }
+        })
+
+    LazyTree(dynamicsErased.fixID)(t.root)
+  }
 
   // TODO: we could keep the cats.Id parameter generic
   def underClosedWorld[X](
@@ -81,7 +153,7 @@ object StaticProblem {
   def algebra(ctx: LazyForestGenerator.Context[ExprF, IDTop]): ExprF[IR[IDTop]] => IR[IDTop] = {
     case x: InputF[_] => IR(ctx.record(x), Bag.empty)
     case x: CstF[_]   => IR(ctx.record(x), Bag.empty)
-    case x @ DynamicF(_, _, _, _) =>
+    case x @ DynamicF(_, _, _, _, _) =>
       IR(
         value = ctx.record(x.smap(_.value)),
         provided = getProvided(x)

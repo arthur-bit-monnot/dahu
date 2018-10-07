@@ -53,7 +53,7 @@ object ExpandLambdas {
   }
 
   def expandLambdas[X](
-      lazyTree: LazyTree[X, StaticF, cats.Id, _]): LazyTree[X, NoApplyF, cats.Id, _] = {
+      lazyTree: LazyTree[X, StaticF, cats.Id, _]): LazyTree[X, Total, cats.Id, _] = {
     val tree = lazyTree.fixID.forceEvaluation
 
     val x = tree.tree.cataLow(lambdaDependencies)
@@ -62,7 +62,7 @@ object ExpandLambdas {
     val XX: I => N[I] = i => N(tree.tree.internalCoalgebra(i), x.getInternal(i))
 
     val t2 =
-      new ContextualLazyForestMap2[I, N, NoApplyF, IDTop](XX, compiler2, new MyPrepro2(Map()))
+      new ContextualLazyForestMap2[I, N, Total, IDTop](XX, compiler2, new MyPrepro2(Map()))
     val opt = tree.tree.getTreeRoot(tree.root)
 
     val t3 = t2.changedKey[X](x => tree.tree.getTreeRoot(x))
@@ -139,14 +139,14 @@ object ExpandLambdas {
     def empty[I <: IDTop]: MyPrepro2[I] = emptySingleton.asInstanceOf[MyPrepro2[I]]
   }
 
-  def compiler2[I <: IDTop](genCtx: Context[NoApplyF, I]): N[cats.Id[I]] => NoApplyF[cats.Id[I]] = {
+  def compiler2[I <: IDTop](genCtx: Context[Total, I]): N[cats.Id[I]] => Total[cats.Id[I]] = {
     case x @ N(ApplyF(lambda, param, typ), _) =>
       // recurse on the tree of lambda, replacing, lbd.in by param
       genCtx.retrieve(lambda) match {
         case LambdaF(_, tree, _, _) => genCtx.retrieve(tree)
         case _                      => dahu.utils.errors.unexpected
       }
-    case N(x: NoApplyF[Id[I]], _) => x
+    case N(x: Total[Id[I]], _) => x
   }
 
   final class Context[M[_], A <: Int](val ret: A => M[A]) {

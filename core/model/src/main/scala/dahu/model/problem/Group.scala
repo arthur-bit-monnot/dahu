@@ -236,7 +236,7 @@ object Group {
     //    sealed trait Node[F]
     //    case class Orig[F](v: NoApplyF[F])
     //val memory = mutable.ArrayBuffer[(Set[I], CI)]()
-    def trans(dyns: Vec[CI]): CI => NoApplyF[CI] = {
+    def trans(dyns: Vec[CI]): CI => Total[CI] = {
       case (i, si) => {
         println((i, si))
         if(i == 123)
@@ -260,7 +260,7 @@ object Group {
             NoopF(genKey(si.binds(i), si), Tag.default[Any])
 //          case LambdaF(in, ast, _, t) =>
 //            ???
-          case fi: NoApplyF[I] =>
+          case fi: Total[I] =>
             fi.smap(genKey(_, si))
         }
         println(s"$i $si  --  $res")
@@ -500,7 +500,7 @@ object Group {
     def empty[I]: Opt[I] = Set()
   }
 
-  def makeTotal[K](_noLambdas: LazyTree[K, NoApplyF, cats.Id, _]): LazyTree[K, Total, IR, _] = {
+  def makeTotal[K](_noLambdas: LazyTree[K, Total, cats.Id, _]): LazyTree[K, Total, IR, _] = {
     val noLambdas = _noLambdas.tree.fixID
     type I = noLambdas.ID
 

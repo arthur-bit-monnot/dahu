@@ -115,7 +115,7 @@ object Validation {
   val afterElimDyna: LayerFactory = new LayerFactory {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
-      private val ev = API.eliminitateDynamics(parsed).tree.fixID
+      private val ev = API.eliminateDynamics(parsed).tree.fixID
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
@@ -131,7 +131,7 @@ object Validation {
   val afterExpandLambdas: LayerFactory = new LayerFactory {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
-      private val ev = API.expandLambdas(API.eliminitateDynamics(parsed)).tree.fixID
+      private val ev = API.expandLambdas(API.eliminateDynamics(parsed)).tree.fixID
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
@@ -147,7 +147,7 @@ object Validation {
   val afterTotalization: LayerFactory = new LayerFactory {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
-      private val ev = API.makeTotal(API.expandLambdas(API.eliminitateDynamics(parsed))).tree.fixID
+      private val ev = API.makeTotal(API.expandLambdas(API.eliminateDynamics(parsed))).tree.fixID
       override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
         val evaluated = ev.cata(Interpreter.evalAlgebra(in))
         new Evaluator {

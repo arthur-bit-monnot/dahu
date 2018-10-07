@@ -46,7 +46,7 @@ object Interpreter {
   }
 
   @deprecated("use the one in LambdaInterpreter instead", since = "now")
-  def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[NoApplyF, Result[Value]] = {
+  def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[Total, Result[Value]] = {
     case InputF(id, _) => Res(valueOf(id))
     case CstF(v, _)    => Res(v)
     case NoopF(v, _)   => v

@@ -341,13 +341,13 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
 
   def forceEvaluation: LazyTree[K, F, Opt, InternalID] = { tree.forceEvaluation(root); this }
 
-//  def postpro[I <: IDTop](fGen: (I => F[I], F[I] => I) => (F[I] => F[I]))(
-//      implicit TN: TreeNode[F],
-//      F: Functor[Opt],
-//      SF: SFunctor[F]): LazyTree[K, F, Opt, InternalID] = {
-//    val t = tree.transform(fGen)
-//    LazyTree(t)(root)
-//  }
+  def postpro[I <: IDTop](fGen: (I => F[I], F[I] => I) => (F[I] => F[I]))(
+      implicit TN: TreeNode[F],
+      F: Functor[Opt],
+      SF: SFunctor[F]): LazyTree[K, F, Opt, _] = {
+    val t = tree.transform(fGen).fixID
+    LazyTree(t)(root)
+  }
 
   def mapK[G[_]](fk: F ~> G): LazyTree[K, G, Opt, ID] = map(a => fk(a))
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
