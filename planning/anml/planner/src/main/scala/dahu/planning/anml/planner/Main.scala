@@ -96,7 +96,9 @@ object Main extends App {
     info("Parsing...")
     parse(problemFile) match {
       case ParseSuccess(model) =>
-        Planner.solveIncremental(model, cfg.maxInstances, deadline)
+        dahu.planning.planner.hcsp.Encoder.asChronicleExpr(model, _ => 1, true)
+//        Planner.solveIncremental(model, cfg.maxInstances, deadline)
+        None //TODO
       case fail: ParseFailure =>
         println("Parsing failed:")
         println(fail.format)

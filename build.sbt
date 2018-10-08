@@ -179,20 +179,20 @@ lazy val planner = project
   .settings(libraryDependencies ++= Seq(
     "org.typelevel" %% "cats-effect" % "1.0.0-RC"
   ))
-//
-//lazy val anmlPlanner = project
-//  .in(file("planning/anml/planner"))
-//  .dependsOn(anmlParser, planner)
-//  .settings(commonSettings ++ utestSettings: _*)
-//  .settings(
-//    mainClass in assembly := Some("dahu.planning.anml.planner.Main"),
-//    assemblyJarName in assembly := "dahu-anml-planner.jar"
-//  )
-//  .settings(
-//    libraryDependencies ++= Seq(
-//      "com.github.scopt" %% "scopt" % "3.7.0",
-//      "org.typelevel" %% "cats-effect" % "1.0.0-RC"
-//    ))
+
+lazy val anmlPlanner = project
+  .in(file("planning/anml/planner"))
+  .dependsOn(anmlParser, planner)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    mainClass in assembly := Some("dahu.planning.anml.planner.Main"),
+    assemblyJarName in assembly := "dahu-anml-planner.jar"
+  )
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.scopt" %% "scopt" % "3.7.0",
+      "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+    ))
 //
 //lazy val pddlPlanner = project
 //  .in(file("planning/pddl/planner"))

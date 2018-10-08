@@ -44,6 +44,7 @@ sealed abstract class Term[T] extends Expr[T]
 final case class Input[T](id: TypedIdent[T]) extends Term[T] {
   override def typ: Tag[T] = id.typ
   override val hash: Int = ScalaRunTime._hashCode(this)
+  override def toString: String = "?" + id
 }
 object Input {
   def apply[T: Tag](id: Ident): Expr[T] = Input[T](TypedIdent(id, Tag[T]))
@@ -94,6 +95,7 @@ final case class Sequence[T: Tag](members: Vec[Expr[T]])(implicit ct: ClassTag[V
     extends Expr[Vec[T]] {
   override def typ: SequenceTag[T] = SequenceTag[T]
   override val hash: Int = ScalaRunTime._hashCode(this)
+  override def toString: String = members.toString
 }
 object Sequence {
   def apply[T: Tag](members: Seq[Expr[T]])(implicit classTag: ClassTag[Vec[T]]): Sequence[T] =
@@ -109,6 +111,7 @@ final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) ex
   def buildFromVals(terms: Vec[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
   def buildFromExpr(terms: Vec[Expr[Any]]): T[Expr] = tt.exprProd.buildFromTerms(terms)
   override val hash: Int = ScalaRunTime._hashCode(this)
+  override def toString: String = "§" + value
 }
 object Product {
   // TODO: remove

@@ -105,6 +105,11 @@ object CondTokF {
   val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
   val Value = FieldAccess[CondTokF, Literal]("value", 2)
 
+  def supports(eff: Expr[EffTok], cond: Expr[CondTok]): Expr[Boolean] =
+    (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
+      (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
+      (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+
   val supBy: Expr[CondTok ->: EffTok ->: Boolean] = Lambda[CondTok, EffTok ->: Boolean](
     (cond: Expr[CondTok]) =>
       Lambda[EffTok, Boolean](
@@ -204,13 +209,19 @@ object EffTokF {
   val Value = FieldAccess[EffTokF, Literal]("value", 3)
   val Id = FieldAccess[EffTokF, Int]("id", 4)
 
+  def consistent(lhs: Expr[EffTok], rhs: Expr[EffTok]): Expr[Boolean] =
+//    Id(lhs) >= Id(rhs) || // redundant with accept function
+    IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+      IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
+      bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
+
   val nonThreatening: Expr[EffTok ->: EffTok ->: Boolean] =
     Lambda[EffTok, EffTok ->: Boolean](
       lhs =>
         Lambda[EffTok, Boolean](
           (rhs: Expr[EffTok]) =>
-            //Id(lhs) >= Id(rhs) || // superseded by accept function
-            IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
+            Id(lhs) >= Id(rhs) || // redundant with accept function
+              IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
               IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
               bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
       ))

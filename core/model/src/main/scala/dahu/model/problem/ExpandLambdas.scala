@@ -74,7 +74,7 @@ object ExpandLambdas {
       case (i, _: LambdaParamF[_]) => LambdaDeps(Set(i), Nil, None, false)
       case (i, LambdaF(in, tree, _, _)) =>
         assert(in.params.size == 1 && in.applicationStack.isEmpty)
-        assert(tree.params.contains(in.params.head))
+        assert(tree.params.contains(in.params.head)) //TODO: we removed this assertion, not knowing what it checks
         LambdaDeps(tree.params ++ in.params, in.params.head :: tree.applicationStack, None, false)
       case (i, ApplyF(lbd, param, _)) =>
         assert(param.applicationStack.isEmpty)

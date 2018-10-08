@@ -39,19 +39,11 @@ object StaticProblem {
                     (i: IDTop) =>
                       {
                         val t = ctx.retrieve(i).typ
-                        t == x.acceptedType && f(t)
+                        (t intersects x.acceptedType) && f(t)
                       }
                   case None =>
                     (i: IDTop) =>
-                      if(x.acceptedType != ctx.retrieve(i).typ) {
-                        val tmp = ctx.retrieve(i).typ
-                        println(x.acceptedType)
-                        println(tmp)
-                        false
-                      } else {
-                        true
-                      }
-
+                      x.acceptedType intersects ctx.retrieve(i).typ
                 }
               }
 //              val newProvided = provided.map(ctx.toNewId).withFilter(filter)

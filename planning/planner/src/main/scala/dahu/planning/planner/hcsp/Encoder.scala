@@ -1,8 +1,12 @@
 package dahu.planning.planner.hcsp
 import cats.effect.IO
 import dahu.model.input._
+import dahu.model.math.bool
+import dahu.model.types.Tag
 import dahu.planning.model.common.{Arg, LocalVar, Predef}
 import dahu.planning.model.core
+import dahu.planning.planner.chronicles.{CondTok, CondTokF, EffTok, EffTokF}
+import dahu.solvers.problem.Struct
 
 import scala.concurrent.duration.Deadline
 import dahu.utils.debug._
@@ -18,6 +22,20 @@ object Encoder {
     val csp: CSP = new RootCSP(ctx)
     implicit val resolver: VariableResolver = csp.resolver
 
+    import dsl._
+
+//    csp.addConstraint(forall[EffTok](Lambda[EffTok, Boolean](e => EffTokF.Id(e) <= 0)))
+    csp.addConstraint(
+      forall[EffTok](
+        e1 =>
+          forall[EffTok](e2 =>
+            EffTokF.Id(e1) <= EffTokF.Id(e2) ||
+              EffTokF.consistent(e1, e2)))
+    )
+    csp.addConstraint(
+      forall[CondTok](cond => exists[EffTok](eff => CondTokF.supports(eff, cond)))
+    )
+
     model.foreach {
       case core.LocalVarDeclaration(v) =>
         csp.addVar(v)
@@ -26,9 +44,18 @@ object Encoder {
 
     model.foreach {
       case _: core.LocalVarDeclaration => // already processed
+      // dealt with in ProblemContext
+      case _: core.TypeDeclaration     =>
+      case _: core.InstanceDeclaration =>
+      case _: core.FunctionDeclaration =>
+      // need action
       case statement: core.Statement   => csp.extendWith(statement)
       case action: core.ActionTemplate => csp.extendWithActions(action, num(action))
     }
+    println(csp)
+    println(csp.flattened)
+    val flat = csp.flattened
+    Struct.process(flat)
     csp
 //    val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
 //      case (chronicle, statement: core.Statement) =>

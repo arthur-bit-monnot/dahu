@@ -349,6 +349,11 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
     LazyTree(t)(root)
   }
 
+  def cata[V: ClassTag](
+      f: F[V] => V)(implicit T: TreeNode[F], F: SFunctor[F], FO: Functor[Opt]): Opt[V] = {
+    tree.cata(f).get(root)
+  }
+
   def mapK[G[_]](fk: F ~> G): LazyTree[K, G, Opt, ID] = map(a => fk(a))
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
     LazyTree(tree.mapInternal(f))(root)

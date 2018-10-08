@@ -13,6 +13,8 @@ trait Tag[+T] {
   def typ: Tag.Type
 
   def isValid(e: Expr[T] @uncheckedVariance): Expr[Boolean]
+
+  def intersects(t: Tag[_]): Boolean = typ == t.typ
 }
 
 object Tag extends LowPriorityTags {

@@ -6,16 +6,18 @@ import dahu.model.types.Tag
 import dahu.planning.model.common.LocalVar
 import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
+import dahu.planning.model.transforms.ActionInstantiation
 import dahu.planning.model.{common, core}
+import dahu.planning.planner.chronicles
 import dahu.planning.planner.chronicles.{Fluent, FluentF, IntervalF, SCondTokF}
+import dahu.solvers.problem.{CExpr, Struct}
 
 import scala.collection.mutable.{ArrayBuffer => Buff}
 import scala.collection.mutable.{Map => MMap}
 
-case class CExpr[+A](e: Expr[A], ctx: Scope)
-
-abstract class CSP {
-  val vars: MMap[Any, Expr[Literal]] = MMap()
+abstract class CSP extends Struct {
+  def vars: Seq[Expr[Literal]] = varMap.values.toSeq
+  val varMap: MMap[Any, Expr[Literal]] = MMap()
   val constraints: Buff[CExpr[Boolean]] = Buff()
   val subs: Buff[CSP] = Buff()
   val exports: Buff[CExpr[Any]] = Buff()
@@ -33,7 +35,7 @@ abstract class CSP {
   def present: Expr[Boolean] = scope.present
 
   final def getVar(id: Any): Option[Expr[Literal]] = {
-    vars.get(id).orElse(parent.flatMap(_.getVar(id)))
+    varMap.get(id).orElse(parent.flatMap(_.getVar(id)))
   }
 
   final def addConstraint(c: Expr[Boolean]): Unit = {
@@ -48,7 +50,7 @@ abstract class CSP {
   }
   final def recordVar(id: Any, e: Expr[Literal]): Unit = {
     assert(getVar(id).isEmpty)
-    vars.update(id, e)
+    varMap.update(id, e)
   }
 
   final def getTypedVar[T: Tag](id: Any): Option[Expr[T]] = {
@@ -77,17 +79,26 @@ abstract class CSP {
 
   // ------------------ extension methods for planner -----------------------
 
+  def addAnonymousTimepoint(): Expr[Int] = {
+    newInputSubjectTo[Int](LocalIdent.anonymous(), Tag.ofInt)(tp =>
+      temporalOrigin <= tp && tp <= temporalHorizon)
+  }
+
+  case class Wrapper(lv: LocalVar) {
+    override def toString: String = lv.id.name
+  }
+
   def addVar(lv: LocalVar): Expr[Literal] = lv match {
     case lv @ LocalVar(id, tpe) if tpe.isSubtypeOf(ctx.predef.Time) =>
       assert(tpe == ctx.predef.Time)
       val e: Expr[Int] =
         if(lv == ctx.predef.Start)
-          ctx.temporalOrigin
+          temporalOrigin
         else if(lv == ctx.predef.End)
-          ctx.temporalHorizon
+          temporalHorizon
         else {
-          newInputSubjectTo[Int]((lv, "int-version"), Tag.ofInt)(tp =>
-            ctx.temporalOrigin <= tp && tp <= ctx.temporalHorizon)
+          newInputSubjectTo[Int](Wrapper(lv), Tag.ofInt)(tp =>
+            temporalOrigin <= tp && tp <= temporalHorizon)
         }
       val res = ctx.intBox(ctx.intTag, e)
       recordVar(lv, res)
@@ -106,15 +117,15 @@ abstract class CSP {
 
   import ctx._
   implicit private def _resolver = resolver
+  implicit private def _predef = ctx.predef
 
   def encode(orig: core.Fluent): Expr[Fluent] =
     FluentF.ofExpr(orig.template, orig.params.map(ctx.encode(_)))
 
-  def encode(orig: common.Constant)(implicit argRewrite: Arg => Expr[Literal]): Expr[Fluent] =
+  def encode(orig: common.Constant): Expr[Fluent] =
     FluentF.ofExpr(orig.template, orig.params.map(ctx.encode(_)))
 
-  def encode(orig: common.Interval[common.Expr])(
-      implicit argRewrite: Arg => Expr[Literal]): IntervalF[Expr] =
+  def encode(orig: common.Interval[common.Expr]): IntervalF[Expr] =
     orig.map(ctx.encodeAsInt(_)) match {
       case ClosedInterval(s, e)    => IntervalF.ofExprUnwrapped(s, e)
       case LeftOpenInterval(s, e)  => IntervalF.ofExprUnwrapped(s - (-1), e)
@@ -122,7 +133,7 @@ abstract class CSP {
       case OpenInterval(s, e)      => IntervalF.ofExprUnwrapped(s - (-1), e - 1)
     }
 
-  def encode(e: common.Expr)(implicit argRewrite: Arg => Expr[Literal]): Expr[Literal] =
+  def encode(e: common.Expr): Expr[Literal] =
     e match {
       case term: common.Term => ctx.encode(term)
       case Op2(operators.Eq, v, cst: common.Constant) =>
@@ -135,52 +146,88 @@ abstract class CSP {
   def extendWith(e: core.InActionBlock)(implicit
                                         cnt: Counter): Unit =
     e match {
-//      case _: core.LocalVarDeclaration => this
-//      case _: core.ArgDeclaration      => this
+      case _: core.LocalVarDeclaration =>
+      case _: core.ArgDeclaration      =>
 //
-//      case core.TimedAssignmentAssertion(itv, fluent, value) => ???
-//        val changeItv = encode(itv)
-//        val persistenceEnd = anonymousTp().alwaysSubjectTo(changeItv.end <= _)
-//        val token =
-//          EffTokF.ofExpr(changeItv.start,
-//                         changeItv.end,
-//                         persistenceEnd,
-//                         encode(fluent),
-//                         ctx.encode(value))
-//        copy(effects = token :: effects)
+      case core.TimedAssignmentAssertion(itv, fluent, value) =>
+        val changeItv = encode(itv)
+        val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
+        addConstraint(changeItv.end <= persistenceEnd)
+        val token =
+          chronicles.EffTokF.ofExpr(changeItv.start,
+                                    changeItv.end,
+                                    persistenceEnd,
+                                    encode(fluent),
+                                    ctx.encode(value))
+
+        addExport(token)
 //
-//      case core.TimedEqualAssertion(itv, f, v) =>
-//        val interval = encode(itv)
-//        val token = CondTokF.ofExpr(interval.start, interval.end, encode(f), ctx.encode(v))
-//        copy(conditions = token :: conditions)
-//
-//      case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
-//        val start = encodeAsInt(s)
-//        val cond =
-//          CondTokF.ofExpr(start, start, encode(f), ctx.encode(v1))
-//        val changeItv = encode(LeftOpenInterval(s, e))
-//        val persistenceEnd = anonymousTp().alwaysSubjectTo(changeItv.end <= _)
-//        val eff =
-//          EffTokF.ofExpr(changeItv.start, changeItv.end, persistenceEnd, encode(f), ctx.encode(v2))
-//        copy(
-//          conditions = cond :: conditions,
-//          effects = eff :: effects
-//        )
+      case core.TimedEqualAssertion(itv, f, v) =>
+        val interval = encode(itv)
+        val token =
+          chronicles.CondTokF.ofExpr(interval.start, interval.end, encode(f), ctx.encode(v))
+        addExport(token)
+
+      case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
+        val start = encodeAsInt(s)
+        val cond =
+          chronicles.CondTokF.ofExpr(start, start, encode(f), ctx.encode(v1))
+
+        val changeItv = encode(LeftOpenInterval(s, e))
+        val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
+        addConstraint(changeItv.end <= persistenceEnd)
+        val eff =
+          chronicles.EffTokF.ofExpr(changeItv.start,
+                                    changeItv.end,
+                                    persistenceEnd,
+                                    encode(f),
+                                    ctx.encode(v2))
+
+        addExport(cond)
+        addExport(eff)
 //
 //      case core.StaticAssignmentAssertion(lhs, rhs) =>
 //        val eff = SEffTokF.ofExpr(encode(lhs), ctx.encode(rhs))
 //        copy(
 //          staticEffects = eff :: staticEffects
 //        )
-//      case core.StaticBooleanAssertion(e) =>
-//        val c = ctx.boolUnbox(encode(e))
-//        copy(
-//          constraints = c :: constraints
-//        )
-      case _ => ???
+      case core.StaticBooleanAssertion(e) =>
+        val c = ctx.boolUnbox(encode(e))
+        addConstraint(c)
     }
-  def extendWithActions(template: core.ActionTemplate, howMany: Int): Unit = {
-    ???
+  def extendWithActions(template: core.ActionTemplate, howMany: Int)(
+      implicit cnt: Counter): Unit = {
+    for(i <- 0 until howMany) {
+      val actId = cnt.next()
+      val actName = s"${template.name}_$actId"
+
+      val sub = addSub(actName)
+      val act = ActionInstantiation.instance(template, actName)
+
+      act.content.foreach {
+        case core.LocalVarDeclaration(v) =>
+          sub.addVar(v)
+        case core.ArgDeclaration(a) =>
+          val in = sub.newInput(a, ctx.specializedTags(a.typ))
+          sub.recordVar(a, in)
+        case _ =>
+      }
+      act.content.foreach {
+        case _: core.LocalVarDeclaration => // already processed
+        case _: core.ArgDeclaration      => // already processed
+
+        // need action
+        case statement: core.Statement => sub.extendWith(statement)
+      }
+//
+//      val argsRewrite: Arg => Expr[Literal] = {
+//        case a @ Arg(_, tpe) => ??? //Input(Ident(a))(ctx.specializedTags(tpe))
+//      }
+//
+//      val chronicle = act.content.foldLeft(ChronicleFactory.empty(ctx)) {
+//        case (c, s) => c.extended(s)(argsRewrite, cnt)
+//      }
+    }
   }
 }
 

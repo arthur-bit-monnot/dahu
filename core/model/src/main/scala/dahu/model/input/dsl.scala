@@ -38,13 +38,30 @@ object dsl {
       Apply(lambda, arg)
   }
 
-  def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]) =
+  def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]): Expr[T] =
     new ITE[T](cond, t, f)
 
-  def forall[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
-    Dynamic(f, bool.And, None)
-  def exists[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
-    Dynamic(f, bool.Or, None)
+//  def forall[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
+//    Dynamic(f, bool.And, None)
+
+  def forall[Provided: Tag](f: Expr[Provided] => Expr[Boolean]): Dynamic[Provided, Boolean] =
+    Dynamic(Lambda(f), bool.And, None)
+
+  def exists[Provided: Tag](f: Expr[Provided] => Expr[Boolean]): Dynamic[Provided, Boolean] =
+    Dynamic(Lambda(f), bool.Or, None)
+
+//  def forall[P1: Tag, P2: Tag](typ: Tag[P2])(
+//      f: Expr[P1 ->: P2 ->: Boolean]): Expr[P1 ->: Boolean] = {
+//    Lambda[P1, Boolean](p1 => Dynamic(f.partialApply(p1), bool.And, None))
+//  }
+
+//  def exists[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
+//    Dynamic(f, bool.Or, None)
+//
+//  def exists[P1: Tag, P2: Tag](typ: Tag[P2])(
+//      f: Expr[P1 ->: P2 ->: Boolean]): Expr[P1 ->: Boolean] = {
+//    Lambda[P1, Boolean](p1 => Dynamic(f.partialApply(p1), bool.Or, None))
+//  }
 
   implicit def double2Cst(value: Double): Expr[Double] = Cst(value)
   implicit def int2Cst(value: Int): Expr[Int] = Cst(value)

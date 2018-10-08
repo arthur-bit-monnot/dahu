@@ -35,8 +35,15 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     Computation(tpe.box, i)
   def intUnbox(i: Tentative[Literal]): Tentative[Int] = {
     i.typ match {
-      case t: TagIsoInt[Literal] => Computation(t.unbox, i)
-      case _                     => unexpected
+      case t: TagIsoInt[Literal] =>
+        i match {
+          case Computation1(f, x) if f == t.box =>
+            // unbox directly, this is only to provide smaller models and not needed for correctness
+            x.asInstanceOf[Tentative[Int]]
+          case _ => Computation(t.unbox, i)
+        }
+
+      case _ => unexpected
     }
   }
   private val booleanTag = specializedTags(predef.Boolean)
@@ -125,9 +132,6 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     case (a1, a2) => boolBox(Computation(f, Seq(boolUnbox(a1), boolUnbox(a2))))
   }
 
-  val temporalOrigin = Cst(0)
-  lazy val temporalHorizon
-    : Tentative[Int] = ??? // Input[Int](Ident("__END__")).subjectTo(temporalOrigin <= _)
   def anonymousTp()(implicit cnt: Counter): Tentative[Int] = ???
 //    Input[Int](Ident("____" + cnt.next())).alwaysSubjectTo(tp =>
 //      temporalOrigin <= tp && tp <= temporalHorizon)
