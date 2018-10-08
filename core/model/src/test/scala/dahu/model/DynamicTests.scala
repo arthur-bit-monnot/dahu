@@ -7,7 +7,7 @@ import dahu.model.input._
 import dahu.model.interpreter.{FEval, PEval}
 import dahu.model.ir._
 import dahu.model.math.{bool, int}
-import dahu.model.problem.{API, Group}
+import dahu.model.problem.{API}
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types.Tag._
 import dahu.model.types._

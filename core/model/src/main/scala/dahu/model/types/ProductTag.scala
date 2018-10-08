@@ -1,6 +1,7 @@
 package dahu.model.types
 
 import cats.Id
+import dahu.model.input.Product.PMap
 import dahu.model.input.{Expr, ProductExpr}
 import dahu.model.math.bool
 import dahu.utils.Vec
@@ -8,7 +9,7 @@ import dahu.utils.Vec
 import scala.reflect.ClassTag
 
 // note: assumption on sealness is made in the implemenation of equals/hashCode
-sealed trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
+trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
   def exprProd: ProductExpr[P, Expr]
   def idProd: ProductExpr[P, cats.Id]
 
@@ -36,6 +37,38 @@ object ProductTag {
       case _                    => false
     }
     override def toString: String = s"ProductTag($typ)"
+  }
+
+  final class MapProductTag[K: ClassTag, V: ClassTag](map: Map[K, Expr[V]])(
+      implicit tt: universe.WeakTypeTag[Map[K, Id[V]]])
+      extends ProductTag[PMap[K, ?[_], V]] {
+    type M[F[_]] = PMap[K, F, V]
+    val keys: Vec[K] = Vec.fromSeq(map.keys.toSeq)
+    val values: Vec[Expr[Any]] = keys.map(map(_))
+    override def exprProd: ProductExpr[M, Expr] = new ProductExpr[M, Expr] {
+      override def extractTerms(prod: M[Expr])(implicit ct: ClassTag[Expr[Any]]): Vec[Expr[Any]] = {
+        assert(prod == map)
+        values
+      }
+
+      override def buildFromTerms(terms: Vec[Expr[Any]]): M[Expr] = {
+        assert(terms == values)
+        map
+      }
+    }
+
+    override def idProd: ProductExpr[M, Id] = new ProductExpr[M, Id] {
+      override def extractTerms(prod: M[Id])(implicit ct: ClassTag[Id[Any]]): Vec[Id[Any]] = {
+        assert(prod.keys == map.keys)
+        keys.map(k => prod(k))
+      }
+      override def buildFromTerms(terms: Vec[Id[Any]]): M[Id] = {
+        assert(terms.size == values.size)
+        keys.zip(terms.map(_.asInstanceOf[Id[V]])).toMap
+      }
+    }
+
+    override def typ: Tag.Type = tt.tpe
   }
 
   type Sequence[F[_], A] = Seq[F[A]]

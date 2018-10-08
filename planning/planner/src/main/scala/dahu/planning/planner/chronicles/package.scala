@@ -16,8 +16,8 @@ package object chronicles {
   type Action = ActionF[cats.Id]
 
   implicit class ActionFOps(private val lhs: Expr[Action]) extends AnyVal {
-    def start: Expr[Int] = ActionF.Start(lhs)
-    def end: Expr[Int] = ActionF.End(lhs)
+//    def start: Expr[Int] = ActionF.Start(lhs)
+//    def end: Expr[Int] = ActionF.End(lhs)
   }
 
   type Operator = OperatorF[cats.Id]

@@ -1,29 +1,19 @@
-package dahu.planning.planner
+package dahu.planning.planner.hcsp
 
 import dahu.model.functions.{->:, Fun2, FunN, Reversible}
 import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
+
 import dahu.model.math.{bool, int}
 import dahu.model.products.FieldAccess
 import dahu.model.types.{BoxedInt, ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common.operators.BinaryOperator
-import dahu.planning.model.common.{Cst => _, Scope => _, _}
+import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
 import dahu.planning.model.{common, core}
-import dahu.planning.planner.chronicles.Counter
 import dahu.utils.errors._
 
 import scala.collection.mutable
-
-//case class Fluent(template: FunctionTemplate, args: Seq[Tentative[Literal]])
-//case class Constant(template: ConstantTemplate, args: Seq[Tentative[Literal]])
-//
-//case class ConditionToken(itv: Interval[Tentative[Int]], fluent: Fluent, value: Tentative[Literal])
-//
-//case class EffectToken(changeItv: Interval[Tentative[Int]],
-//                       persistenceEnd: Tentative[Int],
-//                       fluent: Fluent,
-//                       value: Tentative[Literal])
 
 sealed trait Literal {
   def asConstant(tag: TagIsoInt[Literal]): Tentative[Literal] = Cst(this)(tag)
@@ -35,10 +25,11 @@ case class ObjLit(value: Instance) extends Literal {
   override def toString: String = value.toString
 }
 
-case class ProblemContext(
-    intTag: BoxedInt[Literal],
-    topTag: TagIsoInt[Literal],
-    specializedTags: Type => TagIsoInt[Literal])(implicit val predef: Predef) {
+case class ProblemContext(intTag: BoxedInt[Literal],
+                          topTag: TagIsoInt[Literal],
+                          specializedTags: Type => TagIsoInt[Literal])(implicit _predef: Predef) {
+
+  def predef: Predef = _predef
 
   def intBox(tpe: TagIsoInt[Literal], i: Tentative[Int]): Tentative[Literal] =
     Computation(tpe.box, i)
@@ -54,9 +45,9 @@ case class ProblemContext(
       new Reversible[Literal, Boolean]()(booleanTag, Tag[Boolean]) {
         override def reverse: Reversible[Boolean, Literal] = self
         override def of(in: Literal): Boolean = in match {
-          case ObjLit(predef.True)  => true
-          case ObjLit(predef.False) => false
-          case _                    => unexpected
+          case ObjLit(l) if l == predef.True  => true
+          case ObjLit(l) if l == predef.False => false
+          case _                              => unexpected
         }
         override def name: String = "unbox"
       }
@@ -66,43 +57,30 @@ case class ProblemContext(
   def boolUnbox(i: Tentative[Literal]): Tentative[Boolean] = Computation(boolBoxing.reverse, i)
   def boolBox(i: Tentative[Boolean]): Tentative[Literal] = Computation(boolBoxing, i)
 
-  def encode(v: common.Term)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
+  def encode(v: common.Term)(implicit resolver: VariableResolver): Tentative[Literal] =
     v match {
       case IntLiteral(i) => IntLit(i).asConstant(intTag)
-      case lv @ LocalVar(id, tpe) if tpe.isSubtypeOf(predef.Time) =>
-        assert(tpe == predef.Time)
-        val e: Tentative[Int] = lv match {
-          case predef.Start => temporalOrigin
-          case predef.End   => temporalHorizon
-          case _            => ???
-//            Input[Int](Ident(lv)).alwaysSubjectTo(tp =>
-//              temporalOrigin <= tp && tp <= temporalHorizon)
-        }
-        intBox(intTag, e)
-      case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integers) => ???
-//        assert(tpe == Type.Integers)
-//        Input[Literal](Ident(lv))(intTag)
-      case lv @ LocalVar(_, tpe) => ???
-//        assert(!tpe.isSubtypeOf(Type.Reals))
-//        Input[Literal](Ident(lv))(specializedTags(tpe))
+      case lv @ LocalVar(_, tpe) =>
+        resolver.getLocalVar(lv)
+      case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integers) =>
+        resolver.getLocalVar(lv)
       case i @ Instance(_, tpe) => ObjLit(i).asConstant(specializedTags(tpe))
-      case a: Arg               => argRewrite(a)
+      case a: Arg               => resolver.getArg(a)
     }
 
-  def encode(e: common.Expr)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
+  def encode(e: common.Expr)(implicit resolver: VariableResolver): Tentative[Literal] =
     e match {
       case term: common.Term => encode(term)
       case Op2(op, left, right) =>
         applyOperator(op, encode(left), encode(right))
       case _ => ???
     }
-  def encodeAsInt(e: common.Expr)(
-      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Int] = {
+  def encodeAsInt(e: common.Expr)(implicit resolver: VariableResolver): Tentative[Int] = {
     assert(e.typ.isSubtypeOf(Type.Integers))
     intUnbox(encode(e))
   }
   def encodeAsInts(e: common.Interval[common.Expr])(
-      implicit argRewrite: Arg => Tentative[Literal]): Interval[Tentative[Int]] = {
+      implicit resolver: VariableResolver): Interval[Tentative[Int]] = {
     e.map(encodeAsInt)
   }
   def applyOperator(op: BinaryOperator,
@@ -163,7 +141,7 @@ case class ProblemContext(
 //    Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
 
   def eqv(lhs: common.Term, rhs: common.Term)(
-      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
+      implicit resolver: VariableResolver): Tentative[Boolean] =
     eqv(encode(lhs), encode(rhs))
 
   private def isInt(e: Tentative[Literal]): Boolean = e.typ match {
@@ -188,7 +166,7 @@ case class ProblemContext(
     }
 
   def neq(lhs: common.Term, rhs: common.Term)(
-      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
+      implicit resolver: VariableResolver): Tentative[Boolean] =
     neq(encode(lhs), encode(rhs))
   def neq(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
     not(eqv(lhs, rhs))
@@ -358,166 +336,3 @@ object ProblemContext {
                    specializedTag.asInstanceOf[Type => TagIsoInt[Literal]])
   }
 }
-//
-//case class Chronicle(ctx: ProblemContext,
-//                     conditions: List[ConditionToken],
-//                     effects: List[EffectToken],
-//                     constraints: List[Tentative[Boolean]],
-//                     actions: List[Opt[Action[Tentative]]]) {
-//
-//  import ctx._
-//
-//  def extended(e: InActionBlock)(implicit argRewrite: Arg => Tentative[Literal],
-//                                 cnt: Counter): Chronicle =
-//    e match {
-//      case _: LocalVarDeclaration => this
-//      case _: ArgDeclaration      => this
-////    case BindAssertion(c, v) => ???
-////      val cond = ConditionToken(
-////        itv = ClosedInterval(ctx.temporalOrigin, ctx.temporalHorizon),
-////        fluent = encode(c),
-////        value = encode(v)
-////      )
-////      copy(
-////        conditions = cond :: conditions
-////      )
-//
-//      case TimedAssignmentAssertion(itv, fluent, value) =>
-//        val changeItv =
-//          itv.map(encodeAsInt)
-//        val persistenceEnd: Tentative[Int] = ???
-////          anonymousTp().subjectTo(changeItv.end <= _)
-//        val token = EffectToken(
-//          changeItv,
-//          persistenceEnd = persistenceEnd,
-//          fluent = encode(fluent),
-//          value = encode(value)
-//        )
-//        copy(effects = token :: effects)
-//
-//      case TimedEqualAssertion(itv, f, v) =>
-//        val persistenceItv =
-//          itv.map(encodeAsInt)
-//        val token = ConditionToken(
-//          itv = persistenceItv,
-//          fluent = encode(f),
-//          value = encode(v)
-//        )
-//        copy(conditions = token :: conditions)
-//
-//      case TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
-//        val start = encodeAsInt(s)
-//        val changeEnd = encodeAsInt(e)
-//        val persistenceEnd: Tentative[Int] = ??? // anonymousTp().subjectTo(changeEnd <= _)
-//        val cond = ConditionToken(ClosedInterval(start, start), encode(f), encode(v1))
-//        val eff =
-//          EffectToken(LeftOpenInterval(start, changeEnd), persistenceEnd, encode(f), encode(v2))
-//        copy(
-//          conditions = cond :: conditions,
-//          effects = eff :: effects
-//        )
-//
-//      case StaticAssignmentAssertion(lhs, rhs) => ???
-////        val eff = EffectToken(
-////          changeItv = ClosedInterval(ctx.temporalOrigin, ctx.temporalOrigin),
-////          persistenceEnd = ctx.temporalHorizon,
-////          fluent = encode(lhs),
-////          value = encode(rhs)
-////        )
-////        copy(
-////          effects = eff :: effects
-////        )
-//      case StaticBooleanAssertion(e) =>
-//        val c = ctx.boolUnbox(ctx.encode(e))
-//        copy(
-//          constraints = c :: constraints
-//        )
-//    }
-//  private def sameFluent(f1: Fluent, f2: Fluent): Tentative[Boolean] = {
-//    if(f1.template != f2.template)
-//      bool.False
-//    else {
-//      assert(f1.args.size == f2.args.size)
-//      val identical = f1.args.zip(f2.args).map { case (p1, p2) => ctx.eqv(p1, p2) }
-//      and(identical: _*)
-//    }
-//  }
-//
-//  def toSatProblem = {
-//    ???
-////    var count = 0
-////    val acts: Seq[Opt[Action[Tentative]]] = actions
-////    val effs: Seq[Opt[EffectToken]] =
-////      effects.map(Opt.present) ++
-////        acts.flatMap(oa => oa.a.chronicle.effects.map(Opt(_, oa.present)))
-////    val conds: Seq[Opt[ConditionToken]] =
-////      conditions.map(Opt.present) ++
-////        acts.flatMap(oa => oa.a.chronicle.conditions.map(Opt(_, oa.present)))
-////    val consts =
-////      constraints ++
-////        acts.map(a => a.present.implies(and(a.a.chronicle.constraints: _*)))
-////
-////    val nonOverlappingEffectsConstraints =
-////      for(e1 <- effs; e2 <- effs if e1 != e2) yield {
-////        count += 1
-////        (e1, e2) match {
-////          case (Opt(EffectToken(changeItv1, end1, fluent1, _), p1),
-////                Opt(EffectToken(changeItv2, end2, fluent2, _), p2)) =>
-////            implies(and(p1, p2, sameFluent(fluent1, fluent2)),
-////                    Interval.point(end1) < changeItv2 || Interval.point(end2) < changeItv1)
-////        }
-////      }
-////
-////    val supportConstraints =
-////      conds.map {
-////        case Opt(ConditionToken(persItv, fc, vc), pc) =>
-////          val disjuncts = effs.map {
-////            case Opt(EffectToken(changeItv, persistenceEnd, fe, ve), pe) =>
-////              and(pe,
-////                  sameFluent(fc, fe),
-////                  ctx.eqv(vc, ve),
-////                  changeItv <= persItv,
-////                  persItv <= Interval.point(persistenceEnd))
-////          }
-////          implies(pc, or(disjuncts: _*))
-////      }
-////
-////    val allConstraints = consts ++ nonOverlappingEffectsConstraints ++ supportConstraints
-////
-////    val tmp = and(allConstraints: _*)
-////
-////    val view = acts.map {
-////      case Opt(a, present) =>
-////        Product(
-////          Operator[Tentative](Cst(a.name)(Tag.default),
-////                              Product.fromSeq(a.args),
-////                              a.start,
-////                              a.end,
-////                              present))
-////    }
-////
-////    SubjectTo(Product.fromSeq(view), and(allConstraints: _*))
-//  }
-//}
-//
-//object Chronicle {
-//  def empty(ctx: ProblemContext): Chronicle =
-//    new Chronicle(ctx = ctx, conditions = Nil, effects = Nil, constraints = Nil, actions = Nil)
-//}
-//
-//case class Opt[A](a: A, present: Tentative[Boolean]) {
-//  def map[B](f: A => B): Opt[B] = Opt(f(a), present)
-//}
-//
-//object Opt {
-//
-//  def present[A](a: A): Opt[A] = Opt(a, Cst(true))
-//
-//  def optional[A](a: A): Opt[A] = a match {
-//    case x: Action[_] => ???
-////      Opt(a, Input[Boolean](x.name + "_" + x.id + ".prez"))
-//    case _ => ???
-////      Opt(a, Input[Boolean]())
-//  }
-//
-//}

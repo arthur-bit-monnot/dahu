@@ -2,13 +2,14 @@ package dahu.planning.planner.chronicles
 
 import cats.effect.IO
 import dahu.model.input._
-import dahu.planning.model.common.Predef
+import dahu.planning.model.common.{Arg, Predef}
 import dahu.planning.model.core
-import dahu.planning.planner.{PlannerConfig, ProblemContext}
+import dahu.planning.planner.{Literal, PlannerConfig, ProblemContext}
 import dahu.z3.Z3PartialSolver
 import dahu.model.input.dsl._
 import dahu.model.interpreter.Interpreter.Res
-import dahu.model.problem.{API, Group}
+import dahu.model.optionals.Structure
+import dahu.model.problem.{API}
 import dahu.solvers.MetaSolver
 
 import scala.concurrent.duration.Deadline
@@ -49,37 +50,39 @@ object Planner {
 
   def asChronicleExpr(model: core.CoreModel, num: core.ActionTemplate => Int, symBreak: Boolean)(
       implicit predef: Predef): Expr[Chronicle] = {
-    implicit val cnt: Counter = new Counter
-//    info("  Processing ANML model...")
-    val ctx = ProblemContext.extract(model)
-    val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
-      case (chronicle, statement: core.Statement) =>
-        chronicle.extended(statement)(_ => unexpected, cnt)
-      case (chronicle, action: core.ActionTemplate) =>
-        val actionInstances: Seq[Expr[Action]] =
-          if(symBreak) {
-
-            (0 until num(action)).foldLeft(List[Expr[Action]]()) {
-              case (Nil, _) => // first action
-                ActionF.optionalInstance(action, ctx) :: Nil
-              case (last :: rest, _) =>
-                // not first, enforce that this action is only present if the last one is and that its start no earliest that the last one
-                val act = ActionF.optionalInstance(action, ctx)
-                val withSymBreak = act
-                  .subjectTo(_ => Present(last))
-                  .subjectTo(_.start >= last.start)
-                withSymBreak :: last :: rest
-            }
-
-          } else {
-            (0 until num(action)).map { _ =>
-              ActionF.optionalInstance(action, ctx)
-            }
-          }
-        chronicle.copy(actions = chronicle.actions ++ actionInstances.map(_.explicitlyOptional))
-      case (chronicle, _) => chronicle
-    }
-    result.compile
+    ???
+//    implicit val cnt: Counter = new Counter
+////    info("  Processing ANML model...")
+//    val ctx = ProblemContext.extract(model)
+//
+//    val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
+//      case (chronicle, statement: core.Statement) =>
+//        chronicle.extended(statement)(_ => unexpected, cnt)
+//      case (chronicle, action: core.ActionTemplate) =>
+//        val actionInstances: Seq[Expr[Action]] =
+//          if(symBreak) {
+//
+//            (0 until num(action)).foldLeft(List[Expr[Action]]()) {
+//              case (Nil, _) => // first action
+//                ActionF.optionalInstance(action, ctx) :: Nil
+//              case (last :: rest, _) =>
+//                // not first, enforce that this action is only present if the last one is and that its start no earliest that the last one
+//                val act = ActionF.optionalInstance(action, ctx)
+//                val withSymBreak = act
+//                  .subjectTo(_ => Present(last))
+//                  .subjectTo(_.start >= last.start)
+//                withSymBreak :: last :: rest
+//            }
+//
+//          } else {
+//            (0 until num(action)).map { _ =>
+//              ActionF.optionalInstance(action, ctx)
+//            }
+//          }
+//        chronicle.copy(actions = chronicle.actions ++ actionInstances.map(_.explicitlyOptional))
+//      case (chronicle, _) => chronicle
+//    }
+//    result.compile
   }
 
   def solveWithGivenActionNumbers(model: core.CoreModel,

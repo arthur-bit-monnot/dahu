@@ -8,7 +8,7 @@ import dahu.model.math._
 import dahu.model.products.FieldAccess
 import dahu.model.types._
 import dahu.planning.model.common.FunctionTemplate
-import dahu.planning.planner.Literal
+import dahu.planning.planner.hcsp.Literal
 import dahu.utils.Vec
 import dahu.utils.errors._
 import spire.syntax.cfor
@@ -96,9 +96,7 @@ object SEffTokF {
         })
       case _ => unexpected
     }
-    val tok =
-      Product(new SEffTokF[Expr](fluent, value))(tag)
-    DynamicProvider(tok, tok)
+    Product(new SEffTokF[Expr](fluent, value))(tag)
   }
   def compatible[A](a: Option[A], b: Option[A]): Boolean = (a, b) match {
     case (None, _)          => true

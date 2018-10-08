@@ -26,7 +26,7 @@ import scala.collection.{immutable, mutable}
 import scala.reflect.ClassTag
 
 // TODO: (pure) check is still
-
+/*
 case class Context[I <: IDTop](as: Seq[I] = Seq[I]()) {
   def +(i: I): Context[I] = Context[I](as :+ i)
   def nesting: Int = as.size
@@ -515,10 +515,10 @@ object Group {
     }
 
     /** extract constraints applicable to `root`
-      * The constraint is of the form `({c1...cn}, v)` which corresponds to a clause
-      * `or(not(c1), ..., not(cn), v)`
-      * c1...cn correspond to the context (optional objects) in which the constraint `v` appears
-      */
+ * The constraint is of the form `({c1...cn}, v)` which corresponds to a clause
+ * `or(not(c1), ..., not(cn), v)`
+ * c1...cn correspond to the context (optional objects) in which the constraint `v` appears
+ */
     def constraints(root: I): Seq[(Set[I], I)] = {
       val contexts = mutable.Map[I, Set[Set[I]]]()
       val identifiedConstraints = mutable.Map[I, Set[Set[I]]]()
@@ -620,3 +620,4 @@ object Group {
   final case class Prezence[I](t: Set[I]) extends Node[I]
   final case class Constraints[I](t: Seq[(Set[I], I)]) extends Node[I]
 }
+ */

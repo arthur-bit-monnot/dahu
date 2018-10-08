@@ -7,7 +7,7 @@ import dahu.graphs.TreeNode
 import dahu.model.compiler.Algebras
 import dahu.model.ir._
 import dahu.model.problem.SatisfactionProblem.IR
-import dahu.model.problem.{Context => _, _}
+import dahu.model.problem._
 import dahu.model.types._
 import dahu.solvers.PartialSolver
 import dahu.utils.SFunctor

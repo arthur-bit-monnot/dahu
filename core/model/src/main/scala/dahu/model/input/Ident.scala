@@ -7,7 +7,8 @@ final case class Ident(scope: Scope, lid: LocalIdent) {
     else scope.toString + "." + lid.toString
 }
 object Ident {
-  def apply(scope: Scope, lid: String): Ident = new Ident(scope, LocalIdent(lid))
+  def apply[LocalId](scope: Scope, lid: LocalId): Ident =
+    new Ident(scope, LocalIdent(lid))
   def anonymous(scope: Scope): Ident = new Ident(scope, LocalIdent.anonymous())
 }
 
@@ -19,15 +20,15 @@ sealed trait LocalIdent
 
 object LocalIdent {
 
-  def apply(ref: AnyRef): LocalIdent = Provided(ref)
+  def apply(ref: Any): LocalIdent = Provided(ref)
 
-  def unapply(arg: LocalIdent): Option[AnyRef] = arg match {
+  def unapply(arg: LocalIdent): Option[Any] = arg match {
     case Provided(x) => Some(x)
     case _           => None
   }
   def anonymous(): LocalIdent = Anonymous.apply()
 
-  final case class Provided(ref: AnyRef) extends LocalIdent {
+  final case class Provided(ref: Any) extends LocalIdent {
     require(ref match {
       case name: String => !name.startsWith("?")
       case _            => true

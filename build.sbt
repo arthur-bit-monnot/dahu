@@ -146,21 +146,21 @@ lazy val model = project
       "com.chuusai" %% "shapeless" % "2.3.3",
     ))
 
-//lazy val solvers = project
-//  .in(file("core/solvers"))
-//  .dependsOn(utils, model)
-//  .settings(name := "dahu-solvers")
-//  .settings(commonSettings ++ utestSettings: _*)
-//  .settings(
-//    libraryDependencies ++= Seq(
-//      "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
-//    ))
+lazy val solvers = project
+  .in(file("core/solvers"))
+  .dependsOn(utils, model)
+  .settings(name := "dahu-solvers")
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scalacheck" %% "scalacheck" % "1.13.5" % "test",
+    ))
 //
-//lazy val z3 = project
-//  .in(file("core/solvers/z3"))
-//  .dependsOn(utils, model, solvers)
-//  .settings(name := "dahu-z3")
-//  .settings(commonSettings ++ utestSettings: _*)
+lazy val z3 = project
+  .in(file("core/solvers/z3"))
+  .dependsOn(utils, model, solvers)
+  .settings(name := "dahu-z3")
+  .settings(commonSettings ++ utestSettings: _*)
 //
 //lazy val benchmarks = project
 //  .in(file("benchmarks"))
@@ -172,13 +172,13 @@ lazy val model = project
 //      "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
 //  ))
 //
-//lazy val planner = project
-//  .in(file("planning/planner"))
-//  .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
-//  .settings(commonSettings ++ utestSettings: _*)
-//  .settings(libraryDependencies ++= Seq(
-//    "org.typelevel" %% "cats-effect" % "1.0.0-RC"
-//  ))
+lazy val planner = project
+  .in(file("planning/planner"))
+  .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+  ))
 //
 //lazy val anmlPlanner = project
 //  .in(file("planning/anml/planner"))

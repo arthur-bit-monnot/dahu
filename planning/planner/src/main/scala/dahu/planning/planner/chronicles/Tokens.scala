@@ -10,7 +10,7 @@ import dahu.model.types.Tag.Type
 import dahu.model.types.{ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common
 import dahu.planning.model.common.{FluentTemplate, FunctionTemplate}
-import dahu.planning.planner.Literal
+import dahu.planning.planner.hcsp.Literal
 import dahu.utils.Vec
 import dahu.utils.errors._
 import spire.syntax.cfor
@@ -37,7 +37,7 @@ object IntervalF {
     Product(ofExprUnwrapped(start, end))
 
   def ofExprUnwrapped(start: Expr[Int], end: Expr[Int]): IntervalF[Expr] =
-    IntervalF[Expr](start, end.alwaysSubjectTo(_ >= start))
+    IntervalF[Expr](start, end)
 
   val Start: FieldAccess[IntervalF, Int] = FieldAccess("start", 0)
   val End: FieldAccess[IntervalF, Int] = FieldAccess("end", 1)
@@ -97,7 +97,7 @@ object CondTokF {
     val accept = Accept(func, args, v)
 
     Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
-      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
+//      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
 
   }
 
@@ -133,6 +133,7 @@ case class EffTokF[F[_]](startChange: F[Int],
 object EffTokF {
   implicit val productTag: ProductTag[EffTokF] = ProductTag.ofProd[EffTokF]
 
+  // TODO: support subtyping of tags
   final case class EffProductTag(template: FunctionTemplate,
                                  args: Vec[Option[Literal]],
                                  value: Option[Literal],
@@ -149,13 +150,10 @@ object EffTokF {
   private def nextID(): Int = { lastID += 1; lastID }
   def ofExpr(startChange: Expr[Int],
              endChange: Expr[Int],
-             endPersistenceBase: Expr[Int],
+             endPersistence: Expr[Int],
              fluent: Expr[Fluent],
              value: Expr[Literal])(implicit cnt: Counter): Expr[EffTok] = {
     val id = cnt.next()
-    val endPersistence: Expr[Int] =
-      endPersistenceBase
-        .alwaysSubjectTo(_ >= endChange)
     val tag = fluent match {
       case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
         EffProductTag(f, args.map {
@@ -167,15 +165,13 @@ object EffTokF {
         }, id)
       case _ => unexpected
     }
-    val tok =
-      Product(
-        new EffTokF[Expr](startChange.alwaysSubjectTo(_ <= endChange),
-                          IntervalF.ofExpr(endChange, endPersistence),
-                          fluent,
-                          value,
-                          Cst(id)))(tag)
-    DynamicProvider(tok, tok)
-      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(Accept(tag))))
+    Product(
+      new EffTokF[Expr](startChange,
+                        IntervalF.ofExpr(endChange, endPersistence),
+                        fluent,
+                        value,
+                        Cst(id)))(tag)
+//      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(Accept(tag))))
   }
   def compatible[A](a: Option[A], b: Option[A]): Boolean = (a, b) match {
     case (None, _)          => true
@@ -246,7 +242,7 @@ object ChronicleF {
              actions: Expr[Vec[Option[Action]]]): Expr[Chronicle] = {
     val chron = ChronicleF(constraints, conditions, effects, staticEffects, actions)
 
-    Product(chron).subjectTo(_ => constraints) // constraints on conditions and effects are directly placed on them
+    Product(chron) //.subjectTo(_ => constraints) // constraints on conditions and effects are directly placed on them
   }
 
 }

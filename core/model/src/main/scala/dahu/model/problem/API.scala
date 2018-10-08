@@ -29,8 +29,10 @@ object API {
   def expandLambdas[K](tree: LazyTree[K, StaticF, Id, _]): LazyTree[K, Total, Id, _] =
     ExpandLambdas.expandLambdas[K](tree).forceEvaluation
 
+  @deprecated("will throw", since = "now")
   def makeTotal[K](t: LazyTree[K, Total, Id, _]): LazyTree[K, Total, IR, _] = {
-    Group.makeTotal(t).forceEvaluation
+    ???
+//    Group.makeTotal(t).forceEvaluation
   }
 
   def parseAndProcess[K](root: K, coalgebra: K => ExprF[K]): LazyTree[K, Total, IR, _] = {

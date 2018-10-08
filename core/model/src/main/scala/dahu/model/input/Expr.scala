@@ -7,6 +7,7 @@ import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.functions._
 import dahu.model.math.{bool, Monoid}
+import dahu.model.types.ProductTag.MapProductTag
 import dahu.model.types._
 
 import scala.reflect.ClassTag
@@ -46,7 +47,7 @@ final case class Input[T](id: TypedIdent[T]) extends Term[T] {
 }
 object Input {
   def apply[T: Tag](id: Ident): Expr[T] = Input[T](TypedIdent(id, Tag[T]))
-  def apply[T: Tag](name: String, scope: Scope): Expr[T] =
+  def apply[T: Tag](name: Any, scope: Scope): Expr[T] =
     Input[T](TypedIdent(Ident(scope, name), Tag[T]))
   def apply[T: Tag](scope: Scope): Expr[T] = Input[T](TypedIdent(Ident.anonymous(scope), Tag[T]))
 }
@@ -119,37 +120,8 @@ object Product {
   def fromMap[K: ClassTag, V: ClassTag](map: Map[K, Expr[V]])(
       implicit tt: universe.WeakTypeTag[Map[K, Id[V]]]): Product[PMap[K, ?[_], V]] = {
     type M[F[_]] = PMap[K, F, V]
-    val keys: Vec[K] = Vec.fromSeq(map.keys.toSeq)
-    val values: Vec[Expr[Any]] = keys.map(map(_))
-
     // build a specific type tag that remembers the keys of the original map.
-    val tag = new ProductTag[M] {
-      override def exprProd: ProductExpr[M, Expr] = new ProductExpr[M, Expr] {
-        override def extractTerms(prod: M[Expr])(
-            implicit ct: ClassTag[Expr[Any]]): Vec[Expr[Any]] = {
-          assert(prod == map)
-          values
-        }
-
-        override def buildFromTerms(terms: Vec[Expr[Any]]): M[Expr] = {
-          assert(terms == values)
-          map
-        }
-      }
-
-      override def idProd: ProductExpr[M, Id] = new ProductExpr[M, Id] {
-        override def extractTerms(prod: M[Id])(implicit ct: ClassTag[Id[Any]]): Vec[Id[Any]] = {
-          assert(prod.keys == map.keys)
-          keys.map(k => prod(k))
-        }
-        override def buildFromTerms(terms: Vec[Id[Any]]): M[Id] = {
-          assert(terms.size == values.size)
-          keys.zip(terms.map(_.asInstanceOf[Id[V]])).toMap
-        }
-      }
-
-      override def typ: Tag.Type = tt.tpe
-    }
+    val tag = new MapProductTag(map)
 
     Product[M](map)(tag)
   }
