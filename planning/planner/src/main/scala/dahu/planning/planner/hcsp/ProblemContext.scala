@@ -21,7 +21,7 @@ case class IntLit(value: Int) extends Literal {
   override def toString: String = value.toString
 }
 case class ObjLit(value: Instance) extends Literal {
-  override def toString: String = value.toString
+  override def toString: String = "%" + value.toString
 }
 
 case class ProblemContext(intTag: BoxedInt[Literal],
@@ -47,7 +47,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   }
   private val booleanTag = specializedTags(predef.Boolean)
   private val TRUE = Cst(ObjLit(predef.True): Literal)(booleanTag)
-  private val FALSE = Cst(ObjLit(predef.True): Literal)(booleanTag)
+  private val FALSE = Cst(ObjLit(predef.False): Literal)(booleanTag)
 
   def boolUnbox(i: Tentative[Literal]): Tentative[Boolean] =
     intUnbox(i) === intUnbox(TRUE)
@@ -119,7 +119,8 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   }
   def liftNBB(
       f: FunN[Boolean, Boolean]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
-    case (a1, a2) => boolBox(Computation(f, Seq(boolUnbox(a1), boolUnbox(a2))))
+    case (a1, a2) =>
+      boolBox(Computation(f, Seq(boolUnbox(a1), boolUnbox(a2))))
   }
 
   def eqv(lhs: common.Term, rhs: common.Term)(
