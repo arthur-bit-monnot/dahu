@@ -5,7 +5,7 @@ import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
 import dahu.model.products.FieldAccess
-import dahu.model.types.{BoxedInt, ProductTag, Tag, TagIsoInt}
+import dahu.model.types.{Bool, BoxedInt, ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, Scope => _, _}
 import dahu.planning.model.core._
@@ -63,8 +63,8 @@ case class ProblemContext(
     override def of(in: Boolean): Literal = if(in) ObjLit(predef.True) else ObjLit(predef.False)
     override def name: String = "box"
   }
-  def boolUnbox(i: Tentative[Literal]): Tentative[Boolean] = Computation(boolBoxing.reverse, i)
-  def boolBox(i: Tentative[Boolean]): Tentative[Literal] = Computation(boolBoxing, i)
+  def boolUnbox(i: Tentative[Literal]): Tentative[Bool] = ??? //Computation(boolBoxing.reverse, i)
+  def boolBox(i: Tentative[Bool]): Tentative[Literal] = ??? //Computation(boolBoxing, i)
 
   def encode(v: common.Term)(implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
     v match {
@@ -135,15 +135,14 @@ case class ProblemContext(
       f: Fun2[Int, Int, Int]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
     case (a1, a2) => intBox(intTag, Computation2(f, intUnbox(a1), intUnbox(a2)))
   }
-  def liftIIB(f: Fun2[Int, Int, Boolean])
-    : (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
+  def liftIIB(
+      f: Fun2[Int, Int, Bool]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
     case (a1, a2) => boolBox(Computation2(f, intUnbox(a1), intUnbox(a2)))
   }
   def lift(f: FunN[Int, Int]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
     case (a1, a2) => intBox(intTag, Computation(f, Seq(intUnbox(a1), intUnbox(a2))))
   }
-  def liftNBB(
-      f: FunN[Boolean, Boolean]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
+  def liftNBB(f: FunN[Bool, Bool]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
     case (a1, a2) => boolBox(Computation(f, Seq(boolUnbox(a1), boolUnbox(a2))))
   }
 
@@ -163,7 +162,7 @@ case class ProblemContext(
 //    Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
 
   def eqv(lhs: common.Term, rhs: common.Term)(
-      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
+      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Bool] =
     eqv(encode(lhs), encode(rhs))
 
   private def isInt(e: Tentative[Literal]): Boolean = e.typ match {
@@ -176,7 +175,7 @@ case class ProblemContext(
     case _ =>
       unexpected
   }
-  def eqv(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
+  def eqv(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Bool] =
     (lhs, rhs) match {
       case (Cst(x), Cst(y)) if x == y => bool.True
       case (Cst(x), Cst(y)) if x != y => bool.False
@@ -188,12 +187,12 @@ case class ProblemContext(
     }
 
   def neq(lhs: common.Term, rhs: common.Term)(
-      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Boolean] =
+      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Bool] =
     neq(encode(lhs), encode(rhs))
-  def neq(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Boolean] =
+  def neq(lhs: Tentative[Literal], rhs: Tentative[Literal]): Tentative[Bool] =
     not(eqv(lhs, rhs))
 
-  def and(conjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+  def and(conjuncts: Tentative[Bool]*): Tentative[Bool] = {
     if(conjuncts.contains(bool.False))
       bool.False
     else {
@@ -204,7 +203,7 @@ case class ProblemContext(
         Computation(bool.And, unsatConjuncts)
     }
   }
-  def or(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+  def or(disjuncts: Tentative[Bool]*): Tentative[Bool] = {
     if(disjuncts.contains(bool.True))
       bool.True
     else {
@@ -215,20 +214,20 @@ case class ProblemContext(
         Computation(bool.Or, satDisjuncts)
     }
   }
-  def xor(disjuncts: Tentative[Boolean]*): Tentative[Boolean] = {
+  def xor(disjuncts: Tentative[Bool]*): Tentative[Bool] = {
     val noFalse = disjuncts.filter(_ != bool.False)
     if(noFalse.isEmpty)
       bool.False
     else
       Computation(bool.XOr, noFalse)
   }
-  def implies(cond: Tentative[Boolean], effect: Tentative[Boolean]): Tentative[Boolean] = {
+  def implies(cond: Tentative[Bool], effect: Tentative[Bool]): Tentative[Bool] = {
     if(cond == bool.False)
       bool.True
     else
       or(not(cond), effect)
   }
-  def not(pred: Tentative[Boolean]): Tentative[Boolean] = {
+  def not(pred: Tentative[Bool]): Tentative[Bool] = {
     if(pred == bool.True)
       bool.False
     else if(pred == bool.False)

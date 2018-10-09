@@ -74,9 +74,11 @@ object Input {
 // TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult
 final case class Cst[T](value: T, typ: Tag[T]) extends Term[T] {
   require(typ != null)
+  if(typ.isBoolean)
+    assert(value == 0 || value == 1)
   override val hash: Int = ScalaRunTime._hashCode(this)
 
-  override def toString: String = value.toString
+  override def toString: String = value.toString + ":" + typ
 }
 
 object Cst {
@@ -88,7 +90,7 @@ object Cst {
   }
 }
 
-final case class ITE[T](cond: Expr[Boolean], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
+final case class ITE[T](cond: Expr[Bool], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
   override def typ: Tag[T] = onTrue.typ
   override val hash: Int = ScalaRunTime._hashCode(this)
 }

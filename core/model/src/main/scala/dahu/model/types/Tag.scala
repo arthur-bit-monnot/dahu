@@ -12,12 +12,10 @@ trait Tag[+T] {
 
   def typ: Tag.Type
 
-  def isValid(e: Expr[T] @uncheckedVariance): Expr[Boolean]
-
   def intersects(t: Tag[_]): Boolean = typ == t.typ
 
   def isInt: Boolean = this match {
-    case _: RawInt => true
+    case _: RawInt => !isBoolean
     case _         => false
   }
   def isBoolean: Boolean = this == Tag.ofBoolean
@@ -31,15 +29,14 @@ object Tag extends LowPriorityTags {
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
   implicit val ofInt: Tag[Int] = TagIsoInt.ofInt
-  implicit val ofBoolean: Tag[Boolean] = TagIsoInt.ofBoolean
 
 }
 
-trait LowPriorityTags {
+trait LowPriorityTags extends VeryLowPriorityTags {
+  import Bool._
 
   def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
     override def typ: universe.Type = Tag.typeOf[T]
-    override def isValid(e: Expr[T]): Expr[Boolean] = bool.True
   }
 
   implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
@@ -53,12 +50,14 @@ trait LowPriorityTags {
   implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] =
     new Tag[Option[T]] {
       override def typ: universe.Type = ev.tpe
-      override def isValid(e: Expr[Option[T]]): Expr[Boolean] = bool.True
     }
   implicit def eitherTag[L, R](implicit ev: universe.WeakTypeTag[Either[L, R]]): Tag[Either[L, R]] =
     new Tag[Either[L, R]] {
       override def typ: universe.Type = ev.tpe
-      override def isValid(e: Expr[Either[L, R]]): Expr[Boolean] = bool.True
     }
 
+}
+
+trait VeryLowPriorityTags {
+  implicit val ofBoolean: Tag[Bool] = BoolTag
 }

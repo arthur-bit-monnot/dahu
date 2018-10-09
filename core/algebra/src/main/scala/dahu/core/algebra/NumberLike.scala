@@ -9,9 +9,9 @@ trait NumberLike[-A] extends Orderable[A] {
 }
 
 object NumberLike {
-  type Aux[A, C0, Num0] = NumberLike[A] { type Bool = C0; type Num = Num0 }
+  type Aux[A, C0, Num0] = NumberLike[A] { type EBool = C0; type Num = Num0 }
 
-  def apply[A](implicit ev: NumberLike[A]): Aux[A, ev.Bool, ev.Num] = ev
+  def apply[A](implicit ev: NumberLike[A]): Aux[A, ev.EBool, ev.Num] = ev
 
   class NumberLikeOps[A](private val a: A) extends AnyVal {
     def *(b: A)(implicit N: NumberLike[A]): N.Num = N.times(a, b)

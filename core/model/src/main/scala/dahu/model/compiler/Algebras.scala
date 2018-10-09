@@ -4,7 +4,7 @@ import dahu.utils.Vec
 import dahu.maps.ArrayMap
 import dahu.model.input._
 import dahu.model.ir._
-import dahu.model.types.Value
+import dahu.model.types.{Bool, Value}
 import dahu.recursion._
 import dahu.recursion.Recursion._
 
@@ -120,7 +120,10 @@ object Algebras {
   }
   def printAlgebraTree[F[X] <: ExprF[X]]: FAlgebra[F, StringTree] = printAlgebraTreeImpl
   private val printAlgebraTreeImpl: FAlgebra[ExprF, StringTree] = {
-    case InputF(v, _)                                                           => StringLeaf("$" + v)
+    case InputF(v, _)              => StringLeaf("$" + v)
+    case CstF(v, t) if t.isBoolean =>
+//      assert(v == Bool.True || v == Bool.False)
+      StringLeaf(if(v == Bool.True) "T" else if(v == Bool.False) "F" else "????????")
     case CstF(v, _)                                                             => StringLeaf(v.toString)
     case c @ ComputationF(f, Vec(a), _) if f.name == "box" || f.name == "unbox" => a
     case c @ ComputationF(f, args, _) =>

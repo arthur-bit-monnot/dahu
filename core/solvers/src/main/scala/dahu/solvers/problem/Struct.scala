@@ -6,7 +6,7 @@ import dahu.model.compiler.Algebras
 import dahu.model.functions.->:
 import dahu.model.input._
 import dahu.model.math.bool
-import dahu.model.types.{ProductTag, Tag}
+import dahu.model.types.{Bool, ProductTag, Tag}
 import dahu.model.input.dsl._
 import dahu.model.ir.{ExprF, Total}
 import dahu.model.problem.{API, ASG, IDTop, LazyTree, OpenASG, SatisfactionProblem, StaticProblem}
@@ -19,9 +19,9 @@ case class CExpr[+A](e: Expr[A], ctx: Scope)
 
 trait Struct {
   def scope: Scope
-  final def prez: Expr[Boolean] = scope.present
+  final def prez: Expr[Bool] = scope.present
   def vars: Seq[Expr[Any]]
-  def constraints: Seq[CExpr[Boolean]]
+  def constraints: Seq[CExpr[Bool]]
   def subs: Seq[Struct]
   def exports: Seq[CExpr[Any]]
 
@@ -79,7 +79,7 @@ trait Struct {
 }
 
 case class EncodedProblem[+Res](asg: ASG[Expr[Any], Total, cats.Id],
-                                sat: Expr[Boolean],
+                                sat: Expr[Bool],
                                 res: Expr[Res])
 
 object Struct {
@@ -90,10 +90,10 @@ object Struct {
 
   def encode[T](flat: Struct, result: Expr[T]): EncodedProblem[T] = {
     assert(flat.subs.isEmpty)
-    val constraints: Seq[Expr[Boolean]] = flat.constraints.map {
+    val constraints: Seq[Expr[Bool]] = flat.constraints.map {
       case CExpr(c, scope) => scope.present ==> c
     }
-    val pb: Expr[Boolean] = bool.And(constraints: _*)
+    val pb: Expr[Bool] = bool.And(constraints: _*)
     val dynAsg = API.parse(pb).fixID
 
     val exported = flat.exports.map {
@@ -107,10 +107,10 @@ object Struct {
   }
 
   def process(flat: Struct) = {
-    val constraints: Seq[Expr[Boolean]] = flat.constraints.map {
+    val constraints: Seq[Expr[Bool]] = flat.constraints.map {
       case CExpr(c, scope) => scope.present ==> c
     }
-    val pb: Expr[Boolean] = bool.And(constraints: _*)
+    val pb: Expr[Bool] = bool.And(constraints: _*)
     val dynAsg = API.parse(pb).fixID
     println(dynAsg.fullTree)
     for(exp <- flat.exports) {
@@ -146,7 +146,7 @@ final class Structure(val scope: Scope) extends Struct {
 
   var isSealed: Boolean = false
   val vars: Buff[Expr[Any]] = Buff()
-  val constraints: Buff[CExpr[Boolean]] = Buff()
+  val constraints: Buff[CExpr[Bool]] = Buff()
   val subs: Buff[Struct] = Buff()
   val exports: Buff[CExpr[Any]] = Buff()
 
@@ -163,16 +163,16 @@ final class Structure(val scope: Scope) extends Struct {
     vars += v
     v
   }
-  def addConstraint(c: Expr[Boolean]): CExpr[Boolean] = {
+  def addConstraint(c: Expr[Bool]): CExpr[Bool] = {
     assert(!isSealed)
-    val cc = CExpr[Boolean](c, scope)
+    val cc = CExpr[Bool](c, scope)
     constraints += cc
     cc
   }
 
   def addSub(name: String): Structure = {
     assert(!isSealed)
-    val subPrez = addVar[Boolean](s"$name?")
+    val subPrez = addVar[Bool](s"$name?")
     val subContext = scope.subScope(name, subPrez)
     val s = new Structure(subContext)
     subs += s
@@ -200,19 +200,19 @@ object Test extends App {
     val Start = FieldAccess[Interval, Int]("start", 0)
     val End = FieldAccess[Interval, Int]("end", 1)
 
-    val IsValid: Expr[Interval[Id] ->: Boolean] = Lambda(itv => Start(itv) <= End(itv))
+    val IsValid: Expr[Interval[Id] ->: Bool] = Lambda(itv => Start(itv) <= End(itv))
   }
   case class Point[F[_]](pt: F[Int])
   object Point {
     implicit val tag: Tag[Point[Id]] = ProductTag.ofProd[Point]
     val Value = FieldAccess[Point, Int]("pt", 0)
 
-    val IsValid: Expr[Point[Id] ->: Boolean] = Lambda(pt => Value(pt) >= 10)
+    val IsValid: Expr[Point[Id] ->: Bool] = Lambda(pt => Value(pt) >= 10)
   }
 
   val csp = Structure.newRoot()
-  val a = csp.addVar[Boolean]("a")
-  val b = csp.addVar[Boolean]("b")
+  val a = csp.addVar[Bool]("a")
+  val b = csp.addVar[Bool]("b")
 
   val x = csp.addSub("X")
   val xa = x.addVar[Int]("a")
@@ -229,10 +229,10 @@ object Test extends App {
 
   val flat = csp.flattened
 
-  val constraints: Seq[Expr[Boolean]] = flat.constraints.map {
+  val constraints: Seq[Expr[Bool]] = flat.constraints.map {
     case CExpr(c, scope) => scope.present ==> c
   }
-  val pb: Expr[Boolean] = bool.And(constraints: _*)
+  val pb: Expr[Bool] = bool.And(constraints: _*)
   val dynAsg = API.parse(pb).fixID
   println(dynAsg.fullTree)
   for(exp <- flat.exports) {

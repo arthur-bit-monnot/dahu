@@ -22,7 +22,9 @@ import scala.util.control.NonFatal
 
 class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](t: OpenASG[X, F, Opt, I], f: F[G] => G)(
     implicit F: SFunctor[F],
-    T: TreeNode[F]) {
+    T: TreeNode[F],
+    ct: ClassTag[F[I]]
+) {
   private val memo = mutable.HashMap[t.ID, G]()
 
   def build(k: X)(implicit F: Functor[Opt]): Opt[G] = t.getTreeRoot(k).map(buildInternal)
@@ -38,6 +40,14 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](t: OpenASG[X, F, Opt
       val a = stack.pop()
       val fa = t.internalCoalgebra(a)
       if(T.children(fa).forall(memo.contains)) {
+
+        println(fa)
+        val fb = F.smap(fa)(t.internalCoalgebra)
+        println(fb)
+        println()
+        if(fa.toString.startsWith("add(4")) {
+          println("BREAK")
+        }
         val g = f(F.smap(fa)(memo))
         memo += ((a, g))
       } else {
@@ -82,6 +92,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
           case i: IntNum =>
             ast.tree.internalCoalgebra(id).typ match {
               case t: RawInt =>
+                assert(!t.isBoolean)
                 //Some(t.toValue(i.getInt))
                 val v = i.getInt
                 assert(
@@ -97,9 +108,11 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
           case i: IntExpr =>
             // not constrained, if decision variable just return the first value in the domain
             ast.tree.internalCoalgebra(id) match {
-              case InputF(_, typ: RawInt) => Some(Value(typ.min))
-              case InputF(_, typ: RawInt) => Some(Value(false))
-              case _                      => None
+              case InputF(_, typ: RawInt) =>
+                assert(typ.isBoolean)
+                Some(Value(typ.min))
+
+              case _ => None
             }
           case b: BoolExpr =>
             b.getBoolValue match {
@@ -134,7 +147,8 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
   // for a variable X in scope S, the domain essentially encode:
   //     present(S) ==> value(X) in domain(X)
   ast.nodes.foreach {
-    case (id, InputF(name, typ: RawInt)) =>
+    case (id, InputF(name, typ: RawInt)) if typ.isInt =>
+      assert(!typ.isBoolean)
       if(typ.min <= typ.max) {
         // domain is non empty, impose inconditionally
         solver.add(

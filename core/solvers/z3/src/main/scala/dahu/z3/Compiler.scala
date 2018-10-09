@@ -7,7 +7,7 @@ import dahu.recursion.FAlgebra
 import cats.implicits._
 import dahu.utils._
 import dahu.model.functions._
-import dahu.model.types.{Tag, TagIsoInt}
+import dahu.model.types.{Bool, Tag, TagIsoInt}
 
 import scala.util.{Success, Try}
 
@@ -60,12 +60,14 @@ object Compiler {
     case InputF(name, t) =>
       t match {
         case _ if t.isInt     => ctx.mkIntConst(name.toString)
-        case _ if t.isBoolean => ctx.mkBoolConst(name.toString)
+        case _ if t.isBoolean => ctx.mkBoolConst(name.toString + ";")
       }
-    case CstF(value, t) =>
+    case CstF(value: Int, t) =>
       t match {
-        case _ if t.isInt     => ctx.mkInt(value.asInstanceOf[Int])
-        case _ if t.isBoolean => ctx.mkBool(value.asInstanceOf[Boolean])
+        case _ if t.isInt => ctx.mkInt(value.asInstanceOf[Int])
+        case _ if t.isBoolean =>
+          assert(t eq Tag.ofBoolean)
+          ctx.mkBool(if(value == Bool.True) true else false)
       }
     case ITEF(cond, onTrue, onFalse, t) =>
       cond match {

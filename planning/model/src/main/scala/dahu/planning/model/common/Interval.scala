@@ -24,21 +24,25 @@ sealed abstract class Interval[A] {
   }
 }
 object Interval {
-  sealed trait OpenOnLeft { self: Interval[_] =>}
-  sealed trait ClosedOnLeft { self: Interval[_] =>}
-  sealed trait OpenOnRight { self: Interval[_] =>}
-  sealed trait ClosedOnRight { self: Interval[_] =>}
+  sealed trait OpenOnLeft { self: Interval[_] =>
+  }
+  sealed trait ClosedOnLeft { self: Interval[_] =>
+  }
+  sealed trait OpenOnRight { self: Interval[_] =>
+  }
+  sealed trait ClosedOnRight { self: Interval[_] =>
+  }
 
   def point[A](pt: A): Interval[A] = ClosedInterval(pt, pt)
 
-  implicit def orderedInstance[A](implicit O: Orderable[A]): Orderable.Aux[Interval[A], O.Bool] =
+  implicit def orderedInstance[A](implicit O: Orderable[A]): Orderable.Aux[Interval[A], O.EBool] =
     new Orderable[Interval[A]] {
-      type Bool = O.Bool
-      override def BL: BoolLike[Bool] = O.BL
-      override def leq(a: Interval[A], b: Interval[A]): Bool =
+      type EBool = O.EBool
+      override def BL: BoolLike[EBool] = O.BL
+      override def leq(a: Interval[A], b: Interval[A]): EBool =
         O.leq(a.end, b.start)
 
-      override def lt(a: Interval[A], b: Interval[A]): Bool =
+      override def lt(a: Interval[A], b: Interval[A]): EBool =
         if(a.isRightOpen || b.isLeftOpen)
           O.leq(a.end, b.start)
         else
@@ -47,19 +51,28 @@ object Interval {
 }
 import Interval._
 
-case class ClosedInterval[A](start: A, end: A) extends Interval[A] with  ClosedOnLeft with ClosedOnRight {
+case class ClosedInterval[A](start: A, end: A)
+    extends Interval[A]
+    with ClosedOnLeft
+    with ClosedOnRight {
   override def toString: String = s"[$start, $end]"
   override def isLeftOpen: Boolean = false
   override def isRightOpen: Boolean = false
 }
 
-case class LeftOpenInterval[A](start: A, end: A) extends Interval[A] with OpenOnLeft with ClosedOnRight {
+case class LeftOpenInterval[A](start: A, end: A)
+    extends Interval[A]
+    with OpenOnLeft
+    with ClosedOnRight {
   override def toString: String = s"]$start, $end]"
   override def isLeftOpen: Boolean = true
   override def isRightOpen: Boolean = false
 }
 
-case class RightOpenInterval[A](start: A, end: A) extends Interval[A] with ClosedOnLeft with OpenOnRight {
+case class RightOpenInterval[A](start: A, end: A)
+    extends Interval[A]
+    with ClosedOnLeft
+    with OpenOnRight {
   override def toString: String = s"[$start, $end["
   override def isLeftOpen: Boolean = false
   override def isRightOpen: Boolean = true

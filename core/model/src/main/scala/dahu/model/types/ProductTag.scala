@@ -12,8 +12,6 @@ import scala.reflect.ClassTag
 trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
   def exprProd: ProductExpr[P, Expr]
   def idProd: ProductExpr[P, cats.Id]
-
-  override def isValid(e: Expr[P[Id]]): Expr[Boolean] = bool.True
 }
 
 object ProductTag {

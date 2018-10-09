@@ -29,9 +29,6 @@ trait TagIsoInt[T] extends Tag[T] { self =>
   def box: Box[T] = unbox.reverse
 
   import dahu.model.input.dsl._
-  override def isValid(e: Expr[T]): Expr[Boolean] =
-    Cst(min) <= unbox(e) && unbox(e) <= Cst(max)
-
 }
 
 trait RawInt extends Tag[Int] {
@@ -39,8 +36,6 @@ trait RawInt extends Tag[Int] {
   def max: Int
   override def typ: Tag.Type = Tag.typeOf[Int]
 
-  import dahu.model.input.dsl._
-  override def isValid(e: Expr[Int]): Expr[Boolean] = Cst(min) <= e && e <= Cst(max)
 }
 
 object TagIsoInt {
@@ -65,8 +60,6 @@ object TagIsoInt {
 
     override val min: Int = 0
     override val max: Int = 1
-
-    override def isValid(e: Expr[Boolean]): Expr[Boolean] = bool.True
   }
 
   import scala.reflect.runtime.universe
