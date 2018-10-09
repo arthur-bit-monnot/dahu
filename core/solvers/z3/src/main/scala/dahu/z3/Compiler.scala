@@ -59,13 +59,13 @@ object Compiler {
   def partialAlgebra(ctx: Context): PartialAlgebra = {
     case InputF(name, t) =>
       t match {
-        case Tag.ofInt     => ctx.mkIntConst(name.toString)
-        case Tag.ofBoolean => ctx.mkBoolConst(name.toString)
+        case _ if t.isInt     => ctx.mkIntConst(name.toString)
+        case _ if t.isBoolean => ctx.mkBoolConst(name.toString)
       }
     case CstF(value, t) =>
       t match {
-        case Tag.ofInt     => ctx.mkInt(value.asInstanceOf[Int])
-        case Tag.ofBoolean => ctx.mkBool(value.asInstanceOf[Boolean])
+        case _ if t.isInt     => ctx.mkInt(value.asInstanceOf[Int])
+        case _ if t.isBoolean => ctx.mkBool(value.asInstanceOf[Boolean])
       }
     case ITEF(cond, onTrue, onFalse, t) =>
       cond match {

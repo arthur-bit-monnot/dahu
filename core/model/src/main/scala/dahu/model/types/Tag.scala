@@ -15,6 +15,12 @@ trait Tag[+T] {
   def isValid(e: Expr[T] @uncheckedVariance): Expr[Boolean]
 
   def intersects(t: Tag[_]): Boolean = typ == t.typ
+
+  def isInt: Boolean = this match {
+    case _: RawInt => true
+    case _         => false
+  }
+  def isBoolean: Boolean = this == Tag.ofBoolean
 }
 
 object Tag extends LowPriorityTags {

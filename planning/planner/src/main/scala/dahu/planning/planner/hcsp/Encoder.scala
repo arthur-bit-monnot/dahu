@@ -10,6 +10,7 @@ import dahu.planning.planner.chronicles.{
   CondTokF,
   EffTok,
   EffTokF,
+  IntervalF,
   Operator,
   Solution,
   SolutionF
@@ -34,10 +35,14 @@ object Encoder {
     import dsl._
 
     csp.addConstraint(
+      forall[EffTok](e => EffTokF.StartChange(e) <= IntervalF.Start(EffTokF.Persistence(e)))
+    )
+
+    csp.addConstraint(
       forall[EffTok](
         e1 =>
           forall[EffTok](e2 =>
-            EffTokF.Id(e1) <= EffTokF.Id(e2) ||
+            EffTokF.Id(e1) >= EffTokF.Id(e2) ||
               EffTokF.consistent(e1, e2)))
     )
     csp.addConstraint(
@@ -62,8 +67,10 @@ object Encoder {
     }
     val flat = csp.flattened
 //    Struct.process(flat)
+//    sys.exit(0)
     val actions: Expr[Vec[Operator]] = all[Operator]
-    Struct.encode(flat, Product(SolutionF[Expr](actions))(SolutionF.tag))
+    val effects: Expr[Vec[EffTok]] = all[EffTok]
+    Struct.encode(flat, Product(SolutionF[Expr](actions, effects))(SolutionF.tag))
 
 //    val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
 //      case (chronicle, statement: core.Statement) =>

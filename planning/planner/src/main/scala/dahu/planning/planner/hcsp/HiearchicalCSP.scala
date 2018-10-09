@@ -160,13 +160,16 @@ abstract class CSP extends Struct {
                                     persistenceEnd,
                                     encode(fluent),
                                     ctx.encode(value))
-
+        addConstraint(changeItv.start <= changeItv.end)
+        addConstraint(changeItv.end <= persistenceEnd)
         addExport(token)
 //
       case core.TimedEqualAssertion(itv, f, v) =>
         val interval = encode(itv)
         val token =
           chronicles.CondTokF.ofExpr(interval.start, interval.end, encode(f), ctx.encode(v))
+
+        addConstraint(interval.start <= interval.end)
         addExport(token)
 
       case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
@@ -176,7 +179,7 @@ abstract class CSP extends Struct {
 
         val changeItv = encode(LeftOpenInterval(s, e))
         val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
-        addConstraint(changeItv.end <= persistenceEnd)
+
         val eff =
           chronicles.EffTokF.ofExpr(changeItv.start,
                                     changeItv.end,
@@ -185,6 +188,9 @@ abstract class CSP extends Struct {
                                     ctx.encode(v2))
 
         addExport(cond)
+
+        addConstraint(changeItv.start <= changeItv.end)
+        addConstraint(changeItv.end <= persistenceEnd)
         addExport(eff)
 //
 //      case core.StaticAssignmentAssertion(lhs, rhs) =>
@@ -213,6 +219,9 @@ abstract class CSP extends Struct {
           sub.recordVar(a, in)
         case _ =>
       }
+      sub.addConstraint(
+        ctx.intUnbox(sub.getVar(act.start).get) <= ctx.intUnbox(sub.getVar(act.end).get))
+
       act.content.foreach {
         case _: core.LocalVarDeclaration => // already processed
         case _: core.ArgDeclaration      => // already processed

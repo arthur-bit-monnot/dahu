@@ -52,34 +52,13 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](t: OpenASG[X, F, Opt
 class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID])
     extends PartialSolver[X, AstID] {
   implicit def treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
-//  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
 
-//  private val t2 = ast.tree.transform(SatisfactionProblem.Optimizations.implicationGrouper)
-//  private val printable = t2.cata(Algebras.printAlgebraTree)
-//  println()
-//  println(printable.get(ast.root).valid.mkString(120))
-//  println("e")
-//  System.exit(0)
-
-//  println(ast.fullTree)
-//  println("------------")
-
-  private val intBoolPb = new IntBoolSatisfactionProblem[ast.ID](ast.tree.getTreeRoot(ast.root),
-                                                                 ast.tree.internalCoalgebra)
-  private val tree = intBoolPb.tree.fixID
-
-  tree.forceEvaluation
-//  println(tree.fullTree)
-//  ast.tree
-//  for(id <- ast.tree.internalBottomUpTopologicalOrder(ast.tree.getTreeRoot(ast.root))) {
-//    println(id + " " + tree.tree.getTreeRoot(id))
-//  }
-//  println("\n ---- \n")
+  val isSupported: AstID => Boolean = IntBoolUtils.isExprOfIntBool(ast.tree)
 
   private val ctx = new Context()
   private type OptTotal[T] = Option[Total[T]]
 
-  private val treeBuilder = new TreeBuilder(tree.tree, Compiler.partialAlgebra(ctx))
+  private val treeBuilder = new TreeBuilder(ast.tree, Compiler.partialAlgebra(ctx))
 
   def addClause(e: Any): Unit = ???
 
@@ -88,9 +67,11 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
     asExprInternal(ast.tree.getTreeRoot(id))
   }
   private def asExprInternal(id: AstID): Option[com.microsoft.z3.Expr] = {
-    tree.tree
-      .getTreeRoot(id)
-      .map(internalID => treeBuilder.buildInternal(internalID))
+    if(isSupported(id)) {
+      Some(treeBuilder.buildInternal(id))
+    } else {
+      None
+    }
   }
   def eval(id: X, model: com.microsoft.z3.Model): Option[Value] =
     evalInternal(ast.tree.getTreeRoot(id), model)
@@ -100,17 +81,26 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
         model.eval(e, false) match {
           case i: IntNum =>
             ast.tree.internalCoalgebra(id).typ match {
-              case t: TagIsoInt[_] =>
+              case t: RawInt =>
                 //Some(t.toValue(i.getInt))
                 val v = i.getInt
+                assert(
+                  t.min <= v && v <= t.max,
+                  "Value not in specified bounds, Note that this is in fact acceptable if the value is not used")
                 if(t.min <= v && v <= t.max) // TODO: make functions in tag iso int total
-                  Some(t.toValue(v))
-                else
+                  Some(Value(v))
+                else {
                   None
+                }
               case _ => unexpected
             }
           case i: IntExpr =>
-            None
+            // not constrained, if decision variable just return the first value in the domain
+            ast.tree.internalCoalgebra(id) match {
+              case InputF(_, typ: RawInt) => Some(Value(typ.min))
+              case InputF(_, typ: RawInt) => Some(Value(false))
+              case _                      => None
+            }
           case b: BoolExpr =>
             b.getBoolValue match {
               case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))
@@ -124,7 +114,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
     }
   }
 
-  private val compiled = Try(treeBuilder.build(tree.root).get)
+  private val compiled = Try(treeBuilder.build(ast.root))
   private val satProblem = compiled match {
     case Success(x: BoolExpr) => x
     case Failure(NonFatal(e)) => unexpected("Failure while parsing Z3. Cause: ", e)
@@ -139,6 +129,27 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
 
   private val solver = ctx.mkSolver()
   solver.add(satProblem)
+
+  // add the constraints corresponding to the domain of variables
+  // for a variable X in scope S, the domain essentially encode:
+  //     present(S) ==> value(X) in domain(X)
+  ast.nodes.foreach {
+    case (id, InputF(name, typ: RawInt)) =>
+      if(typ.min <= typ.max) {
+        // domain is non empty, impose inconditionally
+        solver.add(
+          ctx.mkLe(ctx.mkInt(typ.min), treeBuilder.buildInternal(id).asInstanceOf[ArithExpr]))
+        solver.add(
+          ctx.mkLe(treeBuilder.buildInternal(id).asInstanceOf[ArithExpr], ctx.mkInt(typ.max)))
+      } else {
+        // domain is empty, make sure the variable is never use by making its scope absent
+        solver.add(
+          ctx.mkNot(
+            treeBuilder.build(name.id.scope.present.asInstanceOf[X]).asInstanceOf[BoolExpr]))
+      }
+    case _ =>
+  }
+
   private var model: Model = null
 
   override def nextSatisfyingAssignment(deadline: Option[Deadline]): Option[X => Option[Value]] = {
@@ -172,9 +183,6 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
         None
     }
   }
-
-  override def internalRepresentation(node: AstID): partial.NodeTag =
-    intBoolPb.representation(node)
 
 }
 

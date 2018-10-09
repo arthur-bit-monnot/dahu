@@ -41,16 +41,34 @@ object Expr {
 sealed abstract class Term[T] extends Expr[T]
 
 /** Evaluation yields a Right[T] */
-final case class Input[T](id: TypedIdent[T]) extends Term[T] {
+final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {
+  assert(!id.typ.isInstanceOf[TagIsoInt[_]] || id.typ == Tag.ofBoolean)
   override def typ: Tag[T] = id.typ
   override val hash: Int = ScalaRunTime._hashCode(this)
   override def toString: String = "?" + id
 }
 object Input {
-  def apply[T: Tag](id: Ident): Expr[T] = Input[T](TypedIdent(id, Tag[T]))
+  private case class Raw(id: Any)
+
+  /** This should be the only entry point for building an Input.
+    * It checks whether the Input is isomorphic to an int and in which case, the returned value is a box
+    * of a raw int variable.
+    */
+  private def build[T](id: Ident)(implicit tag: Tag[T]): Expr[T] = {
+    tag match {
+      case _: RawInt                 => new Input[T](TypedIdent(id, tag))
+      case _ if tag == Tag.ofBoolean => new Input[T](TypedIdent(id, tag))
+      case t: TagIsoInt[T] =>
+        val rawInput = new Input[Int](TypedIdent(Ident(id.scope, Raw(id.lid)), t.rawType))
+        Computation1(t.box, rawInput)
+      case x => new Input[T](TypedIdent(id, tag))
+    }
+  }
+
   def apply[T: Tag](name: Any, scope: Scope): Expr[T] =
-    Input[T](TypedIdent(Ident(scope, name), Tag[T]))
-  def apply[T: Tag](scope: Scope): Expr[T] = Input[T](TypedIdent(Ident.anonymous(scope), Tag[T]))
+    build[T](Ident(scope, name))
+  def apply[T: Tag](scope: Scope): Expr[T] =
+    build[T](Ident.anonymous(scope))
 }
 
 // TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult

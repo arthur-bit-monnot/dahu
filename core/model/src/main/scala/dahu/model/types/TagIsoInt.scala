@@ -7,7 +7,7 @@ import dahu.model.math.bool
 import scala.annotation.switch
 
 /** A type for which an isomophism to a subset of integers is known. */
-trait TagIsoInt[T] extends Tag[T] {
+trait TagIsoInt[T] extends Tag[T] { self =>
 
   def fromInt(i: Int): T
   def toValue(i: Int): Value = Value(fromInt(i))
@@ -17,6 +17,11 @@ trait TagIsoInt[T] extends Tag[T] {
   val min: Int
   val max: Int
   def numInstances: Int = max - min + 1
+
+  def rawType: RawInt = new RawInt {
+    override def min: Int = self.min
+    override def max: Int = self.max
+  }
 
   private implicit def selfTag: TagIsoInt[T] = this
 
@@ -29,14 +34,21 @@ trait TagIsoInt[T] extends Tag[T] {
 
 }
 
+trait RawInt extends Tag[Int] {
+  def min: Int
+  def max: Int
+  override def typ: Tag.Type = Tag.typeOf[Int]
+
+  import dahu.model.input.dsl._
+  override def isValid(e: Expr[Int]): Expr[Boolean] = Cst(min) <= e && e <= Cst(max)
+}
+
 object TagIsoInt {
 
   def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
 
-  implicit case object ofInt extends BoxedInt[Int] {
+  implicit case object ofInt extends RawInt {
     override val typ: Tag.Type = Tag.typeOf[Int]
-    override def fromInt(i: Int): Int = i
-    override def toInt(t: Int): Int = t
 
     override val min: Int = Integer.MIN_VALUE / 2 + 1
     override val max: Int = Integer.MAX_VALUE / 2 - 1

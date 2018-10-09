@@ -11,4 +11,7 @@ package object problem {
   type IDTop = SInt[Mark]
   implicit val ct: ClassTag[IDTop] = ClassTag.Int.asInstanceOf[ClassTag[IDTop]]
 
+  trait ExistentialMarker
+  type SomeID = SubSubInt[IDTop, ExistentialMarker]
+
 }

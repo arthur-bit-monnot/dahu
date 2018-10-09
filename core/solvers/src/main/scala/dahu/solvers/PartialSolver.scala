@@ -15,7 +15,6 @@ abstract class PartialSolver[X, AstID] {
   def nextSatisfyingAssignment(deadlineMs: Option[Deadline]): Option[X => Option[Value]]
   def nextSatisfyingAssignmentInternal(deadlineMs: Option[Deadline]): Option[AstID => Option[Value]]
 
-  def internalRepresentation(node: AstID): NodeTag
 }
 
 object PartialSolver {

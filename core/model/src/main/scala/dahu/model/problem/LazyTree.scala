@@ -81,6 +81,19 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
     Recursion.ana(i => internalCoalgebra(i))(id)
   }
 
+  def filterInternal(f: ID => Boolean)(
+      implicit ev: Opt[InternalID] =:= InternalID): OpenASG[K, F, Option, ID] =
+    new OpenASG[K, F, Option, InternalID] {
+      override def getTreeRoot(k: K): Option[InternalID] = {
+        val root = self.getTreeRoot(k)
+        if(f(root))
+          Some[ID](ev(root))
+        else
+          None
+      }
+      override def internalCoalgebra(i: InternalID): F[InternalID] = self.internalCoalgebra(i)
+    }
+
   def filter(f: F[ID] => Boolean)(
       implicit ev: Opt[InternalID] =:= InternalID): OpenASG[K, F, Option, ID] =
     new OpenASG[K, F, Option, InternalID] {
@@ -123,6 +136,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
       override def toString: String = "ILazyForestChangedKey"
     }
 
+  // TODO: reimplement in terms of cataExplicit
   def cata[V: ClassTag](f: F[V] => V)(implicit T: TreeNode[F],
                                       F: SFunctor[F]): LazyMap[K, V, Opt, ID] =
     new LazyMap[K, V, Opt, ID] {
@@ -180,7 +194,8 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
             val cur = pop()
             if(!hasValue(cur)) {
               preFill(cur) match {
-                case Some(curValue) => setValue(cur, curValue)
+                case Some(curValue) =>
+                  setValue(cur, curValue)
                 case None =>
                   val fcur = self.internalCoalgebra(cur)
                   val children = TreeNode[F].children(fcur)
@@ -239,14 +254,17 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
         self.getTreeRoot(k).map(getInternal)
     }
 
-  def cataLow2[V: ClassTag](f: F[(V, ID)] => V)(implicit T: TreeNode[F],
-                                                F: SFunctor[F]): LazyMap[K, V, Opt, ID] =
+  def cataExplicit[V: ClassTag](ff: (SomeID => V) => F[SomeID] => V)(
+      implicit T: TreeNode[F],
+      F: SFunctor[F]): LazyMap[K, V, Opt, ID] =
     new LazyMap[K, V, Opt, ID] {
       private val values = debox.Map[ID, V]()
 
       private def hasValue(i: ID): Boolean = values.contains(i)
       private def getValue(i: ID): V = values(i)
       private def setValue(i: ID, v: V): Unit = values.update(i, v)
+
+      val f = ff((i: SomeID) => getValue(i.asInstanceOf[ID]))
 
       def getInternal(i: ID): V = {
         if(!hasValue(i)) {
@@ -260,8 +278,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
               val fcur = self.internalCoalgebra(cur)
               val children = TreeNode[F].children(fcur)
               if(children.forall(hasValue)) {
-                val fcurv = SFunctor[F].smap(fcur)(x => (getValue(x), x))
-                setValue(cur, f(fcurv))
+                setValue(cur, f(fcur.asInstanceOf[F[SomeID]]))
               } else {
                 push(cur)
                 children.foreach(push)

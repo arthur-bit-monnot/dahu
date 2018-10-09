@@ -103,12 +103,6 @@ object Planner {
     solution
   }
 
-  def chronicleToPlan(c: Chronicle): Plan =
-    Plan(c.actions.collect {
-      case Some(a) =>
-        OperatorF[cats.Id](a.name, a.args, a.start, a.end)
-    })
-
   def solve(pb: EncodedProblem[Solution], deadline: Deadline): Option[Plan] = {
     if(deadline.isOverdue)
       return None
@@ -118,8 +112,12 @@ object Planner {
 
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
-        println(ass.eval(pb.res))
-        sys.exit(0)
+        ass.eval(pb.res) match {
+          case dahu.model.interpreter.FEval(sol) =>
+            val plan = Plan(sol.operators, sol.effects)
+            Some(plan)
+          case _ => unexpected
+        }
 //        solver.solutionEvaluator(ass)(pb.res) match {
 //          case Res(solution) =>
 //            println(solution)

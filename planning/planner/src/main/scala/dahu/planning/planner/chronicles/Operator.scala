@@ -12,13 +12,25 @@ object OperatorF {
   implicit val tag: ProductTag[OperatorF] = ProductTag.ofProd[OperatorF]
 }
 
-case class SolutionF[F[_]](operators: F[Vec[Operator]])
+case class SolutionF[F[_]](
+    operators: F[Vec[Operator]],
+    effects: F[Vec[EffTok]]
+)
 
 object SolutionF {
   implicit val tag: ProductTag[SolutionF] = ProductTag.ofProd[SolutionF]
 }
 
-case class Plan(operators: Vec[Operator])
+case class Plan(operators: Vec[Operator], effects: Vec[EffTok]) {
+  import spire.implicits._
+  def formatOperators: String = {
+    operators.sortedBy(_.start).map(_.toString).toSeq.mkString("\n")
+  }
+
+  def formatEffects: String = {
+    effects.sortedBy(e => (e.fluent.toString, e.startChange)).mkString("\n")
+  }
+}
 
 object Plan {
   implicit val tag: Tag[Plan] = Tag.default[Plan]
