@@ -2,11 +2,22 @@ package dahu.utils
 
 object errors {
 
-  final case class Error(msg: String) extends Throwable(msg)
+  sealed trait ErrorType
+  object ErrorType {
+    case object Unsupported extends ErrorType
+    case object Unspecified extends ErrorType
+  }
+  import ErrorType._
 
-  def err(msg: => String): Throwable = Error(msg)
+  final case class Error(clazz: ErrorType, msg: String) extends Throwable(msg)
+
+  private def err(clazz: ErrorType, msg: String): Throwable = Error(clazz, msg)
+  def err(msg: String): Throwable = Error(Unspecified, msg)
 
   def unexpected: Nothing = throw new AssertionError("Unexpected")
   def unexpected(msg: String): Nothing = throw new AssertionError(msg)
   def unexpected(msg: String, cause: Throwable): Nothing = throw new AssertionError(msg, cause)
+
+  def unsupported: Nothing = throw err(Unsupported, "")
+  def unsupported(msg: String): Nothing = throw err(Unsupported, msg)
 }
