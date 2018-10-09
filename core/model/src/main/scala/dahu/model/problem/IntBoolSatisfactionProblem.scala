@@ -118,7 +118,7 @@ class IntBoolSatisfactionProblem[X <: Int](rootNode: X, coalg: X => Total[X]) {
     case SupportedConstant(v)      => Some(v)
     case x if x == Unsupported     => None
   })
-  private val partialTree = new IlazyForest[X, Total, Option, lt.ID] {
+  private val partialTree = new OpenASG[X, Total, Option, lt.ID] {
     override def getTreeRoot(k: X): Option[lt.ID] = {
       (t.getExt(k): Option[Total[lt.ID]]) match {
         case Some(_) => Some(t.getTreeRoot(k))

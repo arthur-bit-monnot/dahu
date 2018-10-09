@@ -50,6 +50,9 @@ object dsl {
   def exists[Provided: Tag](f: Expr[Provided] => Expr[Boolean]): Dynamic[Provided, Boolean] =
     Dynamic(Lambda(f), bool.Or, None)
 
+  def all[A: Tag: ClassTag]: Expr[Vec[A]] =
+    Dynamic(Lambda[A, Vec[A]](a => Sequence(Vec(a))), sequence.Concat, None)
+
 //  def forall[P1: Tag, P2: Tag](typ: Tag[P2])(
 //      f: Expr[P1 ->: P2 ->: Boolean]): Expr[P1 ->: Boolean] = {
 //    Lambda[P1, Boolean](p1 => Dynamic(f.partialApply(p1), bool.And, None))

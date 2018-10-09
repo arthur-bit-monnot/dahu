@@ -6,8 +6,16 @@ import spire.syntax.all._
 
 import scala.collection.mutable
 
-final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A])
+/**
+  * Classtag may be set to null for empty arrays
+  * @param elems
+  * @param ct
+  * @tparam A
+  */
+final class Vec[@sp A](private val elems: Array[A])(implicit private val ct: ClassTag[A])
     extends Serializable { lhs =>
+
+  require(!(ct eq null))
 
   /**
     * Check if two Buffers are equal.
@@ -20,7 +28,9 @@ final class Vec[@sp A](private val elems: Array[A])(implicit val ct: ClassTag[A]
     */
   override def equals(that: Any): Boolean = that match {
     case b: Vec[_] =>
-      if(length != b.length || ct != b.ct) return false
+      if(ct eq null)
+        b.length == 0
+      else if(length != b.length || ct != b.ct) return false
       val buf = b.asInstanceOf[Vec[A]]
       val limit = length
       cfor(0)(_ < limit, _ + 1) { i =>

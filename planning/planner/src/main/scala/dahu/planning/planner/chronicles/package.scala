@@ -25,5 +25,7 @@ package object chronicles {
 //    def end: Expr[Int] = ActionF.End(lhs)
   }
 
+  type Solution = SolutionF[cats.Id]
+
   type Operator = OperatorF[cats.Id]
 }

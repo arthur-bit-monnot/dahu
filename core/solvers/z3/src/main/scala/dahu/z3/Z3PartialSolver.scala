@@ -20,9 +20,9 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
-    t: IlazyForest[X, F, Opt, I],
-    f: F[G] => G)(implicit F: SFunctor[F], T: TreeNode[F]) {
+class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](t: OpenASG[X, F, Opt, I], f: F[G] => G)(
+    implicit F: SFunctor[F],
+    T: TreeNode[F]) {
   private val memo = mutable.HashMap[t.ID, G]()
 
   def build(k: X)(implicit F: Functor[Opt]): Opt[G] = t.getTreeRoot(k).map(buildInternal)
@@ -49,7 +49,7 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](
   }
 }
 
-class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
+class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID])
     extends PartialSolver[X, AstID] {
   implicit def treeNodeInstance: TreeNode[Total] = Total.treeNodeInstance
 //  Inference2Sat.processTargettingTrue(ast.mapExternal[cats.Id](_.valid))
@@ -61,14 +61,17 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
 //  println("e")
 //  System.exit(0)
 
-  private val intBoolPb = new IntBoolSatisfactionProblem[ast.ID](
-    ast.tree.getTreeRoot(ast.root).valid,
-    ast.tree.internalCoalgebra)
+//  println(ast.fullTree)
+//  println("------------")
+
+  private val intBoolPb = new IntBoolSatisfactionProblem[ast.ID](ast.tree.getTreeRoot(ast.root),
+                                                                 ast.tree.internalCoalgebra)
   private val tree = intBoolPb.tree.fixID
-//  tree.forceEvaluation
+
+  tree.forceEvaluation
 //  println(tree.fullTree)
 //  ast.tree
-//  for(id <- ast.tree.internalBottomUpTopologicalOrder(ast.tree.getTreeRoot(ast.root).valid)) {
+//  for(id <- ast.tree.internalBottomUpTopologicalOrder(ast.tree.getTreeRoot(ast.root))) {
 //    println(id + " " + tree.tree.getTreeRoot(id))
 //  }
 //  println("\n ---- \n")
@@ -82,7 +85,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
 
   // Total
   private def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
-    asExprInternal(ast.tree.getTreeRoot(id).value)
+    asExprInternal(ast.tree.getTreeRoot(id))
   }
   private def asExprInternal(id: AstID): Option[com.microsoft.z3.Expr] = {
     tree.tree
@@ -90,7 +93,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
       .map(internalID => treeBuilder.buildInternal(internalID))
   }
   def eval(id: X, model: com.microsoft.z3.Model): Option[Value] =
-    evalInternal(ast.tree.getTreeRoot(id).value, model)
+    evalInternal(ast.tree.getTreeRoot(id), model)
   def evalInternal(id: AstID, model: com.microsoft.z3.Model): Option[Value] = {
     asExprInternal(id) match {
       case Some(e) =>
@@ -140,7 +143,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID])
 
   override def nextSatisfyingAssignment(deadline: Option[Deadline]): Option[X => Option[Value]] = {
     nextSatisfyingAssignmentInternal(deadline) match {
-      case Some(f) => Some((x: X) => f(ast.tree.getTreeRoot(x).value))
+      case Some(f) => Some((x: X) => f(ast.tree.getTreeRoot(x)))
       case None    => None
     }
   }
@@ -179,7 +182,7 @@ object Z3PartialSolver {
 
   object builder extends PartialSolver.Builder {
     override def apply[X, AstID <: IDTop](
-        ast: LazyTree[X, Total, IR, AstID]): Z3PartialSolver[X, AstID] =
+        ast: LazyTree[X, Total, cats.Id, AstID]): Z3PartialSolver[X, AstID] =
       new Z3PartialSolver[X, AstID](ast)
   }
 }

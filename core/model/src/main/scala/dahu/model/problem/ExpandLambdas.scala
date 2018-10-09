@@ -161,7 +161,7 @@ object ExpandLambdas {
       compilerGenerator: Context[FOut, InternalID] => FIn[InternalID] => FOut[InternalID],
       contextualPreprocessor: ContextualLazyForestMap.ContextualPreprocessor[FIn, OID])(
       implicit ct: ClassTag[FOut[InternalID]])
-      extends IlazyForest[OID, FOut, cats.Id, InternalID] {
+      extends OpenASG[OID, FOut, cats.Id, InternalID] {
 
     private type PrePro = ContextualLazyForestMap.ContextualPreprocessor[FIn, OID]
 

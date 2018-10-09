@@ -10,6 +10,8 @@ sealed trait PEval[+A] {
   def bind(id: LambdaIdent, v: PEval[Any]): PEval[A]
   def apply(v: PEval[Any]): PEval[A]
   def applicationStack: List[LambdaIdent]
+
+  def castUnsafe[B]: PEval[B] = this.asInstanceOf[PEval[B]]
 }
 
 case object PConstraintViolated extends PEval[Nothing] {

@@ -618,7 +618,7 @@ object SatisfactionProblem {
   def encode[X <: Int](root: X,
                        coalgebra: FCoalgebra[StaticF, X],
                        optimize: Boolean = true): LazyTree[X, Total, IR, _] = {
-    val lt = IlazyForest.build(coalgebra)(compiler).fixID
+    val lt = OpenASG.build(coalgebra)(compiler).fixID
 
     LazyTree(lt)(root)
   }
@@ -635,7 +635,7 @@ object SatisfactionProblem {
   def encodePresence[K](root: K,
                         coalgebra: FCoalgebra[Total, K],
                         optimize: Boolean = true): LazyTree[K, OptConst, cats.Id, _] = {
-    val _lt = IlazyForest.build[K, Total, OptConst, cats.Id](coalgebra)(compilerPresence)
+    val _lt = OpenASG.build[K, Total, OptConst, cats.Id](coalgebra)(compilerPresence)
     val lt = _lt.fixID
     LazyTree[K, OptConst, cats.Id, lt.ID](lt)(root)
   }

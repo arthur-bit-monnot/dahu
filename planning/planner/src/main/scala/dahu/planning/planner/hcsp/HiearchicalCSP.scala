@@ -11,9 +11,11 @@ import dahu.planning.model.{common, core}
 import dahu.planning.planner.chronicles
 import dahu.planning.planner.chronicles.{Fluent, FluentF, IntervalF, SCondTokF}
 import dahu.solvers.problem.{CExpr, Struct}
+import dahu.utils.Vec
 
 import scala.collection.mutable.{ArrayBuffer => Buff}
 import scala.collection.mutable.{Map => MMap}
+import scala.reflect.ClassTag
 
 abstract class CSP extends Struct {
   def vars: Seq[Expr[Literal]] = varMap.values.toSeq
@@ -80,8 +82,7 @@ abstract class CSP extends Struct {
   // ------------------ extension methods for planner -----------------------
 
   def addAnonymousTimepoint(): Expr[Int] = {
-    newInputSubjectTo[Int](LocalIdent.anonymous(), Tag.ofInt)(tp =>
-      temporalOrigin <= tp && tp <= temporalHorizon)
+    newInputSubjectTo[Int](LocalIdent.anonymous(), Tag.ofInt)(tp => temporalOrigin <= tp) // note: an anonymous time point might stretch beyond the temporal horizon
   }
 
   case class Wrapper(lv: LocalVar) {
@@ -219,6 +220,20 @@ abstract class CSP extends Struct {
         // need action
         case statement: core.Statement => sub.extendWith(statement)
       }
+      val operator: Expr[chronicles.Operator] = {
+        dahu.model.input.Product(
+          chronicles.OperatorF[Expr](
+            Cst(template.name),
+            dahu.model.input
+              .Sequence[Literal](act.args.map(sub.getVar(_).get))(
+                ctx.topTag,
+                implicitly[ClassTag[Vec[Literal]]]),
+            ctx.intUnbox(sub.getVar(act.start).get),
+            ctx.intUnbox(sub.getVar(act.end).get)
+          )
+        )(chronicles.OperatorF.tag)
+      }
+      sub.addExport(operator)
 //
 //      val argsRewrite: Arg => Expr[Literal] = {
 //        case a @ Arg(_, tpe) => ??? //Input(Ident(a))(ctx.specializedTags(tpe))

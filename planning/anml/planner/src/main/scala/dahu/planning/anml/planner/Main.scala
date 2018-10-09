@@ -6,7 +6,7 @@ import cats.effect.IO
 import dahu.utils.debug._
 import dahu.planning.planner._
 import dahu.planning.anml.parser.{Config => _, _}
-import dahu.planning.planner.chronicles.Plan
+import dahu.planning.planner.chronicles.{Plan, Planner}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, TimeoutException}
@@ -96,9 +96,7 @@ object Main extends App {
     info("Parsing...")
     parse(problemFile) match {
       case ParseSuccess(model) =>
-        dahu.planning.planner.hcsp.Encoder.asChronicleExpr(model, _ => 1, true)
-//        Planner.solveIncremental(model, cfg.maxInstances, deadline)
-        None //TODO
+        Planner.solveIncremental(model, cfg.maxInstances, deadline)
       case fail: ParseFailure =>
         println("Parsing failed:")
         println(fail.format)

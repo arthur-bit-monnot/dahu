@@ -21,7 +21,7 @@ abstract class PartialSolver[X, AstID] {
 object PartialSolver {
 
   trait Builder {
-    def apply[X, AstID <: IDTop](ast: LazyTree[X, Total, IR, AstID]): PartialSolver[X, AstID]
+    def apply[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]): PartialSolver[X, AstID]
   }
 
 }

@@ -2,28 +2,27 @@ package dahu.solvers
 
 import dahu.graphs.DAG
 import dahu.model.input.{Expr, Ident, Input, TypedIdent}
-import dahu.model.interpreter.{FEval, Interpreter}
+import dahu.model.interpreter.{FEval, Interpreter, PEval}
 import dahu.model.ir.Total
 import dahu.model.problem.API
 import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
+import dahu.solvers.problem.EncodedProblem
+import dahu.solvers.solution.Solution
 import dahu.utils.errors._
 
 import scala.concurrent.duration.Deadline
 
-class MetaSolver(val e: Expr[Any],
+class MetaSolver(val e: EncodedProblem[Any],
                  val rootSolverFactory: PartialSolver.Builder,
                  val secondarySolverFactories: List[PartialSolver.Builder]) {
-  val _pb = API.parseAndProcess(e) // provides a stable identifier
-  val pb = _pb.fixID
-  lazy val valuesTree = pb.mapExternal[cats.Id](_.value)
+  lazy val pb = e.asg.fixID
 
-  val solver: PartialSolver[Expr[Any], pb.ID] = rootSolverFactory(pb)
+  val solver: PartialSolver[Expr[Any], pb.ID] = rootSolverFactory(pb.rootedAt(e.sat))
   val subSolvers: List[PartialSolver[Expr[Any], pb.ID]] =
-    secondarySolverFactories.map(factory => factory(pb))
+    secondarySolverFactories.map(factory => factory(pb.rootedAt(e.sat)))
 
-  private def toValueKey(e: Expr[_]): pb.tree.ID = pb.tree.getTreeRoot(e).value
-  private def toValidKey(e: Expr[_]): pb.tree.ID = pb.tree.getTreeRoot(e).valid
+  private def toKey(e: Expr[_]): pb.ID = pb.getTreeRoot(e)
 
   def defaultDomain(k: Expr[_]): Stream[Value] = k.typ match {
     case t: TagIsoInt[_] =>
@@ -32,40 +31,33 @@ class MetaSolver(val e: Expr[Any],
     case _ => ???
   }
 
-  def nextSolution(deadline: Option[Deadline] = None): Option[Expr[_] => Value] =
+  def nextSolution(deadline: Option[Deadline] = None): Option[Solution] =
     solver.nextSatisfyingAssignmentInternal(deadline) match {
       case Some(assignment) =>
-//        for(i <- pb.tree.internalBottomUpTopologicalOrder(toValidKey(pb.root))) {
+//        for(i <- pb.internalBottomUpTopologicalOrder(toKey(e.sat))) {
 //          println(
-//            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb.tree
+//            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb
 //              .internalCoalgebra(i))
 //        }
-        val total = (x: Expr[_]) => assignment(toValueKey(x)).getOrElse(defaultDomain(x).head) // TODO: use head option or fail early if an input has an empty domain
-        Some(total)
+//        for(i <- pb.internalBottomUpTopologicalOrder(toKey(e.res))) {
+//          println(
+//            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb
+//              .internalCoalgebra(i))
+//        }
+        def ass(id: pb.ID): Option[PEval[Any]] = assignment(id) match {
+          case Some(v) => Some(FEval(v))
+          case None    => None
+        }
+        val lazyMap = pb.cataWithPreFill(Interpreter.evalAlgebra, ass)
+        Some(
+          new Solution {
+            override def eval[T](expr: Expr[T]): PEval[T] = lazyMap.get(expr).castUnsafe[T]
+          }
+        )
       case None => None
     }
-
-  type Assignment = Expr[_] => Value
-
-  def solutionEvaluator[A](ass: Expr[_] => Value): Expr[A] => Interpreter.Result[A] =
-    e => {
-      implicit val tn = Total.treeNodeInstance
-      val assignment: Map[TypedIdent[Any], Value] = DAG[cats.Id, Expr[Any]]
-        .descendantsAndSelf(e)
-        .collect { case i: Input[Any] => i }
-        .map(i => (i.id, ass(i)))
-        .toMap
-      val evaluation = pb.tree.cata(Interpreter.evalAlgebra(assignment.get))
-      evaluation.get(e) match {
-        case IR(_, FEval(false), _)                 => Interpreter.Empty
-        case IR(_, _, FEval(false))                 => Interpreter.ConstraintViolated
-        case IR(FEval(v), FEval(true), FEval(true)) => Interpreter.Res(v.asInstanceOf[A])
-        case _                                      => ???
-      }
-    }
-
   def enumerateSolutions(maxSolutions: Option[Int] = None,
-                         onSolutionFound: Assignment => Unit = _ => ()): Int = {
+                         onSolutionFound: Solution => Unit = _ => ()): Int = {
     var count = 0
     while(maxSolutions.forall(count < _)) {
       nextSolution() match {
@@ -81,7 +73,7 @@ class MetaSolver(val e: Expr[Any],
 }
 
 object MetaSolver {
-  def of(expr: Expr[_],
+  def of(expr: EncodedProblem[Any],
          builder: PartialSolver.Builder,
          secondaryBuilders: List[PartialSolver.Builder] = Nil): MetaSolver =
     new MetaSolver(expr, builder, secondaryBuilders)

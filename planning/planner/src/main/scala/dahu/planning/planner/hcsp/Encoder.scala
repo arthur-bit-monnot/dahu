@@ -5,16 +5,25 @@ import dahu.model.math.bool
 import dahu.model.types.Tag
 import dahu.planning.model.common.{Arg, LocalVar, Predef}
 import dahu.planning.model.core
-import dahu.planning.planner.chronicles.{CondTok, CondTokF, EffTok, EffTokF}
-import dahu.solvers.problem.Struct
+import dahu.planning.planner.chronicles.{
+  CondTok,
+  CondTokF,
+  EffTok,
+  EffTokF,
+  Operator,
+  Solution,
+  SolutionF
+}
+import dahu.solvers.problem.{EncodedProblem, Struct}
+import dahu.utils.Vec
 
 import scala.concurrent.duration.Deadline
 import dahu.utils.debug._
 import dahu.utils.errors._
 object Encoder {
 
-  def asChronicleExpr(model: core.CoreModel, num: core.ActionTemplate => Int, symBreak: Boolean)(
-      implicit predef: Predef): CSP = {
+  def encode(model: core.CoreModel, num: core.ActionTemplate => Int, symBreak: Boolean)(
+      implicit predef: Predef): EncodedProblem[Solution] = {
     implicit val cnt: Counter = new Counter
 //    info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)
@@ -24,7 +33,6 @@ object Encoder {
 
     import dsl._
 
-//    csp.addConstraint(forall[EffTok](Lambda[EffTok, Boolean](e => EffTokF.Id(e) <= 0)))
     csp.addConstraint(
       forall[EffTok](
         e1 =>
@@ -52,11 +60,11 @@ object Encoder {
       case statement: core.Statement   => csp.extendWith(statement)
       case action: core.ActionTemplate => csp.extendWithActions(action, num(action))
     }
-    println(csp)
-    println(csp.flattened)
     val flat = csp.flattened
-    Struct.process(flat)
-    csp
+//    Struct.process(flat)
+    val actions: Expr[Vec[Operator]] = all[Operator]
+    Struct.encode(flat, Product(SolutionF[Expr](actions))(SolutionF.tag))
+
 //    val result = model.foldLeft(ChronicleFactory.empty(ctx)) {
 //      case (chronicle, statement: core.Statement) =>
 //        chronicle.extended(statement)(_ => unexpected, cnt)

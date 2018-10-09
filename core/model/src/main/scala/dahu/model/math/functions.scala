@@ -121,12 +121,20 @@ package object bool {
   final val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
 }
 
-package sequence {
+package object sequence {
 
   object EQ extends Fun2[Vec[Int], Vec[Int], Boolean] {
     override def of(in1: Vec[Int], in2: Vec[Int]): Boolean = in1 == in2
 
     override def name: String = "eq"
+  }
+
+  trait Concat[A] extends Monoid[Vec[A]] {}
+  def Concat[A: Tag: ClassTag]: Monoid[Vec[A]] = new Monoid[Vec[A]] {
+    override def tpe: Tag[Vec[A]] = SequenceTag[A]
+    override def combine(lhs: Vec[A], rhs: Vec[A]): Vec[A] = lhs ++ rhs
+    override val identity: Vec[A] = Vec.empty[A]
+    override def name: String = "concat"
   }
 
   final case class Map[I: Tag, O: Tag: ClassTag](f: Fun1[I, O])

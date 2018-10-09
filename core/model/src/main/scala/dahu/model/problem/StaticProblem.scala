@@ -24,7 +24,7 @@ object StaticProblem {
       t: LazyTree[X, ExprF, cats.Id, I],
       provided: Seq[(I, I)]): LazyTree[X, StaticF, cats.Id, _] = {
 
-    val dynamicsErased: IlazyForest[X, StaticF, cats.Id, _] =
+    val dynamicsErased: OpenASG[X, StaticF, cats.Id, _] =
       t.tree
         .mapInternalGen[StaticF](ctx => {
           val rec = ctx.record
@@ -81,19 +81,19 @@ object StaticProblem {
     val internalRoot = tree.tree.getTreeRoot(tree.root)
     val lowLevelTree =
       underClosedWorldBase[tree.ID](internalRoot, i => tree.tree.internalCoalgebra(i)).fixID
-    val finalTree: IlazyForest[X, StaticF, Id, lowLevelTree.tree.ID] =
+    val finalTree: OpenASG[X, StaticF, Id, lowLevelTree.tree.ID] =
       lowLevelTree.tree.changedKey[X](x => tree.tree.getTreeRoot(x))
     LazyTree[X, StaticF, Id, finalTree.ID](finalTree)(tree.root)
   }
 
   def underClosedWorldBase[X](root: X,
                               coalgebra: FCoalgebra[ExprF, X]): LazyTree[X, StaticF, cats.Id, _] = {
-    val lt = IlazyForest.build(coalgebra)(algebra).fixID
+    val lt = OpenASG.build(coalgebra)(algebra).fixID
     val provided = lt.getTreeRoot(root).provided.toSeq.distinct
 //    val TMP = provided.toList.map(lt.internalCoalgebra)
 //    println(TMP.map(_.typ))
     val ofValues = lt.mapExternal[cats.Id](_.value)
-    val dynamicsErased: IlazyForest[X, StaticF, cats.Id, _] =
+    val dynamicsErased: OpenASG[X, StaticF, cats.Id, _] =
       ofValues
         .mapInternalGen[StaticF](ctx => {
           val rec = ctx.record

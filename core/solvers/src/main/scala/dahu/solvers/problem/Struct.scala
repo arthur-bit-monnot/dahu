@@ -9,16 +9,7 @@ import dahu.model.math.bool
 import dahu.model.types.{ProductTag, Tag}
 import dahu.model.input.dsl._
 import dahu.model.ir.{ExprF, Total}
-import dahu.model.problem.{
-  API,
-  IDTop,
-  IlazyForest,
-  LazyTree,
-  OpaqueForest,
-  SatisfactionProblem,
-  StaticProblem
-}
-import dahu.model.problem.syntax.And
+import dahu.model.problem.{API, ASG, IDTop, LazyTree, OpenASG, SatisfactionProblem, StaticProblem}
 import dahu.model.products.FieldAccess
 import dahu.utils.SFunctor
 
@@ -87,9 +78,9 @@ trait Struct {
   }
 }
 
-case class EncodedProblem[Res](asg: OpaqueForest[Expr[Any], Total, cats.Id],
-                               sat: Expr[Boolean],
-                               res: Expr[Res])
+case class EncodedProblem[+Res](asg: ASG[Expr[Any], Total, cats.Id],
+                                sat: Expr[Boolean],
+                                res: Expr[Res])
 
 object Struct {
 
@@ -97,7 +88,8 @@ object Struct {
     println(tree.cata(Algebras.printAlgebraTree).mkString(120))
   }
 
-  def encode(flat: Struct): EncodedProblem[String] = {
+  def encode[T](flat: Struct, result: Expr[T]): EncodedProblem[T] = {
+    assert(flat.subs.isEmpty)
     val constraints: Seq[Expr[Boolean]] = flat.constraints.map {
       case CExpr(c, scope) => scope.present ==> c
     }
@@ -111,12 +103,8 @@ object Struct {
     val noLambdas = API.expandLambdas(staticAsg).fixID
     val optTree = noLambdas.postpro(SatisfactionProblem.Optimizations.optimizer)
 
-    EncodedProblem(optTree.tree, pb, Cst("OK"))
+    EncodedProblem(optTree.tree, pb, result)
   }
-//  def optim[Y, F[X] <: ExprF[X]: TreeNode: SFunctor](
-//      tree: LazyTree[Y, F, cats.Id, _]): LazyTree[Y, F, cats.Id, _] = {
-//    tree.postpro(SatisfactionProblem.Optimizations.optimizer)
-//  }
 
   def process(flat: Struct) = {
     val constraints: Seq[Expr[Boolean]] = flat.constraints.map {

@@ -8,9 +8,11 @@ import dahu.planning.planner.{Literal, PlannerConfig, ProblemContext}
 import dahu.z3.Z3PartialSolver
 import dahu.model.input.dsl._
 import dahu.model.interpreter.Interpreter.Res
-import dahu.model.optionals.Structure
-import dahu.model.problem.{API}
+import dahu.model.problem.API
+import dahu.planning.planner.hcsp.Encoder
 import dahu.solvers.MetaSolver
+import dahu.solvers.problem.EncodedProblem
+import dahu.utils.Vec
 
 import scala.concurrent.duration.Deadline
 import dahu.utils.debug._
@@ -93,10 +95,10 @@ object Planner {
     if(deadline.isOverdue())
       return None
 
-    val expr = asChronicleExpr(model, num, symBreak)
+    val pb = Encoder.encode(model, num, symBreak)
 
     //        println(result)
-    val solution = Planner.solve(expr, deadline)
+    val solution = Planner.solve(pb, deadline)
     //        println(solution)
     solution
   }
@@ -107,20 +109,24 @@ object Planner {
         OperatorF[cats.Id](a.name, a.args, a.start, a.end)
     })
 
-  def solve(chronicle: Expr[Chronicle], deadline: Deadline): Option[Plan] = {
+  def solve(pb: EncodedProblem[Solution], deadline: Deadline): Option[Plan] = {
     if(deadline.isOverdue)
       return None
-    val sat = chronicle
+
     info("  Encoding...")
-    val solver = MetaSolver.of(sat, backend)
+    val solver = MetaSolver.of(pb, backend)
 
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
-        solver.solutionEvaluator(ass)(sat) match {
-          case Res(solution) =>
-            Some(chronicleToPlan(solution))
-          case x => unexpected(x.toString)
-        }
+        println(ass.eval(pb.res))
+        sys.exit(0)
+//        solver.solutionEvaluator(ass)(pb.res) match {
+//          case Res(solution) =>
+//            println(solution)
+//            sys.exit(0) // TODO
+////            Some(chronicleToPlan(solution))
+//          case x => unexpected(x.toString)
+//        }
       case None => None
     }
   }
