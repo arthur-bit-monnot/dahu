@@ -137,6 +137,8 @@ object Main extends App {
         Planner.solveIncremental(model, config.maxInstances, deadline) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)
+            println()
+            println(sol.format)
             if(config.validate) {
               if(Validator.validate(domain, problem, sol))
                 Right(plan)
@@ -167,7 +169,7 @@ object Main extends App {
           case x: FiniteDuration => Deadline.now + x
           case _: Infinite       => Deadline.now + 10.days
         }
-        dahu.planning.planner.Planner
+        Planner
           .solveIncremental(model, config.maxInstances, deadline) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)

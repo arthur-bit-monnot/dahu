@@ -193,20 +193,20 @@ lazy val anmlPlanner = project
       "com.github.scopt" %% "scopt" % "3.7.0",
       "org.typelevel" %% "cats-effect" % "1.0.0-RC"
     ))
-//
-//lazy val pddlPlanner = project
-//  .in(file("planning/pddl/planner"))
-//  .dependsOn(pddlParser, planner)
-//  .settings(commonSettings ++ utestSettings: _*)
-//  .settings(
-//    mainClass in assembly := Some("dahu.planning.pddl.planner.Main"),
-//    assemblyJarName in assembly := "dahu-pddl-planner.jar"
-//  )
-//  .settings(
-//    libraryDependencies ++= Seq(
-//      "com.github.scopt" %% "scopt" % "3.7.0",
-//      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
-//    ))
+
+lazy val pddlPlanner = project
+  .in(file("planning/pddl/planner"))
+  .dependsOn(pddlParser, planner)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    mainClass in assembly := Some("dahu.planning.pddl.planner.Main"),
+    assemblyJarName in assembly := "dahu-pddl-planner.jar"
+  )
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.scopt" %% "scopt" % "3.7.0",
+      "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
+    ))
 //
 //lazy val rcllPlanner = project
 //  .in(file("planning/rcll"))
