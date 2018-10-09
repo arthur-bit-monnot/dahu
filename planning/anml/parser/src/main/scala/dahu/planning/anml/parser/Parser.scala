@@ -414,6 +414,16 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
     (staticExpr.sideEffect(leftExpr = _) ~/
       (":=".! ~/ staticExpr.namedFilter(_.typ.overlaps(leftExpr.typ), "has-compatible-type")).? ~
       ";")
+      .map { // TODO: this is a workaround to support the inconsistent syntax "duration := 10" in ANML (should give a warning)
+        case old @ (lhs, Some((":=", rhs))) =>
+          lhs match {
+            case full.BinaryExprTree(operators.Sub, ed, st)
+                if st.toString.contains("start") && ed.toString.contains("end") =>
+              (full.BinaryExprTree(operators.Eq, lhs, rhs), None)
+            case _ => old
+          }
+        case x => x
+      }
       .namedFilter({
         case (_: Constant, Some(_)) => true
         case (_, Some(_))           => false
