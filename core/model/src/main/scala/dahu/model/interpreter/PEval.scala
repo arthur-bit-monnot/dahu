@@ -5,7 +5,10 @@ import dahu.model.input.TypedIdent
 import dahu.utils._
 
 /** A possibly partially evaluated expression.
-  * The unevaluated leaves are identified by LambdaIdents. */
+  * The unevaluated leaves are identified by LambdaIdents.
+  *
+  * TODO: this is now useless with the new pure model.
+  * */
 sealed trait PEval[+A] {
   def bind(id: LambdaIdent, v: PEval[Any]): PEval[A]
   def apply(v: PEval[Any]): PEval[A]

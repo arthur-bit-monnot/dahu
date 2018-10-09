@@ -118,13 +118,6 @@ object Planner {
             Some(plan)
           case _ => unexpected
         }
-//        solver.solutionEvaluator(ass)(pb.res) match {
-//          case Res(solution) =>
-//            println(solution)
-//            sys.exit(0) // TODO
-////            Some(chronicleToPlan(solution))
-//          case x => unexpected(x.toString)
-//        }
       case None => None
     }
   }

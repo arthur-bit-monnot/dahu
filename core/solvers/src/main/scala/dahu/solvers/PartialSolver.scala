@@ -2,8 +2,6 @@ package dahu.solvers
 
 import dahu.model.ir.Total
 import dahu.model.problem.{IDTop, LazyTree}
-import dahu.model.problem.SatisfactionProblem.IR
-import dahu.model.problem.partial.NodeTag
 import dahu.model.types.Value
 
 import scala.concurrent.duration.Deadline
