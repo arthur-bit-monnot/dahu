@@ -5,7 +5,6 @@ import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 
 import dahu.model.math.{bool, int}
-import dahu.model.products.FieldAccess
 import dahu.model.types.{BoxedInt, ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
@@ -47,22 +46,13 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     }
   }
   private val booleanTag = specializedTags(predef.Boolean)
-  val boolBoxing = new Reversible[Boolean, Literal]()(Tag[Boolean], booleanTag) { self =>
-    override def reverse: Reversible[Literal, Boolean] =
-      new Reversible[Literal, Boolean]()(booleanTag, Tag[Boolean]) {
-        override def reverse: Reversible[Boolean, Literal] = self
-        override def of(in: Literal): Boolean = in match {
-          case ObjLit(l) if l == predef.True  => true
-          case ObjLit(l) if l == predef.False => false
-          case _                              => unexpected
-        }
-        override def name: String = "unbox"
-      }
-    override def of(in: Boolean): Literal = if(in) ObjLit(predef.True) else ObjLit(predef.False)
-    override def name: String = "box"
-  }
-  def boolUnbox(i: Tentative[Literal]): Tentative[Boolean] = Computation(boolBoxing.reverse, i)
-  def boolBox(i: Tentative[Boolean]): Tentative[Literal] = Computation(boolBoxing, i)
+  private val TRUE = Cst(ObjLit(predef.True): Literal)(booleanTag)
+  private val FALSE = Cst(ObjLit(predef.True): Literal)(booleanTag)
+
+  def boolUnbox(i: Tentative[Literal]): Tentative[Boolean] =
+    intUnbox(i) === intUnbox(TRUE)
+  def boolBox(i: Tentative[Boolean]): Tentative[Literal] =
+    dsl.ITE(i, TRUE, FALSE)
 
   def encode(v: common.Term)(implicit resolver: VariableResolver): Tentative[Literal] =
     v match {
@@ -102,7 +92,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     case operators.Sub => lhs - rhs
     case operators.And => lhs && rhs
     case operators.Or  => lhs || rhs
-    case _             => ??? // TODO: implement for other parameters
+    case _             => unsupported(s"Operator not supported: $op")
   }
   implicit class LitOps(private val lhs: Tentative[Literal]) {
     def ===(rhs: Tentative[Literal]): Tentative[Literal] = liftIIB(int.EQ)(lhs, rhs)
@@ -131,18 +121,6 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       f: FunN[Boolean, Boolean]): (Tentative[Literal], Tentative[Literal]) => Tentative[Literal] = {
     case (a1, a2) => boolBox(Computation(f, Seq(boolUnbox(a1), boolUnbox(a2))))
   }
-
-  def anonymousTp()(implicit cnt: Counter): Tentative[Int] = ???
-//    Input[Int](Ident("____" + cnt.next())).alwaysSubjectTo(tp =>
-//      temporalOrigin <= tp && tp <= temporalHorizon)
-
-  def encode(orig: core.Fluent)(implicit argRewrite: Arg => Tentative[Literal]): Fluent = ???
-//    Fluent(orig.template, orig.params.map(encode(_)))
-
-  def encode(orig: common.Constant)(
-      implicit argRewrite: Arg => Tentative[Literal]): Tentative[Literal] =
-    ??? //TODO
-//    Fluent(orig.template, orig.params.map(p => encode(p)(argRewrite)))
 
   def eqv(lhs: common.Term, rhs: common.Term)(
       implicit resolver: VariableResolver): Tentative[Boolean] =
