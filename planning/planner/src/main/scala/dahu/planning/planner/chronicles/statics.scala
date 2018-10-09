@@ -20,8 +20,8 @@ object SCondTokF {
   implicit val productTag: ProductTag[SCondTokF] = ProductTag.ofProd[SCondTokF]
 
   case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
-      extends (Tag[SEffTok] => Boolean) {
-    override def apply(v1: Tag[SEffTok]): Boolean = v1 match {
+      extends (TagAny => Boolean) {
+    override def apply(v1: TagAny): Boolean = v1 match {
       case SEffTokF.SEffProductTag(et, eargs, ev) =>
         func == et && SEffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
       case _ => false

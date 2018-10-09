@@ -42,7 +42,7 @@ object Interpreter {
     case LambdaF(in, tree, id, tpe) => PEFunc(id, tree)
   }
 
-  def evalAlgebra(valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[Total, PEval[Any]] = {
+  def evalAlgebra(valueOf: TypedIdent => Option[Value]): FAlgebra[Total, PEval[Any]] = {
     case InputF(id, _) =>
       valueOf(id) match {
         case Some(v) => FEval(v)
@@ -73,7 +73,7 @@ object Interpreter {
   }
 
   @deprecated("use the one in LambdaInterpreter instead", since = "now")
-  def partialEvalAlgebra(valueOf: TypedIdent[Any] => Value): FAlgebra[Total, Result[Value]] = {
+  def partialEvalAlgebra(valueOf: TypedIdent => Value): FAlgebra[Total, Result[Value]] = {
     case InputF(id, _) => Res(valueOf(id))
     case CstF(v, _)    => Res(v)
     case NoopF(v, _)   => v

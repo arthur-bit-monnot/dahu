@@ -41,13 +41,13 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](t: OpenASG[X, F, Opt
       val fa = t.internalCoalgebra(a)
       if(T.children(fa).forall(memo.contains)) {
 
-        println(fa)
-        val fb = F.smap(fa)(t.internalCoalgebra)
-        println(fb)
-        println()
-        if(fa.toString.startsWith("add(4")) {
-          println("BREAK")
-        }
+//        println(fa)
+//        val fb = F.smap(fa)(t.internalCoalgebra)
+//        println(fb)
+//        println()
+//        if(fa.toString.startsWith("add(4")) {
+//          println("BREAK")
+//        }
         val g = f(F.smap(fa)(memo))
         memo += ((a, g))
       } else {

@@ -35,7 +35,7 @@ final case class FEval[A](v: A) extends PEval[A] {
   override def applicationStack: Nil.type = Nil
 }
 
-final case class Unknown(unboundVars: Set[TypedIdent[Any]]) extends PEval[Nothing] {
+final case class Unknown(unboundVars: Set[TypedIdent]) extends PEval[Nothing] {
   require(unboundVars.nonEmpty)
   override def bind(id: LambdaIdent, v: PEval[Any]): Unknown = this
   override def apply(v: PEval[Any]): PEval[Nothing] = this

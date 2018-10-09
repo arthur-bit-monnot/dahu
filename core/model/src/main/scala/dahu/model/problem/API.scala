@@ -84,12 +84,12 @@ object API {
   def parseAndProcess(expr: Expr[_]): LazyTree[Expr[Any], Total, IR, _] =
     parseAndProcess(expr, Algebras.coalgebra)
 
-  def eval[T](expr: Expr[T], inputs: TypedIdent[Any] => Value): PEval[T] =
+  def eval[T](expr: Expr[T], inputs: TypedIdent => Value): PEval[T] =
     parse(expr).noDynamics.expandLambdas
       .eval[PEval[Value]](LambdaInterpreter.partialEvalAlgebra(inputs.andThen(Some(_))))
       .asInstanceOf[PEval[T]]
 
-  def evalTotal(expr: Expr[_], inputs: TypedIdent[Any] => Value): IR[PEval[Any]] =
+  def evalTotal(expr: Expr[_], inputs: TypedIdent => Value): IR[PEval[Any]] =
     API.parseAndProcess(expr).eval(Interpreter.evalAlgebra(inputs.andThen(Some(_))))
 
   implicit class NoDynamicOps[K](private val tree: LazyTree[K, ExprF, Id, _]) extends AnyVal {

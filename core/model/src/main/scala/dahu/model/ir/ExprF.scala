@@ -116,7 +116,7 @@ object Total {
 
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
-final case class InputF[@sp(Int) F](id: TypedIdent[Any], typ: Type) extends Total[F] {
+final case class InputF[@sp(Int) F](id: TypedIdent, typ: Type) extends Total[F] {
   require(typ != null)
   require(typ == id.typ || id.typ.isInstanceOf[TagIsoInt[_]] && typ == Tag.ofInt) // todo: this is a sanity check for current assumption but might not hold for valid future uses
   override def toString: String = s"$id"

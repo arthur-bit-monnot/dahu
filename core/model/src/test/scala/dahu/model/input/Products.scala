@@ -14,7 +14,7 @@ import utest._
 
 object Products extends TestSuite {
 
-  def liftNameMap(m: Any => Value): TypedIdent[Any] => Value = {
+  def liftNameMap(m: Any => Value): TypedIdent => Value = {
     case TypedIdent(Ident(_, s), _) => m(s)
   }
 
@@ -50,7 +50,7 @@ object Products extends TestSuite {
           case _   => unexpected
         }
 
-        val inputs: TypedIdent[Any] => Value = liftNameMap(nameMaps)
+        val inputs: TypedIdent => Value = liftNameMap(nameMaps)
 
         Interpreter.eval(ast)((vid: ast.VID) => inputs(ast.variables(vid).id)) ==> Some(
           Interval[cats.Id](0, 1))

@@ -8,7 +8,7 @@ package object types {
 
   type Bool <: Int
 
-  type Type = types.Tag[_]
+  type Type = types.TagAny
   def typeOf[T](implicit ttag: Tag[T]): Type = ttag
 
   protected sealed abstract class ValueLabelImpl {

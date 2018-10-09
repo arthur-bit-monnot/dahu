@@ -9,12 +9,10 @@ import dahu.utils.errors._
 
 object LambdaInterpreter {
 
-  def partialEvalAlgebraAny(
-      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, PEval[Any]] =
+  def partialEvalAlgebraAny(valueOf: TypedIdent => Option[Value]): FAlgebra[StaticF, PEval[Any]] =
     partialEvalAlgebra(valueOf).asInstanceOf[FAlgebra[StaticF, PEval[Any]]]
 
-  def partialEvalAlgebra(
-      valueOf: TypedIdent[Any] => Option[Value]): FAlgebra[StaticF, PEval[Value]] =
+  def partialEvalAlgebra(valueOf: TypedIdent => Option[Value]): FAlgebra[StaticF, PEval[Value]] =
     e => {
       val res: PEval[Any] = e match {
 

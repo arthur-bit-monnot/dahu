@@ -10,12 +10,13 @@ import dahu.model.math.{bool, Monoid}
 import dahu.model.types.ProductTag.MapProductTag
 import dahu.model.types._
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
 sealed trait Expr[+T] {
-  def typ: Tag[T]
+  def typ: Tag[T] @uncheckedVariance
   def hash: Int
   override final def hashCode(): Int = hash
 }
@@ -41,9 +42,10 @@ object Expr {
 sealed abstract class Term[T] extends Expr[T]
 
 /** Evaluation yields a Right[T] */
-final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {
-  assert(!id.typ.isInstanceOf[TagIsoInt[_]] || id.typ == Tag.ofBoolean)
-  override def typ: Tag[T] = id.typ
+final case class Input[T: Tag] private (id: TypedIdent) extends Term[T] {
+  assert(!id.typ.isInstanceOf[TagIsoInt[_]])
+  require(typ == id.typ)
+  override def typ: Tag[T] = Tag[T]
   override val hash: Int = ScalaRunTime._hashCode(this)
   override def toString: String = "?" + id
 }
@@ -59,7 +61,8 @@ object Input {
       case _: RawInt                 => new Input[T](TypedIdent(id, tag))
       case _ if tag == Tag.ofBoolean => new Input[T](TypedIdent(id, tag))
       case t: TagIsoInt[T] =>
-        val rawInput = new Input[Int](TypedIdent(Ident(id.scope, Raw(id.lid)), t.rawType))
+        val rawInput =
+          new Input[Int](TypedIdent(Ident(id.scope, Raw(id.lid)), t.rawType))(t.rawType)
         Computation1(t.box, rawInput)
       case x => new Input[T](TypedIdent(id, tag))
     }
@@ -243,7 +246,7 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
 
 final case class Dynamic[Provided: Tag, Out: Tag](f: Expr[Provided ->: Out],
                                                   comb: Monoid[Out],
-                                                  accept: Option[Tag[Provided] => Boolean])
+                                                  accept: Option[TagAny => Boolean])
     extends Expr[Out] {
   override def typ: Tag[Out] = Tag[Out]
   def acceptedType: Tag[Provided] = Tag[Provided]
@@ -275,7 +278,8 @@ final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameteri
 
 object Lambda {
   private val dummyLambdaParam =
-    Input[Nothing](TypedIdent(Ident.anonymous(Scope.root), Tag.default[Nothing]))
+    Input[Nothing](TypedIdent(Ident.anonymous(Scope.root), Tag.default[Nothing]))(
+      Tag.default[Nothing])
   def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O]): Lambda[I, O] = {
     val treeShape = f(dummyLambdaParam)
     val id = new LambdaIdent(treeShape, None, None)

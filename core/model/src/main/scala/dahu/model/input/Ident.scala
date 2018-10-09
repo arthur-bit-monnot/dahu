@@ -1,5 +1,5 @@
 package dahu.model.input
-import dahu.model.types.Tag
+import dahu.model.types.{Tag, TagAny}
 
 final case class Ident(scope: Scope, lid: LocalIdent) {
   override def toString: String =
@@ -12,7 +12,7 @@ object Ident {
   def anonymous(scope: Scope): Ident = new Ident(scope, LocalIdent.anonymous())
 }
 
-final case class TypedIdent[+T](id: Ident, typ: Tag[T]) {
+final case class TypedIdent(id: Ident, typ: TagAny) {
   override def toString: String = id.toString
 }
 

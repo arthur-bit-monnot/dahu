@@ -8,18 +8,21 @@ import dahu.utils._
 import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.runtime.universe
 
-trait Tag[+T] {
+trait TagAny {
 
   def typ: Tag.Type
-
-  def intersects(t: Tag[_]): Boolean = typ == t.typ
 
   def isInt: Boolean = this match {
     case _: RawInt => !isBoolean
     case _         => false
   }
   def isBoolean: Boolean = this == Tag.ofBoolean
+
+  def intersects(t: TagAny): Boolean = typ == t.typ
+
 }
+
+trait Tag[T] extends TagAny
 
 object Tag extends LowPriorityTags {
   type Type = universe.Type
@@ -34,10 +37,9 @@ object Tag extends LowPriorityTags {
 
 trait LowPriorityTags extends VeryLowPriorityTags {
   import Bool._
+  private case class DefaultTag[T](typ: universe.Type) extends Tag[T]
 
-  def default[T: universe.WeakTypeTag]: Tag[T] = new Tag[T] {
-    override def typ: universe.Type = Tag.typeOf[T]
-  }
+  def default[T: universe.WeakTypeTag]: Tag[T] = DefaultTag(Tag.typeOf[T])
 
   implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
   implicit def ofSequence[V: Tag]: Tag[Vec[V]] = SequenceTag[V]

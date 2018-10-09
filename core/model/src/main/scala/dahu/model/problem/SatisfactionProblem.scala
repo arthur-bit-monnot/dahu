@@ -132,7 +132,7 @@ object SatisfactionProblem {
     }
 
     final class ElimTautologies(ctx: OptimizationContext) extends Optimizer2(ctx) {
-      def dom(t: Tag[_]): Interval[Int] = t match {
+      def dom(t: TagAny): Interval[Int] = t match {
         case t: TagIsoInt[_] => Interval(t.min, t.max)
         case _               => Interval.all
       }

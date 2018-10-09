@@ -18,7 +18,7 @@ trait TagIsoInt[T] extends Tag[T] { self =>
   val max: Int
   def numInstances: Int = max - min + 1
 
-  def rawType: RawInt = new RawInt {
+  val rawType: RawInt with Tag[Int] = new RawInt with Tag[Int] {
     override def min: Int = self.min
     override def max: Int = self.max
   }
@@ -31,7 +31,7 @@ trait TagIsoInt[T] extends Tag[T] { self =>
   import dahu.model.input.dsl._
 }
 
-trait RawInt extends Tag[Int] {
+trait RawInt extends TagAny {
   def min: Int
   def max: Int
   override def typ: Tag.Type = Tag.typeOf[Int]
@@ -42,7 +42,7 @@ object TagIsoInt {
 
   def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
 
-  implicit case object ofInt extends RawInt {
+  implicit case object ofInt extends RawInt with Tag[Int] {
     override val typ: Tag.Type = Tag.typeOf[Int]
 
     override val min: Int = Integer.MIN_VALUE / 2 + 1
