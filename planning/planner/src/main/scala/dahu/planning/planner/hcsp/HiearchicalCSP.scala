@@ -4,7 +4,6 @@ import dahu.model.input.{Cst, Expr, Input, LocalIdent, Scope}
 import dahu.model.input.dsl._
 import dahu.model.types.Tag
 import dahu.planning.model.common.LocalVar
-import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.transforms.ActionInstantiation
 import dahu.planning.model.{common, core}
@@ -12,6 +11,7 @@ import dahu.planning.planner.chronicles
 import dahu.planning.planner.chronicles.{Fluent, FluentF, IntervalF, SCondTokF}
 import dahu.solvers.problem.{CExpr, Struct}
 import dahu.utils.Vec
+import dahu.utils.errors._
 
 import scala.collection.mutable.{ArrayBuffer => Buff}
 import scala.collection.mutable.{Map => MMap}
@@ -141,7 +141,9 @@ abstract class CSP extends Struct {
         ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
       case Op2(op, left, right) =>
         applyOperator(op, encode(left), encode(right))
-      case _ => ???
+      case cst: common.Constant =>
+        ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(predef.True)))
+      case _ => unsupported(s"Suport for expression not implemented: $e")
     }
 
   def extendWith(e: core.InActionBlock)(implicit
@@ -192,12 +194,11 @@ abstract class CSP extends Struct {
         addConstraint(changeItv.start <= changeItv.end)
         addConstraint(changeItv.end <= persistenceEnd)
         addExport(eff)
-//
-//      case core.StaticAssignmentAssertion(lhs, rhs) =>
-//        val eff = SEffTokF.ofExpr(encode(lhs), ctx.encode(rhs))
-//        copy(
-//          staticEffects = eff :: staticEffects
-//        )
+
+      case core.StaticAssignmentAssertion(lhs, rhs) =>
+        val staticEffect = chronicles.SEffTokF.ofExpr(encode(lhs), ctx.encode(rhs))
+        addExport(staticEffect)
+
       case core.StaticBooleanAssertion(e) =>
         val c = ctx.boolUnbox(encode(e))
         addConstraint(c)
@@ -243,14 +244,6 @@ abstract class CSP extends Struct {
         )(chronicles.OperatorF.tag)
       }
       sub.addExport(operator)
-//
-//      val argsRewrite: Arg => Expr[Literal] = {
-//        case a @ Arg(_, tpe) => ??? //Input(Ident(a))(ctx.specializedTags(tpe))
-//      }
-//
-//      val chronicle = act.content.foldLeft(ChronicleFactory.empty(ctx)) {
-//        case (c, s) => c.extended(s)(argsRewrite, cnt)
-//      }
     }
   }
 }
