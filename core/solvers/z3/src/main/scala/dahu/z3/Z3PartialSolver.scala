@@ -93,11 +93,11 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
             ast.tree.internalCoalgebra(id).typ match {
               case t: RawInt =>
                 assert(!t.isBoolean)
-                //Some(t.toValue(i.getInt))
                 val v = i.getInt
                 assert(
                   t.min <= v && v <= t.max,
-                  "Value not in specified bounds, Note that this is in fact acceptable if the value is not used")
+                  "Value not in specified bounds, Note that this might be acceptable if the value is not used. But we would like to know when this happens for the first time"
+                )
                 if(t.min <= v && v <= t.max) // TODO: make functions in tag iso int total
                   Some(Value(v))
                 else {
@@ -109,7 +109,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
             // not constrained, if decision variable just return the first value in the domain
             ast.tree.internalCoalgebra(id) match {
               case InputF(_, typ: RawInt) =>
-                assert(typ.isBoolean)
+                assert(!typ.isBoolean)
                 Some(Value(typ.min))
 
               case _ => None
@@ -150,7 +150,7 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
     case (id, InputF(name, typ: RawInt)) if typ.isInt =>
       assert(!typ.isBoolean)
       if(typ.min <= typ.max) {
-        // domain is non empty, impose inconditionally
+        // domain is non empty, impose unconditionally
         solver.add(
           ctx.mkLe(ctx.mkInt(typ.min), treeBuilder.buildInternal(id).asInstanceOf[ArithExpr]))
         solver.add(
