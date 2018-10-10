@@ -1,4 +1,4 @@
-package dahu.planning.planner.hcsp
+package dahu.planning.planner.encoding
 import dahu.model.input.Expr
 import dahu.planning.model.common.{Arg, LocalVar}
 

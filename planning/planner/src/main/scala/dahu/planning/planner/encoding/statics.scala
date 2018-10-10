@@ -1,4 +1,4 @@
-package dahu.planning.planner.chronicles
+package dahu.planning.planner.encoding
 
 import cats.Id
 import dahu.model.functions.->:
@@ -8,11 +8,10 @@ import dahu.model.math._
 import dahu.model.products.FieldAccess
 import dahu.model.types._
 import dahu.planning.model.common.FunctionTemplate
-import dahu.planning.planner.hcsp.Literal
+import dahu.planning.planner.encoding.DummyImplicits._
 import dahu.utils.Vec
 import dahu.utils.errors._
 import spire.syntax.cfor
-import DummyImplicits._
 
 case class SCondTokF[F[_]](fluent: F[Fluent], value: F[Literal])
 

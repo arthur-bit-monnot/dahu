@@ -1,26 +1,15 @@
-package dahu.planning.planner.hcsp
-import cats.effect.IO
+package dahu.planning.planner.encoding
+
 import dahu.model.input._
-import dahu.model.math.bool
-import dahu.model.types.Tag
 import dahu.planning.model.common.{Arg, LocalVar, Predef}
 import dahu.planning.model.core
-import dahu.planning.planner.chronicles.{
-  CondTok,
-  CondTokF,
-  EffTok,
-  EffTokF,
-  IntervalF,
-  Operator,
-  Solution,
-  SolutionF
-}
+import dahu.planning.planner.encoding
 import dahu.solvers.problem.{EncodedProblem, Struct}
 import dahu.utils.Vec
 
-import scala.concurrent.duration.Deadline
 import dahu.utils.debug._
 import dahu.utils.errors._
+
 object Encoder {
 
   def encode(model: core.CoreModel, num: core.ActionTemplate => Int, symBreak: Boolean)(
@@ -68,7 +57,7 @@ object Encoder {
     val flat = csp.flattened
     val actions: Expr[Vec[Operator]] = all[Operator]
     val effects: Expr[Vec[EffTok]] = all[EffTok]
-    Struct.encode(flat, Product(SolutionF[Expr](actions, effects))(SolutionF.tag))
+    Struct.encode(flat, Product(encoding.SolutionF[Expr](actions, effects))(SolutionF.tag))
 
   }
 

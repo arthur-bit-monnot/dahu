@@ -1,7 +1,7 @@
 package dahu.planning.pddl.planner
 
 import dahu.planning.pddl.parser.PddlPredef
-import dahu.planning.planner.chronicles._
+import dahu.planning.planner.encoding.{Operator, OperatorF}
 import dahu.utils.Vec
 
 case class PddlOperator(name: String, args: Vec[String], start: Double, duration: Double) {

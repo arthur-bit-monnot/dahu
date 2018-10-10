@@ -1,11 +1,11 @@
-package dahu.planning.planner.chronicles
+package dahu.planning.planner.encoding
 
 import dahu.model.types.{ProductTag, Tag}
-import dahu.planning.planner.hcsp.Literal
 import dahu.utils.Vec
+import spire.implicits._
 
 case class OperatorF[F[_]](name: F[String], args: F[Vec[Literal]], start: F[Int], end: F[Int]) {
-  override def toString = s"[$start, $end] $name($args)"
+  override def toString: String = s"[$start, $end] $name($args)"
 }
 object OperatorF {
 
@@ -22,7 +22,6 @@ object SolutionF {
 }
 
 case class Plan(operators: Vec[Operator], effects: Vec[EffTok]) {
-  import spire.implicits._
   def formatOperators: String = {
     operators.sortedBy(_.start).map(_.toString).toSeq.mkString("\n")
   }

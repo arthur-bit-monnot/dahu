@@ -1,22 +1,15 @@
-package dahu.planning.planner.chronicles
-
+package dahu.planning.planner
 import cats.effect.IO
-import dahu.model.input._
-import dahu.planning.model.common.{Arg, Predef}
+import dahu.planning.model.common.Predef
 import dahu.planning.model.core
-import dahu.planning.planner.PlannerConfig
-import dahu.z3.Z3PartialSolver
-import dahu.model.input.dsl._
-import dahu.model.interpreter.Interpreter.Res
-import dahu.model.problem.API
-import dahu.planning.planner.hcsp.Encoder
+import dahu.planning.planner.encoding.{Encoder, Plan, Solution}
 import dahu.solvers.MetaSolver
 import dahu.solvers.problem.EncodedProblem
-import dahu.utils.Vec
+import dahu.utils.debug.info
+import dahu.utils.errors.unexpected
+import dahu.z3.Z3PartialSolver
 
 import scala.concurrent.duration.Deadline
-import dahu.utils.debug._
-import dahu.utils.errors._
 
 object Planner {
 

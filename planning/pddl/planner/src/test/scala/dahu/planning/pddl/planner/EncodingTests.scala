@@ -3,7 +3,7 @@ package dahu.planning.pddl.planner
 import dahu.model.validation.Validation
 import dahu.planning.pddl.parser.{Options, Parser, PddlPredef}
 import dahu.planning.pddl.problems.{Extractor, PddlProblem}
-import dahu.planning.planner.chronicles.Planner
+import dahu.planning.planner.Planner
 import utest._
 
 import scala.util.{Failure, Success}

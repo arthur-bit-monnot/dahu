@@ -1,14 +1,14 @@
-package dahu.planning.planner.hcsp
+package dahu.planning.planner.encoding
 
-import dahu.model.functions.{->:, Fun2, FunN, Reversible}
+import dahu.model.functions.{Fun2, FunN}
 import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
-import dahu.model.types.{Bool, BoxedInt, ProductTag, Tag, TagIsoInt}
+import dahu.model.types.{Bool, BoxedInt, Tag, TagIsoInt}
 import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
-import dahu.planning.model.{common, core}
+import dahu.planning.model.common
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -76,7 +76,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     intUnbox(encode(e))
   }
   def encodeAsInts(e: common.Interval[common.Expr])(
-      implicit resolver: VariableResolver): Interval[Tentative[Int]] = {
+      implicit resolver: VariableResolver): common.Interval[Tentative[Int]] = {
     e.map(encodeAsInt)
   }
   def applyOperator(op: BinaryOperator,

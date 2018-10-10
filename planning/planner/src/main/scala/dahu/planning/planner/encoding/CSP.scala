@@ -1,4 +1,4 @@
-package dahu.planning.planner.hcsp
+package dahu.planning.planner.encoding
 
 import dahu.model.input.{Cst, Expr, Input, LocalIdent, Scope}
 import dahu.model.input.dsl._
@@ -7,8 +7,7 @@ import dahu.planning.model.common.LocalVar
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.transforms.ActionInstantiation
 import dahu.planning.model.{common, core}
-import dahu.planning.planner.chronicles
-import dahu.planning.planner.chronicles.{Fluent, FluentF, IntervalF, SCondTokF}
+import dahu.planning.planner.encoding
 import dahu.solvers.problem.{CExpr, Struct}
 import dahu.utils.Vec
 import dahu.utils.errors._
@@ -156,11 +155,11 @@ abstract class CSP extends Struct {
         val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
         addConstraint(changeItv.end <= persistenceEnd)
         val token =
-          chronicles.EffTokF.ofExpr(changeItv.start,
-                                    changeItv.end,
-                                    persistenceEnd,
-                                    encode(fluent),
-                                    ctx.encode(value))
+          EffTokF.ofExpr(changeItv.start,
+                         changeItv.end,
+                         persistenceEnd,
+                         encode(fluent),
+                         ctx.encode(value))
         addConstraint(changeItv.start <= changeItv.end)
         addConstraint(changeItv.end <= persistenceEnd)
         addExport(token)
@@ -168,7 +167,7 @@ abstract class CSP extends Struct {
       case core.TimedEqualAssertion(itv, f, v) =>
         val interval = encode(itv)
         val token =
-          chronicles.CondTokF.ofExpr(interval.start, interval.end, encode(f), ctx.encode(v))
+          CondTokF.ofExpr(interval.start, interval.end, encode(f), ctx.encode(v))
 
         addConstraint(interval.start <= interval.end)
         addExport(token)
@@ -176,17 +175,17 @@ abstract class CSP extends Struct {
       case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
         val start = encodeAsInt(s)
         val cond =
-          chronicles.CondTokF.ofExpr(start, start, encode(f), ctx.encode(v1))
+          encoding.CondTokF.ofExpr(start, start, encode(f), ctx.encode(v1))
 
         val changeItv = encode(LeftOpenInterval(s, e))
         val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
 
         val eff =
-          chronicles.EffTokF.ofExpr(changeItv.start,
-                                    changeItv.end,
-                                    persistenceEnd,
-                                    encode(f),
-                                    ctx.encode(v2))
+          encoding.EffTokF.ofExpr(changeItv.start,
+                                  changeItv.end,
+                                  persistenceEnd,
+                                  encode(f),
+                                  ctx.encode(v2))
 
         addExport(cond)
 
@@ -195,7 +194,7 @@ abstract class CSP extends Struct {
         addExport(eff)
 
       case core.StaticAssignmentAssertion(lhs, rhs) =>
-        val staticEffect = chronicles.SEffTokF.ofExpr(encode(lhs), ctx.encode(rhs))
+        val staticEffect = SEffTokF.ofExpr(encode(lhs), ctx.encode(rhs))
         addExport(staticEffect)
 
       case core.StaticBooleanAssertion(e) =>
@@ -229,9 +228,9 @@ abstract class CSP extends Struct {
         // need action
         case statement: core.Statement => sub.extendWith(statement)
       }
-      val operator: Expr[chronicles.Operator] = {
+      val operator: Expr[Operator] = {
         dahu.model.input.Product(
-          chronicles.OperatorF[Expr](
+          OperatorF[Expr](
             Cst(template.name),
             dahu.model.input
               .Sequence[Literal](act.args.map(sub.getVar(_).get))(
@@ -240,7 +239,7 @@ abstract class CSP extends Struct {
             ctx.intUnbox(sub.getVar(act.start).get),
             ctx.intUnbox(sub.getVar(act.end).get)
           )
-        )(chronicles.OperatorF.tag)
+        )(encoding.OperatorF.tag)
       }
       sub.addExport(operator)
     }

@@ -1,9 +1,9 @@
 package dahu.planning.pddl.planner
 
 import dahu.planning.pddl.parser.PddlPredef
-import dahu.planning.planner.chronicles.Plan
 import dahu.utils.Vec
 import cats.implicits._
+import dahu.planning.planner.encoding.Plan
 
 case class PddlPlan(operators: Vec[PddlOperator]) {
 

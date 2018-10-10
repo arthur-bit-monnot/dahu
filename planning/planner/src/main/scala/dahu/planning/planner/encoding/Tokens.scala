@@ -1,4 +1,4 @@
-package dahu.planning.planner.chronicles
+package dahu.planning.planner.encoding
 
 import cats.Id
 import dahu.model.functions.->:
@@ -7,10 +7,8 @@ import dahu.model.input.dsl._
 import dahu.model.math.{any, bool}
 import dahu.model.products.FieldAccess
 import dahu.model.types.Tag.Type
-import dahu.model.types.{Bool, ProductTag, Tag, TagIsoInt}
-import dahu.planning.model.common
-import dahu.planning.model.common.{FluentTemplate, FunctionTemplate}
-import dahu.planning.planner.hcsp.Literal
+import dahu.model.types.{Bool, ProductTag, Tag}
+import dahu.planning.model.common.FunctionTemplate
 import dahu.utils.Vec
 import dahu.utils.errors._
 import spire.syntax.cfor
@@ -25,7 +23,7 @@ object DummyImplicits {
   implicit val literalTag: Tag[Literal] = Tag.default[Literal]
   implicit val templateTag: Tag[FunctionTemplate] = Tag.default[FunctionTemplate]
 }
-import DummyImplicits._
+import dahu.planning.planner.encoding.DummyImplicits._
 
 case class IntervalF[F[_]](start: F[Int], end: F[Int])
 

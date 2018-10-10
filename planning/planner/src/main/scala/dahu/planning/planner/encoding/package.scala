@@ -1,8 +1,7 @@
 package dahu.planning.planner
-
 import dahu.model.types.Tag
 
-package object chronicles {
+package object encoding {
 
   type Interval = IntervalF[cats.Id]
   type Fluent = FluentF[cats.Id]
