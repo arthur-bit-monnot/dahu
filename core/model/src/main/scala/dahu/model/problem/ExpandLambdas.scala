@@ -74,7 +74,7 @@ object ExpandLambdas {
       case (i, _: LambdaParamF[_]) => LambdaDeps(Set(i), Nil, None, false)
       case (i, LambdaF(in, tree, _, _)) =>
         assert(in.params.size == 1 && in.applicationStack.isEmpty)
-        assert(tree.params.contains(in.params.head)) //TODO: we removed this assertion, not knowing what it checks
+        assert(tree.params.contains(in.params.head))
         LambdaDeps(tree.params ++ in.params, in.params.head :: tree.applicationStack, None, false)
       case (i, ApplyF(lbd, param, _)) =>
         assert(param.applicationStack.isEmpty)
@@ -193,8 +193,8 @@ object ExpandLambdas {
     private var perRequest = 0
     private var counter = 0
 
-    private val preproUsage = mutable.Map[(OID, PrePro), Set[(OID, OID)]]()
-    private val uselessBinds = mutable.Map[OID, Set[OID]]()
+//    private val preproUsage = mutable.Map[(OID, PrePro), Set[(OID, OID)]]()
+//    private val uselessBinds = mutable.Map[OID, Set[OID]]()
 
     override def getTreeRoot(oid: OID): ID = {
       val queue = mutable.ArrayStack[(OID, PrePro)]()
