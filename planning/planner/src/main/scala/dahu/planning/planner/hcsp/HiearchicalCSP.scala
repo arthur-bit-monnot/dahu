@@ -151,7 +151,6 @@ abstract class CSP extends Struct {
     e match {
       case _: core.LocalVarDeclaration =>
       case _: core.ArgDeclaration      =>
-//
       case core.TimedAssignmentAssertion(itv, fluent, value) =>
         val changeItv = encode(itv)
         val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
@@ -165,7 +164,7 @@ abstract class CSP extends Struct {
         addConstraint(changeItv.start <= changeItv.end)
         addConstraint(changeItv.end <= persistenceEnd)
         addExport(token)
-//
+
       case core.TimedEqualAssertion(itv, f, v) =>
         val interval = encode(itv)
         val token =

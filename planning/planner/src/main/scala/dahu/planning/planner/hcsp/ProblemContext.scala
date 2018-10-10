@@ -20,7 +20,7 @@ case class IntLit(value: Int) extends Literal {
   override def toString: String = value.toString
 }
 case class ObjLit(value: Instance) extends Literal {
-  override def toString: String = "%" + value.toString
+  override def toString: String = value.toString
 }
 
 case class ProblemContext(intTag: BoxedInt[Literal],

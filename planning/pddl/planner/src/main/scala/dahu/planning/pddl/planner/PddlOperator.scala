@@ -5,7 +5,7 @@ import dahu.planning.planner.chronicles._
 import dahu.utils.Vec
 
 case class PddlOperator(name: String, args: Vec[String], start: Double, duration: Double) {
-  override def toString: String = s"$start: ($name ${args.mkString(", ")}) [$duration]"
+  override def toString: String = s"$start: ($name ${args.mkString(" ")}) [$duration]"
 }
 
 object PddlOperator {

@@ -236,24 +236,3 @@ object EffTokF {
 //    )
 
 }
-
-case class ChronicleF[F[_]](constraints: F[Bool],
-                            conditions: F[Vec[CondTok]],
-                            effects: F[Vec[EffTok]],
-                            staticEffects: F[Vec[SEffTok]],
-                            actions: F[Vec[Option[Action]]]) {}
-
-object ChronicleF {
-  implicit val tag: ProductTag[ChronicleF] = ProductTag.ofProd[ChronicleF]
-
-  def ofExpr(constraints: Expr[Bool],
-             conditions: Expr[Vec[CondTok]],
-             effects: Expr[Vec[EffTok]],
-             staticEffects: Expr[Vec[SEffTok]],
-             actions: Expr[Vec[Option[Action]]]): Expr[Chronicle] = {
-    val chron = ChronicleF(constraints, conditions, effects, staticEffects, actions)
-
-    Product(chron) //.subjectTo(_ => constraints) // constraints on conditions and effects are directly placed on them
-  }
-
-}

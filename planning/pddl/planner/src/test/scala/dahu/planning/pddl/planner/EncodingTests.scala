@@ -22,9 +22,9 @@ object EncodingTests extends TestSuite {
     implicit val predef: PddlPredef = parser.predef
 
     parser.parse(dom, pb) match {
-      case Success(model) =>
-        val e = Planner.asChronicleExpr(model, _ => 2, symBreak = true)
-        Validation.deepFuzzedEvalCheck(e, numFuzz)
+      case Success(model) => dahu.utils.errors.unsupported
+//        val e = Planner.asChronicleExpr(model, _ => 2, symBreak = true)
+//        Validation.deepFuzzedEvalCheck(e, numFuzz)
       case Failure(e) => throw e
     }
   }

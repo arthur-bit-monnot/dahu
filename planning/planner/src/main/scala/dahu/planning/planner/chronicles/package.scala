@@ -1,7 +1,5 @@
 package dahu.planning.planner
 
-import dahu.model.input.Expr
-import dahu.model.input.dsl._
 import dahu.model.types.Tag
 
 package object chronicles {
@@ -16,14 +14,6 @@ package object chronicles {
   val EffTok: Tag[EffTok] = EffTokF.productTag
 
   type SEffTok = SEffTokF[cats.Id]
-  type Chronicle = ChronicleF[cats.Id]
-
-  type Action = ActionF[cats.Id]
-
-  implicit class ActionFOps(private val lhs: Expr[Action]) extends AnyVal {
-//    def start: Expr[Int] = ActionF.Start(lhs)
-//    def end: Expr[Int] = ActionF.End(lhs)
-  }
 
   type Solution = SolutionF[cats.Id]
 
