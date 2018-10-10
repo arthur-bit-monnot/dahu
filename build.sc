@@ -147,6 +147,11 @@ object utils extends ModuleTests {
  def ivyDeps = Agg(debox, cats)
 }
 
+object graphs extends ModuleTests {
+ def moduleDeps = Seq(utils, recursion)
+ def ivyDeps = Agg(cats, catsFree, debox)
+}
+
 object benchmarks extends ModuleTests {
   override def moduleDeps = Seq(core.solvers.z3, planning.pddl.planner, planning.pddl.problems, planning.anml.planner)
   override def ivyDeps = Agg(caseApp)

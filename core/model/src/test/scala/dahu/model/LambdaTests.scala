@@ -6,8 +6,7 @@ import dahu.model.functions.->:
 import dahu.model.input._
 import dahu.model.interpreter._
 import dahu.model.ir._
-import dahu.model.problem.SatisfactionProblem.{IR, TotalValue}
-import dahu.model.problem.{API, LazyTree}
+import dahu.model.problem.API
 import dahu.model.types.Tag._
 import dahu.model.types.Value
 import dahu.model.validation.Validation

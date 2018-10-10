@@ -1,16 +1,13 @@
 package dahu.solvers.problem
 
-import cats.Id
-import dahu.graphs.TreeNode
-import dahu.model.compiler.Algebras
-import dahu.model.functions.->:
+import dahu.graphs._
 import dahu.model.input._
 import dahu.model.math.bool
 import dahu.model.types.{Bool, ProductTag, Tag}
 import dahu.model.input.dsl._
 import dahu.model.ir.{ExprF, Total}
 import dahu.model.problem.StaticProblem.Export
-import dahu.model.problem.{API, ASG, IDTop, LazyTree, OpenASG, SatisfactionProblem, StaticProblem}
+import dahu.model.problem.{API, SatisfactionProblem, StaticProblem}
 import dahu.model.products.FieldAccess
 import dahu.utils.SFunctor
 

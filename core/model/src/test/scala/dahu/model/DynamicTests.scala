@@ -8,7 +8,6 @@ import dahu.model.interpreter.{FEval, PEval}
 import dahu.model.ir._
 import dahu.model.math.{bool, int}
 import dahu.model.problem.{API}
-import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types.Tag._
 import dahu.model.types._
 import dahu.model.validation.Validation

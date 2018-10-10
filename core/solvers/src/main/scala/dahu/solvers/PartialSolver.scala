@@ -1,7 +1,7 @@
 package dahu.solvers
 
 import dahu.model.ir.Total
-import dahu.model.problem.{IDTop, LazyTree}
+import dahu.graphs._
 import dahu.model.types.Value
 
 import scala.concurrent.duration.Deadline

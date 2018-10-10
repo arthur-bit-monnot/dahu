@@ -2,7 +2,7 @@ package dahu.model.problem
 
 import cats._
 import cats.implicits._
-import dahu.graphs.TreeNode
+import dahu.graphs._
 import dahu.model.compiler.Algebras
 import dahu.model.input.{Expr, Ident, TypedIdent}
 import dahu.model.ir.{ExprF, StaticF, Total}

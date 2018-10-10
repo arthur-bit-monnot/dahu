@@ -4,9 +4,8 @@ import cats._
 import cats.implicits._
 import com.microsoft.z3._
 import dahu.graphs.TreeNode
-import dahu.model.compiler.Algebras
 import dahu.model.ir._
-import dahu.model.problem.SatisfactionProblem.IR
+import dahu.graphs._
 import dahu.model.problem._
 import dahu.model.types._
 import dahu.solvers.PartialSolver

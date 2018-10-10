@@ -2,7 +2,7 @@ package dahu.model.problem
 
 import cats.Functor
 import cats.implicits._
-import dahu.graphs.TreeNode
+import dahu.graphs._
 import dahu.graphs.TreeNode._
 import dahu.model.functions.{Box, Fun, Reversible, Unbox}
 import dahu.utils._

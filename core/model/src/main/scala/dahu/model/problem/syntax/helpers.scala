@@ -2,7 +2,7 @@ package dahu.model.problem.syntax
 
 import dahu.model.ir.ComputationF
 import dahu.model.math._
-import dahu.model.problem.IDTop
+import dahu.graphs._
 import dahu.model.types.Tag
 import dahu.utils._
 

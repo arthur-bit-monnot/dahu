@@ -3,9 +3,7 @@ package dahu.solvers
 import dahu.graphs.DAG
 import dahu.model.input.{Expr, Ident, Input, TypedIdent}
 import dahu.model.interpreter.{FEval, Interpreter, PEval}
-import dahu.model.ir.Total
-import dahu.model.problem.API
-import dahu.model.problem.SatisfactionProblem.IR
+import dahu.graphs._
 import dahu.model.types._
 import dahu.solvers.problem.EncodedProblem
 import dahu.solvers.solution.Solution

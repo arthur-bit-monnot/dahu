@@ -1,7 +1,7 @@
 package dahu.model.problem
 
 import cats._
-import dahu.graphs.TreeNode
+import dahu.graphs._
 import dahu.graphs.TreeNode._
 import dahu.model.ir._
 import dahu.model.problem.ContextualLazyForestMap.ContextualPreprocessor

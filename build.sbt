@@ -75,6 +75,16 @@ lazy val algebra = project
     "org.typelevel" %% "spire" % "0.14.1"
   ))
 
+lazy val graphs = project
+  .in(file("graphs"))
+  .settings(name := "dahu-graphs")
+  .dependsOn(recursion, utils)
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+     "org.typelevel" %% "cats-core" % "1.1.0",
+    "org.typelevel" %% "spire" % "0.14.1"
+  ))
+
 lazy val planningModel = project
   .in(file("planning/model"))
   .settings(name := "dahu-planning-model")
@@ -138,7 +148,7 @@ lazy val recursion = project
 
 lazy val model = project
   .in(file("core/model"))
-  .dependsOn(utils, recursion, algebra)
+  .dependsOn(utils, recursion, algebra, graphs)
   .settings(name := "dahu-model")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(

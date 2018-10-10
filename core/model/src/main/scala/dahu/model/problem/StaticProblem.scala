@@ -1,13 +1,7 @@
 package dahu.model.problem
 
-import cats.{Functor, Id}
-import dahu.graphs.TreeNode
-import dahu.graphs.TreeNode._
+import dahu.graphs._
 import dahu.model.ir._
-import dahu.model.math.bool
-import dahu.recursion.FCoalgebra
-import dahu.utils.{Bag, SFunctor, Vec}
-import dahu.utils.SFunctor._
 
 object StaticProblem {
 
