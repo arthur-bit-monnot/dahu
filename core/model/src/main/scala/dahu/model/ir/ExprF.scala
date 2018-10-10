@@ -131,8 +131,7 @@ object InputF {
 }
 
 final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
-  if(typ.isBoolean)
-    assert(value == 0 || value == 1)
+  assert(!typ.isBoolean || value == 0 || value == 1)
   override def toString: String = value.toString
 }
 object CstF {
