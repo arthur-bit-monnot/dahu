@@ -52,8 +52,7 @@ object ExpandLambdas {
       N(fa.e.smap(f), fa.deps.map(f))
   }
 
-  def expandLambdas[X](
-      lazyTree: LazyTree[X, StaticF, cats.Id, _]): LazyTree[X, Total, cats.Id, _] = {
+  def expandLambdas[X](lazyTree: RootedASG[X, StaticF, cats.Id]): RootedASG[X, Total, cats.Id] = {
     val tree = lazyTree.fixID.forceEvaluation
 
     val x = tree.tree.cataLow(lambdaDependencies)
@@ -66,7 +65,7 @@ object ExpandLambdas {
     val opt = tree.tree.getTreeRoot(tree.root)
 
     val t3 = t2.changedKey[X](x => tree.tree.getTreeRoot(x))
-    LazyTree(t3)(tree.root)
+    t3.rootedAt(tree.root)
   }
 
   def lambdaDependencies[I <: IDTop]: (I, StaticF[LambdaDeps[I]]) => LambdaDeps[I] = (a, b) => {

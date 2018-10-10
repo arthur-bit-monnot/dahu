@@ -404,12 +404,28 @@ object ExternalMappedLazyForest {
     new ExternalMappedLazyForest[K, F, Opt, NewOpt, I](mapped)(f)
 }
 
-sealed trait RootedASG[K, F[_], Opt[_]] {
+sealed trait RootedASG[K, F[_], Opt[_]] { self: LazyTree[K, F, Opt, _] =>
   val tree: ASG[K, F, Opt]
   val root: K
 
   def fixID: LazyTree[K, F, Opt, SubSubInt[IDTop, tree.Marker]] =
     this.asInstanceOf[LazyTree[K, F, Opt, SubSubInt[IDTop, tree.Marker]]]
+
+  def forceEvaluation: RootedASG[K, F, Opt]
+
+  def postpro(fGen: (SomeID => F[SomeID], F[SomeID] => SomeID) => (F[SomeID] => F[SomeID]))(
+      implicit TN: TreeNode[F],
+      F: Functor[Opt],
+      SF: SFunctor[F],
+      ct: ClassTag[F[SomeID]]
+  ): RootedASG[K, F, Opt] = tree.transform(fGen).rootedAt(root)
+
+  def cata[V: ClassTag](
+      f: F[V] => V)(implicit T: TreeNode[F], F: SFunctor[F], FO: Functor[Opt]): Opt[V] =
+    tree.cata(f).get(root)
+
+  def fullTree(implicit F: SFunctor[F], FO: Functor[Opt], ct: ClassTag[F[Fix[F]]]): Opt[Fix[F]] =
+    tree.getTreeRoot(root).map(tree.build)
 }
 object RootedASG {
   def apply[K, F[_], Opt[_]](root: K, asg: ASG[K, F, Opt]): RootedASG[K, F, Opt] =
@@ -427,21 +443,6 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
 
   def forceEvaluation: LazyTree[K, F, Opt, InternalID] = { tree.forceEvaluation(root); this }
 
-  def postpro[I <: IDTop](fGen: (I => F[I], F[I] => I) => (F[I] => F[I]))(
-      implicit TN: TreeNode[F],
-      F: Functor[Opt],
-      SF: SFunctor[F],
-      ct: ClassTag[F[I]]
-  ): LazyTree[K, F, Opt, _] = {
-    val t = tree.transform(fGen).fixID
-    LazyTree(t)(root)
-  }
-
-  def cata[V: ClassTag](
-      f: F[V] => V)(implicit T: TreeNode[F], F: SFunctor[F], FO: Functor[Opt]): Opt[V] = {
-    tree.cata(f).get(root)
-  }
-
   def mapK[G[_]](fk: F ~> G): LazyTree[K, G, Opt, ID] = map(a => fk(a))
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
     LazyTree(tree.mapInternal(f))(root)
@@ -452,9 +453,6 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
 
   def mapExternal[Opt2[_]](f: Opt[ID] => Opt2[ID]): LazyTree[K, F, Opt2, ID] =
     LazyTree(tree.mapExternal(f))(root)
-
-  def fullTree(implicit F: SFunctor[F], FO: Functor[Opt], ct: ClassTag[F[Fix[F]]]): Opt[Fix[F]] =
-    tree.getTreeRoot(root).map(tree.build)
 
   def nodes(implicit tn: TreeNode[F], F: Functor[Opt]): Opt[Seq[(tree.ID, F[tree.ID])]] =
     tree.getTreeRoot(root).map(tree.nodes)
@@ -471,6 +469,7 @@ object LazyTree {
     val forest = new LazyForestGenerator[K, F, F, cats.Id, IDTop](coalgebra, algebra)
     LazyTree(forest)(t)
   }
+
   def parseGen[K, FIn[_]: SFunctor: TreeNode, FOut[_]](
       t: K,
       coalgebra: K => FIn[K],

@@ -9,6 +9,7 @@ import dahu.model.math.bool
 import dahu.model.types.{Bool, ProductTag, Tag}
 import dahu.model.input.dsl._
 import dahu.model.ir.{ExprF, Total}
+import dahu.model.problem.StaticProblem.Export
 import dahu.model.problem.{API, ASG, IDTop, LazyTree, OpenASG, SatisfactionProblem, StaticProblem}
 import dahu.model.products.FieldAccess
 import dahu.utils.SFunctor
@@ -84,10 +85,6 @@ case class EncodedProblem[+Res](asg: ASG[Expr[Any], Total, cats.Id],
 
 object Struct {
 
-  def echo[F[X] <: ExprF[X]: TreeNode: SFunctor](tree: LazyTree[_, F, cats.Id, _]): Unit = {
-    println(tree.cata(Algebras.printAlgebraTree).mkString(120))
-  }
-
   def encode[T](flat: Struct, result: Expr[T]): EncodedProblem[T] = {
     assert(flat.subs.isEmpty)
     val constraints: Seq[Expr[Bool]] = flat.constraints.map {
@@ -97,7 +94,7 @@ object Struct {
     val dynAsg = API.parse(pb).fixID
 
     val exported = flat.exports.map {
-      case CExpr(e, ctx) => (e, ctx.present)
+      case CExpr(e, ctx) => Export(e, ctx.present)
     }
     val staticAsg = StaticProblem.closeTheWorld(dynAsg, exported)
     val noLambdas = API.expandLambdas(staticAsg).fixID
@@ -120,23 +117,23 @@ object Struct {
 
     println("-------------------- Static")
     val exported = flat.exports.map {
-      case CExpr(e, ctx) => (e, ctx.present)
+      case CExpr(e, ctx) => Export(e, ctx.present)
     }
     val staticAsg = StaticProblem.closeTheWorld(dynAsg, exported)
 
-    echo(staticAsg)
+    API.echo(staticAsg)
 //    println(staticAsg.fullTree)
 //    println(staticAsg.tree.cata(Algebras.printAlgebraTree).get(staticAsg.root).mkString(120))
 
     println("-------------- No lambdas")
     val noLambdas = API.expandLambdas(staticAsg).fixID
-    echo(noLambdas)
+    API.echo(noLambdas)
 //    println(noLambdas.fullTree)
 
     println("-------------- reduced")
     //  val optGraph = noLambdas.tree.transform(SatisfactionProblem.Optimizations.optimizer)
     val optTree = noLambdas.postpro(SatisfactionProblem.Optimizations.optimizer) //LazyTree(optGraph)(noLambdas.root)
-    echo(optTree)
+    API.echo(optTree)
 //    println(optTree.fullTree)
 
   }
@@ -189,71 +186,4 @@ final class Structure(val scope: Scope) extends Struct {
 
 object Structure {
   def newRoot(): Structure = new Structure(Scope.root)
-}
-
-object Test extends App {
-  import dsl._
-
-  case class Interval[F[_]](start: F[Int], end: F[Int])
-  object Interval {
-    implicit val tag: Tag[Interval[Id]] = ProductTag.ofProd[Interval]
-    val Start = FieldAccess[Interval, Int]("start", 0)
-    val End = FieldAccess[Interval, Int]("end", 1)
-
-    val IsValid: Expr[Interval[Id] ->: Bool] = Lambda(itv => Start(itv) <= End(itv))
-  }
-  case class Point[F[_]](pt: F[Int])
-  object Point {
-    implicit val tag: Tag[Point[Id]] = ProductTag.ofProd[Point]
-    val Value = FieldAccess[Point, Int]("pt", 0)
-
-    val IsValid: Expr[Point[Id] ->: Bool] = Lambda(pt => Value(pt) >= 10)
-  }
-
-  val csp = Structure.newRoot()
-  val a = csp.addVar[Bool]("a")
-  val b = csp.addVar[Bool]("b")
-
-  val x = csp.addSub("X")
-  val xa = x.addVar[Int]("a")
-  val xb = x.addVar[Int]("b")
-  x.addConstraint(xa =!= xb)
-  x.addExport(Product(Interval(xa, xb)))
-  x.addExport(Product(Point(xa)))
-
-  csp.addConstraint(a <= b)
-
-  println(csp)
-
-  println("----------------")
-
-  val flat = csp.flattened
-
-  val constraints: Seq[Expr[Bool]] = flat.constraints.map {
-    case CExpr(c, scope) => scope.present ==> c
-  }
-  val pb: Expr[Bool] = bool.And(constraints: _*)
-  val dynAsg = API.parse(pb).fixID
-  println(dynAsg.fullTree)
-  for(exp <- flat.exports) {
-    println("AA")
-    println(dynAsg.tree.getExt(exp.e))
-  }
-
-  println("-------------------- Static")
-  val exported = flat.exports.map {
-    case CExpr(e, ctx) => (e, ctx.present)
-  }
-  val staticAsg = StaticProblem.closeTheWorld(dynAsg, exported)
-
-  println(staticAsg.fullTree)
-
-  println("-------------- No lambdas")
-  val noLambdas = API.expandLambdas(staticAsg).fixID
-  println(noLambdas.fullTree)
-
-  println("-------------- reduced")
-  //  val optGraph = noLambdas.tree.transform(SatisfactionProblem.Optimizations.optimizer)
-  val optTree = noLambdas.postpro(SatisfactionProblem.Optimizations.optimizer) //LazyTree(optGraph)(noLambdas.root)
-  println(optTree.fullTree)
 }

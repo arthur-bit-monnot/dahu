@@ -6,7 +6,6 @@ import dahu.model.interpreter.{FEval, Interpreter, LambdaInterpreter}
 import dahu.model.interpreter._
 import dahu.model.ir.StaticF
 import dahu.model.problem.API
-import dahu.model.problem.SatisfactionProblem.IR
 import dahu.model.types._
 import dahu.utils._
 
@@ -109,12 +108,12 @@ object Validation {
   }
 
   lazy val layerFactories: List[LayerFactory] =
-    List(afterElimDyna, afterExpandLambdas, afterTotalization)
+    List(afterElimDyna, afterExpandLambdas)
 
   val afterElimDyna: LayerFactory = new LayerFactory {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
-      private val ev = API.eliminateDynamics(parsed).tree.fixID
+      private val ev = API.eliminateDynamics(parsed, ???).tree.fixID
       override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
@@ -130,7 +129,7 @@ object Validation {
   val afterExpandLambdas: LayerFactory = new LayerFactory {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
-      private val ev = API.expandLambdas(API.eliminateDynamics(parsed)).tree.fixID
+      private val ev = API.expandLambdas(API.eliminateDynamics(parsed, ???)).tree.fixID
       override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
@@ -138,30 +137,6 @@ object Validation {
             evaluated.get(e).asInstanceOf[PEval[A]]
           override def rep[A](e: Expr[A]): Any =
             SFunctor[StaticF].smap(ev.getExt(e))(i => evaluated.getInternal(i))
-        }
-      }
-    }
-  }
-
-  val afterTotalization: LayerFactory = new LayerFactory {
-    override def build(e: Expr[Any]): Layer = new Layer {
-      private val parsed = API.parse(e)
-      private val ev = API.makeTotal(API.expandLambdas(API.eliminateDynamics(parsed))).tree.fixID
-      override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
-        val evaluated = ev.cata(Interpreter.evalAlgebra(in))
-        new Evaluator {
-          override def eval[A](e: Expr[A]): PEval[A] = evaluated.get(e) match {
-            case IR(_, FEval(false), _) => PEmpty
-            case IR(_, _, FEval(false)) => PConstraintViolated
-            case IR(FEval(v), FEval(true), FEval(true)) =>
-              FEval(v.asInstanceOf[A])
-            case IR(v, p, vld) => ??? //TODO: (pure)
-//              val alg = LambdaInterpreter.partialEvalAlgebraAny(_ => None)
-//              alg(Partial(alg(OptionalF(v, p, null)), vld, null))
-//                .asInstanceOf[PEval[A]]
-          }
-          override def rep[A](e: Expr[A]): Any =
-            SFunctor[IR].smap(ev.getTreeRoot(e))(i => evaluated.getInternal(i))
         }
       }
     }
