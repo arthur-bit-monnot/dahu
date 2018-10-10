@@ -296,7 +296,9 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
   def transform[I <: IDTop, G[_]](fGen: (I => G[I], G[I] => I) => (F[I] => G[I]))(
       implicit TN: TreeNode[F],
       F: Functor[Opt],
-      SF: SFunctor[F]): LazyForestLayer[K, G, Opt, _, ID] =
+      SF: SFunctor[F],
+      ct: ClassTag[G[I]]
+  ): LazyForestLayer[K, G, Opt, _, ID] =
     new LazyForestLayer[K, G, Opt, I, self.ID] {
       private val idMap = debox.Map[self.ID, I]()
       private val coalg = BiMap[I, G[I]]()
@@ -428,7 +430,9 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
   def postpro[I <: IDTop](fGen: (I => F[I], F[I] => I) => (F[I] => F[I]))(
       implicit TN: TreeNode[F],
       F: Functor[Opt],
-      SF: SFunctor[F]): LazyTree[K, F, Opt, _] = {
+      SF: SFunctor[F],
+      ct: ClassTag[F[I]]
+  ): LazyTree[K, F, Opt, _] = {
     val t = tree.transform(fGen).fixID
     LazyTree(t)(root)
   }

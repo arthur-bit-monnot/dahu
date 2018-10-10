@@ -1,9 +1,7 @@
 package dahu.utils
 
-import scala.collection.mutable
-
-class BiMap[A, B] private (forward: mutable.Map[A, B], backward: mutable.Map[B, A]) {
-
+class BiMap[@specialized(Int) A, @specialized(Int) B] private (forward: debox.Map[A, B],
+                                                               backward: debox.Map[B, A]) {
   def size: Int = forward.size
 
   def add(a: A, b: B): Unit = {
@@ -23,5 +21,6 @@ class BiMap[A, B] private (forward: mutable.Map[A, B], backward: mutable.Map[B, 
 }
 
 object BiMap {
-  def apply[A, B](): BiMap[A, B] = new BiMap(mutable.HashMap[A, B](), mutable.HashMap[B, A]())
+  def apply[A: ClassTag, B: ClassTag](): BiMap[A, B] =
+    new BiMap(debox.Map[A, B](), debox.Map[B, A]())
 }
