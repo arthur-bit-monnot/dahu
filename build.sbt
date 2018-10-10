@@ -4,7 +4,7 @@ name := "dahu"
 
 lazy val commonSettings = Seq(
   organization := "com.github.arthur-bit-monnot",
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.7",
   crossPaths := true,
   // To sync with Maven central
   publishMavenStyle := true,
