@@ -7,9 +7,7 @@ import dahu.model.types.{Bool, ProductTag, Tag}
 import dahu.model.input.dsl._
 import dahu.model.ir.{ExprF, Total}
 import dahu.model.problem.StaticProblem.Export
-import dahu.model.problem.{API, SatisfactionProblem, StaticProblem}
-import dahu.model.products.FieldAccess
-import dahu.utils.SFunctor
+import dahu.model.problem.{API, StaticProblem}
 
 import scala.collection.mutable.{ArrayBuffer => Buff}
 
@@ -93,9 +91,9 @@ object Struct {
     val exported = flat.exports.map {
       case CExpr(e, ctx) => Export(e, ctx.present)
     }
-    val staticAsg = StaticProblem.closeTheWorld(dynAsg, exported)
+    val staticAsg = API.eliminateDynamics(dynAsg, exported)
     val noLambdas = API.expandLambdas(staticAsg).fixID
-    val optTree = noLambdas.postpro(SatisfactionProblem.Optimizations.optimizer)
+    val optTree = API.optimize(noLambdas)
 
     EncodedProblem(optTree.tree, pb, result)
   }
@@ -116,7 +114,7 @@ object Struct {
     val exported = flat.exports.map {
       case CExpr(e, ctx) => Export(e, ctx.present)
     }
-    val staticAsg = StaticProblem.closeTheWorld(dynAsg, exported)
+    val staticAsg = API.eliminateDynamics(dynAsg, exported)
 
     API.echo(staticAsg)
 //    println(staticAsg.fullTree)
@@ -129,7 +127,7 @@ object Struct {
 
     println("-------------- reduced")
     //  val optGraph = noLambdas.tree.transform(SatisfactionProblem.Optimizations.optimizer)
-    val optTree = noLambdas.postpro(SatisfactionProblem.Optimizations.optimizer) //LazyTree(optGraph)(noLambdas.root)
+    val optTree = API.optimize(noLambdas)
     API.echo(optTree)
 //    println(optTree.fullTree)
 

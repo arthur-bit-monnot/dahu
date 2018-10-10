@@ -12,7 +12,6 @@ import dahu.maps.mutable.MArrayMap
 import dahu.utils._
 import dahu.maps.ArrayMap
 import dahu.model.ir.AST
-import dahu.model.problem.SatisfactionProblem
 import dahu.solvers.problem.{IntCSP, IntProblem}
 import dahu.solvers.problem.IntProblem.{Comp, Func}
 import dahu.solvers.DomainIso

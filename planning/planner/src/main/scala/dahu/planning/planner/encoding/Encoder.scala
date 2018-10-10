@@ -3,17 +3,17 @@ package dahu.planning.planner.encoding
 import dahu.model.input._
 import dahu.planning.model.common.{Arg, LocalVar, Predef}
 import dahu.planning.model.core
-import dahu.planning.planner.encoding
+import dahu.planning.planner.{encoding, PlannerConfig}
 import dahu.solvers.problem.{EncodedProblem, Struct}
 import dahu.utils.Vec
-
 import dahu.utils.debug._
 import dahu.utils.errors._
 
 object Encoder {
 
-  def encode(model: core.CoreModel, num: core.ActionTemplate => Int, symBreak: Boolean)(
-      implicit predef: Predef): EncodedProblem[Solution] = {
+  def encode(model: core.CoreModel, num: core.ActionTemplate => Int)(
+      implicit predef: Predef,
+      cfg: PlannerConfig): EncodedProblem[Solution] = {
     implicit val cnt: Counter = new Counter
 //    info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)

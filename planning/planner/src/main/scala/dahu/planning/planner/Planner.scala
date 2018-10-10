@@ -1,4 +1,5 @@
 package dahu.planning.planner
+
 import cats.effect.IO
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
@@ -29,7 +30,7 @@ object Planner {
           return None
 
         info(s"Depth: $step")
-        solveWithGivenActionNumbers(model, _ => step, deadline, symBreak = cfg.symBreak) match {
+        solveWithGivenActionNumbers(model, _ => step, deadline) match {
           case Some(sol) =>
             info(s"  Solution found at depth $step")
             return Some(sol)
@@ -43,15 +44,15 @@ object Planner {
     task.unsafeRunTimed(deadline.timeLeft).flatten
   }
 
-  def solveWithGivenActionNumbers(model: core.CoreModel,
-                                  num: core.ActionTemplate => Int,
-                                  deadline: Deadline,
-                                  symBreak: Boolean)(implicit predef: Predef): Option[Plan] = {
+  def solveWithGivenActionNumbers(
+      model: core.CoreModel,
+      num: core.ActionTemplate => Int,
+      deadline: Deadline)(implicit predef: Predef, cfg: PlannerConfig): Option[Plan] = {
 
     if(deadline.isOverdue())
       return None
 
-    val pb = Encoder.encode(model, num, symBreak)
+    val pb = Encoder.encode(model, num)
 
     //        println(result)
     val solution = Planner.solve(pb, deadline)
