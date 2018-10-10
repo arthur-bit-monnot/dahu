@@ -207,7 +207,7 @@ abstract class CSP extends Struct {
     }
   def extendWithActions(template: core.ActionTemplate, howMany: Int)(
       implicit cnt: Counter): Unit = {
-    for(i <- 0 until howMany) {
+    for(depth <- 1 to howMany) {
       val actId = cnt.next()
       val actName = s"${template.name}_$actId"
 
@@ -241,7 +241,8 @@ abstract class CSP extends Struct {
                 ctx.topTag,
                 implicitly[ClassTag[Vec[Literal]]]),
             ctx.intUnbox(sub.getVar(act.start).get),
-            ctx.intUnbox(sub.getVar(act.end).get)
+            ctx.intUnbox(sub.getVar(act.end).get),
+            Cst[Int](depth)
           )
         )(encoding.OperatorF.tag)
       }

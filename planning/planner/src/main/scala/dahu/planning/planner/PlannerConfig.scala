@@ -8,4 +8,4 @@ object SymBreakLevel {
 
 case class PlannerConfig(minInstances: Int,
                          maxInstances: Int,
-                         symBreak: SymBreakLevel = SymBreakLevel.No)
+                         symBreak: SymBreakLevel = SymBreakLevel.Base)

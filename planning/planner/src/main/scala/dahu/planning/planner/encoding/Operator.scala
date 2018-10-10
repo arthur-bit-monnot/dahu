@@ -1,13 +1,23 @@
 package dahu.planning.planner.encoding
 
+import dahu.model.products.FieldAccess
 import dahu.model.types.{ProductTag, Tag}
 import dahu.utils.Vec
 import spire.implicits._
 
-case class OperatorF[F[_]](name: F[String], args: F[Vec[Literal]], start: F[Int], end: F[Int]) {
+case class OperatorF[F[_]](name: F[String],
+                           args: F[Vec[Literal]],
+                           start: F[Int],
+                           end: F[Int],
+                           depth: F[Int]) {
   override def toString: String = s"[$start, $end] $name($args)"
 }
 object OperatorF {
+  val Name = FieldAccess[OperatorF, String]("name", 0)
+  //args
+  val Start = FieldAccess[OperatorF, Int]("start", 2)
+  // end
+  val Depth = FieldAccess[OperatorF, Int]("depth", 4)
 
   implicit val tag: ProductTag[OperatorF] = ProductTag.ofProd[OperatorF]
 }

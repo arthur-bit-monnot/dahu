@@ -14,7 +14,7 @@ object PddlOperator {
     t.toDouble / predef.discretization.toDouble
 
   def apply(gen: Operator)(implicit predef: PddlPredef): PddlOperator = gen match {
-    case OperatorF(name, args, start, end) =>
+    case OperatorF(name, args, start, end, _) =>
       new PddlOperator(name, args.map(_.toString), toPddlTime(start), toPddlTime(end - start))
   }
 }

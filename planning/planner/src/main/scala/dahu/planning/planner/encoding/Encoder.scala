@@ -1,9 +1,10 @@
 package dahu.planning.planner.encoding
 
 import dahu.model.input._
-import dahu.planning.model.common.{Arg, LocalVar, Predef}
+import dahu.model.math.any
+import dahu.planning.model.common.Predef
 import dahu.planning.model.core
-import dahu.planning.planner.{encoding, PlannerConfig}
+import dahu.planning.planner.{encoding, PlannerConfig, SymBreakLevel}
 import dahu.solvers.problem.{EncodedProblem, Struct}
 import dahu.utils.Vec
 import dahu.utils.debug._
@@ -37,6 +38,17 @@ object Encoder {
     csp.addConstraint(
       forall[CondTok](cond => exists[EffTok](eff => CondTokF.supports(eff, cond)))
     )
+
+    cfg.symBreak match {
+      case SymBreakLevel.No =>
+      case SymBreakLevel.Base =>
+        csp.addConstraint(
+          forall[Operator](op =>
+            op.depth === Cst(1) || exists[Operator](op2 =>
+              any
+                .EQ(op.name, op2.name) && op.depth === (op2.depth + Cst(1)) && op2.start >= op.start))
+        )
+    }
 
     model.foreach {
       case core.LocalVarDeclaration(v) =>

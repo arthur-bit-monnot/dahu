@@ -1,4 +1,5 @@
 package dahu.planning.planner
+import dahu.model.input.Expr
 import dahu.model.types.Tag
 
 package object encoding {
@@ -17,4 +18,12 @@ package object encoding {
   type Solution = SolutionF[cats.Id]
 
   type Operator = OperatorF[cats.Id]
+
+  import dahu.model.input.dsl._
+  implicit class OperatorOps(val op: Expr[Operator]) extends AnyVal {
+    def start: Expr[Int] = OperatorF.Start(op)
+    def name: Expr[String] = OperatorF.Name(op)
+    def depth: Expr[Int] = OperatorF.Depth(op)
+  }
+
 }
