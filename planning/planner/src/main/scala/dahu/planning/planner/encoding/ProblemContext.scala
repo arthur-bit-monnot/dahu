@@ -48,8 +48,11 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   private val TRUE = Cst(ObjLit(predef.True): Literal)(booleanTag)
   private val FALSE = Cst(ObjLit(predef.False): Literal)(booleanTag)
 
-  def boolUnbox(i: Tentative[Literal]): Tentative[Bool] =
-    intUnbox(i) === intUnbox(TRUE)
+  def boolUnbox(i: Tentative[Literal]): Tentative[Bool] = i match {
+    case ITE(x, TRUE, FALSE) => x
+    case _                   => intUnbox(i) === intUnbox(TRUE)
+  }
+
   def boolBox(i: Tentative[Bool]): Tentative[Literal] =
     dsl.ITE(i, TRUE, FALSE)
 
