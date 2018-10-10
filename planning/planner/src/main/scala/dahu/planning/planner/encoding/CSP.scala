@@ -138,11 +138,15 @@ abstract class CSP extends Struct {
       case term: common.Term => ctx.encode(term)
       case Op2(operators.Eq, v, cst: common.Constant) =>
         ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
+      case Op2(operators.Eq, cst: common.Constant, v) =>
+        ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
       case Op2(op, left, right) =>
         applyOperator(op, encode(left), encode(right))
-      case cst: common.Constant =>
-        ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(predef.True)))
-      case _ => unsupported(s"Suport for expression not implemented: $e")
+      case _: common.Constant =>
+        unsupported(
+          "Currently static expressions are only supported if they are asserted to be equal" +
+            " to another variable")
+      case _ => unsupported(s"Support for expression not implemented: $e")
     }
 
   def extendWith(e: core.InActionBlock)(implicit
