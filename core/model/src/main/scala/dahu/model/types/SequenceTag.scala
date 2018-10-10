@@ -14,7 +14,5 @@ object SequenceTag {
   final case class SequenceTagImpl[T](memberTag: Tag[T])(implicit ct: ClassTag[Vec[T]])
       extends SequenceTag[T] {
     override def typ: Tag.Type = Tag.typeOf[Vec[T]]
-
-    override def isValid(e: Expr[Vec[T]]): Expr[Boolean] = bool.True
   }
 }

@@ -66,8 +66,6 @@ object Encoder {
       case action: core.ActionTemplate => csp.extendWithActions(action, num(action))
     }
     val flat = csp.flattened
-//    Struct.process(flat)
-//    sys.exit(0)
     val actions: Expr[Vec[Operator]] = all[Operator]
     val effects: Expr[Vec[EffTok]] = all[EffTok]
     Struct.encode(flat, Product(SolutionF[Expr](actions, effects))(SolutionF.tag))

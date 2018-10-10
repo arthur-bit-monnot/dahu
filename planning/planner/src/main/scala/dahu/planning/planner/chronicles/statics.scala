@@ -20,15 +20,15 @@ object SCondTokF {
   implicit val productTag: ProductTag[SCondTokF] = ProductTag.ofProd[SCondTokF]
 
   case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
-      extends (Tag[SEffTok] => Boolean) {
-    override def apply(v1: Tag[SEffTok]): Boolean = v1 match {
+      extends (TagAny => Boolean) {
+    override def apply(v1: TagAny): Boolean = v1 match {
       case SEffTokF.SEffProductTag(et, eargs, ev) =>
         func == et && SEffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
       case _ => false
     }
   }
 
-  def ofExpr(fluent: Expr[Fluent], value: Expr[Literal]): Expr[Boolean] = {
+  def ofExpr(fluent: Expr[Fluent], value: Expr[Literal]): Expr[Bool] = {
     val (func, args, v) = fluent match {
       case Product(FluentF(Cst(f), Sequence(args))) =>
         (f, args.map {
@@ -44,26 +44,26 @@ object SCondTokF {
     val accept = Accept(func, args, v)
 
     val condTok = Product(SCondTokF[Expr](fluent, value))
-    Dynamic[SEffTok, Boolean](supportedBy(condTok), bool.Or, Some(accept))
+    Dynamic[SEffTok, Bool](supportedBy(condTok), bool.Or, Some(accept))
   }
 
   val Fluent = FieldAccess[SCondTokF, FluentF[Id]]("fluent", 0)
   val Value = FieldAccess[SCondTokF, Literal]("value", 1)
 
-  val supBy: Expr[SCondTok ->: SEffTok ->: Boolean] = Lambda[SCondTok, SEffTok ->: Boolean](
+  val supBy: Expr[SCondTok ->: SEffTok ->: Bool] = Lambda[SCondTok, SEffTok ->: Bool](
     cond =>
-      Lambda[SEffTok, Boolean](
+      Lambda[SEffTok, Bool](
         (eff: Expr[SEffTok]) => {
-          (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
-          (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
+          (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Bool]) &&
+          (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Bool])
         }
     ))
 
-  def supportedBy(cond: Expr[SCondTok]): Expr[SEffTok ->: Boolean] = supBy.partialApply(cond)
-//    Lambda[SEffTok, Boolean](
+  def supportedBy(cond: Expr[SCondTok]): Expr[SEffTok ->: Bool] = supBy.partialApply(cond)
+//    Lambda[SEffTok, Bool](
 //      (eff: Expr[SEffTok]) => {
-//        (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Boolean]) &&
-//        (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Boolean])
+//        (any.EQ(SCondTokF.Fluent(cond), SEffTokF.Fluent(eff)): Expr[Bool]) &&
+//        (any.EQ(SCondTokF.Value(cond), SEffTokF.Value(eff)): Expr[Bool])
 //      }
 //    )
 }

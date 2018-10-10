@@ -3,7 +3,7 @@ package dahu.model.math
 import dahu.model.functions._
 import dahu.model.input.{Cst, Expr}
 import dahu.model.ir.CstF
-import dahu.model.types.{ProductTag, SequenceTag, Tag}
+import dahu.model.types.{Bool, ProductTag, SequenceTag, Tag}
 import dahu.utils.Vec
 
 import scala.reflect.ClassTag
@@ -35,17 +35,17 @@ package double {
     override def of(in1: Double, in2: Double): Double = math.min(in1, in2)
   }
 
-  object LEQ extends Fun2[Double, Double, Boolean] {
+  object LEQ extends Fun2[Double, Double, Bool] {
     override def name: String = "leq"
-    override def of(in1: Double, in2: Double): Boolean = in1 <= in2
+    override def of(in1: Double, in2: Double): Bool = Bool.asBool(in1 <= in2)
   }
-  object EQ extends Fun2[Double, Double, Boolean] {
+  object EQ extends Fun2[Double, Double, Bool] {
     override def name: String = "eq"
-    override def of(in1: Double, in2: Double): Boolean = in1 == in2
+    override def of(in1: Double, in2: Double): Bool = Bool.asBool(in1 == in2)
   }
-  object LT extends Fun2[Double, Double, Boolean] {
+  object LT extends Fun2[Double, Double, Bool] {
     override def name: String = "lt"
-    override def of(in1: Double, in2: Double): Boolean = in1 < in2
+    override def of(in1: Double, in2: Double): Bool = Bool.asBool(in1 < in2)
   }
 
 }
@@ -77,48 +77,49 @@ package int {
     override def of(in1: Int, in2: Int): Int = math.min(in1, in2)
   }
 
-  object LEQ extends Fun2[Int, Int, Boolean] {
+  object LEQ extends Fun2[Int, Int, Bool] {
     override def name: String = "leq"
-    override def of(in1: Int, in2: Int): Boolean = in1 <= in2
+    override def of(in1: Int, in2: Int): Bool = Bool.asBool(in1 <= in2)
   }
-  object EQ extends Fun2[Int, Int, Boolean] {
+  object EQ extends Fun2[Int, Int, Bool] {
     override def name: String = "eq"
-    override def of(in1: Int, in2: Int): Boolean = in1 == in2
+    override def of(in1: Int, in2: Int): Bool = Bool.asBool(in1 == in2)
   }
 }
 
 package bool {
+  import Bool._
 
-  object And extends CommutativeMonoid[Boolean] with IdempotentMonoid[Boolean] {
-    override def tpe: Tag[Boolean] = Tag.ofBoolean
+  object And extends CommutativeMonoid[Bool] with IdempotentMonoid[Bool] {
+    override def tpe: Tag[Bool] = Tag.ofBoolean
     override def name: String = "and"
-    override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs && rhs
-    override val identity: Boolean = true
+    override def combine(lhs: Bool, rhs: Bool): Bool = lhs && rhs
+    override val identity: Bool = Bool.True
   }
-  object Or extends CommutativeMonoid[Boolean] with IdempotentMonoid[Boolean] {
-    override def tpe: Tag[Boolean] = Tag.ofBoolean
+  object Or extends CommutativeMonoid[Bool] with IdempotentMonoid[Bool] {
+    override def tpe: Tag[Bool] = Tag.ofBoolean
     override def name: String = "or"
-    override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs || rhs
-    override val identity: Boolean = false
+    override def combine(lhs: Bool, rhs: Bool): Bool = lhs || rhs
+    override val identity: Bool = Bool.False
   }
-  object XOr extends CommutativeMonoid[Boolean] {
-    override def tpe: Tag[Boolean] = Tag.ofBoolean
+  object XOr extends CommutativeMonoid[Bool] {
+    override def tpe: Tag[Bool] = Tag.ofBoolean
     override def name: String = "xor"
-    override def combine(lhs: Boolean, rhs: Boolean): Boolean = lhs ^ rhs
-    override val identity: Boolean = false
+    override def combine(lhs: Bool, rhs: Bool): Bool = if(lhs + rhs == 1) Bool.True else Bool.False
+    override val identity: Bool = Bool.False
   }
 
-  object Not extends Reversible[Boolean, Boolean] {
+  object Not extends Reversible[Bool, Bool] {
     override def name: String = "not"
-    override def of(in: Boolean): Boolean = !in
-    override def reverse: Reversible[Boolean, Boolean] = this
+    override def of(in: Bool): Bool = !in
+    override def reverse: Reversible[Bool, Bool] = this
   }
 }
 package object bool {
-  final val True: Expr[Boolean] = Cst(true)
-  final val TrueF: CstF[Any] = CstF(dahu.model.types.Value(true), Tag[Boolean])
-  final val False: Expr[Boolean] = Cst(false)
-  final val FalseF: CstF[Any] = CstF(dahu.model.types.Value(false), Tag[Boolean])
+  final val True: Expr[Bool] = Cst[Bool](Bool.True)
+  final val TrueF: CstF[Any] = CstF(dahu.model.types.Value(Bool.True), Tag.ofBoolean)
+  final val False: Expr[Bool] = Cst(Bool.False)
+  final val FalseF: CstF[Any] = CstF(dahu.model.types.Value(Bool.False), Tag.ofBoolean)
 }
 
 package object sequence {
@@ -155,9 +156,9 @@ package object any {
 
   sealed trait EQ
 
-  private object EQSingleton extends Fun2[Any, Any, Boolean] with EQ {
-    override def of(in1: Any, in2: Any): Boolean = in1 == in2
+  private object EQSingleton extends Fun2[Any, Any, Bool] with EQ {
+    override def of(in1: Any, in2: Any): Bool = Bool.asBool(in1 == in2)
     override def name: String = "any-eq"
   }
-  def EQ[T]: Fun2[T, T, Boolean] = EQSingleton
+  def EQ[T]: Fun2[T, T, Bool] = EQSingleton
 }

@@ -7,7 +7,7 @@ import dahu.model.input.dsl._
 import dahu.model.math.{any, bool}
 import dahu.model.products.FieldAccess
 import dahu.model.types.Tag.Type
-import dahu.model.types.{ProductTag, Tag, TagIsoInt}
+import dahu.model.types.{Bool, ProductTag, Tag, TagIsoInt}
 import dahu.planning.model.common
 import dahu.planning.model.common.{FluentTemplate, FunctionTemplate}
 import dahu.planning.planner.hcsp.Literal
@@ -42,7 +42,7 @@ object IntervalF {
   val Start: FieldAccess[IntervalF, Int] = FieldAccess("start", 0)
   val End: FieldAccess[IntervalF, Int] = FieldAccess("end", 1)
 
-  def contains(lhs: Expr[Interval], rhs: Expr[Interval]): Expr[Boolean] =
+  def contains(lhs: Expr[Interval], rhs: Expr[Interval]): Expr[Bool] =
     Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)
 //  val Contains: Expr[Interval ->: Interval ->: Boolean] =
 //    Lambda(lhs => Lambda(rhs => Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)))
@@ -105,21 +105,21 @@ object CondTokF {
   val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
   val Value = FieldAccess[CondTokF, Literal]("value", 2)
 
-  def supports(eff: Expr[EffTok], cond: Expr[CondTok]): Expr[Boolean] =
-    (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
-      (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-      (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+  def supports(eff: Expr[EffTok], cond: Expr[CondTok]): Expr[Bool] =
+    (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Bool]) &&
+      (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Bool]) &&
+      (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Bool])
 
-  val supBy: Expr[CondTok ->: EffTok ->: Boolean] = Lambda[CondTok, EffTok ->: Boolean](
+  val supBy: Expr[CondTok ->: EffTok ->: Bool] = Lambda[CondTok, EffTok ->: Bool](
     (cond: Expr[CondTok]) =>
-      Lambda[EffTok, Boolean](
+      Lambda[EffTok, Bool](
         (eff: Expr[EffTok]) => {
-          (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
-          (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-          (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
+          (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Bool]) &&
+          (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Bool]) &&
+          (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Bool])
         }
     ))
-  def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Boolean] = supBy.partialApply(cond)
+  def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Bool] = supBy.partialApply(cond)
 //    Lambda[EffTok, Boolean](
 //      (eff: Expr[EffTok]) => {
 //        (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
@@ -209,16 +209,16 @@ object EffTokF {
   val Value = FieldAccess[EffTokF, Literal]("value", 3)
   val Id = FieldAccess[EffTokF, Int]("id", 4)
 
-  def consistent(lhs: Expr[EffTok], rhs: Expr[EffTok]): Expr[Boolean] =
+  def consistent(lhs: Expr[EffTok], rhs: Expr[EffTok]): Expr[Bool] =
 //    Id(lhs) >= Id(rhs) || // redundant with accept function
     IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
       IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
       bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
 
-  val nonThreatening: Expr[EffTok ->: EffTok ->: Boolean] =
-    Lambda[EffTok, EffTok ->: Boolean](
+  val nonThreatening: Expr[EffTok ->: EffTok ->: Bool] =
+    Lambda[EffTok, EffTok ->: Bool](
       lhs =>
-        Lambda[EffTok, Boolean](
+        Lambda[EffTok, Bool](
           (rhs: Expr[EffTok]) =>
             Id(lhs) >= Id(rhs) || // redundant with accept function
               IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
@@ -226,8 +226,8 @@ object EffTokF {
               bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
       ))
 
-  def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Boolean] = nonThreatening.partialApply(lhs)
-//    Lambda[EffTok, Boolean](
+  def NonThreatening(lhs: Expr[EffTok]): Expr[EffTok ->: Bool] = nonThreatening.partialApply(lhs)
+//    Lambda[EffTok, Bool](
 //      (rhs: Expr[EffTok]) =>
 //        //Id(lhs) >= Id(rhs) || // superseded by accept function
 //        IntervalF.End(Persistence(rhs)) < StartChange(lhs) ||
@@ -237,7 +237,7 @@ object EffTokF {
 
 }
 
-case class ChronicleF[F[_]](constraints: F[Boolean],
+case class ChronicleF[F[_]](constraints: F[Bool],
                             conditions: F[Vec[CondTok]],
                             effects: F[Vec[EffTok]],
                             staticEffects: F[Vec[SEffTok]],
@@ -246,7 +246,7 @@ case class ChronicleF[F[_]](constraints: F[Boolean],
 object ChronicleF {
   implicit val tag: ProductTag[ChronicleF] = ProductTag.ofProd[ChronicleF]
 
-  def ofExpr(constraints: Expr[Boolean],
+  def ofExpr(constraints: Expr[Bool],
              conditions: Expr[Vec[CondTok]],
              effects: Expr[Vec[EffTok]],
              staticEffects: Expr[Vec[SEffTok]],

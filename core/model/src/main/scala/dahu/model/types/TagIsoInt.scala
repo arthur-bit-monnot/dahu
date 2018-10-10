@@ -18,7 +18,7 @@ trait TagIsoInt[T] extends Tag[T] { self =>
   val max: Int
   def numInstances: Int = max - min + 1
 
-  def rawType: RawInt = new RawInt {
+  val rawType: RawInt with Tag[Int] = new RawInt with Tag[Int] {
     override def min: Int = self.min
     override def max: Int = self.max
   }
@@ -29,25 +29,20 @@ trait TagIsoInt[T] extends Tag[T] { self =>
   def box: Box[T] = unbox.reverse
 
   import dahu.model.input.dsl._
-  override def isValid(e: Expr[T]): Expr[Boolean] =
-    Cst(min) <= unbox(e) && unbox(e) <= Cst(max)
-
 }
 
-trait RawInt extends Tag[Int] {
+trait RawInt extends TagAny {
   def min: Int
   def max: Int
   override def typ: Tag.Type = Tag.typeOf[Int]
 
-  import dahu.model.input.dsl._
-  override def isValid(e: Expr[Int]): Expr[Boolean] = Cst(min) <= e && e <= Cst(max)
 }
 
 object TagIsoInt {
 
   def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
 
-  implicit case object ofInt extends RawInt {
+  implicit case object ofInt extends RawInt with Tag[Int] {
     override val typ: Tag.Type = Tag.typeOf[Int]
 
     override val min: Int = Integer.MIN_VALUE / 2 + 1
@@ -65,8 +60,6 @@ object TagIsoInt {
 
     override val min: Int = 0
     override val max: Int = 1
-
-    override def isValid(e: Expr[Boolean]): Expr[Boolean] = bool.True
   }
 
   import scala.reflect.runtime.universe

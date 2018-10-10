@@ -5,7 +5,7 @@ import dahu.core.algebra
 import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
 import dahu.model.functions._
 import dahu.model.math._
-import dahu.model.types.{Tag, TagIsoInt}
+import dahu.model.types.{Bool, Tag, TagIsoInt}
 import dahu.utils.Vec
 
 import scala.language.implicitConversions
@@ -38,16 +38,16 @@ object dsl {
       Apply(lambda, arg)
   }
 
-  def ITE[T](cond: Expr[Boolean], t: Expr[T], f: Expr[T]): Expr[T] =
+  def ITE[T](cond: Expr[Bool], t: Expr[T], f: Expr[T]): Expr[T] =
     new ITE[T](cond, t, f)
 
 //  def forall[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
 //    Dynamic(f, bool.And, None)
 
-  def forall[Provided: Tag](f: Expr[Provided] => Expr[Boolean]): Dynamic[Provided, Boolean] =
+  def forall[Provided: Tag](f: Expr[Provided] => Expr[Bool]): Dynamic[Provided, Bool] =
     Dynamic(Lambda(f), bool.And, None)
 
-  def exists[Provided: Tag](f: Expr[Provided] => Expr[Boolean]): Dynamic[Provided, Boolean] =
+  def exists[Provided: Tag](f: Expr[Provided] => Expr[Bool]): Dynamic[Provided, Bool] =
     Dynamic(Lambda(f), bool.Or, None)
 
   def all[A: Tag: ClassTag]: Expr[Vec[A]] =
@@ -69,31 +69,31 @@ object dsl {
   implicit def double2Cst(value: Double): Expr[Double] = Cst(value)
   implicit def int2Cst(value: Int): Expr[Int] = Cst(value)
 
-  implicit val boolLike: BoolLike[Expr[Boolean]] = new BoolLike[Expr[Boolean]] {
-    override def and(a: Expr[Boolean], b: Expr[Boolean]): Expr[Boolean] =
+  implicit val boolLike: BoolLike[Expr[Bool]] = new BoolLike[Expr[Bool]] {
+    override def and(a: Expr[Bool], b: Expr[Bool]): Expr[Bool] =
       Computation(bool.And, Seq(a, b))
-    override def or(a: Expr[Boolean], b: Expr[Boolean]): Expr[Boolean] =
+    override def or(a: Expr[Bool], b: Expr[Bool]): Expr[Bool] =
       Computation(bool.Or, Seq(a, b))
-    override def not(a: Expr[Boolean]): Expr[Boolean] =
+    override def not(a: Expr[Bool]): Expr[Bool] =
       Computation(bool.Not, a)
 
-    override def False: Expr[Boolean] = bool.True
-    override def True: Expr[Boolean] = bool.False
+    override def False: Expr[Bool] = bool.True
+    override def True: Expr[Bool] = bool.False
   }
 
-  implicit val intsNumber: NumberLike.Aux[Expr[Int], Expr[Boolean], Expr[Int]] =
+  implicit val intsNumber: NumberLike.Aux[Expr[Int], Expr[Bool], Expr[Int]] =
     Numeric.toNumberLike[Int, Expr]
 
-  implicit val numbersDouble: NumberLike.Aux[Expr[Double], Expr[Boolean], Expr[Double]] =
+  implicit val numbersDouble: NumberLike.Aux[Expr[Double], Expr[Bool], Expr[Double]] =
     Numeric.toNumberLike[Double, Expr]
 
-  implicit def orderableIsoInt[T: TagIsoInt]: Orderable.Aux[Expr[T], Expr[Boolean]] =
+  implicit def orderableIsoInt[T: TagIsoInt]: Orderable.Aux[Expr[T], Expr[Bool]] =
     new Orderable[Expr[T]] {
-      override type Bool = Expr[Boolean]
-      override def BL: BoolLike[Expr[Boolean]] = boolLike
-      override def leq(a: Expr[T], b: Expr[T]): Bool =
+      override type EBool = Expr[Bool]
+      override def BL: BoolLike[Expr[Bool]] = boolLike
+      override def leq(a: Expr[T], b: Expr[T]): EBool =
         intsNumber.leq(TagIsoInt[T].unbox(a), TagIsoInt[T].unbox(b))
-      override def lt(a: Expr[T], b: Expr[T]): Bool =
+      override def lt(a: Expr[T], b: Expr[T]): EBool =
         intsNumber.lt(TagIsoInt[T].unbox(a), TagIsoInt[T].unbox(b))
     }
 
@@ -124,8 +124,9 @@ object dsl {
 
   }
 
-  implicit class BooleanExprOps(a: Expr[Boolean]) {
+  implicit class BooleanExprOps(a: Expr[Bool]) {
     def toDouble: Expr[Double] = ITE(a, Cst(1.0), Cst(0.0))
+    @deprecated("Bool is now a subtype of Int", since = "now")
     def toInt: Expr[Int] = ITE(a, Cst(1), Cst(0))
   }
 }

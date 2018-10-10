@@ -10,12 +10,13 @@ import dahu.model.math.{bool, Monoid}
 import dahu.model.types.ProductTag.MapProductTag
 import dahu.model.types._
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
 
 /** Evaluation yields an Either[ConstraintViolated, T] */
 sealed trait Expr[+T] {
-  def typ: Tag[T]
+  def typ: Tag[T] @uncheckedVariance
   def hash: Int
   override final def hashCode(): Int = hash
 }
@@ -41,14 +42,19 @@ object Expr {
 sealed abstract class Term[T] extends Expr[T]
 
 /** Evaluation yields a Right[T] */
-final case class Input[T] private (id: TypedIdent[T]) extends Term[T] {
-  assert(!id.typ.isInstanceOf[TagIsoInt[_]] || id.typ == Tag.ofBoolean)
-  override def typ: Tag[T] = id.typ
+final case class Input[T: Tag] private (id: TypedIdent) extends Term[T] {
+  require(!id.typ.isInstanceOf[TagIsoInt[_]])
+  require(typ == id.typ)
+  override def typ: Tag[T] = Tag[T]
   override val hash: Int = ScalaRunTime._hashCode(this)
   override def toString: String = "?" + id
 }
 object Input {
-  private case class Raw(id: Any)
+
+  /** Wrapper to generate a new unique ID from the given one */
+  private case class Raw(id: Any) {
+    override def toString: String = id.toString + "!"
+  }
 
   /** This should be the only entry point for building an Input.
     * It checks whether the Input is isomorphic to an int and in which case, the returned value is a box
@@ -56,12 +62,12 @@ object Input {
     */
   private def build[T](id: Ident)(implicit tag: Tag[T]): Expr[T] = {
     tag match {
-      case _: RawInt                 => new Input[T](TypedIdent(id, tag))
-      case _ if tag == Tag.ofBoolean => new Input[T](TypedIdent(id, tag))
+      case _: RawInt => new Input[T](TypedIdent(id, tag))
       case t: TagIsoInt[T] =>
-        val rawInput = new Input[Int](TypedIdent(Ident(id.scope, Raw(id.lid)), t.rawType))
+        val rawInput =
+          new Input[Int](TypedIdent(Ident(id.scope, Raw(id.lid)), t.rawType))(t.rawType)
         Computation1(t.box, rawInput)
-      case x => new Input[T](TypedIdent(id, tag))
+      case _ => new Input[T](TypedIdent(id, tag))
     }
   }
 
@@ -71,16 +77,37 @@ object Input {
     build[T](Ident.anonymous(scope))
 }
 
-// TODO: we should add a validation step for constants as well. Omitted for now because it make reading output more difficult
-final case class Cst[T](value: T, typ: Tag[T]) extends Term[T] {
+final case class Cst[T] private (value: T, typ: Tag[T]) extends Term[T] {
   require(typ != null)
+  require(typ match {
+    case _: TagIsoInt[_]    => false
+    case _ if typ.isBoolean => value == 0 || value == 1
+    case ri: RawInt         => ri.min <= value.asInstanceOf[Int] && value.asInstanceOf[Int] <= ri.max
+    case _                  => true
+  })
   override val hash: Int = ScalaRunTime._hashCode(this)
 
-  override def toString: String = value.toString
+  override def toString: String = value.toString + ":" + typ
 }
 
 object Cst {
-  def apply[T: Tag](v: T): Expr[T] = new Cst(v, Tag[T])
+
+  /** This should be the only entry point for building an Input.
+    * It checks whether the Input is isomorphic to an int and in which case, the returned value is a box
+    * of a raw int variable.
+    */
+  private def build[T](value: T, typ: Tag[T]): Expr[T] = {
+    typ match {
+      case _: RawInt => new Cst(value, typ)
+      case t: TagIsoInt[T] =>
+        val rawCst =
+          new Cst[Int](t.toInt(value), t.rawType)
+        Computation1(t.box, rawCst)
+      case _ => new Cst[T](value, typ)
+    }
+  }
+
+  def apply[T: Tag](v: T): Expr[T] = build(v, Tag[T])
 
   def unapply[T](arg: Expr[T]): Option[T] = arg match {
     case x: Cst[T] => Some(x.value)
@@ -88,7 +115,7 @@ object Cst {
   }
 }
 
-final case class ITE[T](cond: Expr[Boolean], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
+final case class ITE[T](cond: Expr[Bool], onTrue: Expr[T], onFalse: Expr[T]) extends Expr[T] {
   override def typ: Tag[T] = onTrue.typ
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
@@ -241,7 +268,7 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
 
 final case class Dynamic[Provided: Tag, Out: Tag](f: Expr[Provided ->: Out],
                                                   comb: Monoid[Out],
-                                                  accept: Option[Tag[Provided] => Boolean])
+                                                  accept: Option[TagAny => Boolean])
     extends Expr[Out] {
   override def typ: Tag[Out] = Tag[Out]
   def acceptedType: Tag[Provided] = Tag[Provided]
@@ -273,7 +300,8 @@ final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameteri
 
 object Lambda {
   private val dummyLambdaParam =
-    Input[Nothing](TypedIdent(Ident.anonymous(Scope.root), Tag.default[Nothing]))
+    Input[Nothing](TypedIdent(Ident.anonymous(Scope.root), Tag.default[Nothing]))(
+      Tag.default[Nothing])
   def apply[I: Tag, O: Tag](f: Expr[I] => Expr[O]): Lambda[I, O] = {
     val treeShape = f(dummyLambdaParam)
     val id = new LambdaIdent(treeShape, None, None)

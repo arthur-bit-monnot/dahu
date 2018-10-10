@@ -6,7 +6,9 @@ import scala.reflect.ClassTag
 
 package object types {
 
-  type Type = types.Tag[_]
+  type Bool <: Int
+
+  type Type = types.TagAny
   def typeOf[T](implicit ttag: Tag[T]): Type = ttag
 
   protected sealed abstract class ValueLabelImpl {

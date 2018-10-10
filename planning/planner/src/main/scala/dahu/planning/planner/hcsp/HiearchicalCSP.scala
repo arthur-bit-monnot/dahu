@@ -2,7 +2,7 @@ package dahu.planning.planner.hcsp
 
 import dahu.model.input.{Cst, Expr, Input, LocalIdent, Scope}
 import dahu.model.input.dsl._
-import dahu.model.types.Tag
+import dahu.model.types.{Bool, Tag}
 import dahu.planning.model.common.LocalVar
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.transforms.ActionInstantiation
@@ -20,7 +20,7 @@ import scala.reflect.ClassTag
 abstract class CSP extends Struct {
   def vars: Seq[Expr[Literal]] = varMap.values.toSeq
   val varMap: MMap[Any, Expr[Literal]] = MMap()
-  val constraints: Buff[CExpr[Boolean]] = Buff()
+  val constraints: Buff[CExpr[Bool]] = Buff()
   val subs: Buff[CSP] = Buff()
   val exports: Buff[CExpr[Any]] = Buff()
 
@@ -34,18 +34,18 @@ abstract class CSP extends Struct {
     override def getLocalVar(v: LocalVar): Expr[Literal] = getVar(v).get
   }
 
-  def present: Expr[Boolean] = scope.present
+  def present: Expr[Bool] = scope.present
 
   final def getVar(id: Any): Option[Expr[Literal]] = {
     varMap.get(id).orElse(parent.flatMap(_.getVar(id)))
   }
 
-  final def addConstraint(c: Expr[Boolean]): Unit = {
+  final def addConstraint(c: Expr[Bool]): Unit = {
     constraints += CExpr(c, scope)
   }
   final def newInput[T](id: Any, typTag: Tag[T]): Expr[T] = Input[T](id, scope)(typTag)
   final def newInputSubjectTo[T](id: Any, typTag: Tag[T])(
-      constraint: Expr[T] => Expr[Boolean]): Expr[T] = {
+      constraint: Expr[T] => Expr[Bool]): Expr[T] = {
     val in = newInput(id, typTag)
     addConstraint(constraint(in))
     in
@@ -65,7 +65,7 @@ abstract class CSP extends Struct {
   }
 
   final def addSub(name: String): CSP = {
-    val subPresent = newInput[Boolean](scope.subId(name + "??"), Tag.ofBoolean)
+    val subPresent = newInput[Bool](scope.subId(name + "??"), Tag.ofBoolean)
     val subScope = scope.subScope(name, subPresent)
     val subCSP = new SubCSP(this, subScope)
     subs += subCSP

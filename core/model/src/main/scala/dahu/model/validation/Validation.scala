@@ -16,7 +16,7 @@ import scala.util.Random
 object Validation {
 
   /** Checks that all possible methods to evaluate `e` give the same result and return it. */
-  def checkedEval[A](e: Expr[A], in: TypedIdent[Any] => Option[Value]): PEval[Any] = {
+  def checkedEval[A](e: Expr[A], in: TypedIdent => Option[Value]): PEval[Any] = {
     checkedEval(e, multiLayerFactory.build(e).evaluator(in))
   }
   private def checkedEval[A](e: Expr[A], evaluator: Evaluator): PEval[A] = {
@@ -31,23 +31,22 @@ object Validation {
   }
 
   /** Checks that all expression yield the same result. */
-  def checkedMultiEval[A](es: Iterable[Expr[A]],
-                          in: TypedIdent[Any] => Option[Value]): PEval[Any] = {
+  def checkedMultiEval[A](es: Iterable[Expr[A]], in: TypedIdent => Option[Value]): PEval[Any] = {
     val evals = es.toList.map(e => checkedEval(e, in))
     assert(allEquals(evals))
     evals.head
   }
 
   /** Checks that all methods for evaluating `e`, return `res` */
-  def assertEvaluatesTo[A](e: Expr[A], in: TypedIdent[Any] => Option[Any])(res: PEval[A]): Unit = {
-    val v = checkedEval(e, in.asInstanceOf[TypedIdent[Any] => Option[Value]])
+  def assertEvaluatesTo[A](e: Expr[A], in: TypedIdent => Option[Any])(res: PEval[A]): Unit = {
+    val v = checkedEval(e, in.asInstanceOf[TypedIdent => Option[Value]])
     assert(v == res, s"$v != $res")
   }
 
   /** Checks that all methods for evaluating `e`, return `res` */
-  def assertAllEvaluateTo[A](es: Iterable[Expr[A]], in: TypedIdent[Any] => Option[Any])(
+  def assertAllEvaluateTo[A](es: Iterable[Expr[A]], in: TypedIdent => Option[Any])(
       res: PEval[A]): Unit = {
-    val v = checkedMultiEval(es, in.asInstanceOf[TypedIdent[Any] => Option[Value]])
+    val v = checkedMultiEval(es, in.asInstanceOf[TypedIdent => Option[Value]])
     assert(v == res, s"$v != $res")
   }
 
@@ -71,7 +70,7 @@ object Validation {
     }
   }
 
-  def fuzzer(seed: Int): TypedIdent[Any] => Option[Value] = {
+  def fuzzer(seed: Int): TypedIdent => Option[Value] = {
     val rand = new Random(seed)
     rand.nextInt(); rand.nextInt() // had some experience in the past were the first generations were not random
     val map = mutable.Map[Ident, Value]()
@@ -103,7 +102,7 @@ object Validation {
     def rep[A](e: Expr[A]): Any
   }
   trait Layer {
-    def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator
+    def evaluator(in: TypedIdent => Option[Value]): Evaluator
   }
   trait LayerFactory {
     def build(e: Expr[Any]): Layer
@@ -116,7 +115,7 @@ object Validation {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
       private val ev = API.eliminateDynamics(parsed).tree.fixID
-      override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
+      override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
           override def eval[A](e: Expr[A]): PEval[A] =
@@ -132,7 +131,7 @@ object Validation {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
       private val ev = API.expandLambdas(API.eliminateDynamics(parsed)).tree.fixID
-      override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
+      override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
         val evaluated = ev.cata(LambdaInterpreter.partialEvalAlgebra(in))
         new Evaluator {
           override def eval[A](e: Expr[A]): PEval[A] =
@@ -148,7 +147,7 @@ object Validation {
     override def build(e: Expr[Any]): Layer = new Layer {
       private val parsed = API.parse(e)
       private val ev = API.makeTotal(API.expandLambdas(API.eliminateDynamics(parsed))).tree.fixID
-      override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
+      override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
         val evaluated = ev.cata(Interpreter.evalAlgebra(in))
         new Evaluator {
           override def eval[A](e: Expr[A]): PEval[A] = evaluated.get(e) match {
@@ -184,7 +183,7 @@ object Validation {
     override def build(e: Expr[Any]): Layer = {
       val layers = layerFactories.map(_.build(e))
       new Layer {
-        override def evaluator(in: TypedIdent[Any] => Option[Value]): Evaluator = {
+        override def evaluator(in: TypedIdent => Option[Value]): Evaluator = {
           val evaluators = layers.map(_.evaluator(in))
 
           new Evaluator {

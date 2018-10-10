@@ -90,13 +90,12 @@ case class ChronicleFactory(ctx: ProblemContext,
       case _ => ???
     }
   import dahu.model.input.dsl._
-  def compile: E[Chronicle] = {
-    ChronicleF.ofExpr(bool.And(constraints: _*),
-                      Sequence(conditions),
-                      Sequence(effects),
-                      Sequence(staticEffects),
-                      Sequence(actions))
-  }
+  def compile: E[Chronicle] = ???
+//    ChronicleF.ofExpr(bool.And(constraints: _*),
+//                      Sequence(conditions),
+//                      Sequence(effects),
+//                      Sequence(staticEffects),
+//                      Sequence(actions))
 
 }
 

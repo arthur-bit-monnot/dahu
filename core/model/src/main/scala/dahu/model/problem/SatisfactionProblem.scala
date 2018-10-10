@@ -4,7 +4,7 @@ import cats.Functor
 import cats.implicits._
 import dahu.graphs.TreeNode
 import dahu.graphs.TreeNode._
-import dahu.model.functions.{Box, Reversible, Unbox}
+import dahu.model.functions.{Box, Fun, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.ir._
 import dahu.model.math._
@@ -21,6 +21,16 @@ object SatisfactionProblem {
 
   // TODO: move optimizations to distinct package
   object Optimizations {
+
+    def isBox(f: Fun[_]): Boolean = f match {
+      case fr: Reversible[_, _] if fr.name == "box" => true
+      case _                                        => false
+    }
+    def isUnbox(f: Fun[_]): Boolean = f match {
+      case fr: Reversible[_, _] if fr.name == "unbox" => true
+      case _                                          => false
+    }
+
     import syntax._
     trait OptimizationContext {
       def retrieve(i: IDTop): Total[IDTop]
@@ -116,6 +126,20 @@ object SatisfactionProblem {
       }
     }
 
+    final class DistributeBoxIfThenElse(ctx: OptimizationContext) extends Optimizer2(ctx) {
+      override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
+        case orig @ ComputationF(f, Vec(a), t) if isBox(f) || isUnbox(f) =>
+          retrieve(a) match {
+            case ITEF(cond, onTrue, onFalse, typ) =>
+              val trueCase = record(ComputationF(f, Vec(onTrue), t))
+              val falseCase = record(ComputationF(f, Vec(onFalse), t))
+              ITEF(cond, trueCase, falseCase, t)
+            case _ => orig
+          }
+        case x => x
+      }
+    }
+
     final class SimplifyIfThenElse(ctx: OptimizationContext) extends Optimizer2(ctx) {
       override def optimImpl(fi: Total[IDTop]): Total[IDTop] = fi match {
         case ITEF(_, onTrue, onFalse, _) if onTrue == onFalse => retrieve(onTrue)
@@ -132,7 +156,7 @@ object SatisfactionProblem {
     }
 
     final class ElimTautologies(ctx: OptimizationContext) extends Optimizer2(ctx) {
-      def dom(t: Tag[_]): Interval[Int] = t match {
+      def dom(t: TagAny): Interval[Int] = t match {
         case t: TagIsoInt[_] => Interval(t.min, t.max)
         case _               => Interval.all
       }
@@ -495,6 +519,7 @@ object SatisfactionProblem {
       ctx => new ElimDuplicationsIdempotentMonoids(ctx),
       ctx => new ElimTautologies(ctx),
       ctx => new ConstantFolding(ctx),
+      ctx => new DistributeBoxIfThenElse(ctx),
       ctx => new SimplifyIfThenElse(ctx),
       ctx => new DistributeImplication(ctx),
       ctx => new DistributeNot(ctx),
