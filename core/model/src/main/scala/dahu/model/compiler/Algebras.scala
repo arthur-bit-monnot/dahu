@@ -120,10 +120,10 @@ object Algebras {
   }
   def printAlgebraTree[F[X] <: ExprF[X]]: FAlgebra[F, StringTree] = printAlgebraTreeImpl
   private val printAlgebraTreeImpl: FAlgebra[ExprF, StringTree] = {
-    case InputF(v, _)              => StringLeaf("$" + v)
+    case InputF(v, _) => StringLeaf(v.toString)
     case CstF(v, t) if t.isBoolean =>
-//      assert(v == Bool.True || v == Bool.False)
-      StringLeaf(if(v == Bool.True) "T" else if(v == Bool.False) "F" else "????????")
+      assert(v == Bool.True || v == Bool.False)
+      StringLeaf(if(v == Bool.True) "⊤" else "⊥")
     case CstF(v, _)                                                             => StringLeaf(v.toString)
     case c @ ComputationF(f, Vec(a), _) if f.name == "box" || f.name == "unbox" => a
     case c @ ComputationF(f, args, _) =>

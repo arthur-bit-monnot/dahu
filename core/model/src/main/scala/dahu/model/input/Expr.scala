@@ -50,7 +50,11 @@ final case class Input[T: Tag] private (id: TypedIdent) extends Term[T] {
   override def toString: String = "?" + id
 }
 object Input {
-  private case class Raw(id: Any)
+
+  /** Wrapper to generate a new unique ID from the given one */
+  private case class Raw(id: Any) {
+    override def toString: String = id.toString + "!"
+  }
 
   /** This should be the only entry point for building an Input.
     * It checks whether the Input is isomorphic to an int and in which case, the returned value is a box
