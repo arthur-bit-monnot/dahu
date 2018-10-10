@@ -82,7 +82,7 @@ object core extends EmptyModule {
     override def ivyDeps = Agg(cats, spire)
   }
   object model extends ModuleTests {
-    def moduleDeps = Seq(algebra, utils, recursion)
+    def moduleDeps = Seq(algebra, utils, recursion, graphs)
     def ivyDeps = Agg(shapeless)
   }
   object solvers extends ModuleTests {
