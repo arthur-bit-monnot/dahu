@@ -53,7 +53,7 @@ object Encoder {
       case SymBreakLevel.Base =>
         csp.addConstraint(
           forall[Operator](op =>
-            op.depth === Cst(1) || exists[Operator](op2 =>
+            op.depth === Cst(1) || op.name ==== Cst(PB_NAME) || exists[Operator](op2 =>
               any
                 .EQ(op.name, op2.name) && op.depth === (op2.depth + Cst(1)) && op2.start >= op.start))
         )
