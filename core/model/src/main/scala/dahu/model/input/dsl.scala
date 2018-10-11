@@ -53,18 +53,9 @@ object dsl {
   def all[A: Tag: ClassTag]: Expr[Vec[A]] =
     Dynamic(Lambda[A, Vec[A]](a => Sequence(Vec(a))), sequence.Concat, None)
 
-//  def forall[P1: Tag, P2: Tag](typ: Tag[P2])(
-//      f: Expr[P1 ->: P2 ->: Boolean]): Expr[P1 ->: Boolean] = {
-//    Lambda[P1, Boolean](p1 => Dynamic(f.partialApply(p1), bool.And, None))
-//  }
-
-//  def exists[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
-//    Dynamic(f, bool.Or, None)
-//
-//  def exists[P1: Tag, P2: Tag](typ: Tag[P2])(
-//      f: Expr[P1 ->: P2 ->: Boolean]): Expr[P1 ->: Boolean] = {
-//    Lambda[P1, Boolean](p1 => Dynamic(f.partialApply(p1), bool.Or, None))
-//  }
+  implicit class UniversalEqualityOps[T](val lhs: Expr[T]) extends AnyVal {
+    def ====(rhs: Expr[T]): Expr[Bool] = any.EQ(lhs, rhs)
+  }
 
   implicit def double2Cst(value: Double): Expr[Double] = Cst(value)
   implicit def int2Cst(value: Int): Expr[Int] = Cst(value)
