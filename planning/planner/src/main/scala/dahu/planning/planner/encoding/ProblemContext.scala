@@ -104,6 +104,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     def +(rhs: Int): Tentative[Literal] = lift(int.Add)(lhs, IntLit(rhs).asConstant(intTag))
     def -(rhs: Tentative[Literal]): Tentative[Literal] = lhs + (-rhs)
     def unary_-(): Tentative[Literal] = intBox(intTag, Computation(int.Negate, intUnbox(lhs)))
+    def unary_!(): Tentative[Literal] = boolBox(Computation(bool.Not, boolUnbox(lhs)))
     def &&(rhs: Tentative[Literal]): Tentative[Literal] = liftNBB(bool.And)(lhs, rhs)
     def ||(rhs: Tentative[Literal]): Tentative[Literal] = liftNBB(bool.Or)(lhs, rhs)
   }

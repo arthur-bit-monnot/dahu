@@ -1,7 +1,8 @@
 package dahu.planning.pddl.parser.ast
 
-import dahu.planning.model.common.{Cst, IntLiteral}
-import dahu.planning.pddl.parser.PddlPredef
+import dahu.planning.model.common.{operators, Cst, IntLiteral, Predef}
+import dahu.planning.model.full.{BinaryExprTree, StaticExpr, UnaryExprTree}
+import dahu.planning.pddl.parser.{PddlPredef, Resolver}
 import fr.uga.pddl4j.parser._
 import dahu.utils.errors._
 
@@ -13,6 +14,21 @@ object AssertionOnFunction {
     case Eq(Fluent(name, _), _)         => Some(name)
     case Not(AssertionOnFunction(name)) => Some(name)
     case _                              => None
+  }
+}
+
+object BooleanExpr {
+  def unapply(e: Exp)(implicit ctx: Resolver, predef: Predef): Option[StaticExpr] = e match {
+    case Fluent(name, _)                    => None
+    case EqAtom(Variable(v1), Variable(v2)) => Some(BinaryExprTree(operators.Eq, v1, v2))
+    case Not(BooleanExpr(v))                => Some(UnaryExprTree(operators.Not, v))
+    case _                                  => None
+  }
+}
+
+object Variable {
+  def unapply(e: Symbol)(implicit ctx: Resolver): Option[StaticExpr] = e match {
+    case _ => Some(ctx.variable(e.getImage))
   }
 }
 
@@ -47,6 +63,19 @@ object Eq {
   def unapply(e: Exp): Option[(Exp, Exp)] = {
     if(e.getConnective == Connective.FN_ATOM || e.getConnective == Connective.EQUAL) {
       e.getChildren.asScala.toList match {
+        case lhs :: rhs :: Nil => Some((lhs, rhs))
+        case _                 => unexpected
+      }
+    } else {
+      None
+    }
+  }
+}
+
+object EqAtom {
+  def unapply(e: Exp): Option[(Symbol, Symbol)] = {
+    if(e.getConnective == Connective.EQUAL_ATOM) {
+      e.getAtom.asScala.toList match {
         case lhs :: rhs :: Nil => Some((lhs, rhs))
         case _                 => unexpected
       }

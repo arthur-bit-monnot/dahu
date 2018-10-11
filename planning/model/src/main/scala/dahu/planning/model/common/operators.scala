@@ -101,6 +101,12 @@ object operators {
       if(lhs.isInt || lhs.isFloat) Right(lhs)
       else Left(s"Non numeric type $lhs")
   }
+  case object Not extends UnaryOperator(op = "!", precedence = 16) {
+    override def tpe(lhs: Type): TypingResult = {
+      if(lhs.isBoolean) Right(lhs)
+      else Left(s"Non boolean type: $lhs")
+    }
+  }
 
   val all: Set[Operator] =
     Set(Implies, Xor, Or, And, Eq, Neq, LT, GT, LEQ, GEQ, Add, Sub, Mul, Div, Minus)

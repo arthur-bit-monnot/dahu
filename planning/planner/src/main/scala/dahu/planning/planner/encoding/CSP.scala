@@ -145,7 +145,8 @@ abstract class CSP extends Struct {
 
   def encode(e: common.Expr): Expr[Literal] =
     e match {
-      case term: common.Term => ctx.encode(term)
+      case term: common.Term     => ctx.encode(term)
+      case Op1(operators.Not, e) => !encode(e)
       case Op2(operators.Eq, v, cst: common.Constant) =>
         ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
       case Op2(operators.Eq, cst: common.Constant, v) =>

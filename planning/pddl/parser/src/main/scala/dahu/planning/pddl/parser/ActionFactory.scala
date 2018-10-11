@@ -4,6 +4,7 @@ import dahu.planning.model.common._
 import dahu.planning.model.full._
 import Utils._
 import fr.uga.pddl4j.parser.{Exp, Op}
+import dahu.utils.errors._
 
 import scala.collection.JavaConverters._
 
@@ -63,29 +64,46 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
           assertionsInInstantaneous(op.getPreconditions, op.getEffects)
       }
 
-    IntermediateAction(context, start, end, ass)
+    val temporal = ass.collect { case ta: TAss   => ta }
+    val atemporal = ass.collect { case ta: NTAss => ta }
+    atemporal.foreach { ba =>
+      rec(ba.ass)
+    }
+
+    IntermediateAction(context, start, end, temporal)
   }
 
   def asEffectAss(e: Exp): TimedAssignmentAssertion = e match {
     case ast.AssertionOnFunction(funcName) =>
       resolver.getTranslator(funcName).effect(e, resolver)
+    case _ => unexpected
   }
   def asCondAss(e: Exp): TimedEqualAssertion = e match {
     case ast.AssertionOnFunction(funcName) =>
       resolver.getTranslator(funcName).condition(e, resolver)
+    case _ => unexpected
   }
   def assertionsInDurative(conds: Exp, effs: Exp): Seq[Ass] = {
     def getPre(pre: Exp): Seq[Ass] = pre match {
-      case ast.And(subs)  => subs.flatMap(getPre)
-      case ast.AtStart(e) => Ass(TQual.Start, asCondAss(e)) :: Nil
-      case ast.AtEnd(e)   => Ass(TQual.End, asCondAss(e)) :: Nil
-      case ast.OverAll(e) => Ass(TQual.All, asCondAss(e)) :: Nil
+      case ast.And(subs) => subs.flatMap(getPre)
+      case ast.AtStart(e @ ast.AssertionOnFunction(funcName)) =>
+        Ass(TQual.Start, asCondAss(e)) :: Nil
+      case ast.AtEnd(e @ ast.AssertionOnFunction(funcName)) =>
+        Ass(TQual.End, asCondAss(e)) :: Nil
+      case ast.OverAll(e @ ast.AssertionOnFunction(funcName)) =>
+        Ass(TQual.All, asCondAss(e)) :: Nil
+      case ast.OverAll(ast.BooleanExpr(ba)) =>
+        NTAss(BooleanAssertion(ba)) :: Nil
+      case _ => unsupported(pre.toString)
     }
     def getEff(pre: Exp): Seq[Ass] = pre match {
-      case ast.And(subs)  => subs.flatMap(getEff)
-      case ast.AtStart(e) => Ass(TQual.Start, asEffectAss(e)) :: Nil
-      case ast.AtEnd(e)   => Ass(TQual.End, asEffectAss(e)) :: Nil
-      case ast.OverAll(e) => Ass(TQual.All, asEffectAss(e)) :: Nil
+      case ast.And(subs) => subs.flatMap(getEff)
+      case ast.AtStart(e @ ast.AssertionOnFunction(funcName)) =>
+        Ass(TQual.Start, asEffectAss(e)) :: Nil
+      case ast.AtEnd(e @ ast.AssertionOnFunction(funcName)) =>
+        Ass(TQual.End, asEffectAss(e)) :: Nil
+      case ast.OverAll(e @ ast.AssertionOnFunction(funcName)) =>
+        Ass(TQual.All, asEffectAss(e)) :: Nil
     }
     getPre(conds) ++ getEff(effs)
   }
@@ -122,14 +140,14 @@ object ActionFactory {
     def add(t: TemporalQualifier, e: TimedAssertion): Unit = {
       mod = mod + TemporallyQualifiedAssertion(t, e)
     }
-    def regroup(qual: TQual, cond: TimedEqualAssertion, eff: TimedAssignmentAssertion): Ass = {
+    def regroup(qual: TQual, cond: TimedEqualAssertion, eff: TimedAssignmentAssertion): TAss = {
       assert(cond.fluent == eff.fluent)
-      Ass(qual,
-          TimedTransitionAssertion(cond.fluent,
-                                   cond.right,
-                                   eff.to,
-                                   Some(act.base),
-                                   act.base.scope.makeNewId()))
+      TAss(qual,
+           TimedTransitionAssertion(cond.fluent,
+                                    cond.right,
+                                    eff.to,
+                                    Some(act.base),
+                                    act.base.scope.makeNewId()))
     }
 
     val merged: Iterable[Ass] = act.assertions
@@ -138,10 +156,10 @@ object ActionFactory {
       .map(_.toList)
       .map({
         case e :: Nil => e
-        case Ass(t, cond: TimedEqualAssertion) :: Ass(t2, eff: TimedAssignmentAssertion) :: Nil =>
+        case TAss(t, cond: TimedEqualAssertion) :: TAss(t2, eff: TimedAssignmentAssertion) :: Nil =>
           assert(t == t2 && cond.fluent == eff.fluent)
           regroup(t, cond, eff)
-        case Ass(t2, eff: TimedAssignmentAssertion) :: Ass(t, cond: TimedEqualAssertion) :: Nil =>
+        case TAss(t2, eff: TimedAssignmentAssertion) :: TAss(t, cond: TimedEqualAssertion) :: Nil =>
           assert(t == t2 && cond.fluent == eff.fluent)
           regroup(t, cond, eff)
         case _ => ???
@@ -152,19 +170,19 @@ object ActionFactory {
 
     import TQual._
     for(ass <- merged) ass match {
-      case Ass(Start, e: TimedEqualAssertion) =>
+      case TAss(Start, e: TimedEqualAssertion) =>
         add(Equals(ClosedInterval(start, afterStart)), e)
-      case Ass(End, e: TimedEqualAssertion) =>
+      case TAss(End, e: TimedEqualAssertion) =>
         add(Equals(ClosedInterval(end, afterEnd)), e)
-      case Ass(All, e: TimedEqualAssertion) =>
+      case TAss(All, e: TimedEqualAssertion) =>
         add(Equals(ClosedInterval(start, end)), e) //TODO: probably does not match pddl semantics
-      case Ass(Start, e: TimedAssignmentAssertion) =>
+      case TAss(Start, e: TimedAssignmentAssertion) =>
         add(Equals(LeftOpenInterval(start, afterStart)), e)
-      case Ass(End, e: TimedAssignmentAssertion) =>
+      case TAss(End, e: TimedAssignmentAssertion) =>
         add(Equals(LeftOpenInterval(end, afterEnd)), e)
-      case Ass(Start, e: TimedTransitionAssertion) =>
+      case TAss(Start, e: TimedTransitionAssertion) =>
         add(Equals(ClosedInterval(start, afterStart)), e)
-      case Ass(End, e: TimedTransitionAssertion) =>
+      case TAss(End, e: TimedTransitionAssertion) =>
         add(Equals(ClosedInterval(end, afterEnd)), e)
       case _ => ???
     }
@@ -186,9 +204,19 @@ object TQual {
   case object All extends TQual
 }
 
-case class Ass(qual: TQual, ass: TimedAssertion)
+/** Assertion */
+sealed trait Ass
+object Ass {
+  def apply(qual: TQual, ass: TimedAssertion): TAss = TAss(qual, ass)
+}
+
+/** Non-temporal assertion */
+case class NTAss(ass: StaticAssertion) extends Ass
+
+/** Temporal assertion */
+case class TAss(qual: TQual, ass: TimedAssertion) extends Ass
 
 case class IntermediateAction(base: ActionTemplate,
                               start: LocalVar,
                               end: LocalVar,
-                              assertions: Seq[Ass])
+                              assertions: Seq[TAss])
