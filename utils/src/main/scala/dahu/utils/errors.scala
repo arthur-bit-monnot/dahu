@@ -9,7 +9,9 @@ object errors {
   }
   import ErrorType._
 
-  final case class Error(clazz: ErrorType, msg: String) extends Throwable(msg)
+  final case class Error(clazz: ErrorType, msg: String) extends Throwable(msg) {
+    override def toString: String = s"$clazz: $msg"
+  }
 
   private def err(clazz: ErrorType, msg: String): Throwable = Error(clazz, msg)
   def err(msg: String): Throwable = Error(Unspecified, msg)
