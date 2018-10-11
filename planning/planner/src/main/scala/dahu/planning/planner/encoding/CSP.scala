@@ -132,7 +132,7 @@ abstract class CSP extends Struct {
   def encode(orig: core.Fluent): Expr[Fluent] =
     FluentF.ofExpr(orig.template, orig.params.map(ctx.encode(_)))
 
-  def encode(orig: common.Constant): Expr[Fluent] =
+  def encodeAsFluent(orig: common.Constant): Expr[Fluent] =
     FluentF.ofExpr(orig.template, orig.params.map(ctx.encode(_)))
 
   def encode(orig: common.Interval[common.Expr]): IntervalF[Expr] =
@@ -148,15 +148,19 @@ abstract class CSP extends Struct {
       case term: common.Term     => ctx.encode(term)
       case Op1(operators.Not, e) => !encode(e)
       case Op2(operators.Eq, v, cst: common.Constant) =>
-        ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
+        ctx.boolBox(SCondTokF.ofExpr(encodeAsFluent(cst), encode(v)))
       case Op2(operators.Eq, cst: common.Constant, v) =>
-        ctx.boolBox(SCondTokF.ofExpr(encode(cst), encode(v)))
+        ctx.boolBox(SCondTokF.ofExpr(encodeAsFluent(cst), encode(v)))
       case Op2(op, left, right) =>
         applyOperator(op, encode(left), encode(right))
-      case _: common.Constant =>
-        unsupported(
-          "Currently static expressions are only supported if they are asserted to be equal" +
-            " to another variable")
+      case cst: common.Constant =>
+        // create a new variable with the type of the constant expression
+        val tpe = ctx.specializedTags(cst.typ)
+        val v: Expr[Literal] = newInput(cst, tpe)
+        // assert that this variable is equal to the evaluation of the constant expression
+        addConstraint(SCondTokF.ofExpr(encodeAsFluent(cst), v))
+        // return the bound variable
+        v
       case _ => unsupported(s"Support for expression not implemented: $e")
     }
 
@@ -231,7 +235,7 @@ abstract class CSP extends Struct {
         addExport(eff)
 
       case core.StaticAssignmentAssertion(lhs, rhs) =>
-        val staticEffect = SEffTokF.ofExpr(encode(lhs), ctx.encode(rhs))
+        val staticEffect = SEffTokF.ofExpr(encodeAsFluent(lhs), ctx.encode(rhs))
         addExport(staticEffect)
 
       case core.StaticBooleanAssertion(e) =>

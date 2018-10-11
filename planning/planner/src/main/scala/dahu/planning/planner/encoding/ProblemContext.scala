@@ -94,6 +94,7 @@ case class ProblemContext(intTag: BoxedInt[Literal],
     case operators.Sub => lhs - rhs
     case operators.And => lhs && rhs
     case operators.Or  => lhs || rhs
+    case operators.Neq => !(lhs === rhs)
     case _             => unsupported(s"Operator not supported: $op")
   }
   implicit class LitOps(private val lhs: Tentative[Literal]) {

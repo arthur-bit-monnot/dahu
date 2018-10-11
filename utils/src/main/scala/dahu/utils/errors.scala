@@ -14,7 +14,7 @@ object errors {
   }
 
   private def err(clazz: ErrorType, msg: String): Throwable = Error(clazz, msg)
-  def err(msg: String): Throwable = Error(Unspecified, msg)
+  def err(msg: String): Throwable = err(Unspecified, msg)
 
   def unexpected: Nothing = throw new AssertionError("Unexpected")
   def unexpected(msg: String): Nothing = throw new AssertionError(msg)
