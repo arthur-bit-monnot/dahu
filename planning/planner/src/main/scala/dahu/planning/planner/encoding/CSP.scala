@@ -2,7 +2,7 @@ package dahu.planning.planner.encoding
 
 import dahu.model.input.{Cst, Expr, Input, LocalIdent, Scope}
 import dahu.model.input.dsl._
-import dahu.model.types.{Bool, Tag}
+import dahu.model.types.{Bool, RawInt, Tag}
 import dahu.planning.model.common.LocalVar
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.transforms.ActionInstantiation
@@ -32,8 +32,18 @@ abstract class CSP extends Struct {
     override def getArg(a: Arg): Expr[Literal] = getVar(a).get
     override def getLocalVar(v: LocalVar): Expr[Literal] = getVar(v).get
   }
+  final var numConditions: Int = 0
+
+  val insertionLevel: Expr[Int] = newInput[Int]("ins-lvl", Tag[Int])
+  val decisionLevel: Expr[Int] = newInput[Int]("dec-lvl", Tag[Int])
+  addConstraint(insertionLevel >= 0)
+  addConstraint(decisionLevel > insertionLevel)
+
+  def actionID: Expr[Int]
 
   def present: Expr[Bool] = scope.present
+
+  def createGloballyUniqueID(): Expr[Int]
 
   final def getVar(id: Any): Option[Expr[Literal]] = {
     varMap.get(id).orElse(parent.flatMap(_.getVar(id)))
@@ -163,23 +173,43 @@ abstract class CSP extends Struct {
                          changeItv.end,
                          persistenceEnd,
                          encode(fluent),
-                         ctx.encode(value))
+                         ctx.encode(value),
+                         insertionLevel,
+                         actionID)
         addConstraint(changeItv.start <= changeItv.end)
         addConstraint(changeItv.end <= persistenceEnd)
         addExport(token)
 
       case core.TimedEqualAssertion(itv, f, v) =>
         val interval = encode(itv)
+        val conditionDecisionLvl = decisionLevel + Cst(numConditions)
+        val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt)
+        numConditions += 1
         val token =
-          CondTokF.ofExpr(interval.start, interval.end, encode(f), ctx.encode(v))
+          CondTokF.ofExpr(interval.start,
+                          interval.end,
+                          encode(f),
+                          ctx.encode(v),
+                          decLvl = conditionDecisionLvl,
+                          insLvl = insertionLevel,
+                          supportingAction = supporter)
 
         addConstraint(interval.start <= interval.end)
         addExport(token)
 
       case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
         val start = encodeAsInt(s)
+        val conditionDecisionLvl = decisionLevel + Cst(numConditions)
+        val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt)
+        numConditions += 1
         val cond =
-          encoding.CondTokF.ofExpr(start, start, encode(f), ctx.encode(v1))
+          encoding.CondTokF.ofExpr(start,
+                                   start,
+                                   encode(f),
+                                   ctx.encode(v1),
+                                   decLvl = conditionDecisionLvl,
+                                   insLvl = insertionLevel,
+                                   supportingAction = supporter)
 
         val changeItv = encode(LeftOpenInterval(s, e))
         val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
@@ -189,7 +219,9 @@ abstract class CSP extends Struct {
                                   changeItv.end,
                                   persistenceEnd,
                                   encode(f),
-                                  ctx.encode(v2))
+                                  ctx.encode(v2),
+                                  insLvl = insertionLevel,
+                                  containingAction = actionID)
 
         addExport(cond)
 
@@ -232,22 +264,35 @@ abstract class CSP extends Struct {
         // need action
         case statement: core.Statement => sub.extendWith(statement)
       }
-      val operator: Expr[Operator] = {
-        dahu.model.input.Product(
-          OperatorF[Expr](
-            Cst(template.name),
-            dahu.model.input
-              .Sequence[Literal](act.args.map(sub.getVar(_).get))(
-                ctx.topTag,
-                implicitly[ClassTag[Vec[Literal]]]),
-            ctx.intUnbox(sub.getVar(act.start).get),
-            ctx.intUnbox(sub.getVar(act.end).get),
-            Cst[Int](depth)
-          )
-        )(encoding.OperatorF.tag)
-      }
+      val operator: Expr[Operator] = sub.asOperator(template.name,
+                                                    act.args,
+                                                    ctx.intUnbox(sub.getVar(act.start).get),
+                                                    ctx.intUnbox(sub.getVar(act.end).get),
+                                                    depth)
       sub.addExport(operator)
     }
+  }
+
+  def asOperator(name: String,
+                 args: Seq[Arg],
+                 start: Expr[Int],
+                 end: Expr[Int],
+                 depth: Int): Expr[Operator] = {
+    dahu.model.input.Product(
+      OperatorF[Expr](
+        Cst(name),
+        dahu.model.input
+          .Sequence[Literal](args.map(getVar(_).get))(ctx.topTag,
+                                                      implicitly[ClassTag[Vec[Literal]]]),
+        start,
+        end,
+        depth = Cst[Int](depth),
+        insertionLevel,
+        id = actionID,
+        firstDecisionLevel = decisionLevel,
+        lastDecisionLevel = decisionLevel + Cst(numConditions - 1)
+      )
+    )(encoding.OperatorF.tag)
   }
 }
 
@@ -259,6 +304,14 @@ final class RootCSP(val ctx: ProblemContext) extends CSP {
   override val temporalOrigin: Expr[Int] = Cst(0)
   override val temporalHorizon: Expr[Int] = newInput("__END__", Tag[Int])
   addConstraint(temporalOrigin <= temporalHorizon)
+
+  private var globalCounter = 0
+  override val actionID: Expr[Int] = createGloballyUniqueID()
+
+  override def createGloballyUniqueID(): Expr[Int] = {
+    globalCounter += 1
+    Cst[Int](globalCounter - 1)
+  }
 }
 
 final class SubCSP(val father: CSP, val scope: Scope) extends CSP {
@@ -266,4 +319,7 @@ final class SubCSP(val father: CSP, val scope: Scope) extends CSP {
   override def temporalOrigin: Expr[Int] = father.temporalOrigin
   override def temporalHorizon: Expr[Int] = father.temporalHorizon
   override def parent: Option[CSP] = Some(father)
+
+  override lazy val actionID: Expr[Int] = createGloballyUniqueID()
+  override def createGloballyUniqueID(): Expr[Int] = father.createGloballyUniqueID()
 }

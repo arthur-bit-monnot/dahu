@@ -87,7 +87,7 @@ final case class Cst[T] private (value: T, typ: Tag[T]) extends Term[T] {
   })
   override val hash: Int = ScalaRunTime._hashCode(this)
 
-  override def toString: String = value.toString + ":" + typ
+  override def toString: String = value.toString
 }
 
 object Cst {

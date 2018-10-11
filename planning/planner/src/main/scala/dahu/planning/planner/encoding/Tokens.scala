@@ -62,10 +62,24 @@ object FluentF {
   }
 }
 
-case class CondTokF[F[_]](itv: F[Interval], fluent: F[Fluent], value: F[Literal])
+case class CondTokF[F[_]](
+    itv: F[Interval],
+    fluent: F[Fluent],
+    value: F[Literal],
+    decisionLevel: F[Int],
+    insertionLevel: F[Int],
+    supportingAction: F[Int]
+)
 
 object CondTokF {
   implicit val productTag: ProductTag[CondTokF] = ProductTag.ofProd[CondTokF]
+
+  val Itv = FieldAccess[CondTokF, IntervalF[Id]]("itv", 0)
+  val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
+  val Value = FieldAccess[CondTokF, Literal]("value", 2)
+  val DecLvl = FieldAccess[CondTokF, Int]("decision-level", 3)
+  val InsLvl = FieldAccess[CondTokF, Int]("insertion-level", 4)
+  val SupportingAction = FieldAccess[CondTokF, Int]("supporting-action", 5)
 
   case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
       extends (Tag[EffTok] => Boolean) {
@@ -79,29 +93,29 @@ object CondTokF {
   def ofExpr(start: Expr[Int],
              end: Expr[Int],
              fluent: Expr[Fluent],
-             value: Expr[Literal]): Expr[CondTok] = {
-    val (func, args, v) = fluent match {
-      case Product(FluentF(Cst(f), Sequence(args))) =>
-        (f, args.map {
-          case Cst(lit) => Some(lit)
-          case _        => None
-        }, value match {
-          case Cst(v) => Some(v)
-          case _      => None
-        })
-      case _ => ???
-    }
+             value: Expr[Literal],
+             decLvl: Expr[Int],
+             insLvl: Expr[Int],
+             supportingAction: Expr[Int]): Expr[CondTok] = {
+//    val (func, args, v) = fluent match {
+//      case Product(FluentF(Cst(f), Sequence(args))) =>
+//        (f, args.map {
+//          case Cst(lit) => Some(lit)
+//          case _        => None
+//        }, value match {
+//          case Cst(v) => Some(v)
+//          case _      => None
+//        })
+//      case _ => ???
+//    }
+//
+//    val accept = Accept(func, args, v)
 
-    val accept = Accept(func, args, v)
-
-    Product(CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value))
+    Product(
+      CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value, decLvl, insLvl, supportingAction))
 //      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
 
   }
-
-  val Itv = FieldAccess[CondTokF, IntervalF[Id]]("itv", 0)
-  val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
-  val Value = FieldAccess[CondTokF, Literal]("value", 2)
 
   def supports(eff: Expr[EffTok], cond: Expr[CondTok]): Expr[Bool] =
     (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Bool]) &&
@@ -131,7 +145,9 @@ case class EffTokF[F[_]](startChange: F[Int],
                          persistence: F[Interval],
                          fluent: F[Fluent],
                          value: F[Literal],
-                         id: F[Int])
+                         id: F[Int],
+                         insLvl: F[Int],
+                         containingAction: F[Int])
 
 object EffTokF {
   implicit val productTag: ProductTag[EffTokF] = ProductTag.ofProd[EffTokF]
@@ -155,7 +171,9 @@ object EffTokF {
              endChange: Expr[Int],
              endPersistence: Expr[Int],
              fluent: Expr[Fluent],
-             value: Expr[Literal])(implicit cnt: Counter): Expr[EffTok] = {
+             value: Expr[Literal],
+             insLvl: Expr[Int],
+             containingAction: Expr[Int])(implicit cnt: Counter): Expr[EffTok] = {
     val id = cnt.next()
     val tag = fluent match {
       case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
@@ -173,7 +191,9 @@ object EffTokF {
                         IntervalF.ofExpr(endChange, endPersistence),
                         fluent,
                         value,
-                        Cst(id)))(tag)
+                        Cst(id),
+                        insLvl,
+                        containingAction))(tag)
 //      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(Accept(tag))))
   }
   def compatible[A](a: Option[A], b: Option[A]): Boolean = (a, b) match {
@@ -206,6 +226,8 @@ object EffTokF {
   val Fluent = FieldAccess[EffTokF, FluentF[Id]]("fluent", 2)
   val Value = FieldAccess[EffTokF, Literal]("value", 3)
   val Id = FieldAccess[EffTokF, Int]("id", 4)
+  val InsLvl = FieldAccess[EffTokF, Int]("ins-lvl", 5)
+  val Container = FieldAccess[EffTokF, Int]("container", 6)
 
   def consistent(lhs: Expr[EffTok], rhs: Expr[EffTok]): Expr[Bool] =
 //    Id(lhs) >= Id(rhs) || // redundant with accept function

@@ -9,22 +9,33 @@ case class OperatorF[F[_]](name: F[String],
                            args: F[Vec[Literal]],
                            start: F[Int],
                            end: F[Int],
-                           depth: F[Int]) {
-  override def toString: String = s"[$start, $end] $name($args)"
+                           depth: F[Int],
+                           insertionLvl: F[Int],
+                           id: F[Int],
+                           firstDecisionLevel: F[Int],
+                           lastDecisionLevel: F[Int]) {
+  override def toString: String =
+    s"[$start, $end] $name($args) -- depth:$depth -- ins-lvl:$insertionLvl -- id:$id -- fst-dl:$firstDecisionLevel -- lst-dl:$lastDecisionLevel"
 }
 object OperatorF {
+  implicit val tag: ProductTag[OperatorF] = ProductTag.ofProd[OperatorF]
+
   val Name = FieldAccess[OperatorF, String]("name", 0)
   //args
   val Start = FieldAccess[OperatorF, Int]("start", 2)
   // end
   val Depth = FieldAccess[OperatorF, Int]("depth", 4)
+  val InsLvl = FieldAccess[OperatorF, Int]("ins-lvl", 5)
+  val Id = FieldAccess[OperatorF, Int]("id", 6)
+  val FirstDecLvl = FieldAccess[OperatorF, Int]("first-dec-lvl", 7)
+  val LastDecLvl = FieldAccess[OperatorF, Int]("last-dec-lvl", 8)
 
-  implicit val tag: ProductTag[OperatorF] = ProductTag.ofProd[OperatorF]
 }
 
 case class SolutionF[F[_]](
     operators: F[Vec[Operator]],
-    effects: F[Vec[EffTok]]
+    effects: F[Vec[EffTok]],
+    conditions: F[Vec[CondTok]]
 )
 
 object SolutionF {

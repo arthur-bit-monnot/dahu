@@ -1,6 +1,7 @@
 package dahu.planning.planner
 
 import cats.effect.IO
+import cats.implicits._
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
 import dahu.planning.planner.encoding.{Encoder, Plan, Solution}
@@ -60,7 +61,8 @@ object Planner {
     solution
   }
 
-  def solve(pb: EncodedProblem[Solution], deadline: Deadline): Option[Plan] = {
+  def solve(pb: EncodedProblem[Solution], deadline: Deadline)(
+      implicit cfg: PlannerConfig): Option[Plan] = {
     if(deadline.isOverdue)
       return None
 
@@ -71,6 +73,14 @@ object Planner {
       case Some(ass) =>
         ass.eval(pb.res) match {
           case dahu.model.interpreter.FEval(sol) =>
+            if(cfg.printDetailed) {
+              println("Actions: ")
+              sol.operators.sortedBy(_.insertionLvl).foreach(a => println(s"  $a"))
+              println("Effects:")
+              sol.effects.sortedBy(_.insLvl).foreach(e => println(s"  $e"))
+              println("Conditions: ")
+              sol.conditions.sortedBy(_.decisionLevel).foreach(c => println(s"  $c"))
+            }
             val plan = Plan(sol.operators, sol.effects)
             Some(plan)
           case _ => unexpected
