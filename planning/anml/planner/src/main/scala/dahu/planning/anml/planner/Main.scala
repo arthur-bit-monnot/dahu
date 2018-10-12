@@ -2,7 +2,9 @@ package dahu.planning.anml.planner
 
 import java.io.File
 
+import caseapp._
 import cats.effect.IO
+import cats.implicits._
 import dahu.utils.debug._
 import dahu.planning.planner._
 import dahu.planning.anml.parser.{Config => _, _}
@@ -12,6 +14,13 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
+@AppName("lcp-anml")
+@caseapp.ArgsName("[XX.dom.anml] XX.YY.pb.anml")
+case class AnmlPlannerOptions(
+    @Recurse
+    plannerOptions: PlannerConfig
+)
+
 case class Config(problemFile: File = null,
                   minInstances: Int = 0,
                   maxInstances: Int = 500,
@@ -20,6 +29,14 @@ case class Config(problemFile: File = null,
                   numThreads: Int = 1,
                   maxRuntime: FiniteDuration = 1800.seconds,
                   warmupTimeSec: FiniteDuration = 0.seconds)
+
+object CaseMain extends CaseApp[AnmlPlannerOptions] {
+
+  def run(options: AnmlPlannerOptions, arg: RemainingArgs): Unit = {
+    println(arg)
+  }
+
+}
 
 object Main extends App {
 
@@ -72,7 +89,7 @@ object Main extends App {
         case Some(Some(result)) =>
           val runtime = System.currentTimeMillis() - startTime
           out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
-          out(result.toString)
+          out(result.operators.sortedBy(_.start).mkString("\n"))
         case None =>
           out("Time out")
         case Some(None) =>

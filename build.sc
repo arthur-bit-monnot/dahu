@@ -8,11 +8,11 @@ trait Module extends SbtModule {
   
  def compileIvyDeps = Agg(
    ivy"org.spire-math::kind-projector:0.9.6",
-//   ivy"io.tryp:::splain:0.3.1"
+   ivy"io.tryp:::splain:0.3.1"
  )
  def scalacPluginIvyDeps = Agg(
    ivy"org.spire-math::kind-projector:0.9.6",
-//   ivy"io.tryp:::splain:0.3.1"
+   ivy"io.tryp:::splain:0.3.1"
  )
 
  def scalacOptions = Seq(
@@ -101,7 +101,7 @@ object planning extends EmptyModule {
   }
   object planner extends Module {
     def moduleDeps = Seq(planning.model, core.solvers, core.solvers.z3)
-    def ivyDeps = Agg(catsEffect)
+    def ivyDeps = Agg(catsEffect, caseApp)
   }
   object anml extends EmptyModule {
     object parser extends ModuleTests {

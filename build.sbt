@@ -187,7 +187,8 @@ lazy val planner = project
   .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %% "cats-effect" % "1.0.0-RC"
+    "org.typelevel" %% "cats-effect" % "1.0.0-RC",
+    "com.github.alexarchambault" %% "case-app" % "2.0.0-M3"
   ))
 
 lazy val anmlPlanner = project
