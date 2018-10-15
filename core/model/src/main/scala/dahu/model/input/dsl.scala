@@ -122,7 +122,10 @@ object dsl {
   def map[A: Tag, B: Tag](f: Expr[A ->: B], as: Expr[Vec[A]]): Expr[Vec[B]] =
     sequence.Map[A, B].apply(f, as)
 
-  def fold[A: Tag](f: Monoid[A], as: Expr[Vec[A]]): Expr[A] = sequence.Fold(f).apply(as)
+  def fold[A: Tag](f: Monoid[A], as: Expr[Vec[A]]): Expr[A] = {
+    implicit def ct: ClassTag[A] = Tag[A].clazz
+    sequence.Fold(f).apply(as)
+  }
 
   def forall[Export: Tag](f: Expr[Export] => Expr[Bool]): Expr[Bool] = {
     implicit val optTag: Tag[Optional[Export]] = OptionalF.productTag[Export]
@@ -144,6 +147,7 @@ object dsl {
 
   def all[A: Tag]: Expr[Vec[A]] = {
     implicit val optATag: Tag[Optional[A]] = OptionalF.productTag[A]
+    implicit def ct: ClassTag[A] = Tag[A].clazz
     val optionals: Expr[Vec[Optional[A]]] = collect[A]
     val seqs: Expr[Vec[Vec[A]]] = map(Lambda[Optional[A], Vec[A]](oe => oe.asSequence), optionals)
     sequence.Fold(sequence.Concat[A]).apply(seqs)

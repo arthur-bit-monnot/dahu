@@ -142,7 +142,7 @@ package object sequence {
   def Map[I: Tag, O: Tag]: Map[I, O] = new MapImpl[I, O]()
 
   final private case class MapImpl[I: Tag, O: Tag]() extends Map[I, O] {
-    override def of(f: I ->: O, in2: Vec[I]): Vec[O] = in2.map(f.f)
+    override def of(f: I ->: O, in2: Vec[I]): Vec[O] = in2.map(f.f)(Tag[O].clazz)
     override def name: String = "map"
   }
 

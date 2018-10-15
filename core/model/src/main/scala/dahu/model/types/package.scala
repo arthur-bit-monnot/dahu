@@ -11,8 +11,6 @@ package object types {
   type Type = types.TagAny
   def typeOf[T](implicit ttag: Tag[T]): Type = ttag
 
-  implicit def classTag[A: Tag]: ClassTag[A] = Tag[A].clazz
-
   protected sealed abstract class ValueLabelImpl {
     type T
     def apply(s: Any): T
