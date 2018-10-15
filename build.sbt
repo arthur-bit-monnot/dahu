@@ -217,6 +217,13 @@ lazy val pddlPlanner = project
       "com.github.scopt" %% "scopt" % "3.7.0",
       "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
     ))
+
+lazy val refinement = project
+  .in(file("refinement"))
+  .dependsOn(model)
+  .settings(commonSettings ++ utestSettings: _*)
+
+
 //
 //lazy val rcllPlanner = project
 //  .in(file("planning/rcll"))

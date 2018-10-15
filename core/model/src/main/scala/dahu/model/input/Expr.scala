@@ -6,8 +6,7 @@ import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.functions._
-import dahu.model.math.{bool, Monoid}
-import dahu.model.types.ProductTag.MapProductTag
+import dahu.model.structs._
 import dahu.model.types._
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -17,7 +16,7 @@ import scala.runtime.ScalaRunTime
 /** Evaluation yields an Either[ConstraintViolated, T] */
 sealed trait Expr[+T] {
   def typ: Tag[T] @uncheckedVariance
-  def hash: Int
+  val hash: Int
   override final def hashCode(): Int = hash
 }
 object Expr {
@@ -30,7 +29,8 @@ object Expr {
       case x: Input[_]                =>
       case x: Cst[_]                  =>
       case ITE(cond, onTrue, onFalse) => f(cond); f(onTrue); f(onFalse)
-      case Dynamic(l, _, _)           => f(l)
+      case x: DynInput[_]             =>
+      case x: DynCollector[_]         =>
       case Apply(l, i)                => f(l); f(i)
       case x: Lambda[_, _]            => f(x.parameterizedTree); f(x.inputVar)
       case Lambda.Param(_)            =>
@@ -158,24 +158,6 @@ final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) ex
   override val hash: Int = ScalaRunTime._hashCode(this)
   override def toString: String = "§" + value
 }
-object Product {
-  // TODO: remove
-  def fromSeq[T](seq: Seq[Expr[T]])(implicit ev: ProductTag[ProductTag.Sequence[?[_], T]])
-    : Product[ProductTag.Sequence[?[_], T]] =
-    new Product[ProductTag.Sequence[?[_], T]](seq)(ev)
-
-  import scala.reflect.runtime.universe
-  def fromMap[K: ClassTag, V: ClassTag](map: Map[K, Expr[V]])(
-      implicit tt: universe.WeakTypeTag[Map[K, Id[V]]]): Product[PMap[K, ?[_], V]] = {
-    type M[F[_]] = PMap[K, F, V]
-    // build a specific type tag that remembers the keys of the original map.
-    val tag = new MapProductTag(map)
-
-    Product[M](map)(tag)
-  }
-
-  type PMap[K, F[_], V] = Map[K, F[V]]
-}
 
 trait ProductExpr[P[_[_]], F[_]] {
   def extractTerms(prod: P[F])(implicit ct: ClassTag[F[Any]]): Vec[F[Any]]
@@ -266,18 +248,18 @@ final case class Computation4[I1, I2, I3, I4, O](f: Fun4[I1, I2, I3, I4, O],
   override val args: Seq[Expr[Any]] = Seq(in, in2, in3, in4)
 }
 
-final case class Dynamic[Provided: Tag, Out: Tag](f: Expr[Provided ->: Out],
-                                                  comb: Monoid[Out],
-                                                  accept: Option[TagAny => Boolean])
-    extends Expr[Out] {
-  override def typ: Tag[Out] = Tag[Out]
-  def acceptedType: Tag[Provided] = Tag[Provided]
+sealed trait DynExpr[T] extends Expr[T]
+
+final case class DynInput[T: Tag](id: TypedIdent) extends DynExpr[T] {
+  require(id.typ == Tag[T])
+  override def typ: Tag[T] = Tag[T]
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
-final case class DynamicProvider[A, Provided](e: Expr[A], provided: Expr[Provided]) {
-  def typ: Tag[A] = e.typ
-  val hash: Int = ScalaRunTime._hashCode(this)
+final case class DynCollector[T: Tag](collectedTpe: Tag[T], filter: Option[TagAny => Boolean])
+    extends DynExpr[Vec[OptionalF[cats.Id, T]]] {
+  override def typ: Tag[Vec[Optional[T]]] = Tag.ofSequence[Optional[T]](OptionalF.productTag[T])
+  override val hash: Int = ScalaRunTime._hashCode(this)
 }
 
 final class Lambda[I: Tag, O: Tag](val inputVar: Lambda.Param[I], val parameterizedTree: Expr[O])

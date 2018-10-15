@@ -9,6 +9,7 @@ import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
 import dahu.planning.model.common
+import dahu.utils.ClassTag
 import dahu.utils.errors._
 
 import scala.collection.mutable
@@ -261,6 +262,7 @@ object ProblemContext {
       val (minId, maxId) = continuousMinMax(is)
 
       new TagIsoInt[ObjLit] {
+        override def clazz: ClassTag[ObjLit] = implicitly[ClassTag[ObjLit]]
         override def toInt(t: ObjLit): Int = {
           val ret = toIndex(t)
           assert(min <= ret && ret <= max)
@@ -299,6 +301,7 @@ object ProblemContext {
       override def typ: Tag.Type = Tag.typeOf[ObjLit]
 
       override def toString: String = s"TOP[$min,$max]"
+      override def clazz: ClassTag[ObjLit] = implicitly[ClassTag[ObjLit]]
     }
     val intTag = new BoxedInt[IntLit] {
       override def fromInt(i: Int): IntLit = IntLit(i)
@@ -308,6 +311,7 @@ object ProblemContext {
       override val max: Int = Int.MaxValue / 3
 
       override def typ: Tag.Type = Tag.typeOf[IntLit]
+      override def clazz: ClassTag[IntLit] = implicitly[ClassTag[IntLit]]
     }
 
     val memo = mutable.Map[Type, TagIsoInt[ObjLit]]()

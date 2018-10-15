@@ -9,7 +9,7 @@ import dahu.model.products.FieldAccess
 import dahu.model.types.Tag.Type
 import dahu.model.types.{Bool, ProductTag, Tag}
 import dahu.planning.model.common.FunctionTemplate
-import dahu.utils.Vec
+import dahu.utils._
 import dahu.utils.errors._
 import spire.syntax.cfor
 
@@ -163,6 +163,7 @@ object EffTokF {
     override def idProd: ProductExpr[EffTokF, Id] = productTag.idProd
 
     override def typ: Type = productTag.typ
+    override def clazz: ClassTag[EffTok] = implicitly[ClassTag[EffTok]]
   }
 
   private var lastID: Int = 0

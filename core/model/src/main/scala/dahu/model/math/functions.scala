@@ -3,7 +3,7 @@ package dahu.model.math
 import dahu.model.functions._
 import dahu.model.input.{Cst, Expr}
 import dahu.model.ir.CstF
-import dahu.model.types.{Bool, ProductTag, SequenceTag, Tag}
+import dahu.model.types._
 import dahu.utils.Vec
 
 import scala.reflect.ClassTag
@@ -124,8 +124,8 @@ package object bool {
 
 package object sequence {
 
-  object EQ extends Fun2[Vec[Int], Vec[Int], Boolean] {
-    override def of(in1: Vec[Int], in2: Vec[Int]): Boolean = in1 == in2
+  object EQ extends Fun2[Vec[Int], Vec[Int], Bool] {
+    override def of(in1: Vec[Int], in2: Vec[Int]): Bool = Bool.asBool(in1 == in2)
 
     override def name: String = "eq"
   }
@@ -138,10 +138,12 @@ package object sequence {
     override def name: String = "concat"
   }
 
-  final case class Map[I: Tag, O: Tag: ClassTag](f: Fun1[I, O])
-      extends Fun1[Vec[I], Vec[O]]()(SequenceTag[I], SequenceTag[O]) {
-    override def of(in: Vec[I]): Vec[O] = in.map(f.of)
-    override def name: String = s"map(${f.name})"
+  sealed trait Map[I, O] extends Fun2[I ->: O, Vec[I], Vec[O]]
+  def Map[I: Tag, O: Tag]: Map[I, O] = new MapImpl[I, O]()
+
+  final private case class MapImpl[I: Tag, O: Tag]() extends Map[I, O] {
+    override def of(f: I ->: O, in2: Vec[I]): Vec[O] = in2.map(f.f)
+    override def name: String = "map"
   }
 
   final case class Fold[A: Tag: ClassTag](monoid: Monoid[A]) extends Fun1[Vec[A], A] {

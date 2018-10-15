@@ -1,5 +1,6 @@
 package dahu.model.types
 import dahu.model.input.Expr
+import dahu.utils.ClassTag
 
 object Bool {
   val False: Bool = 0.asInstanceOf[Bool]
@@ -17,7 +18,7 @@ object Bool {
 }
 
 object BoolTag extends Tag[Bool] with RawInt {
-
+  override def clazz: ClassTag[Bool] = scala.reflect.ClassTag.Int.asInstanceOf[ClassTag[Bool]]
   override def min: Int = 0
   override def max: Int = 1
 }

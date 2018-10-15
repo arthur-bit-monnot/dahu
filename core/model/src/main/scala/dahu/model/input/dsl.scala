@@ -5,7 +5,8 @@ import dahu.core.algebra
 import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
 import dahu.model.functions._
 import dahu.model.math._
-import dahu.model.types.{Bool, Tag, TagIsoInt}
+import dahu.model.structs._
+import dahu.model.types._
 import dahu.utils.Vec
 
 import scala.language.implicitConversions
@@ -40,18 +41,6 @@ object dsl {
 
   def ITE[T](cond: Expr[Bool], t: Expr[T], f: Expr[T]): Expr[T] =
     new ITE[T](cond, t, f)
-
-//  def forall[Provided: Tag](f: Expr[Provided ->: Boolean]): Dynamic[Provided, Boolean] =
-//    Dynamic(f, bool.And, None)
-
-  def forall[Provided: Tag](f: Expr[Provided] => Expr[Bool]): Dynamic[Provided, Bool] =
-    Dynamic(Lambda(f), bool.And, None)
-
-  def exists[Provided: Tag](f: Expr[Provided] => Expr[Bool]): Dynamic[Provided, Bool] =
-    Dynamic(Lambda(f), bool.Or, None)
-
-  def all[A: Tag: ClassTag]: Expr[Vec[A]] =
-    Dynamic(Lambda[A, Vec[A]](a => Sequence(Vec(a))), sequence.Concat, None)
 
   implicit class UniversalEqualityOps[T](val lhs: Expr[T]) extends AnyVal {
     def ====(rhs: Expr[T]): Expr[Bool] = any.EQ(lhs, rhs)
@@ -120,4 +109,44 @@ object dsl {
     @deprecated("Bool is now a subtype of Int", since = "now")
     def toInt: Expr[Int] = ITE(a, Cst(1), Cst(0))
   }
+
+  implicit class OptionalOps[A](oa: Expr[Optional[A]]) {
+    def present: Expr[Bool] = OptionalF.Present[A].apply(oa)
+    def value: Expr[A] = OptionalF.Value[A].apply(oa)
+    def asSequence(implicit at: Tag[A]): Expr[Vec[A]] =
+      ITE[Vec[A]](present, Sequence(Vec(value)), Sequence(Vec.empty[Expr[A]]))
+  }
+
+  def collect[T: Tag]: Expr[Vec[Optional[T]]] = DynCollector(Tag[T], None)
+
+  def map[A: Tag, B: Tag](f: Expr[A ->: B], as: Expr[Vec[A]]): Expr[Vec[B]] =
+    sequence.Map[A, B].apply(f, as)
+
+  def fold[A: Tag](f: Monoid[A], as: Expr[Vec[A]]): Expr[A] = sequence.Fold(f).apply(as)
+
+  def forall[Export: Tag](f: Expr[Export] => Expr[Bool]): Expr[Bool] = {
+    implicit val optTag: Tag[Optional[Export]] = OptionalF.productTag[Export]
+    val collected: Expr[Vec[Optional[Export]]] = collect[Export]
+    val of: Expr[Optional[Export] ->: Bool] =
+      Lambda[Optional[Export], Bool](oe => !oe.present || f(oe.value))
+    val bools: Expr[Vec[Bool]] = map(of, collected)
+    fold[Bool](bool.And, bools)
+  }
+
+  def exists[Export: Tag](f: Expr[Export] => Expr[Bool]): Expr[Bool] = {
+    implicit val optTag: Tag[Optional[Export]] = OptionalF.productTag[Export]
+    val collected: Expr[Vec[Optional[Export]]] = collect[Export]
+    val of: Expr[Optional[Export] ->: Bool] =
+      Lambda[Optional[Export], Bool](oe => oe.present && f(oe.value))
+    val bools: Expr[Vec[Bool]] = map(of, collected)
+    fold[Bool](bool.Or, bools)
+  }
+
+  def all[A: Tag]: Expr[Vec[A]] = {
+    implicit val optATag: Tag[Optional[A]] = OptionalF.productTag[A]
+    val optionals: Expr[Vec[Optional[A]]] = collect[A]
+    val seqs: Expr[Vec[Vec[A]]] = map(Lambda[Optional[A], Vec[A]](oe => oe.asSequence), optionals)
+    sequence.Fold(sequence.Concat[A]).apply(seqs)
+  }
+//    map[(Lambda(oe => oe.asSequence), collect[A])
 }
