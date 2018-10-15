@@ -4,13 +4,22 @@ import dahu.utils.Vec
 
 import scala.reflect.ClassTag
 
-trait SequenceTag[T] extends Tag[Vec[T]]
+trait SequenceTagAny extends TagAny {
+  def memberTag: TagAny
+}
+
+trait SequenceTag[T] extends Tag[Vec[T]] with SequenceTagAny {
+  def memberTag: Tag[T]
+}
 
 object SequenceTag {
   def apply[T](implicit t: Tag[T], ct: ClassTag[Vec[T]]): SequenceTag[T] = SequenceTagImpl(t)
 
-  final case class SequenceTagImpl[T](memberTag: Tag[T])(implicit ct: ClassTag[Vec[T]])
-      extends SequenceTag[T] {
+  final case class SequenceTagImplAny(memberTag: TagAny) extends SequenceTagAny {
+    override def clazz: ClassTag[Vec[Any]] = implicitly[ClassTag[Vec[Any]]]
+    override def typ: Tag.Type = Tag.typeOf[Vec[Any]]
+  }
+  final case class SequenceTagImpl[T](memberTag: Tag[T]) extends SequenceTag[T] {
     override def clazz: ClassTag[Vec[T]] = implicitly[ClassTag[Vec[T]]]
     override def typ: Tag.Type = Tag.typeOf[Vec[T]]
   }

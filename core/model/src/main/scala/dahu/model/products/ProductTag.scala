@@ -5,11 +5,16 @@ import dahu.model.types.Tag.Type
 import dahu.model.types.{Tag, TagAny, Value}
 import dahu.utils.{ClassTag, Vec}
 
-trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] {
+trait ProductTagAny extends TagAny {
+  def fromValues(fields: Vec[Any]): Any
+  def buildFromValues(fields: Vec[Value]): Any
+}
+
+trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] with ProductTagAny {
 
   val fields: Vec[Field]
 
-  def fromValues(fields: Vec[Any]): P[cats.Id] //= construct[F](fields.toSeq)
+  def fromValues(fields: Vec[Any]): P[cats.Id]
   def buildFromValues(fields: Vec[Value]): P[cats.Id] =
     fromValues(fields.asInstanceOf[Vec[Any]])
 
@@ -43,14 +48,15 @@ object ProductTag {
   def build[P[_[_]]](_fields: (String, TagAny)*)(
       implicit ct: ClassTag[P[Id]],
       gcid: GenConstructor[P, cats.Id],
-      gcexpr: GenConstructor[P, Expr]
+      gcexpr: GenConstructor[P, Expr],
+      tt: scala.reflect.runtime.universe.WeakTypeTag[P[cats.Id]]
   ): ProductTag[P] = new ProductTag[P] {
     override val fields: Vec[Field] = Vec.fromSeq(_fields.zipWithIndex.map {
       case ((name, tag), index) => Field(name, tag, index)
     })
 
     override def clazz: ClassTag[P[Id]] = ct
-    override def typ: Type = ???
+    override val typ: Type = tt.tpe
     override def fromValues(fields: Vec[Any]): P[cats.Id] = gcid.construct(fields.toSeq)
     override def getFields(prod: P[Expr]): Vec[Expr[Any]] = Vec.fromSeq(gcexpr.deconstruct(prod))
     override def getFieldsIdentity(prod: P[cats.Id]): Vec[Any] = Vec.fromSeq(gcid.deconstruct(prod))

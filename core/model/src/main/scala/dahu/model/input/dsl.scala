@@ -128,7 +128,7 @@ object dsl {
   }
 
   def forall[Export: Tag](f: Expr[Export] => Expr[Bool]): Expr[Bool] = {
-    implicit val optTag: Tag[Optional[Export]] = OptionalF.prod[Export]
+    implicit val optTag: Tag[Optional[Export]] = OptionalF.tagOf[Export]
     val collected: Expr[Vec[Optional[Export]]] = collect[Export]
     val of: Expr[Optional[Export] ->: Bool] =
       Lambda[Optional[Export], Bool](oe => !oe.present || f(oe.value))
@@ -137,7 +137,7 @@ object dsl {
   }
 
   def exists[Export: Tag](f: Expr[Export] => Expr[Bool]): Expr[Bool] = {
-    implicit val optTag: Tag[Optional[Export]] = OptionalF.prod[Export]
+    implicit val optTag: Tag[Optional[Export]] = OptionalF.tagOf[Export]
     val collected: Expr[Vec[Optional[Export]]] = collect[Export]
     val of: Expr[Optional[Export] ->: Bool] =
       Lambda[Optional[Export], Bool](oe => oe.present && f(oe.value))
@@ -146,7 +146,7 @@ object dsl {
   }
 
   def all[A: Tag]: Expr[Vec[A]] = {
-    implicit val optATag: Tag[Optional[A]] = OptionalF.prod[A]
+    implicit val optATag: Tag[Optional[A]] = OptionalF.tagOf[A]
     implicit def ct: ClassTag[A] = Tag[A].clazz
     val optionals: Expr[Vec[Optional[A]]] = collect[A]
     val seqs: Expr[Vec[Vec[A]]] = map(Lambda[Optional[A], Vec[A]](oe => oe.asSequence), optionals)

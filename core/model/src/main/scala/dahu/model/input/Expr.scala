@@ -211,7 +211,7 @@ final case class DynInput[T: Tag](id: TypedIdent) extends DynExpr[T] {
 
 final case class DynCollector[T: Tag](collectedTpe: Tag[T], filter: Option[TagAny => Boolean])
     extends DynExpr[Vec[OptionalF[cats.Id, T]]] {
-  override val typ: Tag[Vec[Optional[T]]] = Tag.ofSequence[Optional[T]](OptionalF.prod[T])
+  override val typ: Tag[Vec[Optional[T]]] = Tag.ofSequence[Optional[T]](OptionalF.tagOf[T])
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
 

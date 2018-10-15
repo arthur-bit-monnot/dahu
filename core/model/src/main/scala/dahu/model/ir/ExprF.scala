@@ -4,12 +4,10 @@ import dahu.graphs.TreeNode
 import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.{Ident, Lambda, TypedIdent}
-import dahu.model.math.Monoid
-import dahu.model.products.ProductTag
-import dahu.model.types.{LambdaTag, SequenceTag, Tag, TagIsoInt, Type, Value}
+import dahu.model.products.{ProductTag, ProductTagAny}
+import dahu.model.types.{LambdaTag, SequenceTag, SequenceTagAny, Tag, TagIsoInt, Type, Value}
 import shapeless.=:!=
 
-import scala.{specialized => sp}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
@@ -160,7 +158,7 @@ object ComputationF {
 
 }
 
-final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTag[Any]) extends Total[F] {
+final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTagAny) extends Total[F] {
   override def toString: String = members.mkString("[", ", ", "]")
 }
 object SequenceF {
@@ -168,7 +166,7 @@ object SequenceF {
     new SequenceF[F](Vec.fromSeq(args), tpe)
 }
 
-final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTag[Any]) extends Total[F] {
+final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTagAny) extends Total[F] {
   override def toString: String =
     typ.typ.toString
       .replaceFirst("\\[cats\\.Id\\]", "")
