@@ -6,6 +6,7 @@ import cats.Id
 import dahu.utils._
 import dahu.graphs.DAG
 import dahu.model.functions._
+import dahu.model.products.ProductTag
 import dahu.model.structs._
 import dahu.model.types._
 
@@ -150,57 +151,9 @@ object Sequence {
 final case class Product[T[_[_]]](value: T[Expr])(implicit tt: ProductTag[T]) extends Expr[T[Id]] {
   require(tt != null)
   override def typ: ProductTag[T] = tt
-  def members: Vec[Expr[Any]] = {
-    tt.exprProd.extractTerms(value)
-  }
-  def buildFromVals(terms: Vec[Any]): T[Id] = tt.idProd.buildFromTerms(terms)
-  def buildFromExpr(terms: Vec[Expr[Any]]): T[Expr] = tt.exprProd.buildFromTerms(terms)
+  def members: Vec[Expr[Any]] = tt.getFields(value)
   override val hash: Int = ScalaRunTime._hashCode(this)
   override def toString: String = "§" + value
-}
-
-trait ProductExpr[P[_[_]], F[_]] {
-  def extractTerms(prod: P[F])(implicit ct: ClassTag[F[Any]]): Vec[F[Any]]
-  def buildFromTerms(terms: Vec[F[Any]]): P[F]
-  def buildFromValues(terms: Vec[F[Value]]): P[F] =
-    buildFromTerms(terms.asInstanceOf[Vec[F[Any]]])
-}
-
-object ProductExpr {
-
-  def apply[P[_[_]], F[_]](implicit instance: ProductExpr[P, F]): ProductExpr[P, F] = instance
-
-  import shapeless._
-
-  trait HListExtract[H <: HList, F[_]] {
-    def terms(h: H): List[F[Any]]
-    def fromTerms(l: Seq[F[Any]]): H
-  }
-
-  implicit def genPE[P[_[_]], F[_], H <: HList](implicit gen: Generic.Aux[P[F], H],
-                                                hListExtract: HListExtract[H, F]) =
-    new ProductExpr[P, F] {
-      override def extractTerms(prod: P[F])(implicit ct: ClassTag[F[Any]]): Vec[F[Any]] =
-        Vec.fromSeq(hListExtract.terms(gen.to(prod)))
-      override def buildFromTerms(terms: Vec[F[Any]]): P[F] =
-        gen.from(hListExtract.fromTerms(terms.toSeq))
-    }
-
-  implicit def peOfHNil[F[_]]: HListExtract[HNil, F] = new HListExtract[HNil, F] {
-    override def terms(h: HNil): List[F[Any]] = Nil
-    override def fromTerms(l: Seq[F[Any]]): HNil = {
-      require(l.isEmpty)
-      HNil
-    }
-  }
-  implicit def peOfHlist[H, T <: HList, F[_]](
-      implicit t: HListExtract[T, F]): HListExtract[F[H] :: T, F] =
-    new HListExtract[F[H] :: T, F] {
-      override def terms(l: F[H] :: T): List[F[Any]] =
-        l.head.asInstanceOf[F[Any]] :: t.terms(l.tail)
-      override def fromTerms(l: Seq[F[Any]]): F[H] :: T =
-        l.head.asInstanceOf[F[H]] :: t.fromTerms(l.tail)
-    }
 }
 
 object Computation {
@@ -258,7 +211,7 @@ final case class DynInput[T: Tag](id: TypedIdent) extends DynExpr[T] {
 
 final case class DynCollector[T: Tag](collectedTpe: Tag[T], filter: Option[TagAny => Boolean])
     extends DynExpr[Vec[OptionalF[cats.Id, T]]] {
-  override def typ: Tag[Vec[Optional[T]]] = Tag.ofSequence[Optional[T]](OptionalF.productTag[T])
+  override val typ: Tag[Vec[Optional[T]]] = Tag.ofSequence[Optional[T]](OptionalF.prod[T])
   override val hash: Int = ScalaRunTime._hashCode(this)
 }
 

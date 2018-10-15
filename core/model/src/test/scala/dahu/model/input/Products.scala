@@ -1,12 +1,13 @@
 package dahu.model.input
 
+import cats.Id
 import dahu.model.interpreter.{FEval, Interpreter, PConstraintViolated}
 import dahu.utils._
 import dahu.utils.debug._
 import dahu.utils.errors._
 import dahu.model.types._
 import dahu.model.input.dsl._
-import dahu.model.products.FieldAccess
+import dahu.model.products.{Field, FieldAccess, GenConstructor, ProductTag}
 import utest._
 
 object Products extends TestSuite {
@@ -19,10 +20,18 @@ object Products extends TestSuite {
 
     "interval" - {
 
-      case class Interval[F[_]](start: F[Int], end: F[Int])
+      case class Interval[F[_]](start: F[Int], end: F[Int]) {
+        private def this(arr: Array[Any]) =
+          this(arr(0).asInstanceOf[F[Int]], arr(1).asInstanceOf[F[Int]])
+      }
       object Interval {
-        val Start = FieldAccess[Interval, Int]("start", 0)
-        val End = FieldAccess[Interval, Int]("end", 1)
+        implicit val tag: ProductTag[Interval] = ProductTag.build[Interval](
+          "start" -> Tag.ofInt,
+          "end" -> Tag.ofInt
+        )
+
+        val Start = tag.getAccessor[Int]("start")
+        val End = tag.getAccessor[Int]("end")
       }
 
       "product-tag" - {

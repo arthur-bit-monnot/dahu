@@ -3,7 +3,7 @@ package dahu.solvers.problem
 import dahu.graphs._
 import dahu.model.input._
 import dahu.model.math.bool
-import dahu.model.types.{Bool, ProductTag, Tag}
+import dahu.model.types.{Bool, Tag}
 import dahu.model.input.dsl._
 import dahu.model.ir.{ExprF, Total}
 import dahu.model.problem.StaticProblem.Export

@@ -5,7 +5,8 @@ import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.{Ident, Lambda, TypedIdent}
 import dahu.model.math.Monoid
-import dahu.model.types.{LambdaTag, ProductTag, SequenceTag, Tag, TagIsoInt, Type, Value}
+import dahu.model.products.ProductTag
+import dahu.model.types.{LambdaTag, SequenceTag, Tag, TagIsoInt, Type, Value}
 import shapeless.=:!=
 
 import scala.{specialized => sp}

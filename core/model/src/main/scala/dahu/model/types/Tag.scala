@@ -1,6 +1,7 @@
 package dahu.model.types
 
 import dahu.model.functions._
+import dahu.model.products.ProductTag
 import dahu.utils._
 
 import scala.reflect.runtime.universe
@@ -44,7 +45,6 @@ trait LowPriorityTags extends VeryLowPriorityTags {
 
   implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
   implicit def ofSequence[V: Tag]: Tag[Vec[V]] = SequenceTag[V]
-  implicit def ofProduct[P[_[_]]: ProductTag]: Tag[P[cats.Id]] = ProductTag[P]
   implicit def ofFunction[I: Tag, O: Tag]: Tag[I ->: O] = LambdaTag[I, O]
 
   implicit val ofDouble: Tag[Double] = default[Double]

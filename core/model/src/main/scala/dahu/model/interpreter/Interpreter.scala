@@ -25,7 +25,7 @@ object Interpreter {
     case SequenceF(members, _) => members.sequence
     case ProductF(members, t) =>
       members.sequence
-        .smap(as => t.idProd.buildFromTerms(as))
+        .smap(as => t.fromValues(as))
     case NoopF(x, _) => x
     case ITEF(cond, onTrue, onFalse, _) =>
       Vec(cond, onTrue, onFalse).sequence
@@ -55,7 +55,7 @@ object Interpreter {
     case SequenceF(members, _) => members.sequence
     case ProductF(members, t) =>
       members.sequence
-        .smap(as => t.idProd.buildFromTerms(as))
+        .smap(as => t.fromValues(as))
     case NoopF(x, _) => x
     case ITEF(cond, onTrue, onFalse, _) =>
       Vec(cond, onTrue, onFalse).sequence
@@ -84,7 +84,7 @@ object Interpreter {
     case ProductF(members, t) =>
       Result
         .sequence(members)
-        .map(as => Value(t.idProd.buildFromValues(as)))
+        .map(as => Value(t.buildFromValues(as)))
     case SequenceF(members, t) =>
       Result.sequence(members).map(Value(_))
     case ITEF(cond, onTrue, onFalse, _) =>
@@ -177,7 +177,7 @@ object Interpreter {
           .sequence(args)
           .map(actualArgs => Value(f.compute(actualArgs)))
       case EnvT(_, ProductF(members, t)) =>
-        Result.sequence(members).map(ms => Value(t.idProd.buildFromValues(ms)))
+        Result.sequence(members).map(ms => Value(t.buildFromValues(ms)))
       case EnvT(_, ITEF(cond, onTrue, onFalse, _)) =>
         cond.flatMap {
           case true  => onTrue

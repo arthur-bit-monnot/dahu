@@ -62,8 +62,6 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       case IntLiteral(i) => IntLit(i).asConstant(intTag)
       case lv @ LocalVar(_, tpe) =>
         resolver.getLocalVar(lv)
-      case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integers) =>
-        resolver.getLocalVar(lv)
       case i @ Instance(_, tpe) => ObjLit(i).asConstant(specializedTags(tpe))
       case a: Arg               => resolver.getArg(a)
     }

@@ -4,7 +4,14 @@ import dahu.utils._
 import dahu.model.types.Value
 import dahu.model.types._
 
-abstract class Fun[O: Tag] {
+trait FunAny {
+  def compute(args: Vec[Value]): Any
+  def computeFromAny(args: Vec[Any]): Any
+
+  def name: String
+}
+
+abstract class Fun[O: Tag] extends FunAny {
   final val outType: Tag[O] = Tag[O]
   require(outType != null)
   def compute(args: Vec[Value]): O
