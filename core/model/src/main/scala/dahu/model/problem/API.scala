@@ -33,7 +33,7 @@ object API {
     ExpandLambdas.expandLambdas[K](tree).forceEvaluation
 
   def optimize[K](tree: RootedASG[K, Total, Id]): RootedASG[K, Total, Id] =
-    tree.postpro(Optimizations.optimizer).forceEvaluation
+    tree.postpro(dahu.model.transformations.optimizer).forceEvaluation
 
   def parseAndProcess[K](root: K,
                          coalgebra: K => ExprF[K],

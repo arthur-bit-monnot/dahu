@@ -47,5 +47,5 @@ object Tests extends App {
 
   val nolbd = tree.tree.transformWithSubstitution(trans).rootedAt(tree.root)
 
-  API.echo(API.optimize(nolbd))
+  API.echo(nolbd.postpro(dahu.model.transformations.optimizer))
 }

@@ -1,5 +1,7 @@
 package dahu.model.problem.syntax
 
+import cats.kernel.Order
+import cats.implicits._
 import dahu.model.ir.ComputationF
 import dahu.model.math._
 import dahu.graphs._
@@ -16,7 +18,7 @@ object Not {
 }
 
 object Or {
-  def apply[A <: IDTop](cs: Iterable[A]): ComputationF[A] =
+  def apply[A <: Int](cs: Iterable[A]): ComputationF[A] =
     ComputationF(bool.Or, Vec.fromIterable(cs), Tag.ofBoolean)
   def apply[A: ClassTag](a: A, b: A): ComputationF[A] =
     ComputationF(bool.Or, Vec(a, b), Tag.ofBoolean)
@@ -27,7 +29,8 @@ object Or {
   }
 }
 object And {
-  def apply[A <: IDTop](cs: Iterable[A]): ComputationF[A] =
+  implicit def intOrder[I <: Int]: Order[I] = Order[Int].asInstanceOf[Order[I]]
+  def apply[A <: Int](cs: Iterable[A]): ComputationF[A] =
     ComputationF(bool.And, Vec.fromIterable(cs).sorted, Tag.ofBoolean)
   def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {
     case ComputationF(bool.And, args, _) => Some(args.toSeq)

@@ -33,7 +33,9 @@ package object utils {
   }
   type SubSubInt[X <: SubInt, AdditionalTag] = X with Wrapped[AdditionalTag]
 
-  implicit def classTagIS[T <: SubInt]: ClassTag[T] = tagged(intClassTag)
+  implicit def classTag[I <: Int]: ClassTag[I] = ClassTag.Int.asInstanceOf[ClassTag[I]]
+
+//  implicit def classTagIS[T <: SubInt]: ClassTag[T] = tagged(intClassTag)
   implicit def orderingIS[T <: SubInt]: Ordering[T] = tagged(implicitly[Ordering[Int]])
   implicit def orderIS[T <: SubInt]: Order[T] = tagged(intAlgebra)
 

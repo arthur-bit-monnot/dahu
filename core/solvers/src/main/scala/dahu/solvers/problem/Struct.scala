@@ -105,8 +105,8 @@ object Struct {
     val pb: Expr[Bool] = bool.And(constraints: _*)
     val dynAsg = API.parse(pb).fixID
     println(dynAsg.fullTree)
+    println("------------ Exports")
     for(exp <- flat.exports) {
-      println("AA")
       println(dynAsg.tree.getExt(exp.e))
     }
 
@@ -115,8 +115,13 @@ object Struct {
       case CExpr(e, ctx) => Export(e, ctx.present)
     }
     val staticAsg = API.eliminateDynamics(dynAsg, exported)
+    val optStatic = staticAsg.postpro(
+      dahu.model.transformations.makeOptimizer(dahu.model.transformations.totalPasses))
 
     API.echo(staticAsg)
+    println("---------------- OPT STATIC")
+    API.echo(optStatic)
+    sys.exit()
 //    println(staticAsg.fullTree)
 //    println(staticAsg.tree.cata(Algebras.printAlgebraTree).get(staticAsg.root).mkString(120))
 
