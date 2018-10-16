@@ -2,6 +2,7 @@ package dahu.model.problem
 
 import cats.implicits._
 import dahu.graphs._
+import dahu.graphs.transformations.Transformation
 import dahu.model.functions.{Box, Fun, Reversible, Unbox}
 import dahu.utils._
 import dahu.model.ir._
@@ -115,6 +116,23 @@ object Optimizations {
             retrieve(arg2)
           case ComputationF(f2: Box[_], _, _) => ???
           case _                              => orig
+        }
+      case x => x
+    }
+  }
+
+  abstract class Optimizer[LB[X] <: ExprF[X]] {
+    def optim[F[X] >: LB[X] <: ExprF[X]](ctx: OptimizationContext): F[SomeID] => F[SomeID]
+  }
+  val distbox = new Optimizer[Total] {
+    def optim[F[X] >: Total[X] <: ExprF[X]](ctx: OptimizationContext): F[SomeID] => F[SomeID] = {
+      case orig @ ComputationF(f, Vec(a), t) if isBox(f) || isUnbox(f) =>
+        ctx.retrieve(a) match {
+          case ITEF(cond, onTrue, onFalse, typ) =>
+            val trueCase = ctx.record(ComputationF(f, Vec(onTrue), t))
+            val falseCase = ctx.record(ComputationF(f, Vec(onFalse), t))
+            ITEF(cond, trueCase, falseCase, t)
+          case _ => orig
         }
       case x => x
     }
@@ -521,15 +539,17 @@ object Optimizations {
     ctx => new OrderArgs(ctx),
   )
 
-  def optimizer(_retrieve: SomeID => Total[SomeID],
-                _record: Total[SomeID] => SomeID): Total[SomeID] => Total[SomeID] =
-    new RecursiveOptimizerCombinator(
-      optimizers ++ optimizers,
-      new OptimizationContext {
-        override def retrieve(i: SomeID): Total[SomeID] = _retrieve(i)
-        override def record(fi: Total[SomeID]): SomeID = _record(fi)
-      }
-    )
+  val optimizer = new Transformation[Total, Total] {
+    override def transformation[I <: Int](_retrieve: I => Total[I],
+                                          _record: Total[I] => I): Total[I] => Total[I] = ???
+//      new RecursiveOptimizerCombinator(
+//      optimizers ++ optimizers,
+//      new OptimizationContext {
+//        override def retrieve(i: SomeID): Total[SomeID] = _retrieve(i.asInstanceOf[I]).asInstanceOf[Total[SomeID]]
+//        override def record(fi: Total[SomeID]): SomeID = _record(fi.asInstanceOf[Total[I]]).asInstanceOf[SomeID]
+//      }
+//    )
+  }
 
   def implicationGrouper(_retrieve: SomeID => Total[SomeID],
                          _record: Total[SomeID] => SomeID): Total[SomeID] => Total[SomeID] =

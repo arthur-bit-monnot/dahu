@@ -210,7 +210,7 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
 }
 
 final case class LambdaParamF[F](id: Lambda.LambdaIdent, typ: Type) extends Total[F] {
-  override def toString: String = "???" + id.toString
+  override def toString: String = id.toString
 }
 
 final case class NoopF[F](e: F, typ: Type) extends Total[F] {

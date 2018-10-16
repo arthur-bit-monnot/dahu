@@ -4,6 +4,7 @@ import cats._
 import cats.implicits._
 import dahu.utils._
 import dahu.graphs.impl._
+import dahu.graphs.transformations.Transformation
 import dahu.recursion.{Fix, Recursion}
 
 import scala.collection.mutable
@@ -264,7 +265,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
         self.getTreeRoot(k).map(getInternal)
     }
 
-  def transform[I <: IDTop, G[_]](fGen: (I => G[I], G[I] => I) => (F[I] => G[I]))(
+  def transform[I <: IDTop, G[_]](fGen: Transformation[F, G])(
       implicit TN: TreeNode[F],
       F: Functor[Opt],
       SF: SFunctor[F],
@@ -282,7 +283,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
         coalg.coget(fi)
       }
 
-      val transform: F[I] => G[I] = fGen(coalg.get(_), record)
+      val transform: F[I] => G[I] = fGen.transformation(coalg.get(_), record)
       def processed(id: self.ID): Boolean = idMap.contains(id)
       override def fromPreviousId(id: self.ID): I = {
         if(!idMap.contains(id)) {

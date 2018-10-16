@@ -138,7 +138,7 @@ object Algebras {
     case NoopF(e, _)           => e
     case x: LambdaParamF[_]    => StringLeaf(x.toString)
     case LambdaF(in, tree, _, _) =>
-      TreeSeq(Vec(in, tree), before = "Lbd:", separator = " -> ", after = "")
+      TreeSeq(Vec(in, tree), before = "fn:", separator = " -> ", after = "")
   }
 
   def pprint(prg: Expr[_]): String =
