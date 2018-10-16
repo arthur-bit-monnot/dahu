@@ -11,6 +11,7 @@ import dahu.model.structs._
 import dahu.model.types._
 
 import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
 
@@ -259,12 +260,24 @@ object Lambda {
       case _ => false
     }
 
-    override def toString: String =
-      name.getOrElse("Λ" + math.abs(hashCode()).toString) + qualifier.map("-" + _).getOrElse("")
+    override def toString: String = "Λ" + LambdaIdent.getShortRep(hashCode())
+//      name.getOrElse("Λ" + math.abs(hashCode()).toString) + qualifier.map("-" + _).getOrElse("")
 
     def qualified(str: String): LambdaIdent = {
       assert(qualifier.isEmpty)
       new LambdaIdent(treeShape, name, Some(str))
+    }
+  }
+  object LambdaIdent {
+    private var cnt = 0
+    private val shortIDMap: mutable.Map[Int, Int] = mutable.Map()
+    private def getShortRep(hashCode: Int): Int = {
+      if(!shortIDMap.contains(hashCode)) {
+        cnt += 1
+        shortIDMap.update(hashCode, cnt)
+      }
+      shortIDMap(hashCode)
+
     }
   }
 }
