@@ -9,7 +9,7 @@ object SolverTests extends TestSuite {
 
   private def fail(): Unit = assert(false)
 
-  def findPlan(runtime: Int = 15)(implicit testPath: utest.framework.TestPath): Unit = {
+  def findPlan(runtime: Int = 35)(implicit testPath: utest.framework.TestPath): Unit = {
     val Seq(domName, pbName) = testPath.value.takeRight(2)
     solve(domName, pbName, runtime.seconds)
   }

@@ -181,6 +181,11 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
       case Some(t) =>
         val params = ctx.mkParams()
         params.add("timeout", t.timeLeft.toMillis.toInt)
+//        params.add("smt.arith.propagation_mode", 1)
+//        params.add("smt.arith.solver", 2)
+//        params.add("smt.logic", "QF_IDL")
+//        params.add("smt.theory_aware_branching", true)
+//        params.add("smt.theory_case_split", true)
         solver.setParameters(params)
       case None =>
     }
@@ -190,9 +195,13 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
       case Status.SATISFIABLE =>
         debug.info("  Satisfiable model found.")
         model = solver.getModel
+//        println(solver.getStatistics)
+//        println("DECISIONS: " + solver.getStatistics.get("decisions"))
         Some(id => evalInternal(id, model))
       case _ =>
         debug.info("  no model found.")
+//        println(solver.getStatistics)
+//        println("DECISIONS: " + solver.getStatistics.get("decisions"))
         None
     }
   }

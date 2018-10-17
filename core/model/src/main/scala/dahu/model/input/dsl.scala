@@ -87,21 +87,20 @@ object dsl {
   }
 
   implicit class SequenceOps[A](private val lhs: Expr[Vec[A]]) extends AnyVal {
-    def fold(monoid: Monoid[A])(implicit tag: Tag[A], ct: ClassTag[A]): Expr[A] =
+    def fold(monoid: Monoid[A])(implicit tag: Tag[A]): Expr[A] =
       sequence.Fold(monoid).apply(lhs)
+
+    def map[B](f: Expr[A ->: B])(implicit ta: Tag[A], tb: Tag[B]): Expr[Vec[B]] =
+      sequence.Map[A, B].apply(f, lhs)
+    def map0[B](f: Expr[A] => Expr[B])(implicit ta: Tag[A], tb: Tag[B]): Expr[Vec[B]] =
+      map(Lambda(f))
+
+    def size: Expr[Int] = sequence.Size.apply(lhs.asInstanceOf[Expr[Vec[Any]]])
   }
 
   private def named[A, B](f: A => B, name: String): A => B = new Function[A, B] {
     override def apply(v1: A): B = f(v1)
     override def toString(): String = name
-  }
-
-  implicit class GeneralOps[T](private val lhs: Expr[T]) {
-    private implicit def tagT: Tag[T] = lhs.typ
-
-    def map[B](f: Fun1[T, B]): Expr[B] = Computation1(f, lhs)
-    def map[B: Tag](f: T => B): Expr[B] = Computation1(Fun1.embed(f), lhs)
-
   }
 
   implicit class BooleanExprOps(a: Expr[Bool]) {
@@ -118,6 +117,8 @@ object dsl {
   }
 
   def collect[T: Tag]: Expr[Vec[Optional[T]]] = DynCollector(Tag[T], None)
+  def collectUnconditional[T: Tag]: Expr[Vec[T]] =
+    DynCollector(Tag[T], None).map0(e => e.value)
 
   def map[A: Tag, B: Tag](f: Expr[A ->: B], as: Expr[Vec[A]]): Expr[Vec[B]] =
     sequence.Map[A, B].apply(f, as)
@@ -133,6 +134,11 @@ object dsl {
     val of: Expr[Optional[Export] ->: Bool] =
       Lambda[Optional[Export], Bool](oe => !oe.present || f(oe.value))
     val bools: Expr[Vec[Bool]] = map(of, collected)
+    fold[Bool](bool.And, bools)
+  }
+  def forallUnconditional[Export: Tag](f: Expr[Export] => Expr[Bool]): Expr[Bool] = {
+    val collected: Expr[Vec[Export]] = collectUnconditional[Export]
+    val bools: Expr[Vec[Bool]] = collected.map0(f)
     fold[Bool](bool.And, bools)
   }
 

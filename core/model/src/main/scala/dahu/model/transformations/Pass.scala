@@ -361,6 +361,18 @@ object Pass {
     }
   }
 
+  final val evalSequenceOps: Pass[Total] = new Pass[Total]("eval-sequence-ops") {
+    def optim[I <: Int, F[X] >: Total[X] <: ExprF[X]](
+        implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
+      case fi @ ComputationF(sequence.Size, Vec(e), _) =>
+        ctx.retrieve(e) match {
+          case SequenceF(vec, _) => CstF(Value(vec.size), Tag.ofInt)
+          case _                 => fi
+        }
+      case fi => fi
+    }
+  }
+
   final val expandFirstOrderFunction: Pass[StaticF] =
     new Pass[StaticF]("expand-1st-order-functions") {
       def optim[I <: Int, F[X] >: StaticF[X] <: ExprF[X]](
@@ -399,7 +411,8 @@ object Pass {
       orderArgs,
       elimNoops,
       extractField,
-      distNot
+      distNot,
+      evalSequenceOps
     )
 
   val pureStaticPasses: Seq[Pass[StaticF]] = Seq(expandFirstOrderFunction)

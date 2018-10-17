@@ -138,6 +138,13 @@ package object sequence {
     override def name: String = "concat"
   }
 
+  implicit val tagOfAny: Tag[Any] = Tag.default[Any]
+  implicit val tagOfVecAny: Tag[Vec[Any]] = SequenceTag[Any]
+  case object Size extends Fun1[Vec[Any], Int] {
+    override def of(in: Vec[Any]): Int = in.size
+    override def name: String = "size"
+  }
+
   sealed trait Map[I, O] extends Fun2[I ->: O, Vec[I], Vec[O]]
   def Map[I: Tag, O: Tag]: Map[I, O] = new MapImpl[I, O]()
 
@@ -146,7 +153,7 @@ package object sequence {
     override def name: String = "map"
   }
 
-  final case class Fold[A: Tag: ClassTag](monoid: Monoid[A]) extends Fun1[Vec[A], A] {
+  final case class Fold[A: Tag](monoid: Monoid[A]) extends Fun1[Vec[A], A] {
     override def of(in: Vec[A]): A = in.foldLeft(monoid.identity)((a, b) => monoid.combine(a, b))
     override def name: String = s"fold($monoid)"
   }

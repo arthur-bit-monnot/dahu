@@ -13,9 +13,7 @@ final case class OptionalF[F[_], T](value: F[T], presence: F[Bool]) {
 object OptionalF {
   type Optional[T] = OptionalF[Id, T]
 
-//  implicitly[GenConstructor[OptionalF[?[_], Int]]]
-
-  def tagOf[T: Tag]: ProductTag[OptionalF[?[_], T]] = new ProductTag[OptionalF[?[_], T]] {
+  implicit def tagOf[T: Tag]: ProductTag[OptionalF[?[_], T]] = new ProductTag[OptionalF[?[_], T]] {
     override val fields: Vec[Field] = Vec(
       Field("value", Tag[T], 0),
       Field("presence", Tag.ofBoolean, 1)
