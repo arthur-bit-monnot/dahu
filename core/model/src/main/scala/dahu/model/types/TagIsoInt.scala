@@ -3,6 +3,7 @@ package dahu.model.types
 import dahu.model.functions.{Box, Unbox}
 import dahu.model.input.{Cst, Expr}
 import dahu.model.math.bool
+import dahu.utils.ClassTag
 
 import scala.annotation.switch
 
@@ -19,6 +20,7 @@ trait TagIsoInt[T] extends Tag[T] { self =>
   def numInstances: Int = max - min + 1
 
   val rawType: RawInt with Tag[Int] = new RawInt with Tag[Int] {
+    override def clazz: ClassTag[Int] = scala.reflect.ClassTag.Int
     override def min: Int = self.min
     override def max: Int = self.max
   }
@@ -27,8 +29,6 @@ trait TagIsoInt[T] extends Tag[T] { self =>
 
   lazy val unbox: Unbox[T] = new Unbox[T]()(this)
   def box: Box[T] = unbox.reverse
-
-  import dahu.model.input.dsl._
 }
 
 trait RawInt extends TagAny {
@@ -43,27 +43,15 @@ object TagIsoInt {
   def apply[T](implicit ev: TagIsoInt[T]): TagIsoInt[T] = ev
 
   implicit case object ofInt extends RawInt with Tag[Int] {
+    override def clazz: ClassTag[Int] = scala.reflect.ClassTag.Int
     override val typ: Tag.Type = Tag.typeOf[Int]
 
     override val min: Int = Integer.MIN_VALUE / 2 + 1
     override val max: Int = Integer.MAX_VALUE / 2 - 1
   }
-
-  implicit case object ofBoolean extends TagIsoInt[Boolean] {
-    override def typ: Tag.Type = Tag.typeOf[Boolean]
-    override def toInt(t: Boolean): Int = if(t) 1 else 0
-    def fromInt(i: Int): Boolean = (i: @switch) match {
-      case 0 => false
-      case 1 => true
-      case _ => ???
-    }
-
-    override val min: Int = 0
-    override val max: Int = 1
-  }
-
   import scala.reflect.runtime.universe
-  def fromEnum[T: universe.WeakTypeTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
+  def fromEnum[T: universe.WeakTypeTag: ClassTag](values: Seq[T]): TagIsoInt[T] = new TagIsoInt[T] {
+    override def clazz: ClassTag[T] = implicitly[ClassTag[T]]
     override def toInt(t: T): Int = values.indexOf(t)
     override def fromInt(i: Int): T = values(i)
 

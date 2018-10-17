@@ -40,7 +40,7 @@ object LambdaInterpreter {
           }
         case ProductF(members, t) =>
           members.sequence.smap { ms =>
-            t.idProd.buildFromValues(ms)
+            t.buildFromValues(ms)
           }
         case SequenceF(members, t) =>
           members.sequence

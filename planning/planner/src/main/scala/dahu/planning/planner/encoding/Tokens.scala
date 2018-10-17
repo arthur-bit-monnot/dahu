@@ -5,11 +5,11 @@ import dahu.model.functions.->:
 import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.model.math.{any, bool}
-import dahu.model.products.FieldAccess
+import dahu.model.products.{Field, FieldAccess, ProductTag}
 import dahu.model.types.Tag.Type
-import dahu.model.types.{Bool, ProductTag, Tag}
+import dahu.model.types.{Bool, Tag}
 import dahu.planning.model.common.FunctionTemplate
-import dahu.utils.Vec
+import dahu.utils._
 import dahu.utils.errors._
 import spire.syntax.cfor
 
@@ -28,7 +28,10 @@ import dahu.planning.planner.encoding.DummyImplicits._
 case class IntervalF[F[_]](start: F[Int], end: F[Int])
 
 object IntervalF {
-  implicit val productTagInstance: ProductTag[IntervalF] = ProductTag.ofProd[IntervalF]
+  implicit val productTagInstance: ProductTag[IntervalF] = ProductTag.build[IntervalF](
+    "start" -> Tag.ofInt,
+    "end" -> Tag.ofInt
+  )
   implicit val tagInstance: Tag[Interval] = productTagInstance
 
   def ofExpr(start: Expr[Int], end: Expr[Int]): Expr[Interval] =
@@ -37,25 +40,21 @@ object IntervalF {
   def ofExprUnwrapped(start: Expr[Int], end: Expr[Int]): IntervalF[Expr] =
     IntervalF[Expr](start, end)
 
-  val Start: FieldAccess[IntervalF, Int] = FieldAccess("start", 0)
-  val End: FieldAccess[IntervalF, Int] = FieldAccess("end", 1)
+  val Start: FieldAccess[IntervalF, Int] = productTagInstance.getAccessor[Int]("start")
+  val End: FieldAccess[IntervalF, Int] = productTagInstance.getAccessor[Int]("end")
 
   def contains(lhs: Expr[Interval], rhs: Expr[Interval]): Expr[Bool] =
     Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)
-//  val Contains: Expr[Interval ->: Interval ->: Boolean] =
-//    Lambda(lhs => Lambda(rhs => Start(lhs) <= Start(rhs) && End(rhs) <= End(lhs)))
-
-//  val NonOverlapping: Expr[Interval ->: Interval ->: Boolean] =
-//    Lambda(lhs => Lambda(rhs => End(lhs) < Start(rhs) || End(rhs) < Start(lhs)))
-//
-//  val Overlap: Expr[Interval ->: Interval ->: Boolean] =
-//    Lambda(lhs => Lambda(rhs => End(lhs) >= Start(rhs) && End(rhs) >= Start(lhs)))
 }
 
 case class FluentF[F[_]](template: F[FunctionTemplate], args: F[Vec[Literal]])
 
 object FluentF {
-  implicit val selfTag = ProductTag.ofProd[FluentF]
+  implicit val selfTag =
+    ProductTag.build[FluentF](
+      "template" -> Tag.default[FunctionTemplate],
+      "args" -> Tag[Vec[Literal]]
+    )
 
   def ofExpr(template: FunctionTemplate, args: Seq[Expr[Literal]]): Expr[Fluent] = {
     Product(FluentF[Expr](Cst(template), Sequence(Vec(args: _*))))
@@ -72,23 +71,30 @@ case class CondTokF[F[_]](
 )
 
 object CondTokF {
-  implicit val productTag: ProductTag[CondTokF] = ProductTag.ofProd[CondTokF]
+  implicit val productTag: ProductTag[CondTokF] = ProductTag.build[CondTokF](
+    "itv" -> Tag[Interval],
+    "fluent" -> Tag[Fluent],
+    "value" -> Tag[Literal],
+    "decision-level" -> Tag.ofInt,
+    "insertion-level" -> Tag.ofInt,
+    "supporting-action" -> Tag.ofInt
+  )
 
-  val Itv = FieldAccess[CondTokF, IntervalF[Id]]("itv", 0)
-  val Fluent = FieldAccess[CondTokF, FluentF[Id]]("fluent", 1)
-  val Value = FieldAccess[CondTokF, Literal]("value", 2)
-  val DecLvl = FieldAccess[CondTokF, Int]("decision-level", 3)
-  val InsLvl = FieldAccess[CondTokF, Int]("insertion-level", 4)
-  val SupportingAction = FieldAccess[CondTokF, Int]("supporting-action", 5)
+  val Itv = productTag.getAccessor[Interval]("itv")
+  val Fluent = productTag.getAccessor[Fluent]("fluent")
+  val Value = productTag.getAccessor[Literal]("value")
+  val DecLvl = productTag.getAccessor[Int]("decision-level")
+  val InsLvl = productTag.getAccessor[Int]("insertion-level")
+  val SupportingAction = productTag.getAccessor[Int]("supporting-action")
 
-  case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
-      extends (Tag[EffTok] => Boolean) {
-    override def apply(v1: Tag[EffTok]): Boolean = v1 match {
-      case EffTokF.EffProductTag(et, eargs, ev, _) =>
-        func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
-      case _ => false
-    }
-  }
+//  case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
+//      extends (Tag[EffTok] => Boolean) {
+//    override def apply(v1: Tag[EffTok]): Boolean = v1 match {
+//      case EffTokF.EffProductTag(et, eargs, ev, _) =>
+//        func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
+//      case _ => false
+//    }
+//  }
 
   def ofExpr(start: Expr[Int],
              end: Expr[Int],
@@ -150,20 +156,29 @@ case class EffTokF[F[_]](startChange: F[Int],
                          containingAction: F[Int])
 
 object EffTokF {
-  implicit val productTag: ProductTag[EffTokF] = ProductTag.ofProd[EffTokF]
+  implicit val productTag: ProductTag[EffTokF] = ProductTag.build[EffTokF](
+    "start-change" -> Tag.ofInt,
+    "persistence" -> Tag[Interval],
+    "fluent" -> Tag[Fluent],
+    "value" -> Tag[Literal],
+    "id" -> Tag.ofInt,
+    "ins-lvl" -> Tag.ofInt,
+    "containing-action" -> Tag.ofInt
+  )
 
-  // TODO: support subtyping of tags
-  final case class EffProductTag(template: FunctionTemplate,
-                                 args: Vec[Option[Literal]],
-                                 value: Option[Literal],
-                                 id: Int)
-      extends ProductTag[EffTokF] {
-    override def exprProd: ProductExpr[EffTokF, Expr] = productTag.exprProd
-
-    override def idProd: ProductExpr[EffTokF, Id] = productTag.idProd
-
-    override def typ: Type = productTag.typ
-  }
+//  // TODO: support subtyping of tags
+//  final case class EffProductTag(template: FunctionTemplate,
+//                                 args: Vec[Option[Literal]],
+//                                 value: Option[Literal],
+//                                 id: Int)
+//      extends ProductTag[EffTokF] {
+//    override def exprProd: ProductExpr[EffTokF, Expr] = productTag.exprProd
+//
+//    override def idProd: ProductExpr[EffTokF, Id] = productTag.idProd
+//
+//    override def typ: Type = productTag.typ
+//    override def clazz: ClassTag[EffTok] = implicitly[ClassTag[EffTok]]
+//  }
 
   private var lastID: Int = 0
   private def nextID(): Int = { lastID += 1; lastID }
@@ -175,17 +190,17 @@ object EffTokF {
              insLvl: Expr[Int],
              containingAction: Expr[Int])(implicit cnt: Counter): Expr[EffTok] = {
     val id = cnt.next()
-    val tag = fluent match {
-      case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
-        EffProductTag(f, args.map {
-          case Cst(lit) => Some(lit)
-          case _        => None
-        }, value match {
-          case Cst(v) => Some(v)
-          case _      => None
-        }, id)
-      case _ => unexpected
-    }
+//    val tag = fluent match {
+//      case Product(FluentF(cf @ Cst(f), Sequence(args))) =>
+//        EffProductTag(f, args.map {
+//          case Cst(lit) => Some(lit)
+//          case _        => None
+//        }, value match {
+//          case Cst(v) => Some(v)
+//          case _      => None
+//        }, id)
+//      case _ => unexpected
+//    }
     Product(
       new EffTokF[Expr](startChange,
                         IntervalF.ofExpr(endChange, endPersistence),
@@ -193,7 +208,7 @@ object EffTokF {
                         value,
                         Cst(id),
                         insLvl,
-                        containingAction))(tag)
+                        containingAction))
 //      .subjectTo(t => Dynamic[EffTok, Boolean](NonThreatening(t), bool.And, Some(Accept(tag))))
   }
   def compatible[A](a: Option[A], b: Option[A]): Boolean = (a, b) match {
@@ -211,23 +226,23 @@ object EffTokF {
     }
     true
   }
-  case class Accept(from: EffProductTag) extends (Tag[EffTok] => Boolean) {
-    override def apply(to: Tag[EffTok]): Boolean = to match {
-      case EffProductTag(t, args, value, id) =>
-        from.id < id &&
-          from.template == t &&
-          compatibles(from.args, args)
-      case _ => false
-    }
-  }
+//  case class Accept(from: EffProductTag) extends (Tag[EffTok] => Boolean) {
+//    override def apply(to: Tag[EffTok]): Boolean = to match {
+//      case EffProductTag(t, args, value, id) =>
+//        from.id < id &&
+//          from.template == t &&
+//          compatibles(from.args, args)
+//      case _ => false
+//    }
+//  }
 
-  val StartChange = FieldAccess[EffTokF, Int]("startChange", 0)
-  val Persistence = FieldAccess[EffTokF, IntervalF[Id]]("persistence", 1)
-  val Fluent = FieldAccess[EffTokF, FluentF[Id]]("fluent", 2)
-  val Value = FieldAccess[EffTokF, Literal]("value", 3)
-  val Id = FieldAccess[EffTokF, Int]("id", 4)
-  val InsLvl = FieldAccess[EffTokF, Int]("ins-lvl", 5)
-  val Container = FieldAccess[EffTokF, Int]("container", 6)
+  val StartChange = productTag.getAccessor[Int]("start-change")
+  val Persistence = productTag.getAccessor[IntervalF[Id]]("persistence")
+  val Fluent = productTag.getAccessor[FluentF[Id]]("fluent")
+  val Value = productTag.getAccessor[Literal]("value")
+  val Id = productTag.getAccessor[Int]("id")
+  val InsLvl = productTag.getAccessor[Int]("ins-lvl")
+  val Container = productTag.getAccessor[Int]("containing-action")
 
   def consistent(lhs: Expr[EffTok], rhs: Expr[EffTok]): Expr[Bool] =
 //    Id(lhs) >= Id(rhs) || // redundant with accept function

@@ -11,16 +11,17 @@ import dahu.recursion.Recursion._
 object Algebras {
 
   val coalgebra: FCoalgebra[ExprF, Expr[_]] = {
-    case x @ Input(id)                  => InputF(id, id.typ)
-    case x @ Cst(value)                 => CstF(Value(value), x.typ)
-    case x: Computation[_]              => ComputationF(x.f, x.args, x.typ)
-    case x @ Product(value)             => ProductF(x.members, x.typ)
-    case x @ Sequence(members)          => SequenceF(members, x.typ)
-    case x @ ITE(cond, onTrue, onFalse) => ITEF(cond, onTrue, onFalse, x.typ)
-    case x @ Dynamic(f, monoid, accept) => DynamicF(f, monoid, x.acceptedType, accept, x.typ)
-    case x: Lambda[_, _]                => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
-    case x @ Apply(lambda, param)       => ApplyF(lambda, param, x.typ)
-    case x @ Lambda.Param(id)           => LambdaParamF(id, x.typ)
+    case x @ Input(id)                          => InputF(id, id.typ)
+    case x @ Cst(value)                         => CstF(Value(value), x.typ)
+    case x: Computation[_]                      => ComputationF(x.f, x.args, x.typ)
+    case x @ Product(value)                     => ProductF(x.members, x.typ)
+    case x @ Sequence(members)                  => SequenceF(members, x.typ)
+    case x @ ITE(cond, onTrue, onFalse)         => ITEF(cond, onTrue, onFalse, x.typ)
+    case x @ DynInput(id)                       => DynInputF(id)
+    case x @ DynCollector(collectedTpe, filter) => DynCollectorF(collectedTpe, filter, x.typ)
+    case x: Lambda[_, _]                        => LambdaF(x.inputVar, x.parameterizedTree, x.id, x.typ)
+    case x @ Apply(lambda, param)               => ApplyF(lambda, param, x.typ)
+    case x @ Lambda.Param(id)                   => LambdaParamF(id, x.typ)
   }
 
   val printAlgebra: FAlgebra[ExprF, String] = {
@@ -30,7 +31,8 @@ object Algebras {
     case SequenceF(members, _)          => members.mkString("[", ", ", "]")
     case ProductF(members, _)           => members.mkString("(", ", ", ")")
     case ITEF(cond, onTrue, onFalse, _) => s"ite($cond, $onTrue, $onFalse)"
-    case DynamicF(f, monoid, _, _, _)   => s"dyn($f // $monoid)"
+    case DynInputF(id)                  => "$?" + id
+    case DynCollectorF(tpe, _, _)       => s"collect($tpe)"
     case LambdaF(in, tree, _, _)        => s"($in ↦ $tree)"
     case ApplyF(lambda, param, _)       => s"$lambda $param"
     case NoopF(e, _)                    => e
@@ -136,7 +138,7 @@ object Algebras {
     case NoopF(e, _)           => e
     case x: LambdaParamF[_]    => StringLeaf(x.toString)
     case LambdaF(in, tree, _, _) =>
-      TreeSeq(Vec(in, tree), before = "Lbd:", separator = " -> ", after = "")
+      TreeSeq(Vec(in, tree), before = "fn:", separator = " -> ", after = "")
   }
 
   def pprint(prg: Expr[_]): String =

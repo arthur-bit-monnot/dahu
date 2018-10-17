@@ -27,13 +27,21 @@ object API {
 
   def eliminateDynamics[K](tree: RootedASG[K, ExprF, Id],
                            exports: Seq[Export[K]]): RootedASG[K, StaticF, Id] =
-    StaticProblem.closeTheWorld[K](tree, exports).forceEvaluation
+    StaticProblem
+      .closeTheWorld[K](tree, exports)
+      .postpro(dahu.model.transformations.makeOptimizer(dahu.model.transformations.totalPasses))
+      .forceEvaluation
 
   def expandLambdas[K](tree: RootedASG[K, StaticF, Id]): RootedASG[K, Total, Id] =
-    ExpandLambdas.expandLambdas[K](tree).forceEvaluation
+    ExpandLambdas.expandLambdas[K](tree)
 
+  // TODO: make sure transformations are applied until the fix point.
   def optimize[K](tree: RootedASG[K, Total, Id]): RootedASG[K, Total, Id] =
-    tree.postpro(Optimizations.optimizer).forceEvaluation
+    tree
+      .postpro(dahu.model.transformations.optimizer)
+      .postpro(dahu.model.transformations.optimizer)
+      .postpro(dahu.model.transformations.optimizer)
+      .forceEvaluation
 
   def parseAndProcess[K](root: K,
                          coalgebra: K => ExprF[K],

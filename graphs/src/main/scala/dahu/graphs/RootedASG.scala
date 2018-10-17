@@ -2,6 +2,7 @@ package dahu.graphs
 
 import cats._
 import cats.implicits._
+import dahu.graphs.transformations.{Transformation, TransformationWithSubstitution}
 import dahu.recursion.Fix
 import dahu.utils.{ClassTag, SFunctor, SubSubInt}
 
@@ -14,7 +15,7 @@ trait RootedASG[K, F[_], Opt[_]] { self: LazyTree[K, F, Opt, _] =>
 
   def forceEvaluation: RootedASG[K, F, Opt]
 
-  def postpro(fGen: (SomeID => F[SomeID], F[SomeID] => SomeID) => (F[SomeID] => F[SomeID]))(
+  def postpro(fGen: Transformation[F, F])(
       implicit TN: TreeNode[F],
       F: Functor[Opt],
       SF: SFunctor[F],
@@ -25,8 +26,18 @@ trait RootedASG[K, F[_], Opt[_]] { self: LazyTree[K, F, Opt, _] =>
       f: F[V] => V)(implicit T: TreeNode[F], F: SFunctor[F], FO: Functor[Opt]): Opt[V] =
     tree.cata(f).get(root)
 
+  def transformWithSubstitution[G[_]](transformation: TransformationWithSubstitution[F, G])(
+      implicit tn: TreeNode[F],
+      ff: SFunctor[F],
+      fg: SFunctor[G],
+      fo: Functor[Opt],
+      ct: ClassTag[G[IDTop]]): RootedASG[K, G, Opt] = {
+    tree.transformWithSubstitution(transformation).rootedAt(root)
+  }
+
   def fullTree(implicit F: SFunctor[F], FO: Functor[Opt], ct: ClassTag[F[Fix[F]]]): Opt[Fix[F]] =
     tree.getTreeRoot(root).map(tree.build)
+
 }
 object RootedASG {
   def apply[K, F[_], Opt[_]](root: K, asg: ASG[K, F, Opt]): RootedASG[K, F, Opt] =

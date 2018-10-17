@@ -4,11 +4,10 @@ import dahu.graphs.TreeNode
 import dahu.utils._
 import dahu.model.functions.Fun
 import dahu.model.input.{Ident, Lambda, TypedIdent}
-import dahu.model.math.Monoid
-import dahu.model.types.{LambdaTag, ProductTag, SequenceTag, Tag, TagIsoInt, Type, Value}
+import dahu.model.products.{ProductTag, ProductTagAny}
+import dahu.model.types.{LambdaTag, SequenceTag, SequenceTagAny, Tag, TagIsoInt, Type, Value}
 import shapeless.=:!=
 
-import scala.{specialized => sp}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.runtime.ScalaRunTime
@@ -23,25 +22,26 @@ object ExprF extends LowPriorityExprF {
   implicit val functor: SFunctor[ExprF] = new SFunctor[ExprF] {
     override def smap[@sp(Int) A, @sp(Int) B: ClassTag](fa: ExprF[A])(f: A => B): ExprF[B] =
       fa match {
-        case fa: Total[A] => Total.functor.smap(fa)(f)
-        case DynamicF(fun, monoid, acceptedType, accept, typ) =>
-          DynamicF(f(fun), monoid, acceptedType, accept, typ)
+        case fa: Total[A]               => Total.functor.smap(fa)(f)
+        case DynCollectorF(a, b, c)     => DynCollectorF(a, b, c)
+        case DynInputF(a)               => DynInputF(a)
         case ApplyF(lambda, param, typ) => ApplyF(f(lambda), f(param), typ)
       }
   }
 
   def hash[@sp(Int) A](exprF: ExprF[A]): Int = exprF match {
-    case x: ComputationF[A] => ScalaRunTime._hashCode(x)
-    case x: InputF[A]       => ScalaRunTime._hashCode(x)
-    case x: CstF[A]         => ScalaRunTime._hashCode(x)
-    case x: ITEF[A]         => ScalaRunTime._hashCode(x)
-    case x: ProductF[A]     => ScalaRunTime._hashCode(x)
-    case x: DynamicF[A]     => ScalaRunTime._hashCode(x)
-    case x: LambdaF[A]      => ScalaRunTime._hashCode(x)
-    case x: ApplyF[A]       => ScalaRunTime._hashCode(x)
-    case x: LambdaParamF[A] => ScalaRunTime._hashCode(x)
-    case x: SequenceF[A]    => ScalaRunTime._hashCode(x)
-    case x: NoopF[A]        => ScalaRunTime._hashCode(x)
+    case x: ComputationF[A]  => ScalaRunTime._hashCode(x)
+    case x: InputF[A]        => ScalaRunTime._hashCode(x)
+    case x: CstF[A]          => ScalaRunTime._hashCode(x)
+    case x: ITEF[A]          => ScalaRunTime._hashCode(x)
+    case x: ProductF[A]      => ScalaRunTime._hashCode(x)
+    case x: DynInputF[A]     => ScalaRunTime._hashCode(x)
+    case x: DynCollectorF[A] => ScalaRunTime._hashCode(x)
+    case x: LambdaF[A]       => ScalaRunTime._hashCode(x)
+    case x: ApplyF[A]        => ScalaRunTime._hashCode(x)
+    case x: LambdaParamF[A]  => ScalaRunTime._hashCode(x)
+    case x: SequenceF[A]     => ScalaRunTime._hashCode(x)
+    case x: NoopF[A]         => ScalaRunTime._hashCode(x)
   }
 }
 trait LowPriorityExprF {
@@ -54,13 +54,15 @@ trait LowPriorityExprF {
   implicit val treeNodeInstance: TreeNode[ExprF] = new TreeNode[ExprF] {
     override def children[A](fa: ExprF[A]): Iterable[A] = fa match {
       case x: Total[A]              => Total.treeNodeInstance.children(x)
-      case DynamicF(f, _, _, _, _)  => Iterable(f)
+      case x: DynInputF[A]          => Iterable.empty
+      case x: DynCollectorF[A]      => Iterable.empty
       case ApplyF(lambda, param, _) => Iterable(lambda, param)
     }
     override def foreachChild[A](fa: ExprF[A])(f: A => Unit): Unit = fa match {
-      case x: Total[A]               => Total.treeNodeInstance.foreachChild(x)(f)
-      case DynamicF(lbd, _, _, _, _) => f(lbd)
-      case ApplyF(lambda, param, _)  => f(lambda); f(param)
+      case x: Total[A]              => Total.treeNodeInstance.foreachChild(x)(f)
+      case x: DynCollectorF[A]      =>
+      case x: DynInputF[A]          =>
+      case ApplyF(lambda, param, _) => f(lambda); f(param)
     }
   }
 }
@@ -117,6 +119,8 @@ object Total {
 /** An (unset) input to the problem.
   * Essentially a decision variable in CSP jargon. */
 final case class InputF[@sp(Int) F](id: TypedIdent, typ: Type) extends Total[F] {
+  // todo: check the useful of the typ field that should be redundant with the TypedIdent.
+  //       the second assert also looks outdated
   require(typ != null)
   require(typ == id.typ || id.typ.isInstanceOf[TagIsoInt[_]] && typ == Tag.ofInt) // todo: this is a sanity check for current assumption but might not hold for valid future uses
   override def toString: String = s"$id"
@@ -132,6 +136,7 @@ object InputF {
 
 final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
   assert(!typ.isBoolean || value == 0 || value == 1)
+//  assert(!typ.isInstanceOf[TagIsoInt[_]])
   override def toString: String = value.toString
 }
 object CstF {
@@ -154,7 +159,7 @@ object ComputationF {
 
 }
 
-final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTag[Any]) extends Total[F] {
+final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTagAny) extends Total[F] {
   override def toString: String = members.mkString("[", ", ", "]")
 }
 object SequenceF {
@@ -162,7 +167,7 @@ object SequenceF {
     new SequenceF[F](Vec.fromSeq(args), tpe)
 }
 
-final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTag[Any]) extends Total[F] {
+final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTagAny) extends Total[F] {
   override def toString: String =
     typ.typ.toString
       .replaceFirst("\\[cats\\.Id\\]", "")
@@ -180,14 +185,14 @@ final case class ITEF[@sp(Int) F](cond: F, onTrue: F, onFalse: F, typ: Type) ext
   override def toString: String = s"ite($cond, $onTrue, $onFalse)"
 }
 
-final case class DynamicF[@sp(Int) F](f: F,
-                                      monoid: Monoid[_],
-                                      acceptedType: Type,
-                                      accept: Option[Type => Boolean],
-                                      typ: Type)
-    extends ExprF[F]
+sealed trait DynExprF[F] extends ExprF[F]
 
-final case class DynamicProviderF[@sp(Int) F](e: F, provided: F, typ: Type) //extends ExprF[F]
+final case class DynInputF[F](id: TypedIdent) extends DynExprF[F] {
+  override def typ: Type = id.typ
+}
+
+final case class DynCollectorF[F](collectedType: Type, filter: Option[Type => Boolean], typ: Type)
+    extends DynExprF[F]
 
 /**
   * Lambda is composed of an AST `tree` and a variable `in`.
@@ -206,7 +211,7 @@ final case class ApplyF[F](lambda: F, param: F, typ: Type) extends StaticF[F] {
 }
 
 final case class LambdaParamF[F](id: Lambda.LambdaIdent, typ: Type) extends Total[F] {
-  override def toString: String = "???" + id.toString
+  override def toString: String = id.toString
 }
 
 final case class NoopF[F](e: F, typ: Type) extends Total[F] {

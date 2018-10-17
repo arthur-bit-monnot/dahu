@@ -2,6 +2,10 @@ package dahu.model.problem
 
 import dahu.graphs._
 import dahu.model.ir._
+import dahu.model.products.ProductTagAny
+import dahu.model.structs.OptionalF
+import dahu.model.types.SequenceTag.SequenceTagImplAny
+import dahu.utils.Vec
 
 object StaticProblem {
 
@@ -32,41 +36,31 @@ object StaticProblem {
         .mapInternalGen[StaticF](ctx => {
           val rec = ctx.record
           _ match {
-            case x: DynamicF[IDTop] =>
-              val default = rec(x.monoid.liftedIdentity) // TODO (optim): cache out of the loop
-
-              // TODO: filter should not use type equality but a more general type intersection mechanism
+            case DynCollectorF(collectedType, optFilter, _) =>
               val filter: IDTop => Boolean = {
-                x.accept match {
+                optFilter match {
                   case Some(f) =>
                     (i: IDTop) =>
                       {
                         val t = ctx.retrieve(i).typ
-                        (t intersects x.acceptedType) && f(t)
+                        (t intersects collectedType) && f(t)
                       }
                   case None =>
                     (i: IDTop) =>
-                      x.acceptedType intersects ctx.retrieve(i).typ
+                      collectedType intersects ctx.retrieve(i).typ
                 }
               }
-//              val newProvided = provided.map(ctx.toNewId).withFilter(filter)
               // TODO (optim): cache out of the loop (with WeakRef?)
               val allNewProvided: Seq[(IDTop, IDTop)] = provided.map {
                 case Export(exp, scope) => (ctx.toNewId(exp), ctx.toNewId(scope))
               }
-              val newProvided = allNewProvided.withFilter { case (i, p) => filter(i) }
-              val lbd = ctx.retrieve(x.f)
-              def compute(oneProvided: IDTop): IDTop =
-                ctx.record(ApplyF(x.f, oneProvided, lbd.typ))
+              val optionalTag: ProductTagAny = OptionalF.tagOfAny(collectedType)
+              val newProvided = allNewProvided.filter { case (i, p) => filter(i) }
+              val optionalProvided: Seq[IDTop] = newProvided.map {
+                case (i, p) => ctx.record(ProductF[IDTop](Vec(i, p), optionalTag))
+              }
+              SequenceF[IDTop](Vec.fromSeq(optionalProvided), SequenceTagImplAny(optionalTag))
 
-              val conditionals: Seq[IDTop] =
-                newProvided.map {
-                  case (i, prez) =>
-                    rec(ITEF[IDTop](prez, compute(i), default, x.monoid.tpe))
-                }
-
-              val value = ComputationF[IDTop](x.monoid, conditionals, x.monoid.tpe)
-              value
             case x: InputF[_] =>
               x
             case x: StaticF[IDTop] =>

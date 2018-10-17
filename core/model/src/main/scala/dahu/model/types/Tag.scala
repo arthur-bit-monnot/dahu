@@ -1,16 +1,15 @@
 package dahu.model.types
 
 import dahu.model.functions._
-import dahu.model.input.Expr
-import dahu.model.math.bool
+import dahu.model.products.ProductTag
 import dahu.utils._
 
-import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.runtime.universe
 
 trait TagAny {
 
   def typ: Tag.Type
+  def clazz: ClassTag[_]
 
   def isInt: Boolean = this match {
     case _: RawInt => !isBoolean
@@ -22,7 +21,9 @@ trait TagAny {
 
 }
 
-trait Tag[T] extends TagAny
+trait Tag[T] extends TagAny {
+  override def clazz: ClassTag[T]
+}
 
 object Tag extends LowPriorityTags {
   type Type = universe.Type
@@ -36,28 +37,18 @@ object Tag extends LowPriorityTags {
 }
 
 trait LowPriorityTags extends VeryLowPriorityTags {
-  import Bool._
-  private case class DefaultTag[T](typ: universe.Type) extends Tag[T]
+  private case class DefaultTag[T: ClassTag](typ: universe.Type) extends Tag[T] {
+    override def clazz: ClassTag[T] = implicitly[ClassTag[T]]
+  }
 
-  def default[T: universe.WeakTypeTag]: Tag[T] = DefaultTag(Tag.typeOf[T])
+  def default[T: universe.WeakTypeTag: ClassTag]: Tag[T] = DefaultTag(Tag.typeOf[T])
 
   implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
   implicit def ofSequence[V: Tag]: Tag[Vec[V]] = SequenceTag[V]
-  implicit def ofProduct[P[_[_]]: ProductTag]: Tag[P[cats.Id]] = ProductTag[P]
   implicit def ofFunction[I: Tag, O: Tag]: Tag[I ->: O] = LambdaTag[I, O]
 
   implicit val ofDouble: Tag[Double] = default[Double]
   implicit val ofString: Tag[String] = default[String]
-
-  implicit def optionTag[T](implicit ev: universe.WeakTypeTag[Option[T]]): Tag[Option[T]] =
-    new Tag[Option[T]] {
-      override def typ: universe.Type = ev.tpe
-    }
-  implicit def eitherTag[L, R](implicit ev: universe.WeakTypeTag[Either[L, R]]): Tag[Either[L, R]] =
-    new Tag[Either[L, R]] {
-      override def typ: universe.Type = ev.tpe
-    }
-
 }
 
 trait VeryLowPriorityTags {
