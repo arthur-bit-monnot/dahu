@@ -121,7 +121,7 @@ object Struct {
     API.echo(staticAsg)
     println("---------------- OPT STATIC")
     API.echo(optStatic)
-    sys.exit()
+//    sys.exit()
 //    println(staticAsg.fullTree)
 //    println(staticAsg.tree.cata(Algebras.printAlgebraTree).get(staticAsg.root).mkString(120))
 

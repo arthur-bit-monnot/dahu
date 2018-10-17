@@ -30,10 +30,15 @@ object API {
     StaticProblem.closeTheWorld[K](tree, exports).forceEvaluation
 
   def expandLambdas[K](tree: RootedASG[K, StaticF, Id]): RootedASG[K, Total, Id] =
-    ExpandLambdas.expandLambdas[K](tree).forceEvaluation
+    ExpandLambdas.expandLambdas[K](tree)
 
+  // TODO: make sure transformations are applied until the fix point.
   def optimize[K](tree: RootedASG[K, Total, Id]): RootedASG[K, Total, Id] =
-    tree.postpro(dahu.model.transformations.optimizer).forceEvaluation
+    tree
+      .postpro(dahu.model.transformations.optimizer)
+      .postpro(dahu.model.transformations.optimizer)
+      .postpro(dahu.model.transformations.optimizer)
+      .forceEvaluation
 
   def parseAndProcess[K](root: K,
                          coalgebra: K => ExprF[K],

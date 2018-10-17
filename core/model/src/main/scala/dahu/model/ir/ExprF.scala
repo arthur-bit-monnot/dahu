@@ -136,6 +136,7 @@ object InputF {
 
 final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
   assert(!typ.isBoolean || value == 0 || value == 1)
+//  assert(!typ.isInstanceOf[TagIsoInt[_]])
   override def toString: String = value.toString
 }
 object CstF {

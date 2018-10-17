@@ -17,6 +17,13 @@ trait ASG[K, F[_], Opt[_]] {
   def castIDTo[NewInternalID <: IDTop]: OpenASG[K, F, Opt, NewInternalID] =
     this.asInstanceOf[OpenASG[K, F, Opt, NewInternalID]]
 
+  def transform[I <: IDTop, G[_]](fGen: Transformation[F, G])(
+      implicit TN: TreeNode[F],
+      F: Functor[Opt],
+      SF: SFunctor[F],
+      ct: ClassTag[G[I]]
+  ): ASG[K, G, Opt]
+
   def transformWithSubstitution[G[_]](transformation: TransformationWithSubstitution[F, G])(
       implicit tn: TreeNode[F],
       ff: SFunctor[F],

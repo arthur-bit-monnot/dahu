@@ -361,23 +361,28 @@ object Pass {
     }
   }
 
-  final val expandMap: Pass[StaticF] = new Pass[StaticF]("distribute-not") {
-    def optim[I <: Int, F[X] >: StaticF[X] <: ExprF[X]](
-        implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
-      case fi @ ComputationF(_: sequence.Map[_, _], Vec(fun, seq), _) =>
-        ctx.retrieve(seq) match {
-          case SequenceF(members: Vec[I], _) =>
-            val x: Vec[ApplyF[I]] = members.map(i => ApplyF[I](fun, i, null))
-            val is: Vec[I] = x.map(ctx.record)
-            SequenceF(is, null)
-          case _ =>
-            println("oupsie")
-            fi
-        }
-      case fi => fi
+  final val expandFirstOrderFunction: Pass[StaticF] =
+    new Pass[StaticF]("expand-1st-order-functions") {
+      def optim[I <: Int, F[X] >: StaticF[X] <: ExprF[X]](
+          implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
+        case fi @ ComputationF(_: sequence.Map[_, _], Vec(fun, seq), _) =>
+          ctx.retrieve(seq) match {
+            case SequenceF(members: Vec[I], _) =>
+              val x: Vec[ApplyF[I]] = members.map(i => ApplyF[I](fun, i, null))
+              val is: Vec[I] = x.map(ctx.record)
+              SequenceF(is, null)
+            case _ => fi
+          }
+        case fi @ ComputationF(sequence.Fold(monoid), Vec(seq), _) =>
+          ctx.retrieve(seq) match {
+            case SequenceF(members: Vec[I], _) =>
+              ComputationF(monoid, members, monoid.tpe)
+            case _ => fi
+          }
+        case fi => fi
 
+      }
     }
-  }
 
   val allTotalPasses: Seq[Pass[Total]] =
     Seq(
@@ -397,7 +402,7 @@ object Pass {
       distNot
     )
 
-  val pureStaticPasses: Seq[Pass[StaticF]] = Seq(expandMap)
+  val pureStaticPasses: Seq[Pass[StaticF]] = Seq(expandFirstOrderFunction)
   val allStaticPasses: Seq[Pass[StaticF]] = totalPasses ++ pureStaticPasses
 
   final object Implications {

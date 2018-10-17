@@ -4,9 +4,9 @@ import dahu.model.ir.{ExprF, Total}
 
 package object transformations {
 
-  val totalPasses: Seq[Pass[Total]] = Pass.allTotalPasses
+  lazy val totalPasses: Seq[Pass[Total]] = Pass.allTotalPasses
 
-  val optimizer: Transformation[Total, Total] = makeOptimizer[Total](totalPasses)
+  lazy val optimizer: Transformation[Total, Total] = makeOptimizer[Total](totalPasses)
 
   def makeOptimizer[F[X] >: Total[X] <: ExprF[X]](passes: Seq[Pass[F]]): Transformation[F, F] =
     new Transformation[F, F] {
