@@ -7,13 +7,11 @@ import dahu.planning.model.core
 import dahu.planning.planner.{encoding, PlannerConfig, SymBreakLevel}
 import dahu.solvers.problem.{EncodedProblem, Struct}
 import dahu.utils.Vec
-import dahu.utils.debug._
-import dahu.utils.errors._
 
 object Encoder {
   private val PB_NAME = "__problem__"
 
-  def encode(model: core.CoreModel, num: core.ActionTemplate => Int)(
+  def encode(model: core.CoreModel, num: core.ActionTemplate => Int, exactDepth: Option[Int])(
       implicit predef: Predef,
       cfg: PlannerConfig): EncodedProblem[Solution] = {
     implicit val cnt: Counter = new Counter
@@ -48,6 +46,16 @@ object Encoder {
                 cond.decLvl >= eff.insLvl
         )))
 
+    if(cfg.useExactDepth) {
+      exactDepth match {
+        case Some(d) =>
+          csp.addConstraint(
+            exists[Operator](op => op.depth === Cst(d))
+          )
+        case None => dahu.utils.errors.unexpected
+      }
+    }
+
     cfg.symBreak match {
       case SymBreakLevel.No =>
       case SymBreakLevel.Base =>
@@ -57,7 +65,7 @@ object Encoder {
               any
                 .EQ(op.name, op2.name) && op.depth === (op2.depth + Cst(1)) && op2.start >= op.start))
         )
-      case SymBreakLevel.PlanSpace =>
+      case SymBreakLevel.PlanSpace | SymBreakLevel.PlanSpaceUnconstrained =>
         csp.addConstraint(
           forall[Operator](op =>
             op.depth === Cst(1) || op.name ==== Cst(PB_NAME) || exists[Operator](op2 =>
@@ -73,7 +81,44 @@ object Encoder {
             (cond.supportingAction === op.id) ==> (op.insLvl <= cond.decLvl))))
 
         csp.addConstraint(forall[Operator](o1 =>
-          forall[Operator](o2 => (o1.insLvl > o2.insLvl) ==> (o1.firstDecLvl > o2.lastDecLvl))))
+          forall[Operator](o2 => (o1.insLvl < o2.insLvl) ==> (o1.lastDecLvl < o2.firstDecLvl))))
+
+        if(cfg.symBreak == SymBreakLevel.PlanSpaceUnconstrained) {
+          val numConditions = collect[CondTok].size
+          val numActions = collect[Operator].size
+          csp.addConstraint(
+            forallUnconditional[Operator](
+              op =>
+                forallUnconditional[Operator](op2 =>
+                  ((op.name ==== op2.name) && op.depth > op2.depth) ==>
+                    ((op.insLvl > op2.insLvl) && (op.firstDecLvl > op2.lastDecLvl))))
+          )
+
+          csp.addConstraint(forallUnconditional[Operator](o1 =>
+            forallUnconditional[Operator](o2 =>
+              (o1.insLvl > o2.insLvl) ==> (o1.firstDecLvl > o2.lastDecLvl))))
+
+          csp.addConstraint(
+            forallUnconditional[Operator](e => e.insLvl < e.firstDecLvl)
+          )
+
+          csp.addConstraint(
+            forallUnconditional[CondTok](
+              e =>
+                (Cst(1) <= e.decLvl) &&
+                  (e.decLvl <= numConditions) &&
+                  (Cst(0) <= e.supportingAction) &&
+                  (e.supportingAction < numActions))
+          )
+          csp.addConstraint(
+            forallUnconditional[Operator](
+              e =>
+                (Cst(1) <= e.firstDecLvl) &&
+                  (e.lastDecLvl <= numConditions) &&
+                  (Cst(0) <= e.insLvl) &&
+                  (e.insLvl <= numConditions))
+          )
+        }
     }
 
     model.foreach {

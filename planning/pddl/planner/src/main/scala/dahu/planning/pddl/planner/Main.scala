@@ -134,7 +134,7 @@ object Main extends App {
           case x: FiniteDuration => Deadline.now + x
           case _: Infinite       => Deadline.now + 10.days
         }
-        Planner.solveIncremental(model, config.maxInstances, deadline) match {
+        Planner.solveIncremental(model, deadline) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)
             println()
@@ -170,7 +170,7 @@ object Main extends App {
           case _: Infinite       => Deadline.now + 10.days
         }
         Planner
-          .solveIncremental(model, config.maxInstances, deadline) match {
+          .solveIncremental(model, deadline) match {
           case Some(plan) =>
             val sol = PddlPlan(plan)
             if(config.validate) {

@@ -17,11 +17,10 @@ object Planner {
 
   val backend = Z3PartialSolver.builder
 
-  def solveIncremental(model: core.CoreModel, maxSteps: Int, deadline: Deadline)(
-      implicit cfg: PlannerConfig,
-      predef: Predef): Option[Plan] = {
+  def solveIncremental(model: core.CoreModel, deadline: Deadline)(implicit cfg: PlannerConfig,
+                                                                  predef: Predef): Option[Plan] = {
     val q = new java.util.concurrent.ConcurrentLinkedQueue[Integer]()
-    for(i <- cfg.minInstances to cfg.maxInstances)
+    for(i <- cfg.minDepth to cfg.maxDepth)
       q.add(i)
 
     val task: IO[Option[Plan]] = IO {
@@ -41,7 +40,6 @@ object Planner {
       }
       None
     }
-
     task.unsafeRunTimed(deadline.timeLeft).flatten
   }
 
