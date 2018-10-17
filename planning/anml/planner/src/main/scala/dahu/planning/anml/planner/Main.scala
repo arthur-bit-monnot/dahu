@@ -2,6 +2,7 @@ package dahu.planning.anml.planner
 
 import java.io.File
 
+import cats.implicits._
 import cats.effect.IO
 import dahu.utils.debug._
 import dahu.planning.planner._
@@ -72,7 +73,15 @@ object Main extends App {
         case Some(Some(result)) =>
           val runtime = System.currentTimeMillis() - startTime
           out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
-          out(result.toString)
+          out(
+            result.operators
+              .sortedBy(_.start)
+              .map {
+                case dahu.planning.planner.encoding
+                      .OperatorF(name, args, start, end, _, _, _, _, _) =>
+                  s"[$start, $end] $name(${args.mkString(",")})"
+              }
+              .mkString("\n"))
         case None =>
           out("Time out")
         case Some(None) =>
