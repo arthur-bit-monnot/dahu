@@ -11,7 +11,7 @@ import dahu.utils.Vec
 object Encoder {
   private val PB_NAME = "__problem__"
 
-  def encode(model: core.CoreModel, num: core.ActionTemplate => Int)(
+  def encode(model: core.CoreModel, num: core.ActionTemplate => Int, exactDepth: Option[Int])(
       implicit predef: Predef,
       cfg: PlannerConfig): EncodedProblem[Solution] = {
     implicit val cnt: Counter = new Counter
@@ -45,6 +45,15 @@ object Encoder {
                 cond.supportingAction === eff.container &&
                 cond.decLvl >= eff.insLvl
         )))
+
+    if(cfg.useExactDepth) {
+      exactDepth match {
+        case Some(d) =>
+          csp.addConstraint(
+            exists[Operator](op => op.depth === Cst(d))
+          )
+      }
+    }
 
     cfg.symBreak match {
       case SymBreakLevel.No =>

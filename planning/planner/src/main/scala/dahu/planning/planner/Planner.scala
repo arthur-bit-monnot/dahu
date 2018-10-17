@@ -31,7 +31,8 @@ object Planner {
           return None
 
         info(s"Depth: $step")
-        solveWithGivenActionNumbers(model, _ => step, deadline) match {
+        val exactDepth = if(cfg.useExactDepth) Some(step.toInt) else None
+        solveWithGivenActionNumbers(model, _ => step, exactDepth, deadline) match {
           case Some(sol) =>
             info(s"  Solution found at depth $step")
             return Some(sol)
@@ -48,12 +49,13 @@ object Planner {
   def solveWithGivenActionNumbers(
       model: core.CoreModel,
       num: core.ActionTemplate => Int,
+      exactDepth: Option[Int],
       deadline: Deadline)(implicit predef: Predef, cfg: PlannerConfig): Option[Plan] = {
 
     if(deadline.isOverdue())
       return None
 
-    val pb = Encoder.encode(model, num)
+    val pb = Encoder.encode(model, num, exactDepth)
 
     //        println(result)
     val solution = Planner.solve(pb, deadline)

@@ -11,4 +11,5 @@ object SymBreakLevel {
 case class PlannerConfig(minInstances: Int = 0,
                          maxInstances: Int = Int.MaxValue,
                          printDetailed: Boolean = false,
-                         symBreak: SymBreakLevel = SymBreakLevel.Base)
+                         symBreak: SymBreakLevel = SymBreakLevel.PlanSpaceUnconstrained,
+                         useExactDepth: Boolean = true)
