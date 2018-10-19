@@ -219,9 +219,19 @@ lazy val pddlPlanner = project
       "com.lihaoyi" %% "ammonite-ops" % "1.1.0"
     ))
 
+lazy val matrix = project
+  .in(file("matrix"))
+//  .dependsOn(model)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "junit" % "junit" % "3.8.2" % "test"
+    )
+  )
+
 lazy val refinement = project
   .in(file("refinement"))
-  .dependsOn(model)
+  .dependsOn(model, matrix)
   .settings(commonSettings ++ utestSettings: _*)
 
 
