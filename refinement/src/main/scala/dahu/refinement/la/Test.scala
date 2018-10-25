@@ -3,6 +3,8 @@ package dahu.refinement.la
 import dahu.matrix.{Matrix, MatrixFactory}
 import spire.syntax.cfor._
 
+import scala.util.Try
+
 object common {
   type Addr = Int
   type R = Double
@@ -22,6 +24,7 @@ trait Memory {
 
 trait RMemory extends Memory {
   def read(addr: Addr): R
+  def dump: Values
   def print(): Unit
 }
 trait WMemory extends Memory {
@@ -37,7 +40,8 @@ final class MemImpl(val size: Int) extends RWMemory {
 
   override def write(addr: Addr, value: R): Unit = mem(addr) = value
   override def read(addr: Addr): R = mem(addr)
-  override def load(values: Array[R]): Unit =
+  override def dump: Values = mem.clone()
+  override def load(values: Values): Unit =
     values.indices.foreach(i => mem(i) = values(i))
   override def add(values: Array[R]): Unit = {
     values.indices.foreach(i => mem(i) += values(i))
@@ -71,10 +75,6 @@ trait Fun {
       output(i) = dfi
       values(i) -= epsilon
       i += 1
-
-      if(i == 2)
-        println("break")
-
     }
   }
 
@@ -123,10 +123,10 @@ class LeastSquares(residuals: Seq[Expr]) {
 
   def jacobian(memory: RMemory): Matrix = {
     val jac = new MatrixFactory
-    println("\nGradients")
+//    println("\nGradients")
     for((e, i) <- residuals.zipWithIndex) {
       val gradj = e.gradient(memory)
-      println(gradj.mkString("\t"))
+//      println(gradj.mkString("\t"))
       var x = 0
       while(x < e.params.length) {
         val j = e.params(x)
@@ -163,7 +163,7 @@ class LeastSquares(residuals: Seq[Expr]) {
     //  rhs.print()
 
     // solution of J.T * J * sol = -J.T * x
-    val sol = lhs.solve(rhs.toVector)
+    val sol = lhs.solveCholSol(rhs.toVector)
     println("\nSol: "); Matrix.fromArray(sol).print()
     zeroMem.load(sol)
     zeroMem
@@ -188,9 +188,75 @@ class LeastSquares(residuals: Seq[Expr]) {
     println("\nRHS:")
     rhs.print()
 
-    val update = lhs.solve(rhs.toVector)
+    val update = lhs.solveCholSol(rhs.toVector)
     println("\nUpdate: " + update.mkString("\t"))
     mem.add(update)
+  }
+
+  class LMIterator(val tau: Double, val goodUpdate: Double, mem: RWMemory) {
+
+    def this(mem: RWMemory) = this(tau = 0.00001, goodUpdate = 0.5, mem)
+
+    var lambda: Double = -1
+    var lastGood = mem.dump
+    var lastChi = -1.0
+    var ni = 2
+
+    var numIters = 0
+
+    def next(): Unit = {
+      numIters += 1
+      println(s"\n----- New iteration $numIters -----")
+      val residuals = evalResiduals(mem).toArray
+      lastGood = mem.dump
+      lastChi = residuals.map(x => x * x).sum
+      val J = jacobian(mem)
+
+      if(lambda < 0) {
+        // initialize lambda
+        lambda = tau * J.max
+      }
+
+      val lhs = J.T * J + Matrix.diagonal(residuals.length, lambda)
+      val rhs = J.T * residuals.map(_ * (-1.0))
+      val update =
+        Try(lhs.solveCholSol(rhs))
+          .orElse(Try(lhs.solveQR(rhs)))
+          .getOrElse(sys.exit(1))
+
+      def finite(d: Double): Boolean = {
+        d != Double.NaN && d != Double.NegativeInfinity && d != Double.PositiveInfinity
+      }
+
+      mem.add(update)
+      val newResiduals = evalResiduals(mem).toArray
+      val newChi = newResiduals.map(x => x * x).sum
+      val improvement = lastChi - newChi
+
+      println(s"Update: ${update.mkString("\t")}")
+      println(s"New residuals: ${newResiduals.mkString("\t")}")
+
+      if(finite(improvement) && improvement > 0) {
+        lambda *= goodUpdate
+        ni = 2
+        lastGood = mem.dump
+        println(s"Improvement: $lastChi -->  $newChi       -- lambda: $lambda")
+      } else {
+        lambda *= ni
+        ni *= 2
+        mem.load(lastGood)
+        println(s"Deterioration: $newChi -- $lambda")
+      }
+    }
+
+  }
+  def lmIteration(mem: RWMemory, numIters: Int): Unit = {
+
+    val it = new LMIterator(mem)
+
+    for(i <- 0 until numIters)
+      it.next()
+
   }
 }
 
@@ -253,12 +319,16 @@ object Test extends App {
 
   val zeroMem = new MemImpl(4)
 
-  for(i <- 0 until 10) {
-    println(s"\n\n ----- Iter $i ------_n")
-    ls.gaussNewtonIteration(zeroMem)
-    zeroMem.print()
-    println(ls.evalResiduals(zeroMem))
-  }
+  ls.lmIteration(zeroMem, 10)
+
+  zeroMem.print()
+
+//  for(i <- 0 until 10) {
+//    println(s"\n\n ----- Iter $i ------_n")
+//    ls.gaussNewtonIteration(zeroMem)
+//    zeroMem.print()
+//    println(ls.evalResiduals(zeroMem))
+//  }
 
 //  val J = ls.jacobian(zeroMem)
 //  val x = ls.evalResiduals(zeroMem).toArray

@@ -40,16 +40,37 @@ class Matrix(private val M: Dcs) { lhs =>
     require(lhs.n == rhs.m, "Dimensions do not match for multiplication")
     new Matrix(Dcs_multiply.cs_multiply(M, rhs.M))
   }
-  def *(rhs: Array[Double]): Array[Double] = {
-    (this * Matrix.fromArray(rhs)).toVector
+  def +(rhs: Matrix): Matrix = {
+    require(lhs.n == rhs.n && lhs.m == rhs.m)
+    val res = Dcs_add.cs_add(lhs.M, rhs.M, 1.0, 1.0)
+    assert(res != null)
+    new Matrix(res)
   }
-  def solve(b: Array[Double]): Array[Double] = {
+  def *(rhs: Array[Double]): Array[Double] = {
+    val res = new Array[Double](rhs.size)
+    Dcs_gaxpy.cs_gaxpy(M, rhs, res)
+    res
+  }
+
+  def min: Double = M.x.min
+  def max: Double = M.x.max
+
+  def solveCholSol(b: Array[Double]): Array[Double] = {
     val x = b.clone()
-    val res = Dcs_cholsol.cs_cholsol(0, M, x)
+    val res = Dcs_cholsol.cs_cholsol(1, M, x)
 //    val res = Dcs_qrsol.cs_qrsol(0, M, x)
+//    val res = Dcs_lusol.cs_lusol(0, M, x, 0.0)
     assert(res)
     x
   }
+
+  def solveQR(b: Array[Double]): Array[Double] = {
+    val x = b.clone()
+    val res = Dcs_qrsol.cs_qrsol(0, M, x)
+    assert(res)
+    x
+  }
+
   def *(factor: Double): Matrix = {
     val fm = new Dcs_common.Dcs
     fm.i = M.i.clone()
@@ -87,16 +108,6 @@ class Matrix(private val M: Dcs) { lhs =>
       }
       col += 1
     }
-//    for (j = 0; col < n; col++) {
-//                System.out.print(String.format("    col %d : locations %d to %d\n", col, Ap[j], Ap[j + 1] - 1));
-//                for (p = Ap[j]; p < Ap[j + 1]; p++) {
-//                    System.out.print(String.format("      %d : %g\n", Ai[p], Ax != null ? Ax[p] : 1));
-//                    if (brief && p > 20) {
-//                        System.out.print("  ...\n");
-//                        return (true);
-//                    }
-//                }
-//            }
   }
 
   def print(brief: Boolean = false): Unit = Dcs_print.cs_print(M, brief)
@@ -106,6 +117,13 @@ object Matrix {
   def fromArray(arr: Array[Double]): Matrix = {
     val fac = new MatrixFactory
     arr.indices.foreach(i => fac(i, 0) = arr(i))
+    fac.build
+  }
+
+  def diagonal(side: Int, value: Double): Matrix = {
+    val fac = new MatrixFactory
+    for(i <- 0 until side)
+      fac(i, i) = value
     fac.build
   }
 
