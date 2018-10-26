@@ -69,6 +69,9 @@ object Planner {
     info("  Encoding...")
     val solver = MetaSolver.of(pb, backend)
 
+    if(cfg.noSolve)
+      return None
+
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
         ass.eval(pb.res) match {

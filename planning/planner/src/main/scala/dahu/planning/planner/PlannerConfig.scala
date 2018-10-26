@@ -35,4 +35,8 @@ case class PlannerConfig(
     @HelpMessage(
       "If true, the planner will consider that there is no solution below its current depth. " +
         "This is intended to be used with incremental deepening.")
-    useExactDepth: Boolean = true)
+    useExactDepth: Boolean = true,
+    @HelpMessage(
+      "If set to true, the planner will encode the problem but not run the solver, returning a failure.")
+    noSolve: Boolean = true
+)

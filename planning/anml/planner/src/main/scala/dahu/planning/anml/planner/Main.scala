@@ -46,7 +46,6 @@ object Main extends CaseApp[AnmlPlannerOptions] {
   }
 
   def run(cfg: AnmlPlannerOptions, arg: RemainingArgs): Unit = {
-    println(arg)
     val problemFile: File = arg.remaining match {
       case Seq(pb) => new File(pb)
       case Seq()   => error("No problem file was provided.")
