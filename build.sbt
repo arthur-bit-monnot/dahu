@@ -224,6 +224,16 @@ lazy val refinement = project
   .dependsOn(model)
   .settings(commonSettings ++ utestSettings: _*)
 
+lazy val lisp = project
+  .in(file("lisp"))
+  .dependsOn(model)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "fastparse" % "1.0.0" 
+    ))
+
+
 
 //
 //lazy val rcllPlanner = project

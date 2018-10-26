@@ -2,6 +2,7 @@ package dahu.model.types
 
 import dahu.model.functions._
 import dahu.model.products.ProductTag
+import dahu.model.types
 import dahu.utils._
 
 import scala.reflect.runtime.universe
@@ -33,6 +34,12 @@ object Tag extends LowPriorityTags {
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
   implicit val ofInt: Tag[Int] = TagIsoInt.ofInt
+
+  object unsafe {
+
+    val ofAny = default[Any]
+
+  }
 
 }
 

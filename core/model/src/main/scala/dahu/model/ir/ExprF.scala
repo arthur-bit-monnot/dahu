@@ -163,7 +163,7 @@ final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTagAny) ext
   override def toString: String = members.mkString("[", ", ", "]")
 }
 object SequenceF {
-  def apply[F: ClassTag](args: Seq[F], tpe: SequenceTag[Any]): SequenceF[F] =
+  def apply[F: ClassTag](args: Seq[F], tpe: SequenceTagAny): SequenceF[F] =
     new SequenceF[F](Vec.fromSeq(args), tpe)
 }
 
