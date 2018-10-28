@@ -249,14 +249,15 @@ object Lambda {
     override def typ: Tag[I] = Tag[I]
     override val hash: Int = ScalaRunTime._hashCode(this)
   }
-  final class LambdaIdent(val treeShape: Expr[Any],
+  final class LambdaIdent(private val treeShape: Expr[Any], // can be null
                           val name: Option[String],
                           val qualifier: Option[String]) {
     override def hashCode(): Int = Objects.hash(treeShape, name, qualifier)
 
     override def equals(o: scala.Any): Boolean = o match {
       case li: LambdaIdent =>
-        treeShape.equals(li.treeShape) && name == li.name && qualifier == li.qualifier
+        Objects.equals(treeShape, li.treeShape) &&
+          name == li.name && qualifier == li.qualifier
       case _ => false
     }
 
@@ -269,6 +270,9 @@ object Lambda {
     }
   }
   object LambdaIdent {
+
+    def apply(name: String): LambdaIdent = new LambdaIdent(null, Some(name), None)
+
     private var cnt = 0
     private val shortIDMap: mutable.Map[Int, Int] = mutable.Map()
     private def getShortRep(hashCode: Int): Int = {

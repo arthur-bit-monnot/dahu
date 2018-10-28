@@ -2,9 +2,12 @@ package dahu.lisp
 
 import dahu.lisp.keywords._
 import dahu.model.functions.Fun
+import dahu.model.input.Lambda
 import dahu.model.ir._
+import dahu.model.types.LambdaTag.LambdaTagImpl
 import dahu.model.types.SequenceTag.SequenceTagImplAny
 import dahu.model.types._
+import dahu.recursion.Fix
 import dahu.utils._
 
 package object compile {
@@ -47,11 +50,18 @@ package object compile {
           ))
 //      case ATOM :: (_: List[_]) :: Nil => false
 //      case ATOM :: _ :: Nil            => true
-//      case LAMBDA :: (args: Seq[Sym]) :: exp :: Nil =>
-//        mh.mh((params: Array[AnyRef]) => {
-//            eval(exp, env.subEnv(args.toArray, params))
-//          })
-//          .asCollector(classOf[Array[AnyRef]], args.size)
+      case LAMBDA :: (args: Seq[Sym]) :: exp :: Nil =>
+        def const(params: List[Sym], e: Env): I = params match {
+          case Nil => eval(exp, e)
+          case head :: tail =>
+            val p = LambdaParamF[I](Lambda.LambdaIdent(head.name), Tag.unsafe.ofAny)
+            val subE = e.subEnv(head, record(p))
+            val sub = const(tail, subE)
+            val tpe = LambdaTag.of(p.typ, typeOf(sub))
+            val lbd = LambdaF(record(p), sub, p.id, tpe)
+            record(lbd)
+        }
+        const(args.toList, env)
       case DEFINE :: Sym(label) :: expr :: Nil =>
         val value = eval(expr, env)
         env.setConstantValue(label, value)
@@ -59,7 +69,6 @@ package object compile {
 //      case Nil => false
       case l: List[_] =>
         l.head match {
-          case _: List[_]                   => unsupported(s"nested list $l")
           case LAMBDA | DEFINE | QUOTE | IF => error(s"Malformed expression $l")
           case _                            =>
         }
@@ -67,15 +76,27 @@ package object compile {
         get(fid) match {
           case CstF(f: Fun[_], _) =>
             record(ComputationF(f, args, f.outType))
-          case x =>
-            error(s"Expected function (method handle) but got $x")
+          case _ =>
+            args.foldLeft(fid) {
+              case (lbd, a) =>
+                typeOf(lbd) match {
+                  case lt: LambdaTagAny =>
+                    val e = ApplyF(lbd, a, lt.outType)
+                    record(e)
+                  case _ => error("Unexpected application to a non-lambda type")
+                }
+
+            }
         }
 
     }
   }
 
-  def parseEval(str: String, env: Env): I = {
-    eval(parse(str), env)
+  def parseEval(str: String, env: Env): Fix[ExprF] = {
+    val i = eval(parse(str), env)
+    dahu.recursion.EasyRecursion.unfold[ExprF, I](
+      (i: I) => env.extractValue(i)
+    )(i)
   }
 
   def format(e: Any): String = e match {

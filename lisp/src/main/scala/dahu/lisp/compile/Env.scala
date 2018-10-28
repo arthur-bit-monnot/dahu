@@ -16,13 +16,16 @@ import dahu.model.math.bool
 class Env(val parent: Option[Env] = None) {
 
   private val index = mutable.Map[Sym, I]()
-  private val data = BiMap[I, ExprF[I]]()
+  private val data: BiMap[I, ExprF[I]] =
+    parent match {
+      case Some(p) => p.data
+      case _       => BiMap()
+    }
 
 //  private val data: mutable.Map[Sym, V] = mutable.Map()
 
   def subEnv(sym: Sym, value: I): Env = {
     val sub = new Env(Some(this))
-    //    println(s"registering: $sym -> $value")
     sub.setConstantValue(sym.name, value)
     sub
   }
