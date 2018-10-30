@@ -7,17 +7,13 @@ import dahu.model.ir._
 import dahu.model.types._
 import dahu.utils._
 
-abstract class PartialEval extends ManualTransformation[ExprF, ExprF] {
+object PartialEval extends ManualTransformation[ExprF, ExprF] {
 
   def trans[I <: Int, J <: Int](ctx: ManualTransformation.Context[ExprF, ExprF, I, J]): I => J = {
     val ev = new PartialEval.Impl[I, J](ctx)
     (i: I) =>
       ev.peval(Map())(i)
   }
-
-}
-
-object PartialEval {
 
   final class Impl[I <: Int, J <: Int](ctx: ManualTransformation.Context[ExprF, ExprF, I, J]) {
 
