@@ -261,7 +261,12 @@ object Lambda {
       case _ => false
     }
 
-    override def toString: String = "Λ" + LambdaIdent.getShortRep(hashCode())
+    override def toString: String =
+      name match {
+        case Some(x) => x
+        case _       => "Λ" + LambdaIdent.getShortRep(hashCode())
+      }
+
 //      name.getOrElse("Λ" + math.abs(hashCode()).toString) + qualifier.map("-" + _).getOrElse("")
 
     def qualified(str: String): LambdaIdent = {

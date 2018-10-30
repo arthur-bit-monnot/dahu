@@ -35,31 +35,19 @@ object API {
   def expandLambdas[K](tree: RootedASG[K, StaticF, Id]): RootedASG[K, Total, Id] =
     ExpandLambdas.expandLambdas[K](tree).forceEvaluation
 
-  def expandLambdasThroughPartialEval[K](
-      tree: RootedASG[K, StaticF, Id]): RootedASG[K, Total, Id] = {
+  def expandLambdasThroughPartialEval[K, Opt[_]: Functor](
+      tree: ASG[K, ExprF, Opt]): ASG[K, ExprF, Opt] = {
     val graph = tree.fixID
     import dahu.model.transformations._
-    val firstOrderExpansions = makeOptimizer(Pass.allStaticPasses)
-    val expandedFirstOrder = graph.postpro(makeOptimizer(totalPasses)).postpro(firstOrderExpansions)
-//    println("------ BEFORE -------")
-//    echo(expandedFirstOrder)
+    val firstOrderExpansions = makeOptimizer[ExprF](Pass.allStaticPasses)
+    val expandedFirstOrder =
+      graph.transform(makeOptimizer(totalPasses)).transform(firstOrderExpansions)
 
-    val t = expandedFirstOrder.tree.asInstanceOf[ASG[K, ExprF, Id]]
+    val t = expandedFirstOrder //.asInstanceOf[ASG[K, ExprF, Id]]
 
-    val tPE: ASG[K, ExprF, Id] = t.manualMap(PartialEval)
-    val tpeCasted = tPE.asInstanceOf[ASG[K, Total, Id]]
+    val tPE: ASG[K, ExprF, Opt] = t.manualMap(PartialEval)
+    tPE
 
-    val x = tpeCasted.rootedAt(tree.root).forceEvaluation
-
-//    println("------ AFTER -------")
-//    echo(x)
-
-//    println("----- OPTIM ------")
-    val y = optimize(x)
-//    echo(y)
-
-//    sys.exit(0)
-    y
   }
 
   // TODO: make sure transformations are applied until the fix point.

@@ -8,30 +8,20 @@ import dahu.utils._
 
 import scala.collection.mutable
 import Env._
-import dahu.graphs.ASG
+import dahu.graphs.{ASG, IDTop}
 import dahu.model.compiler.Algebras
 import dahu.model.compiler.Algebras.StringTree
 import dahu.model.functions.{Fun, FunAny}
 import dahu.model.math.bool
 
-class Env(val parent: Option[Env] = None) {
+trait Env {
+  def data: BiMap[I, ExprF[I]]
 
-  private val index = mutable.Map[Sym, I]()
-  private val data: BiMap[I, ExprF[I]] =
-    parent match {
-      case Some(p) => p.data
-      case _       => BiMap()
-    }
-
-  private lazy val graph = ASG.ana[I, ExprF]((i: I) => data.get(i))
-  private lazy val print = graph.fixID.cata[StringTree](Algebras.printAlgebraTree)
-
-  def pprint(i: I): String = print.get(i).mkString(80)
-
-//  private val data: mutable.Map[Sym, V] = mutable.Map()
+//  protected def graph = ASG.ana[I, ExprF]((i: I) => data.get(i))
+//  protected def print = graph.fixID.cata[StringTree](Algebras.printAlgebraTree)
 
   def subEnv(sym: Sym, value: I): Env = {
-    val sub = new Env(Some(this))
+    val sub = new SubEnv(this)
     sub.setConstantValue(sym.name, value)
     sub
   }
@@ -40,16 +30,66 @@ class Env(val parent: Option[Env] = None) {
     params.zip(values).foldLeft(this) { case (e, (p, v)) => e.subEnv(p, v) }
   }
 
-  private def getExistingCallSite(a: Sym): Option[I] = {
-    index.get(a).orElse(parent.flatMap(_.getExistingCallSite(a)))
+  def getExistingCallSite(a: Sym): Option[I]
+  def extractValue(a: Sym): V
+  def extractValue(a: I): V
+  def getValue(a: Sym): I
+  def getId(e: V): I
+  def setConstantValue(a: String, value: I): Unit
+
+}
+
+class RootEnv extends Env {
+
+  private val index = mutable.Map[Sym, I]()
+  val data: BiMap[I, ExprF[I]] = BiMap()
+
+  private lazy val graph = ASG.ana[I, ExprF]((i: I) => data.get(i))
+  private lazy val print = graph.fixID.cata[StringTree](Algebras.printAlgebraTree)
+
+  def pprint(i: I): String = print.get(i).mkString(80)
+
+//  private val data: mutable.Map[Sym, V] = mutable.Map()
+
+  def getExistingCallSite(a: Sym): Option[I] = index.get(a)
+
+  def getValue(a: Sym): I =
+    getExistingCallSite(a)
+      .getOrElse(error(s"Unknown symbol: $a"))
+
+  def extractValue(a: Sym): V = extractValue(getValue(a))
+  def extractValue(a: I): V = data.get(a)
+
+  def getId(e: V): I = {
+    if(!data.cocontains(e)) {
+      val i: I = data.size.asInstanceOf[I]
+      data.add(i, e)
+      assert(data.coget(e) == i)
+    }
+    data.coget(e)
+  }
+
+  def setConstantValue(a: String, value: I): Unit = {
+    index(Sym(a)) = value
+  }
+
+}
+
+class SubEnv(val parent: Env) extends Env {
+
+  private val index = mutable.Map[Sym, I]()
+  def data: BiMap[I, ExprF[I]] = parent.data
+
+  def getExistingCallSite(a: Sym): Option[I] = {
+    index.get(a).orElse(parent.getExistingCallSite(a))
   }
 
   def getValue(a: Sym): I =
     getExistingCallSite(a)
       .getOrElse(error(s"Unknown symbol: $a"))
 
-  def extractValue(a: Sym): V = extractValue(getValue(a)) // TODO: should look in parents
-  def extractValue(a: I): V = data.get(a) // TODO: should look in parents
+  def extractValue(a: Sym): V = extractValue(getValue(a))
+  def extractValue(a: I): V = data.get(a)
 
   def getId(e: V): I = {
     if(!data.cocontains(e)) {
@@ -67,13 +107,13 @@ class Env(val parent: Option[Env] = None) {
 }
 
 object Env {
-  type I <: Int
+  type I <: IDTop
   type V = ExprF[I]
 
   import dahu.model.types._
   import dahu.model.math._
-  def default(): Env = {
-    val e = new Env()
+  def default(): RootEnv = {
+    val e = new RootEnv()
 
     def rec(name: String, f: FunAny): Unit = {
       val i = e.getId(CstF(Value(f), Tag.unsafe.ofAny))

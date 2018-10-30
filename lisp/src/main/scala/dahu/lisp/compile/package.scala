@@ -2,18 +2,23 @@ package dahu.lisp
 
 import cats._
 import cats.implicits._
-import dahu.graphs.RootedASG
+import dahu.graphs.{ASG, IDTop, OpenASG, RootedASG}
 import dahu.graphs.transformations.Transformation
 import dahu.lisp.keywords._
+import dahu.model.compiler.Algebras
+import dahu.model.compiler.Algebras.StringTree
 import dahu.model.functions.{Fun, FunAny}
 import dahu.model.input.Lambda
 import dahu.model.ir._
+import dahu.model.problem.API
 import dahu.model.products.{FieldAccess, FieldAccessAny, ProductTagAny}
 import dahu.model.types.LambdaTag.LambdaTagImpl
 import dahu.model.types.SequenceTag.SequenceTagImplAny
 import dahu.model.types._
 import dahu.recursion.Fix
 import dahu.utils._
+
+import scala.util.Try
 
 object log {
   val logLevel = 3
@@ -221,14 +226,36 @@ package object compile {
     }
   }
 
-  def parseEval(str: String, env: Env): String = {
-    val i = eval(parse(str), env)(Quoted)
+  type LispStr = String
 
-//    val i2 = pe.peval(Map())(i)
-//    dahu.recursion.EasyRecursion.unfold[ExprF, I](
-//      (i: I) => env.extractValue(i)
-//    )(i)
-    env.pprint(i)
+  def graphBuilder(env: RootEnv): ASG[LispStr, ExprF, Try] = {
+    new OpenASG[String, ExprF, Try, Env.I] {
+      override def getTreeRoot(k: String): Try[Env.I] = {
+        Try(eval(parse(k), env)(Quoted))
+      }
+      override def internalCoalgebra(i: I): ExprF[I] =
+        env.extractValue(i)
+    }
+  }
+
+  class Context(env: RootEnv) {
+
+    val graph: ASG[LispStr, ExprF, Try] = graphBuilder(env)
+    val optGraph = {
+      // TODO: we should not need to exapnd twice...
+      val g1 = API.expandLambdasThroughPartialEval(graph)
+      API.expandLambdasThroughPartialEval(g1)
+    }
+    val pprint = optGraph.fixID.cata[StringTree](Algebras.printAlgebraTree)
+
+    def show(raw: LispStr) = pprint.get(raw).map(_.mkString(80))
+
+    def treeOf(raw: LispStr): Try[Fix[ExprF]] = optGraph.rootedAt(raw).fullTree
+
+  }
+
+  def parseEval(str: String, ctx: Context): Try[String] = {
+    ctx.show(str)
   }
 
   def format(e: Any): String = e match {
