@@ -22,10 +22,15 @@ object Parser {
   val token: P[E] = (
     "\"" ~/ CharsWhile(_ != '"').! ~ "\""
       | CharsWhile(allowed, min = 1).!.map(s => {
-        Try(s.toInt) match {
-          case scala.util.Success(value) => value.asInstanceOf[Integer]
-          case _                         => Sym(s)
-        }
+        Try(s.toInt.asInstanceOf[Integer])
+          .orElse(Try(s.toDouble.asInstanceOf[java.lang.Double]))
+          .getOrElse(Sym(s))
+//        Try(s.toInt) match {
+//          case scala.util.Success(value) => value.asInstanceOf[Integer]
+//          case _ =>
+//            Try(s.toDouble.asInstanceOf[java.lang.Double])
+//              .getOrElse(Sym(s))
+//        }
       })
   )
 

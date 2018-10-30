@@ -25,7 +25,11 @@ object CompileTests extends TestSuite {
 
   def gives(result: Any)(implicit x: utest.framework.TestPath): Unit = {
     val str = x.value.last
-    check(str, result)
+    try {
+      check(str, result)
+    } catch {
+      case x: Throwable => x.printStackTrace()
+    }
   }
   def fails()(implicit x: utest.framework.TestPath): Unit = {
     val str = x.value.last
@@ -39,8 +43,8 @@ object CompileTests extends TestSuite {
 
     "'(1)" - gives(List(1))
     "1" - gives(1)
-    "(+ 1 2)" - gives(3)
-    "(* 2 4)" - gives(8)
+    "(+ 1.0 2.)" - gives(3)
+    "(* 2.0 4.0)" - gives(8)
     """'("a" "b")""" - gives(List("a", "b"))
 
     "(defn inc [a] (+ a 1))" - gives(1)
@@ -56,6 +60,15 @@ object CompileTests extends TestSuite {
         (do (defn inc [a] (+ a 1))
             (fn [a b] (* (inc a) (inc b))))
       """ - gives(1)
+
+    """
+    (do
+      (defstruct point
+          ^int x
+          ^int y
+      )
+      (point-y (point 1 2)))
+    """ - gives(1)
 
 //    "large" - eval("""
 //        (do

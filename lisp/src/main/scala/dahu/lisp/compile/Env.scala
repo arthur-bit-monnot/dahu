@@ -1,7 +1,5 @@
 package dahu.lisp.compile
 
-import java.lang.invoke._
-
 import dahu.lisp._
 import dahu.model.ir.{CstF, ExprF}
 import dahu.recursion.Fix
@@ -10,6 +8,9 @@ import dahu.utils._
 
 import scala.collection.mutable
 import Env._
+import dahu.graphs.ASG
+import dahu.model.compiler.Algebras
+import dahu.model.compiler.Algebras.StringTree
 import dahu.model.functions.{Fun, FunAny}
 import dahu.model.math.bool
 
@@ -21,6 +22,11 @@ class Env(val parent: Option[Env] = None) {
       case Some(p) => p.data
       case _       => BiMap()
     }
+
+  private lazy val graph = ASG.ana[I, ExprF]((i: I) => data.get(i))
+  private lazy val print = graph.fixID.cata[StringTree](Algebras.printAlgebraTree)
+
+  def pprint(i: I): String = print.get(i).mkString(80)
 
 //  private val data: mutable.Map[Sym, V] = mutable.Map()
 
@@ -73,11 +79,23 @@ object Env {
       val i = e.getId(CstF(Value(f), Tag.unsafe.ofAny))
       e.setConstantValue(name, i)
     }
+    def recType(name: String, f: TagAny): Unit = {
+      require(name.startsWith("^"))
+      val i = e.getId(CstF(Value(f), Tag.unsafe.ofAny))
+      e.setConstantValue(name, i)
+    }
     rec("and", bool.And)
-    rec("+", int.Add)
-    rec("*", int.Times)
-    rec("min", int.Min)
+    rec("i+", int.Add)
+    rec("+", double.Add)
+    rec("i*", int.Times)
+    rec("*", double.Times)
+    rec("imin", int.Min)
+    rec("min", double.Min)
     rec("=", any.EQ[Any])
+
+    recType("^int", Tag.ofInt)
+    recType("^real", Tag.ofDouble)
+    recType("^str", Tag.ofString)
     e
   }
 
