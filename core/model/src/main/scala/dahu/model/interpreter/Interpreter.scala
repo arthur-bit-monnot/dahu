@@ -20,15 +20,15 @@ object Interpreter {
       Unknown(Set(id))
     case CstF(v, _) => FEval(v)
     case ComputationF(f, args, _) =>
-      args.sequence
+      args.ssequence
         .smap(as => Value(f.computeFromAny(as)))
-    case SequenceF(members, _) => members.sequence
+    case SequenceF(members, _) => members.ssequence
     case ProductF(members, t) =>
-      members.sequence
+      members.ssequence
         .smap(as => t.fromValues(as))
     case NoopF(x, _) => x
     case ITEF(cond, onTrue, onFalse, _) =>
-      Vec(cond, onTrue, onFalse).sequence
+      Vec(cond, onTrue, onFalse).ssequence
         .smap {
           case Vec(c, t, f) =>
             c match {
@@ -50,15 +50,15 @@ object Interpreter {
       }
     case CstF(v, _) => FEval(v)
     case ComputationF(f, args, _) =>
-      args.sequence
+      args.ssequence
         .smap(as => Value(f.computeFromAny(as)))
-    case SequenceF(members, _) => members.sequence
+    case SequenceF(members, _) => members.ssequence
     case ProductF(members, t) =>
-      members.sequence
+      members.ssequence
         .smap(as => t.fromValues(as))
     case NoopF(x, _) => x
     case ITEF(cond, onTrue, onFalse, _) =>
-      Vec(cond, onTrue, onFalse).sequence
+      Vec(cond, onTrue, onFalse).ssequence
         .smap {
           case Vec(c, t, f) =>
             c match {

@@ -1,5 +1,6 @@
 package dahu.model.products
 import cats.Id
+import dahu.model.functions.Fun1
 import dahu.model.input.Expr
 import dahu.model.types.Tag.Type
 import dahu.model.types.{Tag, TagAny, Value}

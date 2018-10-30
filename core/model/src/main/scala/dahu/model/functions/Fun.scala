@@ -6,16 +6,17 @@ import dahu.model.types._
 
 trait FunAny {
   def compute(args: Vec[Value]): Any
-  def computeFromAny(args: Vec[Any]): Any
+  def computeFromAny(args: Vec[Any]): Any = compute(args.asInstanceOf[Vec[Value]])
 
   def name: String
+  def outType: TagAny
 }
 
 abstract class Fun[O: Tag] extends FunAny {
   final val outType: Tag[O] = Tag[O]
   require(outType != null)
   def compute(args: Vec[Value]): O
-  def computeFromAny(args: Vec[Any]): O = compute(args.asInstanceOf[Vec[Value]])
+  override def computeFromAny(args: Vec[Any]): O = compute(args.asInstanceOf[Vec[Value]])
 
   def name: String
 

@@ -6,7 +6,7 @@ import dahu.constraints._
 import dahu.model.types._
 import dahu.constraints.domains._
 import dahu.utils._
-import dahu.model.functions.Fun
+import dahu.model.functions.{Fun, FunAny}
 import dahu.model.ir._
 import dahu.utils.errors._
 
@@ -41,7 +41,7 @@ object IntCSP {
   def domainOfType(typ: TagIsoInt[_]): IntervalDomain = IntervalDomain(typ.min, typ.max)
 
   def translate[T <: SubInt](e: Total[T]): Option[IntProblem.Expr] = {
-    def asIntFunction(f: Fun[_]): Option[Func] = {
+    def asIntFunction(f: FunAny): Option[Func] = {
       IntCompatibleFunc
         .compat(f)
         .map(icl =>

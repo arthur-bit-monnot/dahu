@@ -13,7 +13,7 @@ import spire.syntax.cfor
 trait Propagator {}
 
 object Propagator {
-  def forward(fun: Fun[_]): ForwardPropagator = fun match {
+  def forward(fun: FunAny): ForwardPropagator = fun match {
     case int.Add    => AddForwardPropagator
     case int.LEQ    => LEQForwardPropagator
     case int.EQ     => EqForwardPropagator
@@ -26,7 +26,7 @@ object Propagator {
       ForwardPropagator.default(f).getOrElse(unexpected("No propagator for $f"))
 
   }
-  def backward(fun: Fun[_]): BackwardPropagator = fun match {
+  def backward(fun: FunAny): BackwardPropagator = fun match {
     case int.Add    => AddBackwardPropagator
     case int.LEQ    => LEQBackwardPropagator
     case int.EQ     => EqBackwardPropagator
@@ -47,7 +47,7 @@ abstract class IntCompatibilityLayer {
 object IntCompatibleFunc {
   type IsoInt = TagIsoInt[Value]
   @unchecked
-  def compat(function: Fun[_]): Option[IntCompatibilityLayer] = function match {
+  def compat(function: FunAny): Option[IntCompatibilityLayer] = function match {
     case f: FunN[_, _] =>
       (f.inTypes, f.outType) match {
         case (it: IsoInt @unchecked, ot: IsoInt @unchecked) =>
@@ -101,7 +101,7 @@ trait ForwardPropagator {
 }
 object ForwardPropagator {
 
-  def default(f: Fun[_]): Option[ForwardPropagator] = {
+  def default(f: FunAny): Option[ForwardPropagator] = {
     IntCompatibleFunc
       .compat(f)
       .map(translator =>

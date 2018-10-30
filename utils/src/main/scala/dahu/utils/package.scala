@@ -50,7 +50,7 @@ package object utils {
   }
 
   implicit final class SequenceOps[F[_], G[_], A](private val lhs: F[G[A]]) extends AnyVal {
-    def sequence(implicit T: STraverse[F], App: SApplicative[G], ct: ClassTag[A]): G[F[A]] =
+    def ssequence(implicit T: STraverse[F], App: SApplicative[G], ct: ClassTag[A]): G[F[A]] =
       T.sequence[G, A](lhs)
 
   }

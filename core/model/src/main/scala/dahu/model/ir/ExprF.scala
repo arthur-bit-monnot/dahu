@@ -2,7 +2,7 @@ package dahu.model.ir
 
 import dahu.graphs.TreeNode
 import dahu.utils._
-import dahu.model.functions.Fun
+import dahu.model.functions.{Fun, FunAny}
 import dahu.model.input.{Ident, Lambda, TypedIdent}
 import dahu.model.products.{ProductTag, ProductTagAny}
 import dahu.model.types.{LambdaTag, SequenceTag, SequenceTagAny, Tag, TagIsoInt, Type, Value}
@@ -145,7 +145,7 @@ object CstF {
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }
 
-final case class ComputationF[@sp(Int) F](fun: Fun[_], args: Vec[F], typ: Type) extends Total[F] {
+final case class ComputationF[@sp(Int) F](fun: FunAny, args: Vec[F], typ: Type) extends Total[F] {
   require(typ != null)
   override def toString: String = {
 //    if(fun.name == "box" || fun.name == "unbox") args(0).toString
@@ -154,7 +154,7 @@ final case class ComputationF[@sp(Int) F](fun: Fun[_], args: Vec[F], typ: Type) 
   }
 }
 object ComputationF {
-  def apply[F: ClassTag](fun: Fun[_], args: Seq[F], tpe: Type): ComputationF[F] =
+  def apply[F: ClassTag](fun: FunAny, args: Seq[F], tpe: Type): ComputationF[F] =
     new ComputationF(fun, Vec.fromArray(args.toArray), tpe)
 
 }
@@ -169,7 +169,7 @@ object SequenceF {
 
 final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTagAny) extends Total[F] {
   override def toString: String =
-    typ.typ.toString
+    typ.toString
       .replaceFirst("\\[cats\\.Id\\]", "")
       .reverse
       .takeWhile(_ != '.')

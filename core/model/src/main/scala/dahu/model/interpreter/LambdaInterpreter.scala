@@ -35,15 +35,15 @@ object LambdaInterpreter {
           }
         case CstF(v, _) => FEval(v)
         case ComputationF(f, args, _) =>
-          args.sequence.smap { as =>
+          args.ssequence.smap { as =>
             f.compute(as)
           }
         case ProductF(members, t) =>
-          members.sequence.smap { ms =>
+          members.ssequence.smap { ms =>
             t.buildFromValues(ms)
           }
         case SequenceF(members, t) =>
-          members.sequence
+          members.ssequence
         case ITEF(cond, onTrue, onFalse, _) =>
           assert(cond.applicationStack.isEmpty)
           assert(onTrue.applicationStack == onFalse.applicationStack)

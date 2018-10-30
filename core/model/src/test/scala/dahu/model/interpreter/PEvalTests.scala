@@ -6,7 +6,7 @@ import utest._
 object PEvalTests extends TestSuite {
 
   def vec(es: PEval[Any]*): Vec[PEval[Any]] = Vec.fromSeq(es)
-  def seq(es: PEval[Any]*): PEval[Vec[Any]] = Vec.fromSeq(es).sequence
+  def seq(es: PEval[Any]*): PEval[Vec[Any]] = Vec.fromSeq(es).ssequence
 
   override def tests = Tests {
     "sequencing" - {

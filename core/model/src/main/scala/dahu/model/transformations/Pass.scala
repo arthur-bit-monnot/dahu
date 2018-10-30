@@ -5,7 +5,7 @@ import dahu.model.types.Value
 import dahu.utils._
 import cats.implicits._
 import cats.kernel.Order
-import dahu.model.functions.{Box, Fun, Reversible, Unbox}
+import dahu.model.functions._
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.products.FieldAccess
@@ -42,11 +42,11 @@ final class ComposedPass[LB[X] >: Total[X] <: ExprF[X]](passes: Seq[Pass[LB]])
 
 object Pass {
 
-  private def isBox(f: Fun[_]): Boolean = f match {
+  private def isBox(f: FunAny): Boolean = f match {
     case fr: Reversible[_, _] if fr.name == "box" => true
     case _                                        => false
   }
-  private def isUnbox(f: Fun[_]): Boolean = f match {
+  private def isUnbox(f: FunAny): Boolean = f match {
     case fr: Reversible[_, _] if fr.name == "unbox" => true
     case _                                          => false
   }
