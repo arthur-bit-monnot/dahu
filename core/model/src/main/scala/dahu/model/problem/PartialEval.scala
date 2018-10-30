@@ -4,8 +4,12 @@ import cats.implicits._
 import dahu.graphs.transformations.ManualTransformation
 import dahu.model.input.Lambda
 import dahu.model.ir._
+import dahu.model.math.bool
+import dahu.model.products.{FieldAccess, FieldAccessAny}
 import dahu.model.types._
 import dahu.utils._
+
+import scala.collection.mutable.ArrayBuffer
 
 object PartialEval extends ManualTransformation[ExprF, ExprF] {
 
@@ -29,6 +33,44 @@ object PartialEval extends ManualTransformation[ExprF, ExprF] {
         .sequence
 
     def peval(e: Map[Lambda.LambdaIdent, J])(i: I): J = oget(i) match {
+      case ComputationF(f: FieldAccessAny, Vec(arg), tpe) =>
+        nget(peval(e)(arg)) match {
+          case ProductF(members, _) => members(f.fieldPosition)
+          case _                    => nrec(ComputationF(f, Vec(peval(e)(arg)), tpe))
+
+        }
+      case ComputationF(bool.And, args, tpe) =>
+        val conjuncts = ArrayBuffer[J]()
+        for(a <- args) {
+          nget(peval(e)(a)) match {
+            case CstF(true, _)  =>
+            case CstF(false, _) => return nrec(bool.FalseF)
+            case x              => conjuncts += nrec(x)
+          }
+        }
+        if(conjuncts.isEmpty)
+          nrec(bool.TrueF)
+        else if(conjuncts.size == 1)
+          conjuncts(0)
+        else
+          nrec(ComputationF(bool.And, conjuncts.toVec, Tag.ofBoolean))
+
+      case ComputationF(bool.Or, args, tpe) =>
+        val conjuncts = ArrayBuffer[J]()
+        for(a <- args) {
+          nget(peval(e)(a)) match {
+            case CstF(false, _) =>
+            case CstF(true, _)  => return nrec(bool.TrueF)
+            case x              => conjuncts += nrec(x)
+          }
+        }
+        if(conjuncts.isEmpty)
+          nrec(bool.FalseF)
+        else if(conjuncts.size == 1)
+          conjuncts(0)
+        else
+          nrec(ComputationF(bool.Or, conjuncts.toVec, Tag.ofBoolean))
+
       case ComputationF(f, argsExprs, tpe) =>
         val args = argsExprs.map(peval(e)(_))
         known(args.toList) match {
