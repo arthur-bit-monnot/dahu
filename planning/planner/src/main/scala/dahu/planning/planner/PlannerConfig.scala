@@ -38,5 +38,5 @@ case class PlannerConfig(
     useExactDepth: Boolean = true,
     @HelpMessage(
       "If set to true, the planner will encode the problem but not run the solver, returning a failure.")
-    noSolve: Boolean = true
+    noSolve: Boolean = false
 )
