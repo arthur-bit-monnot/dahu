@@ -95,6 +95,11 @@ object dsl {
     def map0[B](f: Expr[A] => Expr[B])(implicit ta: Tag[A], tb: Tag[B]): Expr[Vec[B]] =
       map(Lambda(f))
 
+    def forall(predicate: Expr[A ->: Bool])(implicit tagA: Tag[A]): Expr[Bool] =
+      map(predicate).fold(bool.And)
+    def first: Expr[Optional[A]] = ???
+    def last: Expr[Optional[A]] = ???
+
     def size: Expr[Int] = sequence.Size.apply(lhs.asInstanceOf[Expr[Vec[Any]]])
   }
 
