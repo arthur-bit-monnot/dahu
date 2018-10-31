@@ -1,5 +1,7 @@
 package dahu.lisp
 
+import java.io.ObjectInputStream.GetField
+
 import cats._
 import cats.implicits._
 import dahu.graphs.{ASG, IDTop, OpenASG, RootedASG}
@@ -42,7 +44,13 @@ package object compile {
     def get(i: I): V = env.extractValue(i)
 
     e match {
-      case x: Sym    => env.getValue(x) //env.getCallSite(x).dynamicInvoker().invoke()
+      case x: Sym =>
+        env.getExistingCallSite(x) match {
+          case Some(i) => i
+          case None if x.name.startsWith(":") =>
+            env.getId(CstF.of(GetField(x.name.substring(1)), Tag.unsafe.ofAny))
+          case None => error(s"Unknown symbol $x")
+        }
       case x: Int    => env.getId(CstF(Value(x), Tag.ofInt))
       case x: Double => env.getId(CstF(Value(x), Tag.ofDouble))
       case x: String => env.getId(CstF(Value(x), Tag.ofString))
@@ -228,10 +236,10 @@ package object compile {
 
   type LispStr = String
 
-  def graphBuilder(env: RootEnv): ASG[LispStr, ExprF, Try] = {
-    new OpenASG[String, ExprF, Try, Env.I] {
-      override def getTreeRoot(k: String): Try[Env.I] = {
-        Try(eval(parse(k), env)(Quoted))
+  def graphBuilder(env: RootEnv): ASG[SExpr, ExprF, Try] = {
+    new OpenASG[SExpr, ExprF, Try, Env.I] {
+      override def getTreeRoot(k: SExpr): Try[Env.I] = {
+        Try(eval(k, env)(Quoted))
       }
       override def internalCoalgebra(i: I): ExprF[I] =
         env.extractValue(i)
@@ -240,7 +248,7 @@ package object compile {
 
   class Context(env: RootEnv) {
 
-    val graph: ASG[LispStr, ExprF, Try] = graphBuilder(env)
+    val graph: ASG[SExpr, ExprF, Try] = graphBuilder(env)
     val optGraph = {
       // TODO: we should not need to exapnd twice...
       val g1 = API.expandLambdasThroughPartialEval(graph)
@@ -248,14 +256,21 @@ package object compile {
     }
     val pprint = optGraph.fixID.cata[StringTree](Algebras.printAlgebraTree)
 
-    def show(raw: LispStr) = pprint.get(raw).map(_.mkString(80))
+    def show(raw: SExpr) = pprint.get(raw).map(_.mkString(40))
 
-    def treeOf(raw: LispStr): Try[Fix[ExprF]] = optGraph.rootedAt(raw).fullTree
+    def treeOf(raw: SExpr): Try[Fix[ExprF]] = optGraph.rootedAt(raw).fullTree
 
   }
 
+  def eval(se: SExpr, ctx: Context): Try[String] = {
+    ctx.show(se)
+  }
+
   def parseEval(str: String, ctx: Context): Try[String] = {
-    ctx.show(str)
+    for {
+      sexpr <- Try(parse(str))
+      res <- eval(sexpr, ctx)
+    } yield res
   }
 
   def format(e: Any): String = e match {

@@ -55,5 +55,6 @@ object Parser {
   )
 
   val parser: P[E] = Pass ~ expr ~ End
+  val parserMany: P[Seq[E]] = Pass ~ expr.rep ~ End
 
 }

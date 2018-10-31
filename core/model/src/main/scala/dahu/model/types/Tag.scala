@@ -45,6 +45,7 @@ object Tag extends LowPriorityTags {
 
 trait LowPriorityTags extends VeryLowPriorityTags {
   private case class DefaultTag[T: ClassTag](typ: universe.Type) extends Tag[T] {
+    override def toString: String = typ.toString
     override def clazz: ClassTag[T] = implicitly[ClassTag[T]]
   }
 

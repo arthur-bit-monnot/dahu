@@ -21,4 +21,5 @@ object BoolTag extends Tag[Bool] with RawInt {
   override def clazz: ClassTag[Bool] = scala.reflect.ClassTag.Int.asInstanceOf[ClassTag[Bool]]
   override def min: Int = 0
   override def max: Int = 1
+  override def toString: String = "Bool"
 }

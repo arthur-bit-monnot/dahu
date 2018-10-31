@@ -141,6 +141,8 @@ final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
 }
 object CstF {
 
+  def of[F](value: Any, typ: Type): CstF[F] = new CstF(Value(value), typ)
+
   /** Leaf node, with  artificial type parameters, allow implicit conversion as for InputF. */
   implicit def typeParamConversion[F, G](fa: CstF[F]): CstF[G] = fa.asInstanceOf[CstF[G]]
 }

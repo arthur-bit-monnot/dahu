@@ -115,6 +115,10 @@ object Env {
   def default(): RootEnv = {
     val e = new RootEnv()
 
+    def recVal(name: String, value: V): Unit = {
+      val i = e.getId(value)
+      e.setConstantValue(name, i)
+    }
     def rec(name: String, f: FunAny): Unit = {
       val i = e.getId(CstF(Value(f), Tag.unsafe.ofAny))
       e.setConstantValue(name, i)
@@ -125,16 +129,27 @@ object Env {
       e.setConstantValue(name, i)
     }
     rec("and", bool.And)
+    rec("or", bool.Or)
+    rec("not", bool.Not)
     rec("i+", int.Add)
     rec("+", double.Add)
     rec("i*", int.Times)
     rec("*", double.Times)
+    rec("/", double.Div)
+    rec("<", double.LT)
+    rec("<=", double.LEQ)
+    rec("neg", double.Negate)
     rec("imin", int.Min)
     rec("min", double.Min)
     rec("=", any.EQ[Any])
+    rec("read", ReadDouble)
+
+    recVal("true", bool.TrueF)
+    recVal("false", bool.FalseF)
 
     recType("^int", Tag.ofInt)
     recType("^real", Tag.ofDouble)
+    recType("^bool", Tag.ofBoolean)
     recType("^str", Tag.ofString)
     e
   }

@@ -24,6 +24,11 @@ package double {
     override val identity: Double = 0
   }
 
+  object Div extends Fun2[Double, Double, Double] {
+    override def of(in1: Double, in2: Double): Double = in1 / in2
+    override def name: String = "div"
+  }
+
   object Negate extends Fun1[Double, Double] {
     override def name: String = "neg"
     override def of(in: Double): Double = -in

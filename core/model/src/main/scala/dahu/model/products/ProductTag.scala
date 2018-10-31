@@ -7,6 +7,7 @@ import dahu.model.types.{Tag, TagAny, Value}
 import dahu.utils.{ClassTag, Vec}
 
 trait ProductTagAny extends TagAny {
+  def fields: Vec[Field]
   def fromValues(fields: Vec[Any]): Any
   def buildFromValues(fields: Vec[Value]): Any
 }
