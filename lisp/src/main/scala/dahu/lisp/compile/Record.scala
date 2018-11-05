@@ -1,6 +1,7 @@
 package dahu.lisp.compile
 import dahu.model.functions.{Fun2, FunAny}
-import dahu.model.ir.ProductF
+import dahu.model.input.Expr
+import dahu.model.ir.{ComputationF, ProductF}
 import dahu.model.products.{Field, ProductTagAny}
 import dahu.model.types._
 import dahu.utils._
@@ -40,16 +41,4 @@ case class GetField(fieldName: String) extends FunAny {
   }
   override def name: String = s"get-field($fieldName)"
   override def outType: Type = Tag.unsafe.ofAny
-}
-
-class Mem {
-  def readDouble(i: Int): Double = ???
-}
-object Mem {
-  implicit def tag: Tag[Mem] = Tag.default[Mem]
-}
-
-object ReadDouble extends Fun2[Mem, Int, Double] {
-  override def of(in1: Mem, in2: Int): Double = in1.readDouble(in2)
-  override def name: String = "read-double"
 }

@@ -142,7 +142,7 @@ object Env {
     rec("imin", int.Min)
     rec("min", double.Min)
     rec("=", any.EQ[Any])
-    rec("read", ReadDouble)
+//    rec("read", ReadDouble)
 
     recVal("true", bool.TrueF)
     recVal("false", bool.FalseF)

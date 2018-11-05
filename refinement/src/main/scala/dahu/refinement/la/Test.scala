@@ -1,119 +1,13 @@
 package dahu.refinement.la
 
 import dahu.matrix.{Matrix, MatrixFactory}
-import spire.syntax.cfor._
 
 import scala.util.Try
 
-object common {
-  type Addr = Int
-  type R = Double
+import dahu.refinement.common._
+import dahu.refinement._
 
-  type Params = Array[Addr]
-  type Values = Array[R]
-
-  /** Infinitesimal change for computing finite differences.
-    * Equal sqrt(10**-16) = 10**-8 (see Numerical Optimization Chap 7.1 for explanation)  */
-  val epsilon: R = 0.00001
-}
-import common._
-
-trait Memory {
-  def size: Int
-}
-
-trait RMemory extends Memory {
-  def read(addr: Addr): R
-  def dump: Values
-  def print(): Unit
-}
-trait WMemory extends Memory {
-  def write(addr: Addr, value: R): Unit
-  def load(values: Array[R]): Unit
-  def add(values: Array[R]): Unit
-}
-trait RWMemory extends RMemory with WMemory
-
-final class MemImpl(val size: Int) extends RWMemory {
-
-  private val mem: Values = new Array[R](size)
-
-  override def write(addr: Addr, value: R): Unit = mem(addr) = value
-  override def read(addr: Addr): R = mem(addr)
-  override def dump: Values = mem.clone()
-  override def load(values: Values): Unit =
-    values.indices.foreach(i => mem(i) = values(i))
-  override def add(values: Array[R]): Unit = {
-    values.indices.foreach(i => mem(i) += values(i))
-  }
-  override def print(): Unit =
-    mem.foreach(println)
-}
-
-trait Expr {
-  def params: Params
-  def eval(mem: RMemory): R
-  def gradient(mem: RMemory): Values
-}
-
-trait Fun {
-
-  def numParams: Int
-
-  def bind(addresses: Addr*): Expr = bindArray(addresses.toArray)
-  def bindArray(params: Array[Addr]): Expr = new ExprImpl(this, params)
-  def eval(params: Values): R
-
-  def writeGradient(values: Values, output: Array[R]): Unit = {
-    val center: R = eval(values)
-    var i = 0
-    while(i < numParams) {
-      values(i) += epsilon
-      val fi = eval(values)
-
-      val dfi = (fi - center) / epsilon
-      output(i) = dfi
-      values(i) -= epsilon
-      i += 1
-    }
-  }
-
-  def gradientAt(x: Values): Array[R] = {
-    val board = new Array[R](numParams)
-    writeGradient(x, board)
-    board
-  }
-
-}
-
-final class ExprImpl(fun: Fun, val params: Array[Addr]) extends Expr {
-  val inputSize: Int = params.length
-  assert(fun.numParams == params.length)
-
-  protected def loadValues(mem: RMemory, board: Values): Unit = {
-    assert(board.length >= inputSize)
-    cfor(0)(_ < inputSize, _ + 1) { i =>
-      board(i) = mem.read(params(i))
-    }
-  }
-
-  def evalWithBoard(mem: RMemory, board: Values): R = {
-    loadValues(mem, board)
-    fun.eval(board)
-  }
-
-  override def eval(mem: RMemory): R = {
-    val board: Values = new Array[R](params.length)
-    evalWithBoard(mem, board)
-  }
-  override def gradient(mem: RMemory): Values = {
-    val values: Values = new Array[R](params.length)
-    loadValues(mem, values)
-    fun.gradientAt(values)
-  }
-}
-
-class LeastSquares(residuals: Seq[Expr]) {
+class LeastSquares(residuals: Seq[RefExpr]) {
 
   val numVars: Int = residuals.map(_.params.max).max
 
@@ -193,12 +87,14 @@ class LeastSquares(residuals: Seq[Expr]) {
     mem.add(update)
   }
 
-  class LMIterator(val tau: Double, val goodUpdate: Double, mem: RWMemory) {
+  class LMIterator(val tau: Double, val goodUpdate: Double, val errorLimit: Double, mem: RWMemory) {
 
-    def this(mem: RWMemory) = this(tau = 0.00001, goodUpdate = 0.5, mem)
+    def this(mem: RWMemory) = this(tau = 0.00001, goodUpdate = 0.5, errorLimit = 1e-4, mem)
 
     var lambda: Double = -1
     var lastGood = mem.dump
+
+    // sum of residuals
     var lastChi = -1.0
     var ni = 2
 
@@ -225,7 +121,7 @@ class LeastSquares(residuals: Seq[Expr]) {
           .getOrElse(sys.exit(1))
 
       def finite(d: Double): Boolean = {
-        d != Double.NaN && d != Double.NegativeInfinity && d != Double.PositiveInfinity
+        !d.isNaN && !d.isInfinity
       }
 
       mem.add(update)
@@ -255,7 +151,8 @@ class LeastSquares(residuals: Seq[Expr]) {
     val it = new LMIterator(mem)
 
     for(i <- 0 until numIters)
-      it.next()
+      if(it.lastChi < 0 || it.lastChi > it.errorLimit)
+        it.next()
 
   }
 }
@@ -281,7 +178,7 @@ object Test extends App {
     override def numParams: Addr = 1
     override def eval(params: Values): R = if(params(0) < 1) 0 else params(0) - 1
   }
-  def at(x: Addr, y: Addr, d: Int): Expr = {
+  def at(x: Addr, y: Addr, d: Int): RefExpr = {
     val f = new Fun {
       override def numParams: Addr = 2
       override def eval(params: Values): R = {
