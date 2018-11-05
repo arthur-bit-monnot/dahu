@@ -87,13 +87,15 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
 
     while(queue.nonEmpty) {
       val cur = queue.pop()
-      val fcur = internalCoalgebra(cur)
-      if(tn.children(fcur).forall(visited)) {
-        visited += cur
-        result += ((cur, fcur))
-      } else {
-        queue.push(cur)
-        queue.pushAll(tn.children(fcur))
+      if(!visited.contains(cur)) {
+        val fcur = internalCoalgebra(cur)
+        if(tn.children(fcur).forall(visited)) {
+          visited += cur
+          result += ((cur, fcur))
+        } else {
+          queue.push(cur)
+          queue.pushAll(tn.children(fcur))
+        }
       }
     }
     result.toList
