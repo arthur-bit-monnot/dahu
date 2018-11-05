@@ -20,6 +20,9 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
   def map[G[_]](f: F[ID] => G[ID]): LazyTree[K, G, Opt, ID] =
     LazyTree(tree.mapInternal(f))(root)
 
+  def ofRoot(implicit F: Functor[Opt]): Opt[F[InternalID]] =
+    tree.getTreeRoot(root).map(i => tree.internalCoalgebra(i))
+
   def eval[V: ClassTag](
       f: F[V] => V)(implicit F: Functor[Opt], SF: SFunctor[F], T: TreeNode[F]): Opt[V] =
     tree.cata(f).get(root)

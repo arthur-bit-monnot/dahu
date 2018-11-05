@@ -34,6 +34,11 @@ package double {
     override def of(in: Double): Double = -in
   }
 
+  object Abs extends Fun1[Double, Double] {
+    override def name: String = "abs"
+    override def of(in: Double): Double = math.abs(in)
+  }
+
   object Min extends Fun2[Double, Double, Double] {
     override def name: String = "min"
 

@@ -79,7 +79,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
       override def internalCoalgebra(i: InternalID): F[InternalID] = self.internalCoalgebra(i)
     }
 
-  def nodes(root: ID)(implicit tn: TreeNode[F]): Seq[(ID, F[ID])] = {
+  def descendants(root: ID)(implicit tn: TreeNode[F]): Seq[(ID, F[ID])] = {
     val queue = mutable.Stack[ID]()
     val visited = mutable.HashSet[ID]()
     val result = mutable.ArrayBuffer[(ID, F[ID])]()

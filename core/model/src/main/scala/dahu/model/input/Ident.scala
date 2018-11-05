@@ -5,6 +5,11 @@ final case class Ident(scope: Scope, lid: LocalIdent) {
   override def toString: String =
     if(scope.isRoot) lid.toString
     else scope.toString + "." + lid.toString
+
+  def subIdent(name: String): Ident = {
+    val s = scope.subScope(lid.toString, scope.present)
+    Ident(s, name)
+  }
 }
 object Ident {
   def apply[LocalId](scope: Scope, lid: LocalId): Ident =

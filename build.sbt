@@ -231,7 +231,7 @@ lazy val matrix = project
 
 lazy val refinement = project
   .in(file("refinement"))
-  .dependsOn(model, matrix)
+  .dependsOn(model, matrix, lisp)
   .settings(commonSettings ++ utestSettings: _*)
 
 lazy val lisp = project

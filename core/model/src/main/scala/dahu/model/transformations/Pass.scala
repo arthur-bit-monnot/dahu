@@ -8,7 +8,7 @@ import cats.kernel.Order
 import dahu.model.functions._
 import dahu.model.ir._
 import dahu.model.math._
-import dahu.model.products.FieldAccess
+import dahu.model.products.{Constructor, Field, FieldAccess, GetField}
 import dahu.model.types._
 import spire.math.Interval
 import spire.syntax.cfor._
@@ -319,6 +319,10 @@ object Pass {
   final val extractField: Pass[Total] = new Pass[Total]("extract-field") {
     def optim[I <: Int, F[X] >: Total[X] <: ExprF[X]](
         implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
+
+      case x @ ComputationF(ctor: Constructor, args, _) =>
+        ProductF(args, ctor.outType)
+
       case x @ ComputationF(fa: FieldAccess[_, _], Vec(p), _) =>
         ctx.retrieve(p) match {
           case ProductF(members, _) =>
@@ -328,7 +332,20 @@ object Pass {
             x
         }
       case ComputationF(fa: FieldAccess[_, _], _, _) => unexpected
-      case x                                         => x
+      case x @ ComputationF(fa: GetField, Vec(p), _) =>
+        ctx.retrieve(p) match {
+          case ProductF(members, tpe) =>
+            tpe.fields.toSeq.find(_.name == fa.fieldName) match {
+              case Some(Field(_, _, position)) =>
+                ctx.retrieve(members(position))
+              case None =>
+                x
+            }
+
+          case unmatched =>
+            x
+        }
+      case x => x
     }
   }
 

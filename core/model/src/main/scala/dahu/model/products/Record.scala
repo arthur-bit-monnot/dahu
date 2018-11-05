@@ -1,4 +1,5 @@
-package dahu.lisp.compile
+package dahu.model.products
+
 import dahu.model.functions.{Fun2, FunAny}
 import dahu.model.input.Expr
 import dahu.model.ir.{ComputationF, ProductF}
@@ -14,7 +15,7 @@ case class RecordType(name: String, fields: Vec[Field]) extends ProductTagAny {
   override def typ: Tag.Type = ???
   override def clazz: ClassTag[_] = implicitly[ClassTag[ProductF[Any]]]
 
-  override def toString: LispStr = name
+  override def toString: String = name
 }
 object RecordType {
   def apply(name: String, _fields: Seq[(Type, String)]): RecordType = {
@@ -25,20 +26,10 @@ object RecordType {
   }
 }
 
-case class GetField(fieldName: String) extends FunAny {
-  override def compute(args: Vec[Value]): Any = {
-    require(args.size == 1)
-    args(0) match {
-      case a @ ProductF(members, tpe) =>
-        tpe.fields.toSeq.find(_.name == fieldName) match {
-          case Some(Field(_, _, i)) => members(i)
-          case None =>
-            dahu.utils.errors.unexpected(s"Product object $a has no field named $fieldName")
-        }
-      case x => dahu.utils.errors.unexpected(s"Object $x is not a product object.")
-    }
-
+case class Constructor(tpe: RecordType) extends FunAny {
+  override def compute(args: Vec[Value]): ProductF[Value] = {
+    ProductF[Value](args, tpe)
   }
-  override def name: String = s"get-field($fieldName)"
-  override def outType: Type = Tag.unsafe.ofAny
+  override def name: String = tpe.name + "."
+  override def outType: RecordType = tpe
 }

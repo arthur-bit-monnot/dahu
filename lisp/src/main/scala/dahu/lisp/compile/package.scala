@@ -1,6 +1,6 @@
 package dahu.lisp
 
-import java.io.ObjectInputStream.GetField
+import java.io.File
 
 import cats._
 import cats.implicits._
@@ -10,17 +10,19 @@ import dahu.lisp.keywords._
 import dahu.model.compiler.Algebras
 import dahu.model.compiler.Algebras.StringTree
 import dahu.model.functions.{Fun, FunAny}
-import dahu.model.input.Lambda
+import dahu.model.input.{Ident, Lambda, Scope, TypedIdent}
 import dahu.model.ir._
 import dahu.model.problem.API
-import dahu.model.products.{FieldAccess, FieldAccessAny, ProductTagAny}
+import dahu.model.products._
 import dahu.model.types.LambdaTag.LambdaTagImpl
 import dahu.model.types.SequenceTag.SequenceTagImplAny
 import dahu.model.types._
 import dahu.recursion.Fix
 import dahu.utils._
+import fastparse.core.Parsed
 
-import scala.util.Try
+import scala.io.Source
+import scala.util.{Failure, Success, Try}
 
 object log {
   val logLevel = 3
@@ -95,7 +97,22 @@ package object compile {
         val value = eval(expr, env)
         env.setConstantValue(label, value)
         value
-//      case Nil => false
+
+      case Sym("defvar") :: rest =>
+        rest match {
+          case (tpe: Sym) :: Sym(name) :: Nil =>
+            env.getExistingCallSite(tpe).map(get) match {
+              case Some(CstF(tpe: TagAny, _)) =>
+                val ident = TypedIdent(Ident(Scope.root, name), tpe)
+                val i = record(InputF(ident, tpe))
+                env.setConstantValue(name, i)
+                i
+              case None    => error(s"Unknown type: $tpe")
+              case Some(x) => error(s"Expected type but got: $x")
+            }
+          case x => error("Malformed var definition")
+
+        }
       case Sym("defstruct") :: Sym(recordName) :: rest =>
         def extractFields(l: List[Any]): List[(TagAny, String)] = l match {
           case Nil => Nil
@@ -115,13 +132,7 @@ package object compile {
         env.setConstantValue(s"^$recordName", tpeId)
 
         log.verbose(s"Recording constructor '$recordName' for a record type")
-        val ctor = new FunAny {
-          override def compute(args: Vec[Value]): Any = {
-            ProductF[Value](args, r)
-          }
-          override def name: String = recordName
-          override def outType: Type = r
-        }
+        val ctor = Constructor(r)
         val ctorId = record(CstF(Value(ctor), Tag.unsafe.ofAny))
         env.setConstantValue(recordName, ctorId)
         for(((fieldType, fieldName), i) <- fields.zipWithIndex) {
@@ -246,13 +257,18 @@ package object compile {
     }
   }
 
-  class Context(env: RootEnv) {
+  class Context(env: RootEnv, trans: Option[Transformation[ExprF, ExprF]] = None) {
 
     val graph: ASG[SExpr, ExprF, Try] = graphBuilder(env)
+    val transGraph = trans match {
+      case Some(transformation) => graph.transform(transformation)
+      case _                    => graph
+    }
     val optGraph = {
       // TODO: we should not need to exapnd twice...
-      val g1 = API.expandLambdasThroughPartialEval(graph)
-      API.expandLambdasThroughPartialEval(g1)
+      val g1 = API.expandLambdasThroughPartialEval(transGraph)
+      val g2 = API.expandLambdasThroughPartialEval(g1)
+      API.expandLambdasThroughPartialEval(g2)
     }
     val pprint = optGraph.fixID.cata[StringTree](Algebras.printAlgebraTree)
 
@@ -276,6 +292,31 @@ package object compile {
   def format(e: Any): String = e match {
     case l: List[_] => l.map(format).mkString("(", " ", ")")
     case e          => e.toString
+  }
+
+  def evalMany(sourceCode: String)(implicit ctx: Context): Unit = {
+    val ast = dahu.lisp.parser.parseMany(sourceCode) match {
+      case Parsed.Success(sexprs, _) => sexprs
+      case x =>
+        println("Failed to parse:")
+        println(x)
+        sys.exit(1)
+    }
+    for(e <- ast) {
+      dahu.lisp.compile.eval(e, ctx) match {
+        case Success(res) =>
+          println(res)
+        case Failure(e) =>
+          e.printStackTrace()
+          sys.exit(1)
+      }
+    }
+  }
+
+  def evalFile(filename: String)(implicit ctx: Context): Unit = {
+    println(s"Parsing $filename")
+    val sourceCode = Source.fromFile(new File(filename)).getLines().fold("")((a, b) => a + "\n" + b)
+    evalMany(sourceCode)
   }
 
 }

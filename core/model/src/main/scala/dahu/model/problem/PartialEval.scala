@@ -5,7 +5,7 @@ import dahu.graphs.transformations.ManualTransformation
 import dahu.model.input.Lambda
 import dahu.model.ir._
 import dahu.model.math.bool
-import dahu.model.products.{FieldAccess, FieldAccessAny}
+import dahu.model.products.{Field, FieldAccess, FieldAccessAny, GetField}
 import dahu.model.types._
 import dahu.utils._
 
@@ -33,6 +33,21 @@ object PartialEval extends ManualTransformation[ExprF, ExprF] {
         .sequence
 
     def peval(e: Map[Lambda.LambdaIdent, J])(i: I): J = oget(i) match {
+
+      case ComputationF(f: GetField, Vec(arg), _) =>
+        val newArg = peval(e)(arg)
+        nget(newArg) match {
+          case ProductF(members, tpe) =>
+            tpe.fields.toSeq.find(_.name == f.fieldName) match {
+              case Some(Field(_, _, pos)) =>
+                members(pos)
+              case None =>
+                nrec(ComputationF(f, Vec(newArg), f.outType))
+            }
+          case x =>
+//            println(x)
+            nrec(ComputationF(f, Vec(newArg), f.outType))
+        }
       case ComputationF(f: FieldAccessAny, Vec(arg), tpe) =>
         nget(peval(e)(arg)) match {
           case ProductF(members, _) => members(f.fieldPosition)

@@ -34,7 +34,7 @@ class LeastSquares(residuals: Seq[RefExpr]) {
   }
 
   def solveLinear: RWMemory = {
-    val zeroMem = new MemImpl(numVars)
+    val zeroMem = new MemImpl()
     val J = jacobian(zeroMem)
 
     // residuals at 0
@@ -159,7 +159,7 @@ class LeastSquares(residuals: Seq[RefExpr]) {
 
 object Test extends App {
 
-  val mem: RWMemory = new MemImpl(4)
+  val mem: RWMemory = new MemImpl()
   val x1: Addr = 0
   val x2: Addr = 1
   val y1: Addr = 2
@@ -214,7 +214,7 @@ object Test extends App {
 
   //
 
-  val zeroMem = new MemImpl(4)
+  val zeroMem = new MemImpl()
 
   ls.lmIteration(zeroMem, 10)
 
