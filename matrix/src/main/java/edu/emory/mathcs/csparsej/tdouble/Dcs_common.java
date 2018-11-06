@@ -84,6 +84,10 @@ public class Dcs_common {
 
         }
 
+        @Override
+        public String toString() {
+            return String.format("%s x %s", n, m);
+        }
     };
 
     /**

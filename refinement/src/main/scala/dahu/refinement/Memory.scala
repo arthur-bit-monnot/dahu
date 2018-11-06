@@ -1,6 +1,9 @@
 package dahu.refinement
 
 import common._
+import dahu.model.input.TypedIdent
+
+import scala.util.Random
 
 trait Memory {
   def size: Int
@@ -11,7 +14,7 @@ trait RMemory extends Memory {
   def dump: Values
   def print(): Unit
 
-  def addressOf(name: String): Addr
+  def addressOf(name: TypedIdent): Addr
 
 }
 trait WMemory extends Memory {
@@ -27,22 +30,30 @@ final class MemImpl() extends RWMemory {
   def size: Int = mem.length
 
 //  private val mem: Values = new Array[R](size)
-  private val map = debox.Map[String, Addr]()
+  private val map = debox.Map[TypedIdent, Addr]()
 
   override def write(addr: Addr, value: R): Unit = mem(addr) = value
   override def read(addr: Addr): R = mem(addr)
   override def dump: Values = mem.toArray()
-  override def load(values: Values): Unit =
-    values.indices.foreach(i => mem(i) = values(i))
+  override def load(values: Values): Unit = {
+    values.indices.foreach(
+      i =>
+        if(mem.length == i)
+          mem.insert(i, values(i))
+        else
+          mem(i) = values(i))
+  }
   override def add(values: Array[R]): Unit = {
     values.indices.foreach(i => mem(i) += values(i))
   }
   override def print(): Unit =
-    mem.foreach(println)
+    map.foreach((id, addr) => println(s"$id -> ${mem(addr)}"))
+//    mem.foreach(println)
 
-  override def addressOf(name: String): Addr = {
+  override def addressOf(name: TypedIdent): Addr = {
     if(!map.contains(name)) {
       map(name) = size
+      mem += 0.0 //(Random.nextDouble() - 0.5) * 100
     }
     map(name)
   }

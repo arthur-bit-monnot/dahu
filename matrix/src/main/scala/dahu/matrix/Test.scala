@@ -47,7 +47,8 @@ class Matrix(private val M: Dcs) { lhs =>
     new Matrix(res)
   }
   def *(rhs: Array[Double]): Array[Double] = {
-    val res = new Array[Double](rhs.size)
+    require(rhs.length == M.n)
+    val res = new Array[Double](M.m)
     Dcs_gaxpy.cs_gaxpy(M, rhs, res)
     res
   }

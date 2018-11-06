@@ -1,5 +1,6 @@
 package dahu.model.math
 
+import dahu.geometry.Shape
 import dahu.model.functions._
 import dahu.model.input.{Cst, Expr}
 import dahu.model.ir.CstF
@@ -56,6 +57,16 @@ package double {
   object LT extends Fun2[Double, Double, Bool] {
     override def name: String = "lt"
     override def of(in1: Double, in2: Double): Bool = Bool.asBool(in1 < in2)
+  }
+
+  object SQRT extends Fun1[Double, Double] {
+    override def name: String = "sqrt"
+    override def of(in: Double): Double = math.sqrt(in)
+  }
+
+  object POW extends Fun2[Double, Double, Double] {
+    override def name: String = "pow"
+    override def of(base: Double, exponent: Double): Double = math.pow(base, exponent)
   }
 
 }
@@ -134,6 +145,11 @@ package object bool {
 
 package object sequence {
 
+  class ListBuilder[T: Tag] extends FunN[T, Vec[T]] {
+    override def of(args: Seq[T]): Vec[T] = Vec.fromSeq(args)(Tag[T].clazz)
+    override def name: String = "list"
+  }
+
   object EQ extends Fun2[Vec[Int], Vec[Int], Bool] {
     override def of(in1: Vec[Int], in2: Vec[Int]): Bool = Bool.asBool(in1 == in2)
 
@@ -180,4 +196,40 @@ package object any {
     override def name: String = "any-eq"
   }
   def EQ[T]: Fun2[T, T, Bool] = EQSingleton
+}
+
+package object geom {
+  implicit val shapeTag = Tag.default[Shape]
+
+  object Point extends Fun2[Double, Double, Shape] {
+    override def of(x: Double, y: Double): Shape = Shape.point(x, y)
+    override def name: String = "point"
+  }
+
+  object Circle extends Fun3[Double, Double, Double, Shape] {
+    override def of(x: Double, y: Double, radius: Double): Shape = Shape.circle(x, y, radius)
+    override def name: String = "circle"
+  }
+
+  object Rectangle extends Fun4[Double, Double, Double, Double, Shape] {
+    override def of(x: Double, y: Double, h: Double, w: Double): Shape = Shape.rect(x, y, h, w)
+    override def name: String = "rectangle"
+  }
+
+  object Polygon extends FunN[Double, Shape] {
+    override def of(args: Seq[Double]): Shape = {
+      def pairs(xys: List[Double]): List[(Double, Double)] = xys match {
+        case x :: y :: tail => (x, y) :: pairs(tail)
+        case Nil            => Nil
+        case _              => dahu.utils.errors.unexpected("Not a pair numbers of points in polygon")
+      }
+      Shape.polygon(pairs(args.toList): _*)
+    }
+    override def name: String = "polygon"
+  }
+
+  object SignedDist extends Fun3[Shape, Double, Double, Double] {
+    override def of(shape: Shape, x: Double, y: Double): Double = shape.distTo(x, y)
+    override def name: String = "signed-dist"
+  }
 }

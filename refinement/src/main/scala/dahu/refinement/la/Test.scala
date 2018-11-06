@@ -104,6 +104,7 @@ class LeastSquares(residuals: Seq[RefExpr]) {
       numIters += 1
       println(s"\n----- New iteration $numIters -----")
       val residuals = evalResiduals(mem).toArray
+      println("Residuals: " + residuals.mkString(" "))
       lastGood = mem.dump
       lastChi = residuals.map(x => x * x).sum
       val J = jacobian(mem)
@@ -113,7 +114,13 @@ class LeastSquares(residuals: Seq[RefExpr]) {
         lambda = tau * J.max
       }
 
-      val lhs = J.T * J + Matrix.diagonal(residuals.length, lambda)
+//      println(s"residuals: ${residuals.mkString(" -- ")}")
+//      println("J: ")
+//      J.print()
+//      println("J.T * J")
+//      (J.T * J).print()
+
+      val lhs = J.T * J + Matrix.diagonal(J.n, lambda)
       val rhs = J.T * residuals.map(_ * (-1.0))
       val update =
         Try(lhs.solveCholSol(rhs))

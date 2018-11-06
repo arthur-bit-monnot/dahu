@@ -38,6 +38,8 @@
                                               (>= (:d cs) 30))))
 
 
-(define s (dstate 10.0 0.0 true))
-(not-blown s)
-(in-limits s)
+(define running-state (dstate 10.0 0.0 true))
+(define goal-state (dstate 10.0 0.0 false))
+
+(define running-in-limits (in-limits running-state))
+(define goal-in-limits (in-limits goal-state))

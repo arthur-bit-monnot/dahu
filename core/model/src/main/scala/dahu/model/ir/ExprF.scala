@@ -159,6 +159,11 @@ object ComputationF {
   def apply[F: ClassTag](fun: FunAny, args: Seq[F], tpe: Type): ComputationF[F] =
     new ComputationF(fun, Vec.fromArray(args.toArray), tpe)
 
+  def apply[F: ClassTag](fun: FunAny, args: F*): ComputationF[F] =
+    new ComputationF(fun, Vec.fromArray(args.toArray), fun.outType)
+
+  def apply[F: ClassTag](fun: FunAny, args: Vec[F]): ComputationF[F] =
+    new ComputationF(fun, args, fun.outType)
 }
 
 final case class SequenceF[@sp(Int) F](members: Vec[F], typ: SequenceTagAny) extends Total[F] {

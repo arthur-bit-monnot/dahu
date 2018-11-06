@@ -133,6 +133,7 @@ lazy val utils = project
     libraryDependencies ++= Seq(
       "org.spire-math" %% "debox" % "0.8.0",
       "org.typelevel" %% "cats-core" % "1.1.0",
+      "com.vividsolutions" % "jts" % "1.13"
     ))
 
 lazy val recursion = project
@@ -240,7 +241,8 @@ lazy val lisp = project
   .settings(commonSettings ++ utestSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "fastparse" % "1.0.0" 
+      "com.lihaoyi" %% "fastparse" % "1.0.0",
+      "com.vividsolutions" % "jts" % "1.13"
     ))
 
 

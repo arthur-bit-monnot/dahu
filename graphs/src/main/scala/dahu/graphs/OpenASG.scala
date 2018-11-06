@@ -30,6 +30,19 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
     getTreeRoot(k)
   }
 
+  override def prepro[L](f: L => K): OpenASG[L, F, Opt, InternalID] =
+    new OpenASG[L, F, Opt, InternalID] {
+      override def getTreeRoot(k: L): Opt[InternalID] = self.getTreeRoot(f(k))
+      override def internalCoalgebra(i: InternalID): F[self.ID] = self.internalCoalgebra(i)
+    }
+  override def flatPrepro[L](f: L => Opt[K])(
+      implicit m: Monad[Opt]): OpenASG[L, F, Opt, InternalID] =
+    new OpenASG[L, F, Opt, InternalID] {
+      override def getTreeRoot(l: L): Opt[InternalID] =
+        m.flatMap(f(l))((k: K) => self.getTreeRoot(k))
+      override def internalCoalgebra(i: InternalID): F[self.ID] = self.internalCoalgebra(i)
+    }
+
   def mapInternal[G[_]](f: F[ID] => G[ID]): OpenASG[K, G, Opt, ID] =
     InternalMappedLazyForest(this)(f)
 

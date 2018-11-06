@@ -12,6 +12,9 @@ trait ASG[K, F[_], Opt[_]] {
 
   sealed trait Marker
 
+  def prepro[L](f: L => K): ASG[L, F, Opt]
+  def flatPrepro[L](f: L => Opt[K])(implicit m: Monad[Opt]): ASG[L, F, Opt]
+
   def rootedAt(root: K): RootedASG[K, F, Opt] = RootedASG(root, this)
 
   def fixID: OpenASG[K, F, Opt, SubSubInt[IDTop, Marker]]
