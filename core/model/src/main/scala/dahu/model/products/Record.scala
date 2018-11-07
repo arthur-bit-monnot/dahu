@@ -10,6 +10,7 @@ import dahu.utils._
 
 case class RecordType(name: String, fields: Vec[Field]) extends ProductTagAny {
 
+  override def getField(i: Int, product: Any): Any = product.asInstanceOf[ProductF[Any]].members(i)
   override def fromValues(fields: Vec[Any]): Any = ProductF[Any](fields, this)
   override def buildFromValues(fields: Vec[Value]): Any = ProductF[Value](fields, this)
 
@@ -30,6 +31,7 @@ object RecordType {
 import Tag.unsafe.ofAny
 
 case class Constructor(tpe: RecordType) extends FunAny {
+  override def arity: Option[Int] = None
   override def compute(args: Vec[Value]): ProductF[Value] = {
     ProductF[Value](args, tpe)
   }

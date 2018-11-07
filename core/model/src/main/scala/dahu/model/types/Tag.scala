@@ -35,6 +35,7 @@ object Tag extends LowPriorityTags {
   def typeOf[T](implicit ttag: universe.WeakTypeTag[T]): universe.Type = ttag.tpe
 
   implicit val ofInt: Tag[Int] = TagIsoInt.ofInt
+  implicit val ofType: Tag[TagAny] = Tag.default[TagAny]
 
   object unsafe {
 

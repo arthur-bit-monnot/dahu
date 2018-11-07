@@ -256,7 +256,11 @@ object Lambda {
 
     override def equals(o: scala.Any): Boolean = o match {
       case li: LambdaIdent =>
-        Objects.equals(treeShape, li.treeShape) &&
+        if(this eq li) true
+        else if(treeShape == null || li.treeShape == null)
+          false
+        else
+          Objects.equals(treeShape, li.treeShape) &&
           name == li.name && qualifier == li.qualifier
       case _ => false
     }

@@ -4,6 +4,7 @@ import dahu.geometry.Shape
 import dahu.model.functions._
 import dahu.model.input.{Cst, Expr}
 import dahu.model.ir.CstF
+import dahu.model.products.ProductTagAny
 import dahu.model.types._
 import dahu.utils.Vec
 
@@ -148,6 +149,7 @@ package object sequence {
   class ListBuilder[T: Tag] extends FunN[T, Vec[T]] {
     override def of(args: Seq[T]): Vec[T] = Vec.fromSeq(args)(Tag[T].clazz)
     override def name: String = "list"
+    override def outType: SequenceTag[T] = SequenceTag.apply[T]
   }
 
   object EQ extends Fun2[Vec[Int], Vec[Int], Bool] {
@@ -156,14 +158,15 @@ package object sequence {
   }
 
   trait Concat[A] extends Monoid[Vec[A]] {}
-  def Concat[A: Tag: ClassTag]: Monoid[Vec[A]] = new Monoid[Vec[A]] {
+  def Concat[A: Tag]: Concat[A] = new Concat[A] {
+    private implicit def clazzTag: ClassTag[A] = Tag[A].clazz
     override def tpe: Tag[Vec[A]] = SequenceTag[A]
     override def combine(lhs: Vec[A], rhs: Vec[A]): Vec[A] = lhs ++ rhs
     override val identity: Vec[A] = Vec.empty[A]
     override def name: String = "concat"
   }
 
-  implicit val tagOfAny: Tag[Any] = Tag.default[Any]
+  implicit val tagOfAny: Tag[Any] = Tag.unsafe.ofAny
   implicit val tagOfVecAny: Tag[Vec[Any]] = SequenceTag[Any]
   case object Size extends Fun1[Vec[Any], Int] {
     override def of(in: Vec[Any]): Int = in.size
@@ -196,7 +199,7 @@ package object sequence {
 
   final private case class FirstImpl[I: Tag]() extends First[I] {
     override def of(in: Vec[I]): I = in.firstUnsafe
-    override def name: String = "last"
+    override def name: String = "first"
   }
 
   sealed abstract class AllConsecutive[I: Tag]
@@ -220,7 +223,7 @@ package object sequence {
         Bool.True
       }
     }
-    override def name: String = "all-consecutive"
+    override def name: String = "forall-consecutive"
   }
 
   sealed trait FirstMatches[I] extends Fun2[Vec[I], I ->: Bool, Bool]
@@ -250,7 +253,7 @@ package object sequence {
 
 package object any {
 
-  private[this] implicit val anyTag: Tag[Any] = Tag.default[Any]
+  import Tag.unsafe.ofAny
 
   sealed trait EQ
 
@@ -259,6 +262,31 @@ package object any {
     override def name: String = "any-eq"
   }
   def EQ[T]: Fun2[T, T, Bool] = EQSingleton
+
+  object TypeOf extends Fun1[Any, TagAny] {
+    override def isMacro: Boolean = true
+    override def of(in: Any): TagAny =
+      dahu.utils.errors.unexpected("TypeOf should be compile time only")
+    override def name: String = "type-of"
+  }
+}
+
+package object products {
+
+  private implicit val funAnyTag = Tag.default[FunAny]
+
+  object Extractor extends Fun2[String, TagAny, FunAny] {
+    override def of(in1: String, in2: TagAny): FunAny = in2 match {
+      case prod: ProductTagAny =>
+        prod.getAccessorAny(in1) match {
+          case Some(accessor) => accessor
+          case None           => dahu.utils.errors.unexpected(s"No field named $in1 in type $prod")
+        }
+      case tpe => dahu.utils.errors.unexpected(s"Type $tpe is not a product type ")
+    }
+    override def name: String = "extractor"
+  }
+
 }
 
 package object geom {

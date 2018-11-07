@@ -70,6 +70,8 @@ class RootEnv extends Env {
   }
 
   def setConstantValue(a: String, value: I): Unit = {
+    if(index.contains(Sym(a)))
+      println(s"WARNING: redifining $a")
     index(Sym(a)) = value
   }
 
@@ -101,6 +103,8 @@ class SubEnv(val parent: Env) extends Env {
   }
 
   def setConstantValue(a: String, value: I): Unit = {
+    if(index.contains(Sym(a)))
+      println(s"WARNING: redifining $a")
     index(Sym(a)) = value
   }
 

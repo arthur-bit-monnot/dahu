@@ -14,6 +14,10 @@ import scala.runtime.ScalaRunTime
 import scala.collection.immutable.Iterable
 
 sealed trait ExprF[@sp(Int) F] {
+
+//  if(typ == Tag.unsafe.ofAny && !this.isInstanceOf[LambdaParamF[_]])
+//    System.err.println("ANY: " + this)
+
   def typ: Type
 
   override final lazy val hashCode: Int = ExprF.hash(this)
@@ -137,6 +141,8 @@ object InputF {
 
 final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
   assert(!typ.isBoolean || value == 0 || value == 1)
+//  if(value == 0 && typ == Tag.unsafe.ofAny)
+//    System.err.println(this.toString + " " + typ)
 //  assert(!typ.isInstanceOf[TagIsoInt[_]])
   override def toString: String = value.toString
 }

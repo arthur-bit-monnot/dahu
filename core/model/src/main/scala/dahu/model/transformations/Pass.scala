@@ -51,6 +51,25 @@ object Pass {
     case _                                          => false
   }
 
+  final val extractTypes: Pass[Total] = new Pass[Total]("extract-types") {
+    def optim[I <: Int, F[X] >: Total[X] <: ExprF[X]](
+        implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
+
+      case orig @ ComputationF(any.TypeOf, Vec(a), _) =>
+        val arg = ctx.retrieve(a)
+        if(arg.typ == Tag.unsafe.ofAny) {
+          if(!arg.isInstanceOf[LambdaParamF[_]]) {
+            val XX = arg.asInstanceOf[ExprF[I]].smap[ExprF[I]](ctx.retrieve)
+            println("stop" + XX)
+          }
+          orig
+        } else {
+          CstF(Value(arg.typ), Tag.ofType)
+        }
+      case x => x
+    }
+  }
+
   final val distBoxOverITE: Pass[Total] = new Pass[Total]("distribute-box-over-ite") {
     def optim[I <: Int, F[X] >: Total[X] <: ExprF[X]](
         implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
@@ -325,6 +344,9 @@ object Pass {
       case x @ ComputationF(ctor: Constructor, args, _) =>
         ProductF(args, ctor.outType)
 
+      case x @ ComputationF(ctor: sequence.ListBuilder[_], args, _) =>
+        SequenceF(args, ctor.outType)
+
       case x @ ComputationF(fa: FieldAccess[_, _], Vec(p), _) =>
         ctx.retrieve(p) match {
           case ProductF(members, _) =>
@@ -388,6 +410,7 @@ object Pass {
           case SequenceF(vec, _) => CstF(Value(vec.size), Tag.ofInt)
           case _                 => fi
         }
+
       case fi => fi
     }
   }
@@ -396,20 +419,56 @@ object Pass {
     new Pass[StaticF]("expand-1st-order-functions") {
       def optim[I <: Int, F[X] >: StaticF[X] <: ExprF[X]](
           implicit ctx: OptimizationContext[I, F]): F[I] => F[I] = {
-        case fi @ ComputationF(_: sequence.Map[_, _], Vec(fun, seq), _) =>
+        case fi @ ComputationF(map: sequence.Map[_, _], Vec(fun, seq), _) =>
           ctx.retrieve(seq) match {
             case SequenceF(members: Vec[I], _) =>
               val x: Vec[ApplyF[I]] = members.map(i => ApplyF[I](fun, i, null))
               val is: Vec[I] = x.map(ctx.record)
               SequenceF(is, null)
+
+            case ComputationF(_: sequence.Concat[_], lists, _) =>
+              val mappedLists = lists.map(l => ctx.record(ComputationF(map, fun, l)))
+              ComputationF(sequence.Concat(Tag.unsafe.ofAny), mappedLists)
             case _ => fi
           }
-        case fi @ ComputationF(sequence.Fold(monoid), Vec(seq), _) =>
+        case fi @ ComputationF(fold @ sequence.Fold(monoid), Vec(seq), _) =>
           ctx.retrieve(seq) match {
             case SequenceF(members: Vec[I], _) =>
               ComputationF(monoid, members, monoid.tpe)
+
+            case ComputationF(cn: sequence.Concat[_], lists, _) =>
+              val foldedSubs = lists.map(l => ctx.record(ComputationF(fold, l)))
+              ComputationF(monoid, foldedSubs)
+
             case _ => fi
           }
+
+        case orig @ ApplyF(lbd, param, _) =>
+          ctx.retrieve(lbd) match {
+            case CstF(f: FunAny, _) if f.arity.contains(1) =>
+              ComputationF(f, param)
+            case _ => orig
+          }
+
+        case fi @ ComputationF(_: sequence.AllConsecutive[_], Vec(vec, f), _) =>
+          ctx.retrieve(vec) match {
+            case SequenceF(vec, _) =>
+              val conjuncts: Seq[I] = for(i <- 0 until vec.size - 1) yield {
+                val a = vec(i)
+                val b = vec(i + 1)
+                // f(a) (b)
+                val fa = ctx.record(ApplyF(f, a, null)) //TODO
+                val fab = ctx.record(ApplyF(fa, b, Tag.ofBoolean))
+                fab
+              }
+
+              ComputationF(bool.And, conjuncts: _*)
+
+            case x =>
+              println(x)
+              fi
+          }
+
         case fi => fi
 
       }
@@ -417,6 +476,7 @@ object Pass {
 
   val allTotalPasses: Seq[Pass[Total]] =
     Seq(
+      extractTypes,
       distBoxOverITE,
       foldConstants,
       elimUniEq,

@@ -19,32 +19,37 @@
 
 (defn in-limits [ds cs]
                                 (and
-                                 (< (:a cs) (:up-limit ds))
-                                 (> (:a cs) (:down-limit ds))
+                                 (< (cstate.a cs) (dstate.up-limit ds))
+                                 (> (cstate.a cs) (dstate.down-limit ds))
                                  ))
+;(defn in-limits [ds cs] (< (:a cs) (:up-limit ds))) ; TODO: remove
 
 (defn state-evol-valid [ds cs1 cs2 dt]
-                            (and (= (- (:v cs2) (:v cs1))
-                                    (* (:a cs1) dt) )
-                                 (= (- (:d cs2) (:d cs1))
-                                    (* (:v cs1) dt) )))
+                            (and (= (- (cstate.v cs2) (cstate.v cs1))
+                                    (* (cstate.a cs1) dt) )
+                                 (= (- (cstate.d cs2) (cstate.d cs1))
+                                    (* (cstate.v cs1) dt) )))
 
 ; condition for not blowing up the engine
 (defn not-blown [ds cs]
                                 (implies
-                                 (:running ds)
-                                 (or (<= (:a cs) 0)
-                                        (< (:v cs) 100))))
+                                 (dstate.running ds)
+                                 (or (<= (cstate.a cs) 0)
+                                        (< (cstate.v cs) 100))))
 ; i.e. : error = min error(a < 1), error(v < 100)
 
 (defn running-until-goal [ds cs]
-                                (implies (not (:running ds))
-                                         (and (= (:v cs) 0)
-                                                 (>= (:d cs) 30))))
+                                (implies (not (dstate.running ds))
+                                         (and (= (cstate.v cs) 0)
+                                                 (>= (cstate.d cs) 30))))
+;(defvar ^bool XX)
+;
+;(defn running-until-goal [ds cs]
+;                                (implies (not (:running ds))
+;                                         XX))
 
-
-(define running-state (dstate 10.0 0.0 true))
-(define goal-state (dstate 10.0 0.0 false))
+(define running-state (dstate 10 0 true))
+(define goal-state (dstate 10 0 false))
 
 (define running-in-limits (in-limits running-state))
 (define goal-in-limits (in-limits goal-state))
@@ -60,20 +65,24 @@
   ; band: ^band
   ; f: ^dstate -> ^cstate -> bool
   (forall
-   (map :state (:cont band)) ; all cstates in the band
-   (f (:ds band))) ; partial evaluation of f on the discrete state, resulting in a function ^cstate -> bool
+   (map timed-cstate.state (band.cont band)) ; all cstates in the band
+   (f (band.ds band))
+   ) ; partial evaluation of f on the discrete state, resulting in a function ^cstate -> bool
   )
 
 (define bands (list b1 b2))
 
 ; true if the last cstate of b1 is the same as the fist continuous state of b2
-(defn continuous-evolution [b1 b2] (= (last (:cont b1)) (first (:cont b2))))
+(defn continuous-evolution [b1 b2] (= (last (band.cont b1)) (first (band.cont b2))))
+
+(fulfills-instantaneous-constraint in-limits)
 
 (define constraints
-  (and
-   (all-consecutive bands continuous-evolution)
+  (list
+   (forall-consecutive bands continuous-evolution)
    (forall bands (fulfills-instantaneous-constraint in-limits))
    (forall bands (fulfills-instantaneous-constraint not-blown))
+   (forall bands (fulfills-instantaneous-constraint running-until-goal))
 ;   (fulfills-instantaneous-constraint b1 in-limits)
 ;   (fulfills-instantaneous-constraint b2 in-limits)
 ;   (fulfills-instantaneous-constraint b1 not-blown)

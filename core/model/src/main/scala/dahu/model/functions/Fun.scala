@@ -5,6 +5,10 @@ import dahu.model.types.Value
 import dahu.model.types._
 
 trait FunAny {
+
+  /** Returns true if the function should never be executed as is. */
+  def isMacro: Boolean = false
+  def arity: Option[Int]
   def compute(args: Vec[Value]): Any
   def computeFromAny(args: Vec[Any]): Any = compute(args.asInstanceOf[Vec[Value]])
 
@@ -26,6 +30,7 @@ abstract class Fun[O: Tag] extends FunAny {
 }
 
 abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] with (I ->: O) {
+  override def arity: Option[Int] = Some(1)
   final val inType = typeOf[I]
 
   override final def compute(args: Vec[Value]): O = {
@@ -65,6 +70,7 @@ object Fun1 {
 }
 
 abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] with (I1 ->: I2 ->: O) {
+  override def arity: Option[Int] = Some(2)
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
 
@@ -82,6 +88,7 @@ abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] with (I1 ->: I2 -
 }
 
 abstract class Fun3[-I1: Tag, -I2: Tag, -I3: Tag, O: Tag] extends Fun[O] {
+  override def arity: Option[Int] = Some(3)
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
@@ -93,10 +100,15 @@ abstract class Fun3[-I1: Tag, -I2: Tag, -I3: Tag, O: Tag] extends Fun[O] {
 
   def of(in1: I1, in2: I2, in3: I3): O
 
-  override final def funType: LambdaTagAny = ??? //LambdaTag.derive[I1, I2 ->: O]
+  override final def funType: LambdaTagAny =
+    LambdaTag.of(
+      Tag[I1],
+      LambdaTag.of(Tag[I2], LambdaTag.of(Tag[I3], Tag[O]))
+    )
 }
 
 abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[O] {
+  override def arity: Option[Int] = Some(3)
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
   final val inType3 = typeOf[I3]
@@ -112,10 +124,15 @@ abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[
 
   def of(in1: I1, in2: I2, in3: I3, in4: I4): O
 
-  override final def funType: LambdaTagAny = ???
+  override final def funType: LambdaTagAny =
+    LambdaTag.of(
+      Tag[I1],
+      LambdaTag.of(Tag[I2], LambdaTag.of(Tag[I3], LambdaTag.of(Tag[I4], Tag[O])))
+    )
 }
 
 abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
+  override def arity: Option[Int] = None
   final val inTypes = typeOf[I]
 
   override final def compute(args: Vec[Value]): O =
@@ -123,5 +140,5 @@ abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
 
   def of(args: Seq[I]): O //TODO
 
-  override final def funType: LambdaTagAny = ???
+  override final def funType: LambdaTagAny = LambdaTag.derive[Vec[I], O]
 }

@@ -50,7 +50,8 @@ package object compile {
         env.getExistingCallSite(x) match {
           case Some(i) => i
           case None if x.name.startsWith(":") =>
-            env.getId(CstF.of(GetField(x.name.substring(1)), Tag.unsafe.ofAny))
+            eval(List(Sym("get-field"), x.name.substring(1)), env)
+//            env.getId(CstF.of(GetField(x.name.substring(1)), Tag.unsafe.ofAny))
           case None => error(s"Unknown symbol $x")
         }
       case x: Int    => env.getId(CstF(Value(x), Tag.ofInt))
@@ -128,23 +129,24 @@ package object compile {
         val fields = extractFields(rest)
         val r = RecordType(recordName, fields)
         log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
-        val tpeId = record(CstF(Value(r), Tag.unsafe.ofAny))
+        val tpeId = record(CstF(Value(r), Tag.ofType))
         env.setConstantValue(s"^$recordName", tpeId)
 
         log.verbose(
           s"Recording variable '^${recordName}s' representing a record type '$recordName'")
         val listR = SequenceTagImplAny(r)
-        val listTypeId = record(CstF(Value(listR), Tag.unsafe.ofAny))
+        val listTypeId = record(CstF(Value(listR), Tag.ofType))
         env.setConstantValue(s"^${recordName}s", listTypeId)
 
         log.verbose(s"Recording constructor '$recordName' for a record type")
         val ctor = Constructor(r)
-        val ctorId = record(CstF(Value(ctor), Tag.unsafe.ofAny))
+        val ctorId = record(CstF(Value(ctor), ctor.funType))
         env.setConstantValue(recordName, ctorId)
         for(((fieldType, fieldName), i) <- fields.zipWithIndex) {
-          val accessorName = s"$recordName-$fieldName"
+          val accessorName = s"$recordName.$fieldName"
           log.verbose(s"Recording getter $accessorName")
           val getter = new FieldAccessAny {
+            override def arity: Option[Int] = Some(1)
             override def prodTag: Type = r
             override def fieldTag: Type = fieldType
             override def fieldPosition: Int = i
@@ -157,13 +159,14 @@ package object compile {
             override def outType: Type = fieldType
             override def funType: LambdaTagAny = LambdaTag.of(prodTag, fieldTag)
           }
-          val getterId = record(CstF(Value(getter), Tag.unsafe.ofAny))
+          val getterId = record(CstF(Value(getter), getter.funType))
           env.setConstantValue(accessorName, getterId)
         }
 
         tpeId
 
       case l: List[_] =>
+        println(l)
         l.head match {
           case LAMBDA | DEFINE | QUOTE | IF => error(s"Malformed expression $l")
           case _                            =>
@@ -178,7 +181,7 @@ package object compile {
           }
           .sequence
 
-        get(fid) match {
+        val res = get(fid) match {
           case CstF(f: FunAny, _) =>
             (mode, argsKnown) match {
               case (PartialEvalMode, Some(vals)) =>
@@ -188,18 +191,24 @@ package object compile {
                 record(ComputationF(f, args, f.outType))
             }
 
-          case _ =>
+          case x =>
             args.foldLeft(fid) {
               case (lbd, a) =>
                 typeOf(lbd) match {
                   case lt: LambdaTagAny =>
                     val e = ApplyF(lbd, a, lt.outType)
                     record(e)
-                  case _ => error("Unexpected application to a non-lambda type")
+                  case _ =>
+                    // type is unknown at this point
+                    val e = ApplyF(lbd, a, Tag.unsafe.ofAny)
+                    record(e)
+//                    error(s"Unexpected application to a non-lambda type: $realLambda :  $x")
                 }
 
             }
         }
+        println("  " + get(res))
+        res
 
     }
   }

@@ -2,6 +2,7 @@ package dahu.model.problem
 
 import cats.implicits._
 import dahu.graphs.transformations.ManualTransformation
+import dahu.model.functions.{Fun1, FunAny}
 import dahu.model.input.Lambda
 import dahu.model.ir._
 import dahu.model.math.bool
@@ -86,7 +87,7 @@ object PartialEval extends ManualTransformation[ExprF, ExprF] {
         else
           nrec(ComputationF(bool.Or, conjuncts.toVec, Tag.ofBoolean))
 
-      case ComputationF(f, argsExprs, tpe) =>
+      case ComputationF(f, argsExprs, tpe) if !f.isMacro =>
         val args = argsExprs.map(peval(e)(_))
         known(args.toList) match {
           case Some(values) => nrec(CstF(Value(f.compute(Vec.fromSeq(values))), f.outType))
@@ -98,6 +99,12 @@ object PartialEval extends ManualTransformation[ExprF, ExprF] {
         oget(lbdI) match {
           case LambdaF(in, tree, ident, _) =>
             peval(e.updated(ident, arg))(tree)
+          case CstF(fun: FunAny, tpe) if fun.arity.contains(1) =>
+            nrec(ComputationF(fun, arg))
+          case CstF(fun: FunAny, tpe) =>
+            dahu.utils.debug.warning(
+              s"Cannot partially evaluate intrinsic function $fun that expects more that one parameter")
+            nrec(ApplyF(peval(e)(lbdI), arg, tpe)) // same as default case
           case _ =>
             nrec(ApplyF(peval(e)(lbdI), arg, tpe))
         }

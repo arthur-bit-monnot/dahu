@@ -15,7 +15,7 @@ import dahu.model.input.{Ident, Scope, TypedIdent}
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.math.sequence.{FirstMatches, LastMatches}
-import dahu.model.problem.API
+import dahu.model.problem.{API, PartialEval}
 import dahu.model.products.{Field, ProductTagAny}
 import dahu.model.types._
 import dahu.recursion.FAlgebra
@@ -34,9 +34,9 @@ object FromLisp extends App {
 //  evalFile("refinement/domains/prelude.clj")
 
   dahu.lisp.compile.evalMany(sources.prelude)
-  dahu.lisp.compile.evalMany(sources.testDomain)
+//  dahu.lisp.compile.evalMany(sources.testDomain)
 
-//  dahu.lisp.compile.evalFile("refinement/domains/car.clj")
+  dahu.lisp.compile.evalFile("refinement/domains/car.clj")
 //
 //  sys.exit(0)
 
@@ -44,7 +44,7 @@ object FromLisp extends App {
 
   val _withParser = ctx.optGraph.fixID.flatPrepro[String](str => Try(dahu.lisp.parse(str)))
 
-  val _asg = _withParser.transform(transformations.asErrors)
+  val _asg = _withParser //.transform(transformations.asErrors)
   val asg = _asg.fixID
 
   def asRefExpr[X, I <: IDTop, Opt[_]: Functor](x: X,
@@ -112,13 +112,15 @@ object FromLisp extends App {
     }
   }
 
-  enforce("(geom.is-in c1 pt1)")
-  enforce("(geom.is-in c1 pt2)")
-  enforce("(geom.is-in c2 pt3)")
-  enforce("(geom.is-not-in r1 pt1)")
-  enforce("(geom.is-in r2 pt3)")
-  enforce("(= (:x (first path)) 0.0)")
-  enforce("(= (:x (last path)) 10.0)")
+  enforce("constraints")
+
+//  enforce("(geom.is-in c1 pt1)")
+//  enforce("(geom.is-in c1 pt2)")
+//  enforce("(geom.is-in c2 pt3)")
+//  enforce("(geom.is-not-in r1 pt1)")
+//  enforce("(geom.is-in r2 pt3)")
+//  enforce("(= (:x (first path)) 0.0)")
+//  enforce("(= (:x (last path)) 10.0)")
 
 //  implicit val memory = x
 //
@@ -148,82 +150,6 @@ object FromLisp extends App {
 
 }
 
-object transformations {
-
-  private val epsilon = 1e-8
-
-  val scalarize = new Transformation[ExprF, ExprF] {
-    override def transformation[I <: Int](retrieve: I => ExprF[I],
-                                          record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
-      case InputF(id, tpe: ProductTagAny) =>
-        val fields = tpe.fields.map {
-          case Field(name, tpe, pos) =>
-            val fieldId = TypedIdent(id.id.subIdent(name), tpe)
-            record(InputF(fieldId, tpe))
-        }
-        ProductF(fields, tpe)
-
-      case x => x
-    }
-  }
-
-  val asErrors = new Transformation[ExprF, ExprF] {
-    override def transformation[I <: Int](retrieve: I => ExprF[I],
-                                          record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
-      case ComputationF(bool.And, args, _) =>
-        ComputationF(double.Add, args)
-      case ComputationF(double.LEQ, Vec(a, b), _) =>
-        val bMinusA = record(
-          ComputationF(double.Add, Vec(b, record(ComputationF(double.Negate, Vec(a))))))
-        ComputationF(double.Min, record(CstF(Value(0.0), Tag.ofDouble)), bMinusA)
-      case ComputationF(double.LT, Vec(a, b), _) =>
-        val bMinusA = record(
-          ComputationF(double.Add,
-                       b,
-                       record(ComputationF(double.Negate, Vec(a))),
-                       record(CstF(Value(-epsilon), Tag.ofDouble)))
-        )
-        ComputationF(double.Min, record(CstF(Value(0.0), Tag.ofDouble)), bMinusA)
-      case ComputationF(double.EQ, Vec(a, b), _) =>
-        ComputationF(double.Add, a, record(ComputationF(double.Negate, b)))
-      case ComputationF(bool.Or, _, _)  => ???
-      case ComputationF(bool.Not, _, _) => ???
-      case x                            => x
-    }
-  }
-
-  val withHeadTail = new Transformation[ExprF, ExprF] {
-    override def transformation[I <: Int](retrieve: I => ExprF[I],
-                                          record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
-      case InputF(id, tpe: SequenceTagAny) =>
-        val headIdent = TypedIdent(id.id.subIdent("first"), tpe.memberTag)
-        val lastIdent = TypedIdent(id.id.subIdent("last"), tpe.memberTag)
-        val head = record(InputF(headIdent))
-        val tail = record(InputF(lastIdent))
-        SequenceF(Vec(head, tail), tpe)
-
-      case ComputationF(_: sequence.First[_], Vec(seq), _) =>
-        retrieve(seq) match {
-          case SequenceF(members, _) =>
-            require(members.size > 0)
-            retrieve(members.firstUnsafe)
-        }
-
-      case ComputationF(_: sequence.Last[_], Vec(seq), _) =>
-        retrieve(seq) match {
-          case SequenceF(members, _) =>
-            require(members.size > 0)
-            retrieve(members.lastUnsafe)
-        }
-
-      case x => x
-    }
-  }
-
-  val optimizer =
-    dahu.model.transformations.makeOptimizer[ExprF](dahu.model.transformations.Pass.allStaticPasses)
-}
-
 import transformations._
 
 class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
@@ -233,8 +159,16 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
     .transform(withHeadTail)
     .transform(scalarize)
     .transform(optimizer)
-    .transform(asErrors)
+    .transform(scalarize)
     .transform(optimizer)
+    .manualMap(PartialEval)
+    .manualMap(PartialEval)
+    .transform(optimizer)
+    .transform(optimizer)
+    .transform(optimizer)
+    .manualMap(PartialEval)
+
+//    .transform(asErrors)
     .fixID
 
   private val constraints = debox.Buffer[(X, Any)]()
@@ -244,6 +178,7 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
     val vars = asg.descendants(i).collect { case x @ InputF(_, _) => x }
     println(s"Variables in $tag")
     vars.foreach(v => println(s"  $v : ${v.typ}"))
+    API.echo(asg.rootedAt(x))
 
     addConstraintsHeadTails(x, tag)
   }
@@ -252,7 +187,7 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
     val i = headTails.getTreeRoot(x)
     val vars = headTails.descendants(i).collect { case x @ InputF(_, _) => x }
     println(s"Variables (head-tails) in $tag")
-    vars.foreach(v => println(s"  $v : ${v.typ}"))
+    vars.map(v => s"  $v : ${v.typ}").sorted.foreach(println)
     API.echo(headTails.rootedAt(x))
   }
 

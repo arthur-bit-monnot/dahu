@@ -11,6 +11,7 @@ trait FieldAccessAny extends FunAny {
   def fieldTag: TagAny
   def fieldPosition: Int
   def name: String
+  override def toString: String = name
 }
 
 abstract class FieldAccess[Data[_[_]], FieldType](implicit ev: ProductTag[Data],
