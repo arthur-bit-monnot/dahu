@@ -18,6 +18,7 @@ object SequenceTag {
   final case class SequenceTagImplAny(memberTag: TagAny) extends SequenceTagAny {
     override def clazz: ClassTag[Vec[Any]] = implicitly[ClassTag[Vec[Any]]]
     override def typ: Tag.Type = Tag.typeOf[Vec[Any]]
+    override def toString: String = s"Sequence($memberTag)"
   }
   final case class SequenceTagImpl[T](memberTag: Tag[T]) extends SequenceTag[T] {
     override def clazz: ClassTag[Vec[T]] = implicitly[ClassTag[Vec[T]]]

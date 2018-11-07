@@ -10,10 +10,12 @@ trait FunAny {
 
   def name: String
   def outType: TagAny
+
+  def funType: LambdaTagAny
 }
 
 abstract class Fun[O: Tag] extends FunAny {
-  final val outType: Tag[O] = Tag[O]
+  def outType: Tag[O] = Tag[O]
   require(outType != null)
   def compute(args: Vec[Value]): O
   override def computeFromAny(args: Vec[Any]): O = compute(args.asInstanceOf[Vec[Value]])
@@ -23,7 +25,7 @@ abstract class Fun[O: Tag] extends FunAny {
   override def toString: String = name
 }
 
-abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] {
+abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] with (I ->: O) {
   final val inType = typeOf[I]
 
   override final def compute(args: Vec[Value]): O = {
@@ -32,6 +34,10 @@ abstract class Fun1[-I: Tag, O: Tag] extends Fun[O] {
   }
 
   def of(in: I): O
+
+  override def underlyingFunction: I => O = of
+
+  override final def funType: LambdaTagAny = LambdaTag.derive[I, O]
 }
 
 abstract class Reversible[A: Tag, B: Tag] extends Fun1[A, B] {
@@ -53,12 +59,12 @@ final class Unbox[T: TagIsoInt] extends Reversible[T, Int] { self =>
 
 object Fun1 {
   def embed[A: Tag, B: Tag](f: A => B): Fun1[A, B] = new Fun1[A, B] {
-    override def of(in: A): B = f(in)
-    override def name: String = f.toString()
+    override def of(in: A): B = underlyingFunction(in)
+    override def name: String = underlyingFunction.toString()
   }
 }
 
-abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] {
+abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] with (I1 ->: I2 ->: O) {
   final val inType1 = typeOf[I1]
   final val inType2 = typeOf[I2]
 
@@ -68,6 +74,11 @@ abstract class Fun2[-I1: Tag, -I2: Tag, O: Tag] extends Fun[O] {
   }
 
   def of(in1: I1, in2: I2): O
+
+  override def underlyingFunction: I1 => (I2 ->: O) =
+    in1 => lift(in2 => of(in1, in2))
+
+  override final def funType: LambdaTagAny = LambdaTag.derive[I1, I2 ->: O]
 }
 
 abstract class Fun3[-I1: Tag, -I2: Tag, -I3: Tag, O: Tag] extends Fun[O] {
@@ -81,6 +92,8 @@ abstract class Fun3[-I1: Tag, -I2: Tag, -I3: Tag, O: Tag] extends Fun[O] {
   }
 
   def of(in1: I1, in2: I2, in3: I3): O
+
+  override final def funType: LambdaTagAny = ??? //LambdaTag.derive[I1, I2 ->: O]
 }
 
 abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[O] {
@@ -98,6 +111,8 @@ abstract class Fun4[-I1: Tag, -I2: Tag, -I3: Tag, -I4: Tag, O: Tag] extends Fun[
   }
 
   def of(in1: I1, in2: I2, in3: I3, in4: I4): O
+
+  override final def funType: LambdaTagAny = ???
 }
 
 abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
@@ -107,4 +122,6 @@ abstract class FunN[-I: Tag, O: Tag] extends Fun[O] {
     of(args.toSeq.asInstanceOf[Seq[I]]) //TODO: avoid conversion
 
   def of(args: Seq[I]): O //TODO
+
+  override final def funType: LambdaTagAny = ???
 }

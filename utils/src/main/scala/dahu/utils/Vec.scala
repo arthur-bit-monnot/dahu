@@ -106,6 +106,9 @@ final class Vec[@sp A](private val elems: Array[A])(implicit private val ct: Cla
     */
   @inline def nonEmpty: Boolean = length != 0
 
+  def firstUnsafe: A = elems.head
+  def lastUnsafe: A = elems.last
+
   /**
     * Return the value at element i.
     *

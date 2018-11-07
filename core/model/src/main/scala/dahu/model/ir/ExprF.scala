@@ -128,6 +128,7 @@ final case class InputF[@sp(Int) F](id: TypedIdent, typ: Type) extends Total[F] 
 object InputF {
 
   def apply[F](id: Ident, typ: Type): InputF[F] = InputF(TypedIdent(id, typ), typ)
+  def apply[F](id: TypedIdent): InputF[F] = InputF(id, id.typ)
 
   /** The type parameter of InputF does not play any role beside allowing recursion scheme.
     * This implicit conversion, allows using it interchangeably without creating new objects. or casting manually*/

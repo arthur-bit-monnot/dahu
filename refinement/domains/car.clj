@@ -9,6 +9,11 @@
                   ^real v ; velocity
                   ^real a ; acceleration
 )
+(defstruct timed-cstate ^cstate state
+                        ^real   dt)
+
+(defstruct band ^dstate ds
+                ^timed-cstates cont)
 
 (defn avg [a b] (/ (+ a b) 2))
 
@@ -29,13 +34,13 @@
                                 (implies
                                  (:running ds)
                                  (or (<= (:a cs) 0)
-                                     (< (:v cs) 100))))
+                                        (< (:v cs) 100))))
 ; i.e. : error = min error(a < 1), error(v < 100)
 
 (defn running-until-goal [ds cs]
                                 (implies (not (:running ds))
                                          (and (= (:v cs) 0)
-                                              (>= (:d cs) 30))))
+                                                 (>= (:d cs) 30))))
 
 
 (define running-state (dstate 10.0 0.0 true))
@@ -43,3 +48,35 @@
 
 (define running-in-limits (in-limits running-state))
 (define goal-in-limits (in-limits goal-state))
+
+; decision variables representing sequences of timestamped continuous states
+(defvar ^timed-cstates cs1)
+(defvar ^timed-cstates cs2)
+
+(define b1 (band running-state cs1))
+(define b2 (band goal-state cs2))
+
+(defn fulfills-instantaneous-constraint [f band]
+  ; band: ^band
+  ; f: ^dstate -> ^cstate -> bool
+  (forall
+   (map :state (:cont band)) ; all cstates in the band
+   (f (:ds band))) ; partial evaluation of f on the discrete state, resulting in a function ^cstate -> bool
+  )
+
+(define bands (list b1 b2))
+
+; true if the last cstate of b1 is the same as the fist continuous state of b2
+(defn continuous-evolution [b1 b2] (= (last (:cont b1)) (first (:cont b2))))
+
+(define constraints
+  (and
+   (all-consecutive bands continuous-evolution)
+   (forall bands (fulfills-instantaneous-constraint in-limits))
+   (forall bands (fulfills-instantaneous-constraint not-blown))
+;   (fulfills-instantaneous-constraint b1 in-limits)
+;   (fulfills-instantaneous-constraint b2 in-limits)
+;   (fulfills-instantaneous-constraint b1 not-blown)
+;   (fulfills-instantaneous-constraint b2 not-blown)
+;   (forall (map b1 :state) (in-limits running-state))
+  ))

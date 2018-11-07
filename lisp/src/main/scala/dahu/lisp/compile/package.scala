@@ -127,9 +127,15 @@ package object compile {
         }
         val fields = extractFields(rest)
         val r = RecordType(recordName, fields)
-        log.verbose(s"Recording variable '^$recordName' representing a record type")
+        log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
         val tpeId = record(CstF(Value(r), Tag.unsafe.ofAny))
         env.setConstantValue(s"^$recordName", tpeId)
+
+        log.verbose(
+          s"Recording variable '^${recordName}s' representing a record type '$recordName'")
+        val listR = SequenceTagImplAny(r)
+        val listTypeId = record(CstF(Value(listR), Tag.unsafe.ofAny))
+        env.setConstantValue(s"^${recordName}s", listTypeId)
 
         log.verbose(s"Recording constructor '$recordName' for a record type")
         val ctor = Constructor(r)
@@ -149,6 +155,7 @@ package object compile {
               case x => error(s"invalid argument to getter $accessorName: $x")
             }
             override def outType: Type = fieldType
+            override def funType: LambdaTagAny = LambdaTag.of(prodTag, fieldTag)
           }
           val getterId = record(CstF(Value(getter), Tag.unsafe.ofAny))
           env.setConstantValue(accessorName, getterId)

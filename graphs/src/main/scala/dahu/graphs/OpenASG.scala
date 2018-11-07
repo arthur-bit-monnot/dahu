@@ -92,7 +92,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
       override def internalCoalgebra(i: InternalID): F[InternalID] = self.internalCoalgebra(i)
     }
 
-  def descendants(root: ID)(implicit tn: TreeNode[F]): Seq[(ID, F[ID])] = {
+  def descendantsWithID(root: ID)(implicit tn: TreeNode[F]): Seq[(ID, F[ID])] = {
     val queue = mutable.Stack[ID]()
     val visited = mutable.HashSet[ID]()
     val result = mutable.ArrayBuffer[(ID, F[ID])]()
@@ -105,6 +105,27 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
         if(tn.children(fcur).forall(visited)) {
           visited += cur
           result += ((cur, fcur))
+        } else {
+          queue.push(cur)
+          queue.pushAll(tn.children(fcur))
+        }
+      }
+    }
+    result.toList
+  }
+  def descendants(root: ID)(implicit tn: TreeNode[F]): Seq[F[ID]] = {
+    val queue = mutable.Stack[ID]()
+    val visited = mutable.HashSet[ID]()
+    val result = mutable.ArrayBuffer[F[ID]]()
+    queue.push(root)
+
+    while(queue.nonEmpty) {
+      val cur = queue.pop()
+      if(!visited.contains(cur)) {
+        val fcur = internalCoalgebra(cur)
+        if(tn.children(fcur).forall(visited)) {
+          visited += cur
+          result += fcur
         } else {
           queue.push(cur)
           queue.pushAll(tn.children(fcur))
@@ -285,7 +306,7 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
       F: Functor[Opt],
       SF: SFunctor[F],
       ct: ClassTag[G[I]]
-  ): LazyForestLayer[K, G, Opt, _, ID] =
+  ): ASG[K, G, Opt] =
     new LazyForestLayer[K, G, Opt, I, self.ID] {
       private val idMap = debox.Map[self.ID, I]()
       private val coalg = BiMap[I, G[I]]()

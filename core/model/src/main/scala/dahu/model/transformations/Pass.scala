@@ -148,6 +148,8 @@ object Pass {
                 val ix = ctx.record(ComputationF(t1.unbox, Vec(x), t1.unbox.outType))
                 val iy = ctx.record(ComputationF(t2.unbox, Vec(y), t1.unbox.outType))
                 ComputationF(int.EQ, Vec(ix, iy), int.EQ.outType)
+              case (Tag.ofDouble, Tag.ofDouble) =>
+                ComputationF(double.EQ, x, y)
               case _ =>
 //                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
                 orig

@@ -3,6 +3,7 @@ package dahu.model.types
 import dahu.model.functions._
 import dahu.model.products.ProductTag
 import dahu.model.types
+import dahu.model.types.LambdaTag.LambdaTagImpl
 import dahu.utils._
 
 import scala.reflect.runtime.universe
@@ -37,7 +38,7 @@ object Tag extends LowPriorityTags {
 
   object unsafe {
 
-    val ofAny = default[Any]
+    implicit val ofAny = default[Any]
 
   }
 
@@ -51,9 +52,10 @@ trait LowPriorityTags extends VeryLowPriorityTags {
 
   def default[T: universe.WeakTypeTag: ClassTag]: Tag[T] = DefaultTag(Tag.typeOf[T])
 
-  implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
   implicit def ofSequence[V: Tag]: Tag[Vec[V]] = SequenceTag[V]
   implicit def ofFunction[I: Tag, O: Tag]: Tag[I ->: O] = LambdaTag[I, O]
+  implicit def ofFunction2[I1: Tag, I2: Tag, O: Tag]: Tag[I1 ->: I2 ->: O] =
+    LambdaTagImpl(Tag[I1], LambdaTagImpl(Tag[I2], Tag[O]))
 
   implicit val ofDouble: Tag[Double] = default[Double]
   implicit val ofString: Tag[String] = default[String]
@@ -61,4 +63,5 @@ trait LowPriorityTags extends VeryLowPriorityTags {
 
 trait VeryLowPriorityTags {
   implicit val ofBoolean: Tag[Bool] = BoolTag
+  implicit def ofIsoInt[V: TagIsoInt]: Tag[V] = TagIsoInt[V]
 }

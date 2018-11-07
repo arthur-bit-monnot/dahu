@@ -31,7 +31,7 @@ class LazyTree[K, F[_], Opt[_], InternalID <: IDTop] private (
     LazyTree(tree.mapExternal(f))(root)
 
   def nodes(implicit tn: TreeNode[F], F: Functor[Opt]): Opt[Seq[(tree.ID, F[tree.ID])]] =
-    tree.getTreeRoot(root).map(tree.descendants)
+    tree.getTreeRoot(root).map(tree.descendantsWithID)
 }
 
 object LazyTree {

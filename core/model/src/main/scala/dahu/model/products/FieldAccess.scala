@@ -26,10 +26,12 @@ abstract class FieldAccess[Data[_[_]], FieldType](implicit ev: ProductTag[Data],
   override def fieldTag: TagAny = ev2
 }
 
-case class GetField(fieldName: String) extends FunAny {
-  override def compute(args: Vec[Value]): Any = {
-    require(args.size == 1)
-    args(0) match {
+import Tag.unsafe.ofAny
+
+case class GetField(fieldName: String) extends Fun1[Any, Any] {
+  override def name: String = s"get-field($fieldName)"
+  override def of(in: Any): Any =
+    in match {
       case a @ ProductF(members, tpe) =>
         tpe.fields.toSeq.find(_.name == fieldName) match {
           case Some(Field(_, _, i)) => members(i)
@@ -38,8 +40,4 @@ case class GetField(fieldName: String) extends FunAny {
         }
       case x => dahu.utils.errors.unexpected(s"Object $x is not a product object.")
     }
-
-  }
-  override def name: String = s"get-field($fieldName)"
-  override def outType: Type = Tag.unsafe.ofAny
 }

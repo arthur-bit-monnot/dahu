@@ -152,7 +152,6 @@ package object sequence {
 
   object EQ extends Fun2[Vec[Int], Vec[Int], Bool] {
     override def of(in1: Vec[Int], in2: Vec[Int]): Bool = Bool.asBool(in1 == in2)
-
     override def name: String = "eq"
   }
 
@@ -175,13 +174,77 @@ package object sequence {
   def Map[I: Tag, O: Tag]: Map[I, O] = new MapImpl[I, O]()
 
   final private case class MapImpl[I: Tag, O: Tag]() extends Map[I, O] {
-    override def of(f: I ->: O, in2: Vec[I]): Vec[O] = in2.map(f.f)(Tag[O].clazz)
+    override def of(f: I ->: O, in2: Vec[I]): Vec[O] = in2.map(f.underlyingFunction)(Tag[O].clazz)
     override def name: String = "map"
   }
 
   final case class Fold[A: Tag](monoid: Monoid[A]) extends Fun1[Vec[A], A] {
     override def of(in: Vec[A]): A = in.foldLeft(monoid.identity)((a, b) => monoid.combine(a, b))
     override def name: String = s"fold($monoid)"
+  }
+
+  sealed trait Last[I] extends Fun1[Vec[I], I]
+  def Last[I: Tag]: Last[I] = LastImpl()
+
+  final private case class LastImpl[I: Tag]() extends Last[I] {
+    override def of(in: Vec[I]): I = in.lastUnsafe
+    override def name: String = "last"
+  }
+
+  sealed trait First[I] extends Fun1[Vec[I], I]
+  def First[I: Tag]: First[I] = FirstImpl()
+
+  final private case class FirstImpl[I: Tag]() extends First[I] {
+    override def of(in: Vec[I]): I = in.firstUnsafe
+    override def name: String = "last"
+  }
+
+  sealed abstract class AllConsecutive[I: Tag]
+      extends Fun2[Vec[I], I ->: I ->: Bool, Bool]()(Tag.ofSequence[I],
+                                                     Tag.ofFunction2[I, I, Bool],
+                                                     Tag.ofBoolean)
+  def AllConsecutive[I: Tag]: AllConsecutive[I] = AllConsecutiveImpl[I]()
+
+  final private case class AllConsecutiveImpl[I: Tag]() extends AllConsecutive[I] {
+    override def of(vec: Vec[I], f: I ->: I ->: Bool): Bool = {
+      if(vec.length <= 1)
+        Bool.True
+      else {
+        for(i <- 0 until (vec.length - 1)) {
+          val a = vec(i)
+          val b = vec(i + 1)
+          val valid = f.eval(a).eval(b)
+          if(valid == Bool.False)
+            return Bool.False
+        }
+        Bool.True
+      }
+    }
+    override def name: String = "all-consecutive"
+  }
+
+  sealed trait FirstMatches[I] extends Fun2[Vec[I], I ->: Bool, Bool]
+  def FirstMatches[I: Tag]: FirstMatches[I] = FirstMatchesImpl()
+
+  final private case class FirstMatchesImpl[I: Tag]() extends FirstMatches[I] {
+    override def of(in: Vec[I], predicate: I ->: Bool): Bool =
+      if(in.size > 0)
+        predicate.underlyingFunction(in.firstUnsafe)
+      else
+        Bool.False
+    override def name: String = "first-matches"
+  }
+
+  sealed trait LastMatches[I] extends Fun2[Vec[I], I ->: Bool, Bool]
+  def LastMatches[I: Tag]: LastMatches[I] = LastMatchesImpl()
+
+  final private case class LastMatchesImpl[I: Tag]() extends LastMatches[I] {
+    override def of(in: Vec[I], predicate: I ->: Bool): Bool =
+      if(in.size > 0)
+        predicate.underlyingFunction(in.lastUnsafe)
+      else
+        Bool.False
+    override def name: String = "first-matches"
   }
 }
 
@@ -199,7 +262,7 @@ package object any {
 }
 
 package object geom {
-  implicit val shapeTag = Tag.default[Shape]
+  implicit val shapeTag: Tag[Shape] = Tag.default[Shape]
 
   object Point extends Fun2[Double, Double, Shape] {
     override def of(x: Double, y: Double): Shape = Shape.point(x, y)

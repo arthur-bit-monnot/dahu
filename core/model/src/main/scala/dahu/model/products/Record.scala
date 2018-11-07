@@ -4,6 +4,7 @@ import dahu.model.functions.{Fun2, FunAny}
 import dahu.model.input.Expr
 import dahu.model.ir.{ComputationF, ProductF}
 import dahu.model.products.{Field, ProductTagAny}
+import dahu.model.types.LambdaTag.LambdaTagImpl
 import dahu.model.types._
 import dahu.utils._
 
@@ -26,10 +27,15 @@ object RecordType {
   }
 }
 
+import Tag.unsafe.ofAny
+
 case class Constructor(tpe: RecordType) extends FunAny {
   override def compute(args: Vec[Value]): ProductF[Value] = {
     ProductF[Value](args, tpe)
   }
   override def name: String = tpe.name + "."
   override def outType: RecordType = tpe
+
+  override def funType: LambdaTagAny =
+    LambdaTag.of(SequenceTag[Any], tpe)
 }
