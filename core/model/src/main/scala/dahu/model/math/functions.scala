@@ -226,6 +226,49 @@ package object sequence {
     override def name: String = "forall-consecutive"
   }
 
+  sealed abstract class MapConsecutive2[I: Tag, O: Tag]
+      extends Fun2[I ->: I ->: O, Vec[I], Vec[O]]()(Tag.ofFunction2[I, I, O],
+                                                    Tag.ofSequence[I],
+                                                    Tag.ofSequence[O]) {
+    override def outType: SequenceTag[O] = SequenceTag[O]
+  }
+  def MapConsecutive2[I: Tag, O: Tag]: MapConsecutive2[I, O] = MapConsecutive2Impl[I, O]()
+
+  final private case class MapConsecutive2Impl[I: Tag, O: Tag]() extends MapConsecutive2[I, O] {
+    override def of(f: I ->: I ->: O, vec: Vec[I]): Vec[O] = {
+      val results =
+        for(i <- 0 until (vec.length - 1)) yield {
+          val a = vec(i)
+          val b = vec(i + 1)
+          f.eval(a).eval(b)
+        }
+      Vec.fromIterable(results)(Tag[O].clazz)
+    }
+    override def name: String = "map-consecutive2"
+  }
+
+  sealed abstract class MapConsecutive3[I: Tag, O: Tag]
+      extends Fun2[I ->: I ->: I ->: O, Vec[I], Vec[O]]()(Tag.ofFunction3[I, I, I, O],
+                                                          Tag.ofSequence[I],
+                                                          Tag.ofSequence[O]) {
+    override def outType: SequenceTag[O] = SequenceTag[O]
+  }
+  def MapConsecutive3[I: Tag, O: Tag]: MapConsecutive3[I, O] = MapConsecutive3Impl[I, O]()
+
+  final private case class MapConsecutive3Impl[I: Tag, O: Tag]() extends MapConsecutive3[I, O] {
+    override def of(f: I ->: I ->: I ->: O, vec: Vec[I]): Vec[O] = {
+      val results =
+        for(i <- 0 until (vec.length - 2)) yield {
+          val a = vec(i)
+          val b = vec(i + 1)
+          val c = vec(i + 2)
+          f.eval(a).eval(b).eval(c)
+        }
+      Vec.fromIterable(results)(Tag[O].clazz)
+    }
+    override def name: String = "map-consecutive2"
+  }
+
   sealed trait FirstMatches[I] extends Fun2[Vec[I], I ->: Bool, Bool]
   def FirstMatches[I: Tag]: FirstMatches[I] = FirstMatchesImpl()
 

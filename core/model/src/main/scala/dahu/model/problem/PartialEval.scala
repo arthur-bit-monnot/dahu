@@ -51,8 +51,11 @@ object PartialEval extends ManualTransformation[ExprF, ExprF] {
         }
       case ComputationF(f: FieldAccessAny, Vec(arg), tpe) =>
         nget(peval(e)(arg)) match {
-          case ProductF(members, _) => members(f.fieldPosition)
-          case _                    => nrec(ComputationF(f, Vec(peval(e)(arg)), tpe))
+          case prod @ ProductF(members, prodType) =>
+            assert(f.prodTag == prodType, s"Expected ${f.prodTag} but got $prodType")
+            assert(f.fieldPosition < members.length, s"$prod -- ${prod.typ}")
+            members(f.fieldPosition)
+          case _ => nrec(ComputationF(f, Vec(peval(e)(arg)), tpe))
 
         }
       case ComputationF(bool.And, args, tpe) =>

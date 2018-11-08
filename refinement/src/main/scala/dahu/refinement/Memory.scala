@@ -47,13 +47,20 @@ final class MemImpl() extends RWMemory {
     values.indices.foreach(i => mem(i) += values(i))
   }
   override def print(): Unit =
-    map.foreach((id, addr) => println(s"$id -> ${mem(addr)}"))
+    map
+      .iterator()
+      .toSeq
+      .sortBy(_._1.toString)
+      .foreach { case (id, addr) => println(s"$id -> ${mem(addr)}") }
 //    mem.foreach(println)
 
   override def addressOf(name: TypedIdent): Addr = {
     if(!map.contains(name)) {
       map(name) = size
-      mem += 0.0 //(Random.nextDouble() - 0.5) * 100
+      if(name.toString.endsWith(".dt"))
+        mem += 1 //(Random.nextDouble() - 0.5) * 100
+      else
+        mem += 0.0001
     }
     map(name)
   }

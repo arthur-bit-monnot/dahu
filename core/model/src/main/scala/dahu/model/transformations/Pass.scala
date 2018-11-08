@@ -411,6 +411,36 @@ object Pass {
           case _                 => fi
         }
 
+      case fi @ ComputationF(_: sequence.First[_], Vec(seq), _) =>
+        ctx.retrieve(seq) match {
+          case SequenceF(members, _) =>
+            require(members.size > 0)
+            ctx.retrieve(members.firstUnsafe)
+          case ComputationF(_: sequence.Concat[_], args, _) if args.nonEmpty =>
+            ctx.retrieve(args.firstUnsafe) match {
+              case SequenceF(members, _) if members.nonEmpty =>
+                ctx.retrieve(members.firstUnsafe)
+              case _ => fi
+            }
+          case _ => fi
+
+        }
+
+      case fi @ ComputationF(_: sequence.Last[_], Vec(seq), _) =>
+        ctx.retrieve(seq) match {
+          case SequenceF(members, _) if members.nonEmpty =>
+            ctx.retrieve(members.lastUnsafe)
+          case ComputationF(_: sequence.Concat[_], args, _) if args.nonEmpty =>
+            ctx.retrieve(args.lastUnsafe) match {
+              case SequenceF(members, _) if members.nonEmpty =>
+                ctx.retrieve(members.lastUnsafe)
+              case _ =>
+                fi
+            }
+          case _ =>
+            fi
+        }
+
       case fi => fi
     }
   }
@@ -464,8 +494,43 @@ object Pass {
 
               ComputationF(bool.And, conjuncts: _*)
 
-            case x =>
-              println(x)
+            case _ =>
+              fi
+          }
+        case fi @ ComputationF(mc2: sequence.MapConsecutive2[_, _], Vec(f, vec), _) =>
+          ctx.retrieve(vec) match {
+            case SequenceF(vec, _) =>
+              val conjuncts: Seq[I] = for(i <- 0 until vec.size - 1) yield {
+                val a = vec(i)
+                val b = vec(i + 1)
+                // f(a) (b)
+                val fa = ctx.record(ApplyF(f, a, Tag.unsafe.ofAny)) //TODO
+                val fab = ctx.record(ApplyF(fa, b, Tag.unsafe.ofAny))
+                fab
+              }
+
+              SequenceF(conjuncts.toVec, mc2.outType)
+
+            case _ =>
+              fi
+          }
+        case fi @ ComputationF(mc2: sequence.MapConsecutive3[_, _], Vec(f, vec), _) =>
+          ctx.retrieve(vec) match {
+            case SequenceF(vec, _) =>
+              val conjuncts: Seq[I] = for(i <- 0 until vec.size - 2) yield {
+                val a = vec(i)
+                val b = vec(i + 1)
+                val c = vec(i + 2)
+                // f(a) (b)
+                val fa = ctx.record(ApplyF(f, a, Tag.unsafe.ofAny)) //TODO
+                val fab = ctx.record(ApplyF(fa, b, Tag.unsafe.ofAny))
+                val fabc = ctx.record(ApplyF(fab, c, Tag.unsafe.ofAny))
+                fabc
+              }
+
+              SequenceF(conjuncts.toVec, mc2.outType)
+
+            case _ =>
               fi
           }
 

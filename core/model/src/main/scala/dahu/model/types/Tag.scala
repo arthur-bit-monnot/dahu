@@ -56,7 +56,10 @@ trait LowPriorityTags extends VeryLowPriorityTags {
   implicit def ofSequence[V: Tag]: Tag[Vec[V]] = SequenceTag[V]
   implicit def ofFunction[I: Tag, O: Tag]: Tag[I ->: O] = LambdaTag[I, O]
   implicit def ofFunction2[I1: Tag, I2: Tag, O: Tag]: Tag[I1 ->: I2 ->: O] =
-    LambdaTagImpl(Tag[I1], LambdaTagImpl(Tag[I2], Tag[O]))
+    LambdaTagImpl(Tag[I1], ofFunction[I2, O])
+
+  implicit def ofFunction3[I1: Tag, I2: Tag, I3: Tag, O: Tag]: Tag[I1 ->: I2 ->: I3 ->: O] =
+    LambdaTagImpl(Tag[I1], ofFunction2[I2, I3, O])
 
   implicit val ofDouble: Tag[Double] = default[Double]
   implicit val ofString: Tag[String] = default[String]

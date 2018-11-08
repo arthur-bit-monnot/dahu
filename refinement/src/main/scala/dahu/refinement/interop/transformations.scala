@@ -1,5 +1,6 @@
 package dahu.refinement.interop
 import dahu.graphs.transformations.Transformation
+import dahu.model.functions.{Fun2, FunN}
 import dahu.model.input.TypedIdent
 import dahu.model.ir._
 import dahu.model.math._
@@ -10,6 +11,39 @@ import dahu.utils._
 object transformations {
 
   private val epsilon = 1e-8
+
+  object MinError extends FunN[Double, Double] {
+    override def name: String = "err.or"
+    override def of(args: scala.Seq[Double]): Double = args.map(math.abs).min
+  }
+
+  object CombinedErrors extends Monoid[Double] {
+    override def tpe: Tag[Double] = Tag.ofDouble
+    override def combine(lhs: Double, rhs: Double): Double =
+      math.abs(lhs) + math.abs(rhs)
+    override val identity: Double = 0.0
+    override def name: String = "err.and"
+  }
+
+  object ErrEqual extends Fun2[Double, Double, Double] {
+    override def of(in1: Double, in2: Double): Double =
+      in1 - in2
+    override def name: String = "err.="
+  }
+
+  object ErrBelow extends Fun2[Double, Double, Double] {
+    override def of(in1: Double, in2: Double): Double =
+      if(in1 <= in2) 0.0
+      else in1 - in2
+    override def name: String = "err.<="
+  }
+
+  object ErrStrictlyBelow extends Fun2[Double, Double, Double] {
+    override def of(in1: Double, in2: Double): Double =
+      if((in1 + epsilon) <= in2) 0.0
+      else (in1 + epsilon) - in2
+    override def name: String = "err.<"
+  }
 
   val scalarize = new Transformation[ExprF, ExprF] {
     override def transformation[I <: Int](retrieve: I => ExprF[I],
@@ -29,24 +63,18 @@ object transformations {
   val asErrors = new Transformation[ExprF, ExprF] {
     override def transformation[I <: Int](retrieve: I => ExprF[I],
                                           record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
-//      case ComputationF(bool.And, args, _) =>
-//        ComputationF(double.Add, args)
-      case ComputationF(double.LEQ, Vec(a, b), _) =>
-        val bMinusA = record(
-          ComputationF(double.Add, Vec(b, record(ComputationF(double.Negate, Vec(a))))))
-        ComputationF(double.Min, record(CstF(Value(0.0), Tag.ofDouble)), bMinusA)
-      case ComputationF(double.LT, Vec(a, b), _) =>
-        val bMinusA = record(
-          ComputationF(double.Add,
-                       b,
-                       record(ComputationF(double.Negate, Vec(a))),
-                       record(CstF(Value(-epsilon), Tag.ofDouble)))
-        )
-        ComputationF(double.Min, record(CstF(Value(0.0), Tag.ofDouble)), bMinusA)
-      case ComputationF(double.EQ, Vec(a, b), _) =>
-        ComputationF(double.Add, a, record(ComputationF(double.Negate, b)))
-//      case ComputationF(bool.Or, _, _) => ???
-//      case ComputationF(bool.Not, _, _) => ???
+      case ComputationF(double.LEQ, args, _) =>
+        ComputationF(ErrBelow, args)
+      case ComputationF(double.LT, args, _) =>
+        ComputationF(ErrStrictlyBelow, args)
+      case ComputationF(double.EQ, args, _) =>
+        ComputationF(ErrEqual, args)
+      case ComputationF(bool.Or, args, _) =>
+        ComputationF(MinError, args)
+      case ComputationF(bool.And, conjuncts, _) =>
+        ComputationF(CombinedErrors, conjuncts)
+//      case x if x.typ != Tag.ofDouble => ???
+
       case x => x
     }
   }
@@ -60,14 +88,22 @@ object transformations {
         val middleIdent = TypedIdent(id.id.subIdent("middle"), tpe)
 
         // three list
-        val head = record(SequenceF(Vec(record(InputF(headIdent))), tpe))
-        val middle = record(InputF(middleIdent))
-        val tail = record(SequenceF(Vec(record(InputF(lastIdent))), tpe))
+//        val head = record(SequenceF(Vec(record(InputF(headIdent))), tpe))
+//        val middle = record(InputF(middleIdent))
+//        val tail = record(SequenceF(Vec(record(InputF(lastIdent))), tpe))
 
         import Tag.unsafe.ofAny
-        ComputationF(sequence.Concat[Any], head, /*middle,*/ tail)
+//        ComputationF(sequence.Concat[Any], head, /*middle,*/ tail) // TODO
+
+//        val head = record(InputF(headIdent))
+//        val a1 = record(InputF(TypedIdent(id.id.subIdent("1"), tpe.memberTag)))
+//        val a2 = record(InputF(TypedIdent(id.id.subIdent("2"), tpe.memberTag)))
+//        val tail = record(InputF(lastIdent))
+        val intermediates = for(i <- 1 until 20)
+          yield record(InputF(TypedIdent(id.id.subIdent(i.toString), tpe.memberTag)))
 
 //        SequenceF(Vec(head, tail), tpe)
+        SequenceF(intermediates, tpe)
 
       case fi @ ComputationF(_: sequence.First[_], Vec(seq), _) =>
         retrieve(seq) match {

@@ -7,18 +7,21 @@ import scala.util.Try
 import dahu.refinement.common._
 import dahu.refinement._
 
-class LeastSquares(residuals: Seq[RefExpr]) {
+class LeastSquares(allResiduals: Seq[RefExpr]) {
 
-  val numVars: Int = residuals.map(_.params.max).max
+  def activeResiduals(mem: RMemory): Seq[RefExpr] =
+    allResiduals //.filter(_.eval(mem) >= 1e-4)
+
+//  val numVars: Int = residuals.map(_.params.max).max
 
   def evalResiduals(memory: RMemory): Seq[R] = {
-    residuals.map(_.eval(memory))
+    activeResiduals(memory).map(_.eval(memory))
   }
 
   def jacobian(memory: RMemory): Matrix = {
     val jac = new MatrixFactory
 //    println("\nGradients")
-    for((e, i) <- residuals.zipWithIndex) {
+    for((e, i) <- activeResiduals(memory).zipWithIndex) {
       val gradj = e.gradient(memory)
 //      println(gradj.mkString("\t"))
       var x = 0
