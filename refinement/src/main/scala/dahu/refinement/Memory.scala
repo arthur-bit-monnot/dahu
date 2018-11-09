@@ -24,9 +24,9 @@ trait WMemory extends Memory {
 }
 trait RWMemory extends RMemory with WMemory
 
-final class MemImpl() extends RWMemory {
+final class MemImpl(baseSize: Int = 0) extends RWMemory {
 
-  private val mem = debox.Buffer[R]()
+  private val mem = debox.Buffer.fill[R](baseSize)(1)
   def size: Int = mem.length
 
 //  private val mem: Values = new Array[R](size)

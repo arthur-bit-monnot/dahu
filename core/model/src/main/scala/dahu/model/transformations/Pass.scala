@@ -94,7 +94,9 @@ object Pass {
       // commutative monoid, evaluate the combination of all constants args
 
       // any function, evaluate if all args are constant
-      case ComputationF(f, args, t) if args.forall(ctx.retrieve(_).isInstanceOf[CstF[_]]) =>
+      case ComputationF(f, args, t)
+          if args.forall(ctx.retrieve(_).isInstanceOf[CstF[_]])
+            && !t.isInstanceOf[SequenceTagAny] => // TODO: SequenceF should be our Vec type
         val params = args.map(i =>
           ctx.retrieve(i) match {
             case CstF(value, _) => value

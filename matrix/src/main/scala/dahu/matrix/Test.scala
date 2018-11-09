@@ -12,11 +12,13 @@ class MatrixFactory {
   private def merge(i: Int, j: Int): Long = i.toLong + (j.toLong << 32)
 
   def update(i: Int, j: Int, value: Double): Unit = {
+
     require(!entries.contains(merge(i, j)), s"duplicate entry: ($i, $j)")
     entries.update(merge(i, j), null)
     Dcs_entry.cs_entry(M, i, j, value)
   }
 
+  // TODO: use built in feature to remove duplicate and zero entries
   def build: Matrix = new Matrix(Dcs_compress.cs_compress(M))
 }
 
@@ -47,7 +49,7 @@ class Matrix(private val M: Dcs) { lhs =>
     new Matrix(res)
   }
   def *(rhs: Array[Double]): Array[Double] = {
-    require(rhs.length == M.n)
+    assert(rhs.length == M.n)
     val res = new Array[Double](M.m)
     Dcs_gaxpy.cs_gaxpy(M, rhs, res)
     res

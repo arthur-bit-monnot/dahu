@@ -140,6 +140,7 @@ object InputF {
 }
 
 final case class CstF[@sp(Int) F](value: Value, typ: Type) extends Total[F] {
+  assert(!value.isInstanceOf[Vec[_]])
   assert(!typ.isBoolean || value == 0 || value == 1)
 //  if(value == 0 && typ == Tag.unsafe.ofAny)
 //    System.err.println(this.toString + " " + typ)

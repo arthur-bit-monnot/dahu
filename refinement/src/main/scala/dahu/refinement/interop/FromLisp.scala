@@ -16,14 +16,17 @@ import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.math.sequence.{FirstMatches, LastMatches}
 import dahu.model.problem.{API, PartialEval}
-import dahu.model.products.{Field, ProductTagAny}
+import dahu.model.products.{Field, FieldAccessAny, ProductTagAny}
 import dahu.model.types._
 import dahu.recursion.FAlgebra
 import dahu.refinement.common.{Params, R, Values}
+import dahu.refinement.interop.evaluation.{CompileEnv, CompiledFun, CompiledFunBridge}
 import dahu.refinement.la.LeastSquares
 import dahu.refinement.{MemImpl, RMemory, RefExpr}
 import dahu.utils._
+import dahu.utils.errors._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 
 object FromLisp extends App {
@@ -45,8 +48,6 @@ object FromLisp extends App {
     case Failure(e) => throw e
   }
   println(cstate)
-
-//  sys.exit(0)
 
 //  val mem = new MemImpl()
 
@@ -87,7 +88,23 @@ object FromLisp extends App {
     }
   }
 
-  enforce("constraints")
+  def load() = {
+    (for {
+      dstates <- asg.getTreeRoot("discrete-state-trajectory")
+      constraints0 <- asg.getTreeRoot("(constraints-by-state constraints0)")
+      constraints1 <- asg.getTreeRoot("(constraints-by-state constraints1)")
+      constraints2 <- asg.getTreeRoot("(constraints-by-state constraints2)")
+      pb <- problem.createProblem(dstates, constraints0, constraints1, constraints2)
+    } yield pb) match {
+      case Success(pb) =>
+        val solver = new Solver(pb)
+        solver.solve()
+      case Failure(e) => throw e
+    }
+  }
+
+//  enforce("constraints")
+  println(load())
   sys.exit(0)
 //  val res = problem.solve()
 //  res.print()
@@ -166,6 +183,17 @@ object RefExprs {
 
 import transformations._
 
+case class Band(
+    constraints0: Seq[Constraint],
+    constraints1: Seq[Constraint],
+    constraints2: Seq[Constraint]
+)
+
+case class Problem(
+    cstate: ProductTagAny,
+    bands: Seq[Band]
+)
+
 class ContinuousProblem[X](_asg: ASG[X, ExprF, Id], cstate: ProductTagAny) {
   private val asg = _asg.fixID
 
@@ -190,10 +218,85 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id], cstate: ProductTagAny) {
     .transform(optimizer)
   val headTails = openHeadTails.fixID
 
+  val printer = headTails.cata(Algebras.printAlgebraTree)
+  def echo(x: X): Unit = println(printer.get(x).mkString(50))
+  def echoI(x: I): Unit = println(printer.getInternal(x).mkString(50))
+
   type I = headTails.ID
   type Tagged[A] = A
 
-  private val constraints = debox.Buffer[I]()
+  def createProblem(dstates: X, constraints0: X, constraints1: X, constraints2: X): Try[Problem] =
+    Try {
+      echo(dstates)
+      echo(constraints0)
+      echo(constraints1)
+
+      val ds = headTails.getExt(dstates) match {
+        case SequenceF(members, tpe) => members
+        case _                       => unexpected
+      }
+//    val c0: ExprF[I] = headTails.getExt(constraints0)
+//    val a = c0.smap(headTails.internalCoalgebra)
+      def unnest2(i: I): ExprF[ExprF[I]] = {
+        headTails
+          .internalCoalgebra(i)
+          .smap(i => headTails.internalCoalgebra(i))
+      }
+      def unnest3(i: I) = { //: ExprF[ExprF[I]] = {
+        headTails
+          .internalCoalgebra(i)
+          .smap(i => headTails.internalCoalgebra(i).smap(headTails.internalCoalgebra))
+      }
+//    println(unnest(headTails.getTreeRoot(constraints0)))
+//    sys.exit(0)
+      val c0s = headTails.getExt(constraints0) match {
+        case SequenceF(members, _) => members
+        case _                     => unexpected
+      }
+      val c1s = headTails.getExt(constraints1) match {
+        case SequenceF(members, _) => members
+        case _                     => unexpected
+      }
+
+      val c2s = headTails.getExt(constraints2) match {
+        case SequenceF(members, _) => members
+        case _                     => unexpected
+      }
+      require(ds.size == c0s.size)
+      require(ds.size == c1s.size)
+      require(ds.size == c2s.size)
+
+      val compiler = new Compiler[I](headTails.internalCoalgebra)
+      val bands: Seq[Band] = for(i <- ds.indices) yield {
+        println(i)
+//      println(unnest3(c0s(i)))
+
+        val c0si: Vec[I] = headTails.internalCoalgebra(c0s(i)) match {
+          case SequenceF(members, _) => members
+          case _                     => unexpected
+        }
+        c0si.foreach(echoI)
+        val bandConstraints0 = c0si.map(compiler.compileQualified(_)).toSeq
+
+        val c1si: Vec[I] = headTails.internalCoalgebra(c1s(i)) match {
+          case SequenceF(members, _) => members
+          case _                     => unexpected
+        }
+        c1si.foreach(echoI)
+        val bandConstraints1 = c1si.map(compiler.compileQualified(_)).toSeq
+
+        val c2si: Vec[I] = headTails.internalCoalgebra(c2s(i)) match {
+          case SequenceF(members, _) => members
+          case _                     => unexpected
+        }
+        c2si.foreach(echoI)
+        val bandConstraints2 = c2si.map(compiler.compileQualified(_)).toSeq
+
+        new Band(bandConstraints0, bandConstraints1, bandConstraints2)
+      }
+
+      Problem(cstate, bands)
+    }
 
   def addConstraints(x: X, tag: Any = null): Unit = {
     val i = asg.getTreeRoot(x)
@@ -206,37 +309,37 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id], cstate: ProductTagAny) {
   }
 
   def addConstraintsHeadTails(x: X, tag: Any = null): Unit = {
-    val i = headTails.getTreeRoot(x)
-    headTails.internalCoalgebra(i) match {
-      case ComputationF(CombinedErrors, errors, _) =>
-        errors.foreach { e =>
-          addSingleConstraint(e)
-        }
-      case _ => addSingleConstraint(i)
-    }
+//    val i = headTails.getTreeRoot(x)
+//    headTails.internalCoalgebra(i) match {
+//      case ComputationF(CombinedErrors, errors, _) =>
+//        errors.foreach { e =>
+//          addSingleConstraint(e)
+//        }
+//      case _ => addSingleConstraint(i)
+//    }
 //    val vars = headTails.descendants(i).collect { case x @ InputF(_, _) => x }
 //    println(s"Variables (head-tails) in $tag")
 //    vars.map(v => s"  $v : ${v.typ}").sorted.foreach(println)
 //    API.echo(headTails.rootedAt(x))
   }
-  def addSingleConstraint(e: I): Unit = {
-    println("Constraint: ")
-    println("  " + headTails.build(e))
-    val vars = headTails.descendants(e).collect { case x @ InputF(_, _) => x }
-    println(s"  variables (head-tails) ")
-    vars.map(v => s"    $v : ${v.typ}").sorted.foreach(println)
-    constraints += e
-  }
-  val insideView = OpenASG.ana(headTails.internalCoalgebra)
-  def solve(): RMemory = {
-    val mem = new MemImpl()
-
-    val exprs = constraints.map(i => RefExprs.asRefExpr(mem, i, insideView))
-    val ls = new LeastSquares(exprs.toList())
-    ls.lmIteration(mem, 100)
-
-    mem
-  }
+//  def addSingleConstraint(e: I): Unit = {
+//    println("Constraint: ")
+//    println("  " + headTails.build(e))
+//    val vars = headTails.descendants(e).collect { case x @ InputF(_, _) => x }
+//    println(s"  variables (head-tails) ")
+//    vars.map(v => s"    $v : ${v.typ}").sorted.foreach(println)
+//    constraints += e
+//  }
+//  val insideView = OpenASG.ana(headTails.internalCoalgebra)
+//  def solve(): RMemory = {
+//    val mem = new MemImpl()
+//
+//    val exprs = constraints.map(i => RefExprs.asRefExpr(mem, i, insideView))
+//    val ls = new LeastSquares(exprs.toList())
+//    ls.lmIteration(mem, 100)
+//
+//    mem
+//  }
 
 //  type DS = I
 //  type CS = I
@@ -268,4 +371,40 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id], cstate: ProductTagAny) {
 //
 //  }
 
+}
+sealed trait Qualifier
+object Qualifier {
+  case object Always extends Qualifier
+  case object AtStart extends Qualifier
+  case object AtEnd extends Qualifier
+
+}
+case class Constraint(qual: Qualifier, fun: CompiledFunBridge)
+
+class Compiler[I](_coalg: I => ExprF[I]) {
+  val _tree = OpenASG.ana(_coalg)
+  val tree = _tree.fixID
+
+  val coalg = tree.internalCoalgebra _
+  type ID = tree.ID
+
+  def compileQualified(i: I): Constraint = {
+    tree.getExt(i) match {
+      case ComputationF(ForAll, Vec(a), _) =>
+        val compiled = compileLambda(a)
+        Constraint(Qualifier.Always, compiled)
+      case ComputationF(ForFirst, Vec(a), _) =>
+        val compiled = compileLambda(a)
+        Constraint(Qualifier.AtStart, compiled)
+
+      case ComputationF(ForLast, Vec(a), _) =>
+        val compiled = compileLambda(a)
+        Constraint(Qualifier.AtEnd, compiled)
+
+      case _ => ???
+    }
+  }
+  def compileLambda(i: ID): CompiledFunBridge = {
+    evaluation.compile[ID](coalg)(i)
+  }
 }

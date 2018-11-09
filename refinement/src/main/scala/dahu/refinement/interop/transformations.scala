@@ -109,6 +109,11 @@ object transformations {
         ComputationF(MinError, args)
       case ComputationF(bool.And, conjuncts, _) =>
         ComputationF(CombinedErrors, conjuncts)
+      case CstF(v, Tag.ofBoolean) =>
+        v match {
+          case Bool.True  => CstF(Value(0.0), Tag.ofDouble)
+          case Bool.False => CstF(Value(100.0), Tag.ofDouble)
+        }
 //      case x if x.typ != Tag.ofDouble => ???
 
       case x => x
