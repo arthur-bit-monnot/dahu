@@ -15,6 +15,8 @@ trait SequenceTag[T] extends Tag[Vec[T]] with SequenceTagAny {
 object SequenceTag {
   def apply[T](implicit t: Tag[T], ct: ClassTag[Vec[T]]): SequenceTag[T] = SequenceTagImpl(t)
 
+  def of(memberTag: TagAny): SequenceTagAny = SequenceTagImplAny(memberTag)
+
   final case class SequenceTagImplAny(memberTag: TagAny) extends SequenceTagAny {
     override def clazz: ClassTag[Vec[Any]] = implicitly[ClassTag[Vec[Any]]]
     override def typ: Tag.Type = Tag.typeOf[Vec[Any]]

@@ -133,31 +133,48 @@
 
 (define bands (list b1 b2))
 
-
-;
-;; true if the last cstate of b1 is the same as the fist continuous state of b2
-(defn continuous-evolution [b1 b2] (=
-                                    (last (states2 b1))
-                                    (first (states2 b2))))
-;
-;;(fulfills-instantaneous-constraint in-limits)
-;
-(defn valid-init [cs] (and (= (cstate1.d cs) 0)
-                           (= (cstate1.v cs) 0)
-                           ))
+; functions that takes a function (a -> b -> c) and transforms it into (a -> [b] -> c
+(defn always [f] (fn [a] (ref.forall (f a))))
+(defn atstart [f] (fn [a] (ref.forfirst (f a))))
+(defn atend [f] (fn [a] (ref.forlast (f a))))
 
 
+(define discrete-state-trajectory (list running-state goal-state))
+(define constraints0 (list (always (fn [ds cs] (< (cstate.d cs) 50)))))
+(define constraints1 (list (always running-until-goal)))
+(define constraints2 (list (always not-blown)))
+
+(defn specialize [dstate constraint] (constraint dstate))
+(defn specialize-all [constraints dstate] (map (specialize dstate) constraints))
+
+(defn constraints-by-state [constraints] (map (specialize-all constraints) discrete-state-trajectory))
+
+(define constraints (constraints-by-state constraints0))
+
 ;
-(defn fullfills-init-constraints [bands f] (f (first (states1 (first bands)))))
+;;; true if the last cstate of b1 is the same as the fist continuous state of b2
+;(defn continuous-evolution [b1 b2] (=
+;                                    (last (states2 b1))
+;                                    (first (states2 b2))))
+;;
+;;;(fulfills-instantaneous-constraint in-limits)
+;;
+;(defn valid-init [cs] (and (= (cstate1.d cs) 0)
+;                           (= (cstate1.v cs) 0)
+;                           ))
 ;
-(define constraints
-  (and
-   (forall bands (fn [b] (forall (band.cont b) (fn [ts] (>= (timed-cstate.dt ts) 0.1)))))
-   (forall-consecutive bands continuous-evolution)
-   (forall bands (fulfills-evolution2-constraint in-limits))
-;   (states2 b1)
-   (forall bands (fulfills-evolution2-constraint not-blown))
-   (forall bands (fulfills-evolution-constraint running-until-goal))
-;   (forall bands (fulfills-evolution-constraint state-evol-valid))
-   (fullfills-init-constraints bands valid-init)
-  ))
+;
+;;
+;(defn fullfills-init-constraints [bands f] (f (first (states1 (first bands)))))
+;;
+;(define constraints
+;  (and
+;   (forall bands (fn [b] (forall (band.cont b) (fn [ts] (>= (timed-cstate.dt ts) 0.1)))))
+;   (forall-consecutive bands continuous-evolution)
+;   (forall bands (fulfills-evolution2-constraint in-limits))
+;;   (states2 b1)
+;   (forall bands (fulfills-evolution2-constraint not-blown))
+;   (forall bands (fulfills-evolution-constraint running-until-goal))
+;;   (forall bands (fulfills-evolution-constraint state-evol-valid))
+;   (fullfills-init-constraints bands valid-init)
+;  ))

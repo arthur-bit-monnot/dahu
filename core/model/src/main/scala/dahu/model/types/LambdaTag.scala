@@ -24,6 +24,8 @@ object LambdaTag {
     override def clazz: ClassTag[Any ->: Any] = implicitly[ClassTag[Any ->: Any]]
     override def typ: Tag.Type = ???
   }
+  def of(in1: TagAny, in2: TagAny, out: TagAny): LambdaTag[_, _] =
+    of(in1, of(in2, out))
 
   final case class LambdaTagImpl[I, O](it: Tag[I], ot: Tag[O]) extends LambdaTag[I, O] {
     override def clazz: ClassTag[I ->: O] = implicitly[ClassTag[I ->: O]]

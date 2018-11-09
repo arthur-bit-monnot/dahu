@@ -16,6 +16,24 @@ trait FunAny {
   def outType: TagAny
 
   def funType: LambdaTagAny
+  override def toString: String = name
+}
+
+trait FunAny2 extends FunAny {
+  override def arity: Option[Int] = Some(2)
+  def compute(a: Any, b: Any): Any
+  override def compute(args: Vec[Value]): Any = {
+    require(args.size == 2)
+    compute(args(0), args(1))
+  }
+}
+trait FunAny1 extends FunAny {
+  override def arity: Option[Int] = Some(1)
+  def compute(a: Any): Any
+  override def compute(args: Vec[Value]): Any = {
+    require(args.size == 1)
+    compute(args(0))
+  }
 }
 
 abstract class Fun[O: Tag] extends FunAny {

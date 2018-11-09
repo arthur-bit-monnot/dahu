@@ -1,14 +1,50 @@
 package dahu.refinement.interop
 import dahu.graphs.transformations.Transformation
-import dahu.model.functions.{Fun2, FunN}
-import dahu.model.input.TypedIdent
+import dahu.model.functions._
+import dahu.model.input.{Ident, Scope, TypedIdent}
 import dahu.model.ir._
 import dahu.model.math._
 import dahu.model.types._
-import dahu.model.products.{Field, ProductTagAny}
+import dahu.model.products.{Field, ProductTagAny, RecordType}
 import dahu.utils._
 
 object transformations {
+
+  def indexed(tpe: TagAny): RecordType =
+    RecordType(s"indexed[$tpe]",
+               Seq(
+                 tpe -> "value",
+                 Tag.ofInt -> "index"
+               ))
+
+  object CStates0 extends FunAny1 {
+    override def isMacro: Boolean = true
+    override def name: String = "cstate0"
+    override def outType: SequenceTagAny = SequenceTag.of(Tag.unsafe.ofAny)
+    override def funType: LambdaTagAny = LambdaTag.of(Tag.ofInt, outType)
+
+    override def compute(a: Any): Any = ???
+  }
+
+  private val sequenceAnyType = SequenceTag.of(Tag.unsafe.ofAny)
+  private val predicateType = LambdaTag.of(Tag.unsafe.ofAny, Tag.ofBoolean)
+
+  sealed trait SequenceQuantifier extends FunAny2 {
+    override def isMacro: Boolean = true
+    override def compute(a: Any, b: Any): Any = ???
+    override def outType: Type = Tag.ofBoolean
+    override def funType: LambdaTagAny =
+      LambdaTag.of(predicateType, sequenceAnyType, Tag.ofBoolean)
+  }
+  object ForAll extends SequenceQuantifier {
+    override def name: String = "forall"
+  }
+  object ForFirst extends SequenceQuantifier {
+    override def name: String = "forfirst"
+  }
+  object ForLast extends SequenceQuantifier {
+    override def name: String = "forlast"
+  }
 
   private val epsilon = 1e-8
 
@@ -79,9 +115,34 @@ object transformations {
     }
   }
 
-  val withHeadTail = new Transformation[ExprF, ExprF] {
+  case class CStateIdent(bandID: Int, cstateID: Int)
+  object CStateIdent {
+    def of(bandID: Int, cstateID: Int, maxStates: Int): CStateIdent = {
+      require(maxStates > 0)
+      if(cstateID < 0)
+        of(bandID - 1, maxStates - cstateID, maxStates) // lasts of previous
+      else if(cstateID >= maxStates)
+        of(bandID + 1, cstateID - maxStates, maxStates) // firsts of next
+      else
+        CStateIdent(bandID, cstateID)
+    }
+  }
+
+  def withHeadTail(cstateType: ProductTagAny, numStates: Int) = new Transformation[ExprF, ExprF] {
     override def transformation[I <: Int](retrieve: I => ExprF[I],
                                           record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
+
+      case ComputationF(CStates0, Vec(i), _) =>
+        retrieve(i) match {
+          case CstF(bandID: Int, Tag.ofInt) =>
+            val idents = for(stateId <- -1 until numStates) yield {
+              TypedIdent(Ident(Scope.root, CStateIdent.of(i, stateId, numStates)), cstateType)
+            }
+            val variables = idents.map(id => record(InputF(id)))
+
+            SequenceF(variables, SequenceTag.of(cstateType))
+        }
+
       case InputF(id, tpe: SequenceTagAny) =>
         val headIdent = TypedIdent(id.id.subIdent("first"), tpe.memberTag)
         val lastIdent = TypedIdent(id.id.subIdent("last"), tpe.memberTag)

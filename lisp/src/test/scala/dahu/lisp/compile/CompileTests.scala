@@ -11,7 +11,7 @@ object CompileTests extends TestSuite {
 
   def eval(str: String): Any = {
     val ctx = new Context(Env.default())
-    Try(parseEval(str, ctx)) match {
+    Try(parseEvalToString(str, ctx)) match {
       case scala.util.Success(id) => id
       case scala.util.Failure(e)  => e.printStackTrace()
     }
@@ -38,7 +38,7 @@ object CompileTests extends TestSuite {
   def fails()(implicit x: utest.framework.TestPath): Unit = {
     val str = x.value.last
     val ctx = new Context(Env.default())
-    parseEval(str, ctx) match {
+    parseEvalToString(str, ctx) match {
       case scala.util.Success(_) => assert(false)
       case _                     => assert(true)
     }

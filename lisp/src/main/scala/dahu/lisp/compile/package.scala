@@ -294,14 +294,21 @@ package object compile {
 
   }
 
-  def eval(se: SExpr, ctx: Context): Try[String] = {
+  def evalToString(se: SExpr, ctx: Context): Try[String] = {
     ctx.show(se)
   }
 
-  def parseEval(str: String, ctx: Context): Try[String] = {
+  def parseEvalToString(str: String, ctx: Context): Try[String] = {
     for {
       sexpr <- Try(parse(str))
-      res <- eval(sexpr, ctx)
+      res <- evalToString(sexpr, ctx)
+    } yield res
+  }
+
+  def parseEval(str: String, ctx: Context): Try[Fix[ExprF]] = {
+    for {
+      sexpr <- Try(parse(str))
+      res <- ctx.treeOf(sexpr)
     } yield res
   }
 
@@ -319,7 +326,7 @@ package object compile {
         sys.exit(1)
     }
     for(e <- ast) {
-      dahu.lisp.compile.eval(e, ctx) match {
+      dahu.lisp.compile.evalToString(e, ctx) match {
         case Success(res) =>
           println(res)
         case Failure(e) =>

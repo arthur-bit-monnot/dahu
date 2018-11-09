@@ -456,6 +456,12 @@ object Pass {
               val is: Vec[I] = x.map(ctx.record)
               SequenceF(is, null)
 
+            case CstF(values: Vec[Value], _) => // TODO: SequenceF should match a CstF
+              val members = values.map(value => ctx.record(CstF(value, Tag.unsafe.ofAny)))
+              val x: Vec[ApplyF[I]] = members.map(i => ApplyF[I](fun, i, null))
+              val is: Vec[I] = x.map(ctx.record)
+              SequenceF(is, null)
+
             case ComputationF(_: sequence.Concat[_], lists, _) =>
               val mappedLists = lists.map(l => ctx.record(ComputationF(map, fun, l)))
               ComputationF(sequence.Concat(Tag.unsafe.ofAny), mappedLists)

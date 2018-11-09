@@ -24,7 +24,7 @@ import dahu.refinement.la.LeastSquares
 import dahu.refinement.{MemImpl, RMemory, RefExpr}
 import dahu.utils._
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object FromLisp extends App {
 
@@ -37,6 +37,14 @@ object FromLisp extends App {
 //  dahu.lisp.compile.evalMany(sources.testDomain)
 
   dahu.lisp.compile.evalFile("refinement/domains/car2.clj")
+
+  val cstate = dahu.lisp.compile.parseEval("^cstate", ctx) match {
+    case Success(CstF(tpe: ProductTagAny, _)) => tpe
+    case Success(x) =>
+      errors.unexpected(s"^cstate does not point to a valid record but to $x")
+    case Failure(e) => throw e
+  }
+  println(cstate)
 
 //  sys.exit(0)
 
@@ -69,7 +77,7 @@ object FromLisp extends App {
 
   val simplified = OpenASG.ana(asg.internalCoalgebra)
 
-  val problem = new ContinuousProblem[asg.ID](simplified)
+  val problem = new ContinuousProblem[asg.ID](simplified, cstate)
 
   def enforce(source: String): Unit = {
     asg.getTreeRoot(source) match {
@@ -80,9 +88,9 @@ object FromLisp extends App {
   }
 
   enforce("constraints")
-//  sys.exit(0)
-  val res = problem.solve()
-  res.print()
+  sys.exit(0)
+//  val res = problem.solve()
+//  res.print()
 
 //  enforce("(geom.is-in c1 pt1)")
 //  enforce("(geom.is-in c1 pt2)")
@@ -158,11 +166,11 @@ object RefExprs {
 
 import transformations._
 
-class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
+class ContinuousProblem[X](_asg: ASG[X, ExprF, Id], cstate: ProductTagAny) {
   private val asg = _asg.fixID
 
   val openHeadTails = asg
-    .transform(withHeadTail)
+    .transform(withHeadTail(cstate, 1))
     .transform(scalarize)
     .transform(optimizer)
     .transform(scalarize)
@@ -171,6 +179,8 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
     .manualMap(PartialEval)
     .transform(optimizer)
     .transform(optimizer)
+    .transform(optimizer)
+    .manualMap(PartialEval)
     .transform(optimizer)
     .manualMap(PartialEval)
     .transform(optimizer)
@@ -227,5 +237,35 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id]) {
 
     mem
   }
+
+//  type DS = I
+//  type CS = I
+//  type T = I
+//  type Band = (DS, Seq[CS])
+//  def create(): CS = ???
+//
+//  trait CSGen {
+//    def apply(bandNum: Int, stateNum: Int): CS
+//  }
+//
+//  def cstates(genS: CSGen, genT: () => T)(discretes: Seq[DS], num: Int): Seq[(DS, Seq[CS])] = {
+//    val first = genS(0, 0)
+//    for(i <- discretes.indices) {
+//      val first = if(i == 0) first
+//    }
+//    val (last, bands) = discretes.foldLeft((first, List[Band]())) {
+//      case ((previous, bands), ds) =>
+//        val lastOfThis = (1 to num).map(i => genS())
+//        val band = (ds,
+//                    Seq(
+//                      TimedState(previous, genT()),
+//                      TimedState(lastOfThis, genT())
+//                    ))
+//        (lastOfThis, bands :+ band)
+//    }
+//
+//    Bands(bands, first, last)
+//
+//  }
 
 }
