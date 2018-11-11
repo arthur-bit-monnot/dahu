@@ -19,13 +19,18 @@ object Parser {
     case _                                         => true
   }
 
-  val token: P[E] = (
-    "\"" ~/ CharsWhile(_ != '"').! ~ "\""
-      | CharsWhile(allowed, min = 1).!.map(
-        s =>
-          Try(s.toDouble.asInstanceOf[java.lang.Double])
-            .getOrElse(Sym(s)))
-  )
+  def asInt(str: String): Option[Int] = {
+    if(str.endsWith("i"))
+      Try(str.dropRight(1).toInt).toOption
+    else None
+  }
+  def asDouble(str: String): Option[Double] =
+    Try(str.toDouble).toOption
+
+  val token: P[E] = ("\"" ~/ CharsWhile(_ != '"').! ~ "\""
+    | CharsWhile(allowed, min = 1).!.map(
+      s => asDouble(s).orElse(asInt(s)).getOrElse(Sym(s))
+    ))
 
   val atom: P[Sym] = token
     .filter {

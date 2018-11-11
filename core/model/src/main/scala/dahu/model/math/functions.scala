@@ -177,6 +177,7 @@ package object sequence {
   object Indices extends Fun1[Vec[Any], Vec[Int]] {
     override def of(in: Vec[Any]): Vec[Int] = Vec.fromIterable(in.indices)
     override def name: String = "indices"
+    override def outType = SequenceTag[Int]
   }
   sealed class Get[A: Tag] extends Fun2[Vec[A], Int, A] {
     override def of(in1: Vec[A], in2: Int): A = in1(in2)

@@ -32,6 +32,10 @@ object log {
 
 package object compile {
 
+  val CURRENT_CONTINUOUS_STATE = "current-continuous-state"
+//  val CURRENT_DISCRETE_STATE =
+//    TypedIdent(Ident(Scope.root, "current-discrete-state"), Tag.ofInt)
+
   import Env._
 
   sealed trait EvalMode
@@ -44,6 +48,61 @@ package object compile {
     def typeOf(i: I): Type = env.extractValue(i).typ
     def record(v: V): I = env.getId(v)
     def get(i: I): V = env.extractValue(i)
+    def extractTypedFieldsDefinitions(l: List[Any]): List[(TagAny, String)] = l match {
+      case Nil => Nil
+      case (fieldType: Sym) :: (fieldName: Sym) :: rest =>
+        env.extractValue(fieldType) match {
+          case CstF(t: TagAny, _) =>
+            (t, fieldName.name) :: extractTypedFieldsDefinitions(rest)
+          case x =>
+            error(s"$fieldType does not resolve to a type but to: $x")
+        }
+      case _ => error(s"Expected a type and a field name but got: $l")
+    }
+    def input(id: TypedIdent): I = {
+      record(InputF(id))
+    }
+    def cstString(v: String): I = {
+      record(CstF(Value(v), Tag.ofString))
+    }
+
+    def defineStruct(recordName: String, fields: (TagAny, String)*): (RecordType, I) = {
+      val r = RecordType(recordName, fields: _*)
+      log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
+      val tpeId = record(CstF(Value(r), Tag.ofType))
+      env.setConstantValue(s"^$recordName", tpeId)
+
+      log.verbose(s"Recording variable '^${recordName}s' representing a record type '$recordName'")
+      val listR = SequenceTagImplAny(r)
+      val listTypeId = record(CstF(Value(listR), Tag.ofType))
+      env.setConstantValue(s"^${recordName}s", listTypeId)
+
+      log.verbose(s"Recording constructor '$recordName' for a record type")
+      val ctor = Constructor(r)
+      val ctorId = record(CstF(Value(ctor), ctor.funType))
+      env.setConstantValue(recordName, ctorId)
+      for(((fieldType, fieldName), i) <- fields.zipWithIndex) {
+        val accessorName = s"$recordName.$fieldName"
+        log.verbose(s"Recording getter $accessorName")
+        val getter = new FieldAccessAny {
+          override def arity: Option[Int] = Some(1)
+          override def prodTag: Type = r
+          override def fieldTag: Type = fieldType
+          override def fieldPosition: Int = i
+          override def name: String = accessorName
+          override def compute(args: Vec[Value]): Any = args match {
+            case Vec(ProductF(members, tpe)) if tpe == r =>
+              members(i)
+            case x => error(s"invalid argument to getter $accessorName: $x")
+          }
+          override def outType: Type = fieldType
+          override def funType: LambdaTagAny = LambdaTag.of(prodTag, fieldTag)
+        }
+        val getterId = record(CstF(Value(getter), getter.funType))
+        env.setConstantValue(accessorName, getterId)
+      }
+      (r, tpeId)
+    }
 
     e match {
       case x: Sym =>
@@ -114,56 +173,77 @@ package object compile {
           case x => error("Malformed var definition")
 
         }
+      case Sym("define-continuous-state") :: rest =>
+        val curState = env.getValue(Sym(CURRENT_CONTINUOUS_STATE))
+        val readContTpe = RecordType("read-cont", Tag.ofInt -> "state", Tag.ofString -> "field")
+        def readCont(name: String): Env.I = {
+          record(ProductF(Vec(curState, cstString(name)), readContTpe))
+        }
+        val fields = extractTypedFieldsDefinitions(rest) ++ List(Tag.ofDouble -> "dt")
+        for((tpe, name) <- fields) {
+          require(tpe == Tag.ofDouble)
+          env.setConstantValue(name, readCont(name))
+        }
+        defineStruct("cstate", fields: _*)._2
+
+      case Sym("define-discrete-state") :: rest =>
+        val DSTATE = "current-discrete-state"
+        val fields = extractTypedFieldsDefinitions(rest)
+        val (r, i) = defineStruct("dstate", fields: _*)
+        val curState = TypedIdent(Ident(Scope.root, DSTATE), r)
+        val state = record(InputF(curState))
+        env.setConstantValue(DSTATE, state)
+        def readDisc(name: String): Env.I = {
+          val getter = r.getAccessorAny(name).get
+          record(ComputationF(getter, state))
+        }
+
+        for((tpe, name) <- fields) {
+//          require(tpe == Tag.ofDouble) //TODO: use types
+          env.setConstantValue(name, readDisc(name))
+        }
+        i
+
       case Sym("defstruct") :: Sym(recordName) :: rest =>
-        def extractFields(l: List[Any]): List[(TagAny, String)] = l match {
-          case Nil => Nil
-          case (fieldType: Sym) :: (fieldName: Sym) :: rest =>
-            env.extractValue(fieldType) match {
-              case CstF(t: TagAny, _) =>
-                (t, fieldName.name) :: extractFields(rest)
-              case x =>
-                error(s"$fieldType does not resolve to a type but to: $x")
-            }
-          case _ => error(s"Expected a type and a field name but got: $l")
-        }
-        val fields = extractFields(rest)
-        val r = RecordType(recordName, fields)
-        log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
-        val tpeId = record(CstF(Value(r), Tag.ofType))
-        env.setConstantValue(s"^$recordName", tpeId)
-
-        log.verbose(
-          s"Recording variable '^${recordName}s' representing a record type '$recordName'")
-        val listR = SequenceTagImplAny(r)
-        val listTypeId = record(CstF(Value(listR), Tag.ofType))
-        env.setConstantValue(s"^${recordName}s", listTypeId)
-
-        log.verbose(s"Recording constructor '$recordName' for a record type")
-        val ctor = Constructor(r)
-        val ctorId = record(CstF(Value(ctor), ctor.funType))
-        env.setConstantValue(recordName, ctorId)
-        for(((fieldType, fieldName), i) <- fields.zipWithIndex) {
-          val accessorName = s"$recordName.$fieldName"
-          log.verbose(s"Recording getter $accessorName")
-          val getter = new FieldAccessAny {
-            override def arity: Option[Int] = Some(1)
-            override def prodTag: Type = r
-            override def fieldTag: Type = fieldType
-            override def fieldPosition: Int = i
-            override def name: String = accessorName
-            override def compute(args: Vec[Value]): Any = args match {
-              case Vec(ProductF(members, tpe)) if tpe == r =>
-                members(i)
-              case x => error(s"invalid argument to getter $accessorName: $x")
-            }
-            override def outType: Type = fieldType
-            override def funType: LambdaTagAny = LambdaTag.of(prodTag, fieldTag)
-          }
-          val getterId = record(CstF(Value(getter), getter.funType))
-          env.setConstantValue(accessorName, getterId)
-        }
-
-        tpeId
+        val fields = extractTypedFieldsDefinitions(rest)
+        defineStruct(recordName, fields: _*)._2
+//        val r = RecordType(recordName, fields: _*)
+//        log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
+//        val tpeId = record(CstF(Value(r), Tag.ofType))
+//        env.setConstantValue(s"^$recordName", tpeId)
+//
+//        log.verbose(
+//          s"Recording variable '^${recordName}s' representing a record type '$recordName'")
+//        val listR = SequenceTagImplAny(r)
+//        val listTypeId = record(CstF(Value(listR), Tag.ofType))
+//        env.setConstantValue(s"^${recordName}s", listTypeId)
+//
+//        log.verbose(s"Recording constructor '$recordName' for a record type")
+//        val ctor = Constructor(r)
+//        val ctorId = record(CstF(Value(ctor), ctor.funType))
+//        env.setConstantValue(recordName, ctorId)
+//        for(((fieldType, fieldName), i) <- fields.zipWithIndex) {
+//          val accessorName = s"$recordName.$fieldName"
+//          log.verbose(s"Recording getter $accessorName")
+//          val getter = new FieldAccessAny {
+//            override def arity: Option[Int] = Some(1)
+//            override def prodTag: Type = r
+//            override def fieldTag: Type = fieldType
+//            override def fieldPosition: Int = i
+//            override def name: String = accessorName
+//            override def compute(args: Vec[Value]): Any = args match {
+//              case Vec(ProductF(members, tpe)) if tpe == r =>
+//                members(i)
+//              case x => error(s"invalid argument to getter $accessorName: $x")
+//            }
+//            override def outType: Type = fieldType
+//            override def funType: LambdaTagAny = LambdaTag.of(prodTag, fieldTag)
+//          }
+//          val getterId = record(CstF(Value(getter), getter.funType))
+//          env.setConstantValue(accessorName, getterId)
+//        }
+//
+//        tpeId
 
       case l: List[_] =>
         println(l)

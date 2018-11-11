@@ -1,0 +1,35 @@
+
+// ---- Domain -----
+
+// constant part of the discrete state
+constant real up_limit;
+constant real down_limit;
+
+// variable part of the discrete state
+fluent boolean running;
+
+// continuous state
+continuous-fluent real distance;
+
+// starts the engine at the beginning and stops it at the end
+action run() {
+  [start] running := true;
+  [end] running := false;
+};
+
+
+// ---- Problem -----
+
+// constants
+up_limit := 10.0;
+down_limit := 0.0;
+
+// initial state
+[start] {
+  running := false;
+  distance := 0.0;
+};
+
+// goal
+[end] distance >= 30.0;
+[end] running == false;

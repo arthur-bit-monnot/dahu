@@ -2,8 +2,10 @@ package dahu.refinement.interop
 import dahu.model.products.ProductTagAny
 import dahu.refinement.{Fun, MemImpl, RMemory, RefExpr}
 import dahu.refinement.common.{Addr, Params, R, Values}
+import dahu.refinement.interop.MemTypes.State
 import dahu.refinement.interop.evaluation.Read
 import dahu.refinement.la.LeastSquares
+import dahu.utils.errors._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -11,75 +13,62 @@ object Printer {
   def fmt(d: Double): String = "%1.2e".format(d)
 }
 
-abstract class Params(adds: Addr*) {
-  def paramAddresses: Array[Addr] = adds.toArray
+object MemTypes {
+
+  class State(val i: Int) extends AnyVal {
+    def +(off: Int): State = new State(i + off)
+
+    def <(s: State): Boolean = i < s.i
+    def <=(s: State): Boolean = i <= s.i
+
+    def to(lastState: State): Iterable[State] =
+      (i to lastState.i).map(x => new State(x))
+  }
+
 }
-case class State0Param(addr: Addr) extends Params(addr)
-case class State1Params(cs1: Addr, cs2: Addr, dt: Addr) extends Params(cs1, cs2, dt)
-case class State2Params(cs1: Addr, cs2: Addr, cs3: Addr, dt1: Addr, dt2: Addr)
-    extends Params(cs1, cs2, cs3, dt1, dt2)
+import MemTypes._
 
 case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
+
+  def firstState: State = new State(0)
+  def lastState: State = bands.last.firstState + bands.last.numStates
+  (firstState.i to lastState.i).map(i => new State(i))
+
+  def allStates = firstState to lastState
+
+  private val dtOffset = cstate.fieldPosition("dt").getOrElse(unexpected("cstate has no dt field"))
+
+  val firstStateAddress = 0
+  val stateSize: Int = cstate.fields.size
+  def addressOfState(s: State, fieldNum: Int = 0): Addr =
+    firstStateAddress + (stateSize * s.i) + fieldNum
+
+  def addressOfTime(s: State): Int = addressOfState(s, dtOffset)
+
   def apply(b: Int) = bands(b)
 
   def print(mem: RMemory): Unit = {
     for((b, i) <- bands.zipWithIndex) {
       println(s" --- Band $i")
-      for(s <- 0 until b.numStates) {
-        println(b.printState(s, mem))
+      for(s <- b.states) {
+        println(printState(s, mem))
       }
 
     }
   }
 
-  def dtOfState(addr: Addr): Addr = addr + cstate.fields.size
-
-  def states2(band: Int): Seq[State2Params] = {
-    // if not the first band add the antelast state of the previous band
-    val firstStates =
-      if(band == 0) Seq()
-      else Seq(bands(band - 1).addressOfState(bands(band - 1).numStates - 2))
-
-    val lastStates =
-      if(band == bands.size - 1) Seq()
-      else Seq(bands(band + 1).addressOfState(1))
-
-    val states: Seq[Addr] = firstStates ++ bands(band).states0.map(_.addr) ++ lastStates
-    for(i <- 0 until states.size - 2) yield {
-      val x = bands(band)
-      State2Params(
-        states(i),
-        states(i + 1),
-        states(i + 2),
-        dtOfState(states(i + 1)),
-        dtOfState(states(i + 2))
-      )
-    }
+  def printState(state: State, mem: RMemory): String = {
+    s"${addressOfState(state)}: " +
+      cstate.fields
+        .map(f => s"  ${f.name}: ${Printer.fmt(mem.read(addressOfState(state, f.position)))} \t")
+        .mkString("")
   }
 
 }
 
-case class BandMem(firstAddr: Addr, numStates: Int, cstate: ProductTagAny) {
-  val stateSize: Int = cstate.fields.size
-  def addressOfState(state: Int, fieldOffset: Int = 0): Addr =
-    firstAddr + state * (stateSize + 1) + fieldOffset
-  def addressOfTime(state: Int): Addr = addressOfState(state) + stateSize
-
-  def printState(state: Int, mem: RMemory): String = {
-    cstate.fields
-      .map(f =>
-        s"${addressOfState(state)}:  ${f.name}: ${Printer.fmt(mem.read(addressOfState(state, f.position)))} \t")
-      .mkString("") + s" \t\t dt: ${Printer.fmt(mem.read(addressOfTime(state)))}"
-  }
-
-  def lastUsedAddr: Addr = addressOfTime(numStates)
-
-  def states0: Seq[State0Param] =
-    (0 until numStates).map(i => State0Param(addressOfState(i)))
-
-  def states1: Seq[State1Params] =
-    (0 until numStates - 1).map(i =>
-      State1Params(addressOfState(i), addressOfState(i + 1), addressOfTime(i + 1)))
+case class BandMem(firstState: State, numStates: Int, cstate: ProductTagAny) {
+  def lastState: State = firstState + (numStates - 1)
+  def states = firstState to lastState
 
 }
 
@@ -94,29 +83,26 @@ class Solver(pb: Problem) {
   val bands = pb.bands.indices
 
   val stateSize = pb.cstate.fields.size
-  val numStates = 10
+  val numStates = 2
   val numStatesPerBand: OfBand[Int] = pb.bands.map(_ => numStates)
 
   val memories = MemoryLayout(
     bands
       .foldLeft(List[BandMem]()) {
         case (l, band) =>
-          val firstAddr = l.headOption
-            .map(m => m.addressOfState(m.numStates - 1)) // use last state from previous band
-            .getOrElse(0)
-          BandMem(firstAddr, numStatesPerBand(band) + 1, pb.cstate) :: l
+          val firstState = l.headOption
+            .map(m => m.lastState) // use last state from previous band
+            .getOrElse(new State(0))
+          BandMem(firstState, numStatesPerBand(band) + 1, pb.cstate) :: l
       }
       .reverse
       .toIndexedSeq,
     pb.cstate
   )
 
-  def states0(b: B) = memories(b).states0
-  def states1(b: B) = memories(b).states1
-
   def build(): Seq[Tagged[RefExpr]] = {
 
-    def applicables[X](qualifier: Qualifier, xs: Seq[X]) = qualifier match {
+    def applicables[X](qualifier: Qualifier, xs: Iterable[X]) = qualifier match {
       case Qualifier.Always  => xs
       case Qualifier.AtStart => Seq(xs.head)
       case Qualifier.AtEnd   => Seq(xs.last)
@@ -131,9 +117,10 @@ class Solver(pb: Problem) {
         exprs += Tagged(e, level)
       }
     }
-    def binds(s0: Params, c: Constraint): Array[Addr] = {
+    def binds(s: State, c: Constraint): Array[Addr] = {
       c.fun.read.map {
-        case Read(param, offset) => s0.paramAddresses(param) + offset
+        case Read(relState, offset) =>
+          memories.addressOfState(s + relState, offset)
       }
     }
     val strictlyPositive = new Fun {
@@ -144,46 +131,33 @@ class Solver(pb: Problem) {
       }
     }
 
-    for(band <- bands) {
-      val bm = memories(band)
-      for(s <- 0 until bm.numStates) {
-        val dtAddr = bm.addressOfTime(s)
-        record(strictlyPositive.bind(dtAddr), level = 0)
-      }
+//    for(s <- memories.allStates) {
+//      record(strictlyPositive.bind(memories.addressOfTime(s)), level = 0)
+//    }
 
-      val simpleStates = states0(band)
+    for(band <- bands) {
+
+      val bm = memories(band)
+      val bandStates = bm.firstState to bm.lastState
 
       for(c <- pb.bands(band).constraints0) {
         val f = c.fun
 
-        val states = applicables(c.qual, simpleStates)
+        println(f.read.toSeq)
+        val isFirstDeriv = f.belowStateOffset == -1 && f.aboveStateOffset == 0
+        val filtered =
+          if(isFirstDeriv) bandStates.tail
+          else bandStates
+        val states =
+          applicables(c.qual, filtered)
+            .filter(
+              s =>
+                memories.firstState <= s + f.belowStateOffset &&
+                  (s + f.aboveStateOffset) <= memories.lastState)
+
         states.foreach { s0 =>
           val x = binds(s0, c)
-          record(f.bindArray(x), level = 0)
-        }
-
-      }
-      val dualStates = states1(band)
-      for(c <- pb.bands(band).constraints1) {
-        val f = c.fun
-
-        val states = applicables(c.qual, dualStates)
-        println(states)
-        states.foreach { s0 =>
-          val x = binds(s0, c)
-          record(f.bindArray(x), level = 1)
-        }
-
-      }
-      val tripleStates = memories.states2(band)
-      for(c <- pb.bands(band).constraints2) {
-        val f = c.fun
-
-        val states = applicables(c.qual, tripleStates)
-        println(states)
-        states.foreach { s0 =>
-          val x = binds(s0, c)
-          record(f.bindArray(x), level = 2)
+          record(f.bindArray(x), level = f.aboveStateOffset - f.belowStateOffset)
         }
 
       }
@@ -192,7 +166,7 @@ class Solver(pb: Problem) {
     exprs
   }
 
-  def solve(numIters: Int = 100000): Unit = {
+  def solve(numIters: Int = 10): Unit = {
     val es = build()
 
     for(lvl <- 0 to 2) {

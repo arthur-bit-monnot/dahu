@@ -11,11 +11,7 @@ import dahu.utils._
 object transformations {
 
   def indexed(tpe: TagAny): RecordType =
-    RecordType(s"indexed[$tpe]",
-               Seq(
-                 tpe -> "value",
-                 Tag.ofInt -> "index"
-               ))
+    RecordType(s"indexed[$tpe]", tpe -> "value", Tag.ofInt -> "index")
 
   object CStates0 extends FunAny1 {
     override def isMacro: Boolean = true

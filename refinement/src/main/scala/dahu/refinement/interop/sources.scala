@@ -1,10 +1,12 @@
 package dahu.refinement.interop
+
+import dahu.lisp.compile._
 import dahu.lisp.compile.Env.V
-import dahu.lisp.compile.RootEnv
 import dahu.model.functions.FunAny
 import dahu.model.input.{Ident, Scope, TypedIdent}
 import dahu.model.ir._
 import dahu.model.math._
+import dahu.model.problem.ExtractInputToLambda
 import dahu.model.types._
 import dahu.refinement.interop.transformations.{ForAll, ForFirst, ForLast}
 
@@ -15,6 +17,7 @@ object sources {
 (defn get-field [field-name prod] ((extractor field-name (type-of prod)) prod))
 (defn pow2 [base] (pow base 2.0))
 (defn - [a b] (+ a (neg b)))
+(defn i- [a b] (i+ a (ineg b)))
 (defn max [a b] (neg (min (neg a) (neg b))))
 (defn > [a b] (< b a))
 (defn >= [a b] (<= b a))
@@ -29,6 +32,21 @@ object sources {
 
 (defn geom.is-in [shape pt] (<= (geom.signed-dist shape (:x pt) (:y pt)) 0.0))
 (defn geom.is-not-in [shape pt] (> (geom.signed-dist shape (:x pt) (:y pt)) 0.0))
+
+
+
+(defstruct read-disc ^int dstate ^string field)
+(defstruct read-cont ^int state ^string field)
+
+(define dt (read-cont current-continuous-state "dt"))
+
+(defn previous [x] (read-cont (i- (read-cont.state x) 1i) (read-cont.field x)))
+(defn next [x] (read-cont (i+ (read-cont.state x) 1i) (read-cont.field x)))
+
+(defn fst-deriv [v] (/ (- (v) (previous v)) dt))
+(defn snd-deriv [v]
+  (* 2 (/ (- (fst-deriv (next v)) (fst-deriv v)) (+ (next dt) dt))))
+
 """
 
   val testDomain = """
@@ -78,6 +96,7 @@ object sources {
     rec("<", double.LT)
     rec("<=", double.LEQ)
     rec("neg", double.Negate)
+    rec("ineg", int.Negate)
     rec("abs", double.Abs)
     rec("sqrt", double.SQRT)
     rec("pow", double.POW)
@@ -99,9 +118,12 @@ object sources {
     rec("first", sequence.First[Any])
     rec("last", sequence.Last[Any])
     rec("map", sequence.Map[Any, Any])
+    rec("seq.indices", sequence.Indices)
     rec("forall-consecutive", sequence.AllConsecutive[Any])
     rec("map-consecutive2", sequence.MapConsecutive2[Any, Any])
     rec("map-consecutive3", sequence.MapConsecutive3[Any, Any])
+
+    rec("meta.as-lambda", ExtractInputToLambda)
 
     rec("ref.forall", ForAll)
     rec("ref.forfirst", ForFirst)
@@ -111,6 +133,7 @@ object sources {
 
     recVal("true", bool.TrueF)
     recVal("false", bool.FalseF)
+    recVal(CURRENT_CONTINUOUS_STATE, CstF(Value(0), Tag.ofInt))
 
     recVal("mem!",
            InputF(TypedIdent(Ident(Scope.root, "_mem_"), evaluation.memType), evaluation.memType))
@@ -118,7 +141,7 @@ object sources {
     recType("^int", Tag.ofInt)
     recType("^real", Tag.ofDouble)
     recType("^bool", Tag.ofBoolean)
-    recType("^str", Tag.ofString)
+    recType("^string", Tag.ofString)
     e
   }
 

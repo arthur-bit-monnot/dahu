@@ -3,7 +3,7 @@ import dahu.model.functions
 import dahu.model.input.Lambda.LambdaIdent
 import dahu.model.input._
 import dahu.model.ir._
-import dahu.model.products.FieldAccessAny
+import dahu.model.products.{FieldAccessAny, ProductTagAny, RecordType}
 import dahu.model.types._
 import dahu.refinement.common.{R, Values}
 import dahu.refinement.{Fun, RMemory}
@@ -82,42 +82,17 @@ object evaluation {
   type Mem = Array[Double]
   type Addr = dahu.refinement.common.Addr
   type NumParam = Int
-  case class Read(paramNumber: Int, offset: Int)
+  case class Read(relativeStateId: Int, offset: Int)
 
   class CompileEnv[I]() {
-
-    val lambdaParamNumber: mutable.Map[I, NumParam] = mutable.Map[I, NumParam]()
-    val lambdaIdentToPosition: mutable.Map[LambdaIdent, NumParam] = mutable.Map()
-    private var _isSealed: Boolean = false
-
     val reads = mutable.ArrayBuffer[Read]()
 
-    def addParam(i: I, id: LambdaIdent): Unit = {
-      assert(!lambdaParamNumber.contains(i))
-      assert(!lambdaIdentToPosition.contains(id))
-      val pos = lambdaParamNumber.size
-      lambdaParamNumber(i) = pos
-      lambdaIdentToPosition(id) = pos
-    }
-
-    def lambdaParamPosition(i: I) = lambdaParamNumber(i)
-    def lambdaIdentPosition(id: LambdaIdent) = lambdaIdentToPosition(id)
-
-    def argIdOf(lbdParam: I, offset: Int): Int = {
-      val r = Read(lambdaParamPosition(lbdParam), offset)
+    def argIdOf(stateRelativePos: Int, offset: Int): Int = {
+      val r = Read(stateRelativePos, offset)
       if(!reads.contains(r))
         reads += r
       reads.indexOf(r)
     }
-    def argIdOf(id: LambdaIdent, offset: Int): Int = {
-      val r = Read(lambdaIdentToPosition(id), offset)
-      if(!reads.contains(r))
-        reads += r
-      reads.indexOf(r)
-    }
-
-    def seal: Unit = _isSealed = true
-
   }
 
   def read(mem: Mem, addr: Addr): Double = ???
@@ -157,51 +132,70 @@ object evaluation {
   ) extends Fun {
     override def eval(params: Values): R =
       f.eval(params).asInstanceOf[R]
+
+    val isConstant = read.isEmpty
+    val belowStateOffset = read.map(_.relativeStateId).foldLeft(0)(math.min)
+    val aboveStateOffset = read.map(_.relativeStateId).foldLeft(0)(math.max)
   }
 
-  def compile[I](coalg: I => ExprF[I])(i: I): CompiledFunBridge = {
+  def compile[I](coalg: I => ExprF[I], cstate: ProductTagAny)(i: I): CompiledFunBridge = {
     val env = new CompileEnv[I]()
 
-    val f = compileImpl(coalg)(env)(i)
+    val f = compileImpl(coalg, cstate)(env)(i)
     val numParams = env.reads.size
 
     CompiledFunBridge(f, numParams, env.reads.toArray)
   }
 
-  private def compileImpl[I](coalg: I => ExprF[I])(e: CompileEnv[I])(i: I): CompiledFun = {
+  private def compileImpl[I](coalg: I => ExprF[I], cstate: ProductTagAny)(e: CompileEnv[I])(
+      i: I): CompiledFun = {
 
-    def ev(i: I): CompiledFun = compileImpl(coalg)(e)(i)
+    def ev(i: I): CompiledFun = compileImpl(coalg, cstate)(e)(i)
 
     coalg(i) match {
       case InputF(id, _) => ???
       case CstF(v, _) =>
-        e.seal
-        new Constant(v)
-      case ComputationF(f: FieldAccessAny, Vec(a), _) =>
-        e.seal
-        assert(f.outType == Tag.ofDouble)
-        assert(e.lambdaParamNumber.contains(a))
-        val argId = e.argIdOf(a, f.fieldPosition)
+        v match {
+          case ProductF(Vec(stateRelId: Int, field: String), tpe: RecordType)
+              if tpe.name == "read-cont" =>
+            val offset =
+              cstate
+                .fieldPosition(field)
+                .getOrElse(unexpected(s"Type $tpe has no field named $field"))
+            val argId = e.argIdOf(stateRelId, offset)
+            new ParamRead(argId)
+          case _ => new Constant(v)
+        }
+
+      case ProductF(Vec(sId, fieldName), tpe: RecordType) =>
+        val stateRelId = coalg(sId) match {
+          case CstF(x: Int, Tag.ofInt) => x
+          case a =>
+            println(a)
+            ???
+        }
+        val field = coalg(fieldName) match {
+          case CstF(x: String, Tag.ofString) => x
+          case _                             => ???
+        }
+        require(tpe.name == "read-cont")
+        val offset =
+          cstate.fieldPosition(field).getOrElse(unexpected(s"Type $tpe has no field named $field"))
+        val argId = e.argIdOf(stateRelId, offset)
         new ParamRead(argId)
+
       case ComputationF(f, args, _) =>
-        e.seal
+        val X = args.smap(ev)
+//        println(X)
         new Compute(f.computeFromAny, args.smap(ev))
       case SequenceF(members, _) => ???
       case NoopF(x, _)           => ev(x)
       case ITEF(cond, onTrue, onFalse, _) =>
-        e.seal
         new ComputeITE(ev(cond), ev(onTrue), ev(onFalse))
-      case ApplyF(lbd, param, _) => ???
-      case LambdaF(parap, tree, id, _) =>
-        e.addParam(parap, id)
-        ev(tree)
-
-      case LambdaParamF(id, _) =>
-        e.seal
-        val argId = e.argIdOf(id, 0)
-        new ParamRead(argId)
-
-      case ProductF(ms, tpe) => ???
+      case ApplyF(lbd, param, _)       => ???
+      case LambdaF(parap, tree, id, _) => ???
+      case LambdaParamF(id, _)         => ???
+      case ProductF(ms, tpe)           => ???
     }
 
   }

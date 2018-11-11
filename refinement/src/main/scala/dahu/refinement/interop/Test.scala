@@ -24,11 +24,7 @@ object Test extends App {
 
   import dahu.model.input.dsl._
 
-  val Point = RecordType("Point",
-                         Seq(
-                           Tag.ofDouble -> "x",
-                           Tag.ofDouble -> "y",
-                         ))
+  val Point = RecordType("Point", Tag.ofDouble -> "x", Tag.ofDouble -> "y")
   type Point = ProductF[Any]
 
   val dist: Expr[Double ->: Double ->: Double] = Lambda(x => Lambda(y => x + y - Cst(10.0)))

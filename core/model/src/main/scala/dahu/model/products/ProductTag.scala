@@ -12,6 +12,9 @@ trait ProductTagAny extends TagAny { self =>
   def fromValues(fields: Vec[Any]): Any
   def buildFromValues(fields: Vec[Value]): Any
 
+  def fieldPosition(name: String): Option[Int] =
+    fields.toSeq.find(_.name == name).map(_.position)
+
   def getAccessorAny(name: String): Option[FieldAccessAny] = {
     require(fields.map(_.position).toSeq == (0 until fields.size))
     require(fields.map(_.name).distinct.size == fields.size, "Two fields have the same name")

@@ -9,7 +9,7 @@ import scala.io.Source
 package object parser {
 
   /** An S-Expression */
-  type E = AnyRef
+  type E = Any
 
   def parse(str: String) = Parser.parser.parse(str)
 

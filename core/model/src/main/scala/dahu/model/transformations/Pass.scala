@@ -413,6 +413,14 @@ object Pass {
           case _                 => fi
         }
 
+      case fi @ ComputationF(sequence.Indices, Vec(e), tpe) =>
+        ctx.retrieve(e) match {
+          case SequenceF(vec, _) =>
+            val indices = vec.indices.map(i => ctx.record(CstF(Value(i), Tag.ofInt))).toVec
+            SequenceF(indices, sequence.Indices.outType)
+          case _ => fi
+        }
+
       case fi @ ComputationF(_: sequence.First[_], Vec(seq), _) =>
         ctx.retrieve(seq) match {
           case SequenceF(members, _) =>
