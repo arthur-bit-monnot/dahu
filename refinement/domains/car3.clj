@@ -15,6 +15,8 @@
 ; (define speed (/ (- distance (previous distance)) dt))
 
 (define acceleration (snd-deriv distance))
+;(define acceleration (- (fst-deriv (next distance)) (fst-deriv distance)))
+
 
 (define in-limits
   (and
@@ -47,6 +49,6 @@
 
 
 (define discrete-state-trajectory
-  (list (dstate true 10 0) ; engine running
-        (dstate false 10 0) ; engine not running
+  (list (dstate true 1 -1) ; engine running
+        (dstate false 1 -1) ; engine not running
         ))

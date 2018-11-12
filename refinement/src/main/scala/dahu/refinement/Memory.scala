@@ -15,7 +15,7 @@ trait RMemory extends Memory {
   def print(): Unit
 
   def addressOf(name: TypedIdent): Addr
-
+  def copy: RMemory
 }
 trait WMemory extends Memory {
   def write(addr: Addr, value: R): Unit
@@ -26,7 +26,7 @@ trait RWMemory extends RMemory with WMemory
 
 final class MemImpl(baseSize: Int = 0) extends RWMemory {
 
-  private val mem = debox.Buffer.fill[R](baseSize)(1)
+  private val mem = debox.Buffer.fill[R](baseSize)(0.1)
   def size: Int = mem.length
 
 //  private val mem: Values = new Array[R](size)
@@ -34,6 +34,12 @@ final class MemImpl(baseSize: Int = 0) extends RWMemory {
 
   override def write(addr: Addr, value: R): Unit = mem(addr) = value
   override def read(addr: Addr): R = mem(addr)
+  override def copy = {
+    val newMem = new MemImpl(baseSize = size)
+    val vals = dump
+    newMem.load(vals)
+    newMem
+  }
   override def dump: Values = mem.toArray()
   override def load(values: Values): Unit = {
     values.indices.foreach(

@@ -98,7 +98,7 @@ object FromLisp extends App {
       pb <- problem.createProblem(dstates, constraints)
     } yield pb) match {
       case Success(pb) =>
-        val solver = new Solver(pb)
+        val solver = new Solver(pb, Params())
         solver.solve()
       case Failure(e) => throw e
     }
