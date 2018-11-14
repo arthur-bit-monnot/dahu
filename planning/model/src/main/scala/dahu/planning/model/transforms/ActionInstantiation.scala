@@ -55,8 +55,11 @@ object ActionInstantiation {
     implicit object ofFluentTemplate extends IdRewrite[FluentTemplate] {
       override def map(a: FluentTemplate, f: Id => Id)(implicit predef: Predef): FluentTemplate =
         a match {
-          case FluentTemplate(id, tpe, params) =>
-            FluentTemplate(f(id), tpe, params.map { case Arg(id, tpe) => Arg(f(id), tpe) })
+          case FluentTemplate(id, tpe, params, isContinuous) =>
+            FluentTemplate(f(id),
+                           tpe,
+                           params.map { case Arg(id, tpe) => Arg(f(id), tpe) },
+                           isContinuous)
         }
     }
     implicit object ofFluent extends IdRewrite[Fluent] {
@@ -76,8 +79,8 @@ object ActionInstantiation {
                                       cst.rw(f))
           case TimedAssignmentAssertion(itv, fl, value) =>
             TimedAssignmentAssertion(itv.rw(f), fl.rw(f), value.rw(f))
-          case TimedEqualAssertion(itv, fl, value) =>
-            TimedEqualAssertion(itv.rw(f), fl.rw(f), value.rw(f))
+          case TimedBooleanAssertion(itv, fl, op, value) =>
+            TimedBooleanAssertion(itv.rw(f), fl.rw(f), op, value.rw(f))
           case TimedTransitionAssertion(itv, fl, from, to) =>
             TimedTransitionAssertion(itv.rw(f), fl.rw(f), from.rw(f), to.rw(f))
         }

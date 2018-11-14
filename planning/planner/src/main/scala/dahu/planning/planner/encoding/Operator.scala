@@ -45,7 +45,8 @@ object OperatorF {
 case class SolutionF[F[_]](
     operators: F[Vec[Operator]],
     effects: F[Vec[EffTok]],
-    conditions: F[Vec[CondTok]]
+    conditions: F[Vec[CondTok]],
+    continuousConditions: F[Vec[ContCondTok]]
 )
 
 object SolutionF {

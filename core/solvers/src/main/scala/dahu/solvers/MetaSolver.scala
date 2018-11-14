@@ -46,6 +46,7 @@ class MetaSolver(val e: EncodedProblem[Any],
           case Some(v) => Some(FEval(v))
           case None    => None
         }
+
         val lazyMap = pb.cataWithPreFill(Interpreter.evalAlgebra, ass)
         Some(
           new Solution {

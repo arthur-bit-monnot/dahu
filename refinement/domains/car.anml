@@ -2,14 +2,14 @@
 // ---- Domain -----
 
 // constant part of the discrete state
-constant real up_limit;
-constant real down_limit;
+constant float up_limit;
+constant float down_limit;
 
 // variable part of the discrete state
 fluent boolean running;
 
 // continuous state
-continuous-fluent real distance;
+cfluent float distance;
 
 // starts the engine at the beginning and stops it at the end
 action run() {
@@ -21,15 +21,15 @@ action run() {
 // ---- Problem -----
 
 // constants
-up_limit := 10.0;
-down_limit := 0.0;
+up_limit := 10;
+down_limit := 0;
 
 // initial state
 [start] {
   running := false;
-  distance := 0.0;
+  distance := 0;
 };
 
 // goal
-[end] distance >= 30.0;
+[end] distance >= 30;
 [end] running == false;

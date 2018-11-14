@@ -68,6 +68,8 @@ object Compiler {
         case _ if t.isBoolean =>
           assert(t eq Tag.ofBoolean)
           ctx.mkBool(if(value == Bool.True) true else false)
+        case Tag.ofDouble =>
+          ???
       }
     case ITEF(cond, onTrue, onFalse, t) =>
       cond match {

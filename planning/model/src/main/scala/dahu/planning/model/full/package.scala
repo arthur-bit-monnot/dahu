@@ -117,13 +117,21 @@ package object full {
       LocalVarDeclaration(start) +
       LocalVarDeclaration(end)
   }
-  case class TimedEqualAssertion(fluent: TimedExpr, right: StaticExpr, parent: Option[Ctx], id: Id)(
-      implicit predef: Predef)
+  case class TimedBooleanAssertion(fluent: TimedExpr,
+                                   op: BinaryOperator,
+                                   right: StaticExpr,
+                                   parent: Option[Ctx],
+                                   id: Id)(implicit predef: Predef)
       extends TimedAssertion(parent, id) {
     override def toString: String = id match {
-      case Id(_, name) => s"$name: $fluent == $right"
-      case _           => s"$fluent == $right"
+      case Id(_, name) => s"$name: $fluent $op $right"
+      case _           => s"$fluent $op $right"
     }
+  }
+  object TimedEqualAssertion {
+    def apply(fluent: TimedExpr, right: StaticExpr, parent: Option[Ctx], id: Id)(
+        implicit predef: Predef): TimedBooleanAssertion =
+      TimedBooleanAssertion(fluent, operators.Eq, right, parent, id)
   }
 
   case class TimedTransitionAssertion(fluent: TimedExpr,
@@ -143,7 +151,7 @@ package object full {
                                       parent: Option[Ctx],
                                       id: Id)(implicit predef: Predef)
       extends TimedAssertion(parent, id) {
-     override def toString: String = id match {
+    override def toString: String = id match {
       case Id(_, name) => s"$name: $fluent := $to"
       case _           => s"$fluent := $to"
     }

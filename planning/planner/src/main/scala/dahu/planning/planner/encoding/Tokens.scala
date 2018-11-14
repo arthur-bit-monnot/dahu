@@ -1,14 +1,14 @@
 package dahu.planning.planner.encoding
 
 import cats.Id
-import dahu.model.functions.->:
+import dahu.model.functions.{->:, Fun}
 import dahu.model.input._
 import dahu.model.input.dsl._
 import dahu.model.math.{any, bool}
-import dahu.model.products.{Field, FieldAccess, ProductTag}
+import dahu.model.products._
 import dahu.model.types.Tag.Type
 import dahu.model.types.{Bool, Tag}
-import dahu.planning.model.common.FunctionTemplate
+import dahu.planning.model.common.{operators, FluentTemplate, FunctionTemplate}
 import dahu.utils._
 import dahu.utils.errors._
 import spire.syntax.cfor
@@ -64,7 +64,7 @@ object FluentF {
 case class CondTokF[F[_]](
     itv: F[Interval],
     fluent: F[Fluent],
-    value: F[Literal],
+    predicate: F[Literal ->: Bool],
     decisionLevel: F[Int],
     insertionLevel: F[Int],
     supportingAction: F[Int]
@@ -74,7 +74,7 @@ object CondTokF {
   implicit val productTag: ProductTag[CondTokF] = ProductTag.build[CondTokF](
     "itv" -> Tag[Interval],
     "fluent" -> Tag[Fluent],
-    "value" -> Tag[Literal],
+    "predicate" -> Tag[Literal ->: Bool],
     "decision-level" -> Tag.ofInt,
     "insertion-level" -> Tag.ofInt,
     "supporting-action" -> Tag.ofInt
@@ -82,69 +82,44 @@ object CondTokF {
 
   val Itv = productTag.getAccessor[Interval]("itv")
   val Fluent = productTag.getAccessor[Fluent]("fluent")
-  val Value = productTag.getAccessor[Literal]("value")
+  val Predicate = productTag.getAccessor[Literal ->: Bool]("predicate")
   val DecLvl = productTag.getAccessor[Int]("decision-level")
   val InsLvl = productTag.getAccessor[Int]("insertion-level")
   val SupportingAction = productTag.getAccessor[Int]("supporting-action")
 
-//  case class Accept(func: FunctionTemplate, args: Vec[Option[Literal]], v: Option[Literal])
-//      extends (Tag[EffTok] => Boolean) {
-//    override def apply(v1: Tag[EffTok]): Boolean = v1 match {
-//      case EffTokF.EffProductTag(et, eargs, ev, _) =>
-//        func == et && EffTokF.compatibles(args, eargs) && EffTokF.compatible(v, ev)
-//      case _ => false
-//    }
-//  }
-
+  import dahu.model.input.dsl._
   def ofExpr(start: Expr[Int],
              end: Expr[Int],
              fluent: Expr[Fluent],
+             operator: operators.BinaryOperator,
              value: Expr[Literal],
              decLvl: Expr[Int],
              insLvl: Expr[Int],
              supportingAction: Expr[Int]): Expr[CondTok] = {
-//    val (func, args, v) = fluent match {
-//      case Product(FluentF(Cst(f), Sequence(args))) =>
-//        (f, args.map {
-//          case Cst(lit) => Some(lit)
-//          case _        => None
-//        }, value match {
-//          case Cst(v) => Some(v)
-//          case _      => None
-//        })
-//      case _ => ???
-//    }
-//
-//    val accept = Accept(func, args, v)
+
+    fluent match {
+      case Product(FluentF(Cst(f: FluentTemplate), _)) =>
+        require(!f.isContinuous)
+      case _ =>
+    }
+
+    val f: Expr[Literal] => Expr[Bool] = operator match {
+      case operators.Eq =>
+        x =>
+          x ==== value
+      case operators.LEQ =>
+        x =>
+          Computation2(dahu.model.math.any.LEQ, x, value)
+      case op => unsupported(s"Operator $op is not supported yet")
+    }
+
+    val lbd = Lambda[Literal, Bool](f)
 
     Product(
-      CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, value, decLvl, insLvl, supportingAction))
-//      .subjectTo(i => Dynamic[EffTok, Boolean](supportedBy(i), bool.Or, Some(accept)))
+      CondTokF[Expr](IntervalF.ofExpr(start, end), fluent, lbd, decLvl, insLvl, supportingAction))
 
   }
 
-  def supports(eff: Expr[EffTok], cond: Expr[CondTok]): Expr[Bool] =
-    (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Bool]) &&
-      (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Bool]) &&
-      (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Bool])
-
-  val supBy: Expr[CondTok ->: EffTok ->: Bool] = Lambda[CondTok, EffTok ->: Bool](
-    (cond: Expr[CondTok]) =>
-      Lambda[EffTok, Bool](
-        (eff: Expr[EffTok]) => {
-          (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Bool]) &&
-          (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Bool]) &&
-          (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Bool])
-        }
-    ))
-  def supportedBy(cond: Expr[CondTok]): Expr[EffTok ->: Bool] = supBy.partialApply(cond)
-//    Lambda[EffTok, Boolean](
-//      (eff: Expr[EffTok]) => {
-//        (any.EQ(CondTokF.Fluent(cond), EffTokF.Fluent(eff)): Expr[Boolean]) &&
-//        (any.EQ(CondTokF.Value(cond), EffTokF.Value(eff)): Expr[Boolean]) &&
-//        (IntervalF.contains(EffTokF.Persistence(eff), CondTokF.Itv(cond)): Expr[Boolean])
-//      }
-//    )
 }
 
 case class EffTokF[F[_]](startChange: F[Int],
@@ -269,5 +244,57 @@ object EffTokF {
 //          IntervalF.End(Persistence(lhs)) < StartChange(rhs) ||
 //          bool.Not(any.EQ(Fluent(lhs), Fluent(rhs)))
 //    )
+
+}
+
+case class ContCondTokF[F[_]](
+    itv: F[Interval],
+    predicate: F[Bool]
+)
+
+object ContCondTokF {
+  implicit val fluentTemplateTag = Tag.default[FluentTemplate]
+  implicit val productTag: ProductTag[ContCondTokF] = ProductTag.build[ContCondTokF](
+    "itv" -> Tag[Interval],
+    "predicate" -> Tag[Bool],
+  )
+
+  val Itv = productTag.getAccessor[Interval]("itv")
+  val Predicate = productTag.getAccessor[Bool]("predicate")
+//  val DecLvl = productTag.getAccessor[Int]("decision-level")
+//  val InsLvl = productTag.getAccessor[Int]("insertion-level")
+//  val SupportingAction = productTag.getAccessor[Int]("supporting-action")
+
+  import dahu.model.input.dsl._
+  def ofExpr(start: Expr[Int],
+             end: Expr[Int],
+             fluent: FluentTemplate,
+             operator: operators.BinaryOperator,
+             value: Expr[Literal],
+  ): Expr[ContCondTokF[Id]] = {
+    require(fluent.isContinuous)
+    require(fluent.params.isEmpty)
+
+    case class ReadContF[F[_]](state: F[Int], field: F[String])
+    implicit val tag = ProductTag.build[ReadContF]("state" -> Tag.ofInt, "field" -> Tag.ofString)
+    val s = Cst(0, Tag.ofInt)
+    val field = Cst(fluent.id.name, Tag.ofString)
+    val p = ReadContF[Expr](s, field)
+
+    val lhs = Product(p)
+
+    val e = operator match {
+      case operators.Eq =>
+        Computation2(dahu.model.math.any.LEQ, lhs, value)
+      case operators.LEQ =>
+        Computation2(dahu.model.math.any.LEQ, lhs, value)
+      case operators.GEQ =>
+        Computation2(dahu.model.math.any.LEQ, value, lhs)
+
+      case op => unsupported(s"Operator $op is not supported yet")
+    }
+    Product(ContCondTokF[Expr](IntervalF.ofExpr(start, end), e))
+
+  }
 
 }

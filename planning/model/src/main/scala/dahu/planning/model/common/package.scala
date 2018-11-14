@@ -242,7 +242,8 @@ package object common {
     def params: Seq[Arg]
   }
 
-  case class FluentTemplate(id: Id, typ: Type, params: Seq[Arg]) extends FunctionTemplate {
+  case class FluentTemplate(id: Id, typ: Type, params: Seq[Arg], isContinuous: Boolean)
+      extends FunctionTemplate {
     override def toString: String = id.toString
   }
 

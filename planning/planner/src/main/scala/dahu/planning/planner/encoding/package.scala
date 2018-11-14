@@ -1,6 +1,7 @@
 package dahu.planning.planner
+import dahu.model.functions.->:
 import dahu.model.input.Expr
-import dahu.model.types.Tag
+import dahu.model.types.{Bool, Tag}
 
 package object encoding {
 
@@ -8,6 +9,9 @@ package object encoding {
   type Fluent = FluentF[cats.Id]
   type CondTok = CondTokF[cats.Id]
   val CondTok: Tag[CondTok] = CondTokF.productTag
+
+  type ContCondTok = ContCondTokF[cats.Id]
+  val ContCondTok: Tag[ContCondTok] = ContCondTokF.productTag
 
   type SCondTok = SCondTokF[cats.Id]
   type EffTok = EffTokF[cats.Id]
@@ -32,7 +36,7 @@ package object encoding {
 
   implicit class CondTokOps(val c: Expr[CondTok]) extends AnyVal {
     def fluent: Expr[Fluent] = CondTokF.Fluent(c)
-    def value: Expr[Literal] = CondTokF.Value(c)
+    def predicate: Expr[Literal ->: Bool] = CondTokF.Predicate(c)
     def interval: Expr[Interval] = CondTokF.Itv(c)
     def decLvl: Expr[Int] = CondTokF.DecLvl(c)
     def insLvl: Expr[Int] = CondTokF.InsLvl(c)

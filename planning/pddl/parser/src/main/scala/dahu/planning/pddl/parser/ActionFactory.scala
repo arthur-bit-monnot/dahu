@@ -78,7 +78,7 @@ class ActionFactory(actionName: String, parent: Resolver, model: Model) extends 
       resolver.getTranslator(funcName).effect(e, resolver)
     case _ => unexpected
   }
-  def asCondAss(e: Exp): TimedEqualAssertion = e match {
+  def asCondAss(e: Exp): TimedBooleanAssertion = e match {
     case ast.AssertionOnFunction(funcName) =>
       resolver.getTranslator(funcName).condition(e, resolver)
     case _ => unexpected
@@ -140,7 +140,8 @@ object ActionFactory {
     def add(t: TemporalQualifier, e: TimedAssertion): Unit = {
       mod = mod + TemporallyQualifiedAssertion(t, e)
     }
-    def regroup(qual: TQual, cond: TimedEqualAssertion, eff: TimedAssignmentAssertion): TAss = {
+    def regroup(qual: TQual, cond: TimedBooleanAssertion, eff: TimedAssignmentAssertion): TAss = {
+      require(cond.op == operators.Eq) // added when generalizing timed equal
       assert(cond.fluent == eff.fluent)
       TAss(qual,
            TimedTransitionAssertion(cond.fluent,
@@ -156,10 +157,12 @@ object ActionFactory {
       .map(_.toList)
       .map({
         case e :: Nil => e
-        case TAss(t, cond: TimedEqualAssertion) :: TAss(t2, eff: TimedAssignmentAssertion) :: Nil =>
+        case TAss(t, cond: TimedBooleanAssertion) :: TAss(t2, eff: TimedAssignmentAssertion) :: Nil =>
+          require(cond.op == operators.Eq) // added when generalizing TimedEqual
           assert(t == t2 && cond.fluent == eff.fluent)
           regroup(t, cond, eff)
-        case TAss(t2, eff: TimedAssignmentAssertion) :: TAss(t, cond: TimedEqualAssertion) :: Nil =>
+        case TAss(t2, eff: TimedAssignmentAssertion) :: TAss(t, cond: TimedBooleanAssertion) :: Nil =>
+          require(cond.op == operators.Eq) // added when generalizing TimedEqual
           assert(t == t2 && cond.fluent == eff.fluent)
           regroup(t, cond, eff)
         case _ => ???
@@ -170,11 +173,11 @@ object ActionFactory {
 
     import TQual._
     for(ass <- merged) ass match {
-      case TAss(Start, e: TimedEqualAssertion) =>
+      case TAss(Start, e: TimedBooleanAssertion) =>
         add(Equals(ClosedInterval(start, afterStart)), e)
-      case TAss(End, e: TimedEqualAssertion) =>
+      case TAss(End, e: TimedBooleanAssertion) =>
         add(Equals(ClosedInterval(end, afterEnd)), e)
-      case TAss(All, e: TimedEqualAssertion) =>
+      case TAss(All, e: TimedBooleanAssertion) =>
         add(Equals(ClosedInterval(start, end)), e) //TODO: probably does not match pddl semantics
       case TAss(Start, e: TimedAssignmentAssertion) =>
         add(Equals(LeftOpenInterval(start, afterStart)), e)

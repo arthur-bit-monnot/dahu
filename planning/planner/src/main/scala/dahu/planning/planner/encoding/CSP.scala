@@ -169,7 +169,7 @@ abstract class CSP extends Struct {
     e match {
       case _: core.LocalVarDeclaration =>
       case _: core.ArgDeclaration      =>
-      case core.TimedAssignmentAssertion(itv, fluent, value) =>
+      case core.TimedAssignmentAssertion(itv, fluent, value) if !fluent.template.isContinuous =>
         val changeItv = encode(itv)
         val persistenceEnd = addAnonymousTimepoint() // anonymousTp().alwaysSubjectTo(changeItv.end <= _)
         addConstraint(changeItv.end <= persistenceEnd)
@@ -185,7 +185,7 @@ abstract class CSP extends Struct {
         addConstraint(changeItv.end <= persistenceEnd)
         addExport(token)
 
-      case core.TimedEqualAssertion(itv, f, v) =>
+      case core.TimedBooleanAssertion(itv, f, op, v) if !f.template.isContinuous =>
         val interval = encode(itv)
         val conditionDecisionLvl = decisionLevel + Cst(numConditions)
         val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt)
@@ -194,6 +194,7 @@ abstract class CSP extends Struct {
           CondTokF.ofExpr(interval.start,
                           interval.end,
                           encode(f),
+                          op,
                           ctx.encode(v),
                           decLvl = conditionDecisionLvl,
                           insLvl = insertionLevel,
@@ -202,15 +203,35 @@ abstract class CSP extends Struct {
         addConstraint(interval.start <= interval.end)
         addExport(token)
 
+      case core.TimedAssignmentAssertion(itv, f, v) if f.template.isContinuous =>
+        require(f.template.isContinuous)
+        require(f.params.isEmpty)
+        val interval = encode(itv)
+        val token =
+          ContCondTokF.ofExpr(interval.start, interval.end, f.template, operators.Eq, ctx.encode(v))
+        addConstraint(interval.start <= interval.end)
+        addExport(token)
+
+      case core.TimedBooleanAssertion(itv, f, op, v) =>
+        require(f.template.isContinuous)
+        require(f.params.isEmpty)
+        val interval = encode(itv)
+        val token =
+          ContCondTokF.ofExpr(interval.start, interval.end, f.template, op, ctx.encode(v))
+        addConstraint(interval.start <= interval.end)
+        addExport(token)
+
       case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
         val start = encodeAsInt(s)
         val conditionDecisionLvl = decisionLevel + Cst(numConditions)
         val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt)
         numConditions += 1
+        require(!f.template.isContinuous)
         val cond =
           encoding.CondTokF.ofExpr(start,
                                    start,
                                    encode(f),
+                                   operators.Eq,
                                    ctx.encode(v1),
                                    decLvl = conditionDecisionLvl,
                                    insLvl = insertionLevel,

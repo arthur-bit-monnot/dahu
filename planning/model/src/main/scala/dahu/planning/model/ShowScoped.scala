@@ -67,7 +67,7 @@ object ShowScoped {
           sb.append("  " + show(c)(actScope) + "\n")
         }
         sb.toString()
-      case TimedEqualAssertion(itv, f, v)         => show"$itv $f == $v"
+      case TimedBooleanAssertion(itv, f, op, v)   => show"$itv $f ${op.op} $v"
       case TimedTransitionAssertion(itv, f, s, e) => show"$itv $f == $s :-> $e"
       case TimedAssignmentAssertion(itv, f, v)    => show"$itv $f := $v"
       case StaticBooleanAssertion(e)              => show"$e"

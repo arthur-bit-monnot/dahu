@@ -83,10 +83,12 @@ object Planner {
               sol.effects.sortedBy(_.insLvl).foreach(e => println(s"  $e"))
               println("Conditions: ")
               sol.conditions.sortedBy(_.decisionLevel).foreach(c => println(s"  $c"))
+              println("Continuous Conditions: ")
+              sol.continuousConditions.sortedBy(_.itv.start).foreach(c => println(s"  $c"))
             }
             val plan = Plan(sol.operators, sol.effects)
             Some(plan)
-          case _ => unexpected
+          case x => unexpected(x.toString)
         }
       case None => None
     }

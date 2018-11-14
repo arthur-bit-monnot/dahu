@@ -150,12 +150,12 @@ object FullToCore {
             } yield ClosedInterval(assertion.start, assertion.end)
         }
       assertion match {
-        case full.TimedEqualAssertion(fluent, value, _, _) =>
+        case full.TimedBooleanAssertion(fluent, op, value, _, _) =>
           for {
             itv <- startEnd
             coreFluent <- f2c(fluent)
             coreValue <- f2c(value)
-            _ <- CoreM.unit(core.TimedEqualAssertion(itv, coreFluent, coreValue),
+            _ <- CoreM.unit(core.TimedBooleanAssertion(itv, coreFluent, op, coreValue),
                             core.StaticBooleanAssertion(consistency(itv)))
           } yield ()
 

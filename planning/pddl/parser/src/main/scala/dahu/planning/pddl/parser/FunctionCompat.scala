@@ -15,7 +15,7 @@ abstract class FunctionCompat() {
   def model: FluentTemplate
 
   def fluent(name: String, args: Seq[String], res: Resolver): Fluent
-  def condition(e: Exp, res: Resolver): TimedEqualAssertion // TODO: should probably take a context
+  def condition(e: Exp, res: Resolver): TimedBooleanAssertion // TODO: should probably take a context
   def effect(e: Exp, res: Resolver): TimedAssignmentAssertion
 }
 
@@ -37,14 +37,19 @@ class DefaultPredicate(pddl: NamedTypedList, top: Resolver) extends FunctionComp
     case _     => unexpected
   }
   override val model =
-    FluentTemplate(top.id(name), tpe, pddl.getArguments.asScala.map {
-      case ast.TypedSymbol(argName, argType) => common.Arg(top.id(argName), top.typeOf(argType))
-    })
+    FluentTemplate(
+      top.id(name),
+      tpe,
+      pddl.getArguments.asScala.map {
+        case ast.TypedSymbol(argName, argType) => common.Arg(top.id(argName), top.typeOf(argType))
+      },
+      isContinuous = false
+    )
 
   override def fluent(name: String, args: Seq[String], res: Resolver): Fluent =
     Fluent(model, args.map(res.variable))
 
-  override def condition(e: Exp, local: Resolver): TimedEqualAssertion = e match {
+  override def condition(e: Exp, local: Resolver): TimedBooleanAssertion = e match {
     case ast.Fluent(fun, args) if fun == name =>
       TimedEqualAssertion(
         Fluent(model, args.map(local.variable)),
@@ -83,14 +88,19 @@ class DefaultFunction(pddl: NamedTypedList, top: Resolver) extends FunctionCompa
     case _      => unexpected
   }
   override val model =
-    FluentTemplate(top.id(name), tpe, pddl.getArguments.asScala.map {
-      case ast.TypedSymbol(argName, argType) => common.Arg(top.id(argName), top.typeOf(argType))
-    })
+    FluentTemplate(
+      top.id(name),
+      tpe,
+      pddl.getArguments.asScala.map {
+        case ast.TypedSymbol(argName, argType) => common.Arg(top.id(argName), top.typeOf(argType))
+      },
+      isContinuous = false
+    )
 
   override def fluent(name: String, args: Seq[String], res: Resolver): Fluent =
     Fluent(model, args.map(res.variable))
 
-  override def condition(e: Exp, local: Resolver): TimedEqualAssertion = e match {
+  override def condition(e: Exp, local: Resolver): TimedBooleanAssertion = e match {
     case ast.Eq(ast.Fluent(funName, args), ast.Cst(rhs)) if funName == name =>
       TimedEqualAssertion(
         fluent(funName, args, local),

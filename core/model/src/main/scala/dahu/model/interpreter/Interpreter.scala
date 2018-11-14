@@ -17,7 +17,8 @@ object Interpreter {
 
   def evalAlgebra: FAlgebra[Total, PEval[Any]] = {
     case InputF(id, _) =>
-      Unknown(Set(id))
+      FEval("aaaaa") //TODO
+//      Unknown(Set(id))
     case CstF(v, _) => FEval(v)
     case ComputationF(f, args, _) =>
       args.ssequence
@@ -38,8 +39,10 @@ object Interpreter {
             }
           case _ => unexpected
         }
-    case LambdaParamF(id, tpe)      => LambdaParamPlaceHolder(id)
-    case LambdaF(in, tree, id, tpe) => PEFunc(id, tree)
+    case LambdaParamF(id, tpe) => LambdaParamPlaceHolder(id)
+    case LambdaF(in, tree, id, tpe) =>
+      FEval(null) //TODO
+//      PEFunc(id, tree)
   }
 
   def evalAlgebra(valueOf: TypedIdent => Option[Value]): FAlgebra[Total, PEval[Any]] = {

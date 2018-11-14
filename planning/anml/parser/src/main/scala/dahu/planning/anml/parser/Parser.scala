@@ -44,13 +44,22 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
   val withKW: Parser[Unit] = word.filter(_ == "with").silent.opaque("with")
   val instanceKW: Parser[Unit] = word.filter(_ == "instance").silent.opaque("instance")
   val fluentKW: Parser[Unit] = word.filter(_ == "fluent").silent.opaque("fluent")
+  val contFluentKW: Parser[Unit] = word.filter(_ == "cfluent").silent.opaque("cfluent")
   val constantKW: Parser[Unit] = word.filter(_ == "constant").silent.opaque("constant")
   val timepointKW: Parser[Unit] = word.filter(_ == "timepoint").silent.opaque("instance")
   val actionKW: Parser[Unit] = word.filter(_ == "action").silent.opaque("action")
   val durationKW: Parser[Unit] = word.filter(_ == "duration").silent.opaque("duration")
   val containsKW: Parser[Unit] = word.filter(_ == "contains").silent.opaque("contains")
   val keywords: Set[String] =
-    Set("type", "instance", "action", "duration", "fluent", "variable", "predicate", "timepoint")
+    Set("type",
+        "instance",
+        "action",
+        "duration",
+        "fluent",
+        "cfluent",
+        "variable",
+        "predicate",
+        "timepoint")
   val nonIdent: Set[String] = keywords
 
   val simpleIdent: Parser[String] =
@@ -387,12 +396,25 @@ abstract class AnmlParser(val initialContext: Ctx)(implicit predef: Predef) {
         case None     => ctx.scope.makeNewId()
       }
 
+    val boolBinOp: Parser[BinaryOperator] = CharsWhileIn("<>=!").!.map {
+      case "==" => operators.Eq
+      case "<=" => operators.LEQ
+      case "<"  => operators.LT
+      case ">=" => operators.GEQ
+      case ">"  => operators.GT
+    }
+
     assertionId.sideEffect(id = _).silent ~
       (timedSymExpr.sideEffect(fluent = _).silent ~
-        (("==" ~/ rightSideExpr ~ (":->" ~/ rightSideExpr).?).map {
-          case (expr, None)     => TimedEqualAssertion(fluent, expr, Some(ctx), id)
-          case (from, Some(to)) => TimedTransitionAssertion(fluent, from, to, Some(ctx), id)
+        ((boolBinOp ~/ rightSideExpr ~ (":->" ~/ rightSideExpr).?).map {
+          case (operators.Eq, from, Some(to)) =>
+            TimedTransitionAssertion(fluent, from, to, Some(ctx), id)
+          case (op, from, Some(to)) => ???
+          case (op, expr, None) =>
+            TimedBooleanAssertion(fluent, op, expr, Some(ctx), id)
+
         } | (":=" ~/ rightSideExpr).map(e => TimedAssignmentAssertion(fluent, e, Some(ctx), id))))
+
   }
 
   val qualifier: Parser[TemporalQualifier] =
@@ -473,6 +495,9 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
       .filter(w => w == "fluent" || w == "variable" || w == "function")
       .opaque("fluent")
       .silent ~/ declaredType).map(("fluent", _)) |
+      (contFluentKW
+        .opaque("cfluent")
+        .silent ~/ declaredType).map(("cfluent", _)) |
       (constantKW ~/ declaredType).map(("constant", _)) |
       word
         .filter(_ == "predicate")
@@ -487,7 +512,11 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
         case ("fluent", typ, svName, args) =>
           FluentTemplate(ctx.id(svName), typ, args.map {
             case (name, argType) => Arg(Id(ctx.scope + svName, name), argType)
-          })
+          }, isContinuous = false)
+        case ("cfluent", typ, svName, args) =>
+          FluentTemplate(ctx.id(svName), typ, args.map {
+            case (name, argType) => Arg(Id(ctx.scope + svName, name), argType)
+          }, isContinuous = true)
         case ("constant", typ, svName, args) =>
           ConstantTemplate(ctx.id(svName), typ, args.map {
             case (name, argType) => Arg(Id(ctx.scope + svName, name), argType)
@@ -517,7 +546,7 @@ class AnmlModuleParser(val initialModel: Model) extends AnmlParser(initialModel)
             val params = selfArg +: fd.func.params.map(arg =>
               Arg(Id(functionScope, arg.id.name), arg.typ))
             val template = fd.func match {
-              case _: FluentTemplate   => FluentTemplate(id, fd.func.typ, params)
+              case x: FluentTemplate   => FluentTemplate(id, fd.func.typ, params, x.isContinuous)
               case _: ConstantTemplate => ConstantTemplate(id, fd.func.typ, params)
             }
             FunctionDeclaration(template)

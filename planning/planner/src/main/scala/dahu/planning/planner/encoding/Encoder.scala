@@ -40,7 +40,7 @@ object Encoder {
           exists[EffTok](
             eff =>
               cond.fluent ==== eff.fluent &&
-                cond.value ==== eff.value &&
+                cond.predicate(eff.value) &&
                 IntervalF.contains(eff.persistenceInterval, cond.interval) &&
                 cond.supportingAction === eff.container &&
                 cond.decLvl >= eff.insLvl
@@ -147,9 +147,11 @@ object Encoder {
     val actions: Expr[Vec[Operator]] = all[Operator]
     val effects: Expr[Vec[EffTok]] = all[EffTok]
     val conditions: Expr[Vec[CondTok]] = all[CondTok]
+    val contConditions: Expr[Vec[ContCondTok]] = all[ContCondTok]
 
     Struct.encode(flat,
-                  Product(encoding.SolutionF[Expr](actions, effects, conditions))(SolutionF.tag))
+                  Product(encoding.SolutionF[Expr](actions, effects, conditions, contConditions))(
+                    SolutionF.tag))
 
   }
 

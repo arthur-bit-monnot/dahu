@@ -323,6 +323,14 @@ package object any {
       dahu.utils.errors.unexpected("TypeOf should be compile time only")
     override def name: String = "type-of"
   }
+
+  case class PolyMorphic2[O: Tag](name: String, fs: Fun2[_, _, O]*) extends Fun2[Any, Any, O] {
+    override def isMacro: Boolean = true
+    override def of(in1: Any, in2: Any): O = ???
+  }
+  val LEQ = new PolyMorphic2("leq", int.LEQ, double.LEQ) {
+    override def of(in1: Any, in2: Any): Bool = Bool.True //TODO
+  }
 }
 
 package object products {

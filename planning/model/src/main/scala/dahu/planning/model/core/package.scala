@@ -1,5 +1,6 @@
 package dahu.planning.model
 
+import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Id, _}
 
 package object core {
@@ -101,11 +102,24 @@ package object core {
     def valueAfterChange: Expr
   }
 
-  final case class TimedEqualAssertion(itv: Interval[Expr], fluent: Fluent, value: Expr)
+  final case class TimedBooleanAssertion(itv: Interval[Expr],
+                                         fluent: Fluent,
+                                         op: BinaryOperator,
+                                         value: Expr)
       extends TimedAssertion
       with RequiresSupport {
-    override def toString: String = s"$itv $fluent == $value"
+    override def toString: String = s"$itv $fluent ${op.op} $value"
   }
+  object TimedEqualAssertion {
+    def apply(itv: Interval[Expr], fluent: Fluent, value: Expr) =
+      TimedBooleanAssertion(itv, fluent, operators.Eq, value)
+
+    def unapply(arg: TimedAssertion): Option[(Interval[Expr], Fluent, Expr)] = arg match {
+      case TimedBooleanAssertion(itv, fluent, operators.Eq, value) => Some((itv, fluent, value))
+      case _                                                       => None
+    }
+  }
+
   final case class TimedAssignmentAssertion(itv: Interval[Expr], fluent: Fluent, value: Expr)
       extends TimedAssertion
       with ProvidesChange {

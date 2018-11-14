@@ -1,5 +1,6 @@
 package dahu.planning.pddl.parser.optim
 
+import dahu.utils.errors._
 import dahu.planning.model.common
 import dahu.planning.model.common.Interval.{ClosedOnLeft, ClosedOnRight, OpenOnLeft, OpenOnRight}
 import dahu.planning.model.common._
@@ -200,8 +201,10 @@ class ActionRewrite(options: Options)(implicit predef: Predef) {
   }
 
   def assertionToTimeline(e: TimedAssertion): Timeline = e match {
-    case TimedEqualAssertion(itv, f, v) =>
+    case TimedBooleanAssertion(itv, f, operators.Eq, v) =>
       Timeline(f, Is(itv, v))
+
+    case TimedBooleanAssertion(itv, f, op, v) => unexpected(s"Unsupported operator $op")
 
     case TimedAssignmentAssertion(itv, f, v) =>
       itv match {
