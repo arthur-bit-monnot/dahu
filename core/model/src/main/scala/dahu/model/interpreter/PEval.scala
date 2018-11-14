@@ -94,7 +94,7 @@ object FlatMapped {
 
 object PEval {
 
-  implicit val classTagK: ClassTagK[PEval] = ClassTagK.ofClass[PEval]
+  implicit val classTagK: ClassTagK[PEval] = ClassTagK[PEval]
 
   implicit val applicativeInstance: SApplicative[PEval] = new SApplicative[PEval] {
     override def pure[A: ClassTag](x: A): PEval[A] = FEval(x)
