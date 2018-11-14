@@ -29,7 +29,7 @@ class BinaryHeap[T] {
   def get(key: T) = if(contains(key)) heap(key2idxMap(key)).value else -1
 
   /* Return the root of the element, i'e minimum priority element */
-  def root: Tuple2[T, Long] = {
+  def root: (T, Long) = {
     val kvPair = heap(0)
     Tuple2(kvPair.key, kvPair.value)
   }
@@ -37,13 +37,12 @@ class BinaryHeap[T] {
   /* Overload iterator*/
 
   /* Heap Push and Bubble up till heap property violation retained */
-  def ++(key: T, priority: Long) = push(key, priority)
-  def +=(key: T, priority: Long) = push(key, priority)
+  def +=(key: T, priority: Long): Unit = push(key, priority)
 
   def push(key: T, priority: Long) {
     if(key2idxMap.contains(key)) update(key, priority)
     else {
-      heap += (new KVPair(key, priority))
+      heap += new KVPair(key, priority)
       key2idxMap += (key -> (size - 1))
       bubbleUp(size - 1)
     }
@@ -66,6 +65,7 @@ class BinaryHeap[T] {
     val min = root
     if(size == 1) {
       heap.remove(0)
+      key2idxMap -= min._1
     } else if(size > 1) {
       val last = heap.remove(size - 1)
       key2idxMap += (last.key -> 0)
@@ -101,6 +101,7 @@ class BinaryHeap[T] {
   /* Update the priority */
   def update(key: T, priority: Long) {
     val idx = key2idxMap(key)
+    assert(idx < heap.size)
     val oldKV = heap(idx)
     if(priority != oldKV.value) {
       val newKV = new KVPair(key, priority)
@@ -110,8 +111,7 @@ class BinaryHeap[T] {
   }
 
   /* delete Arbitrary element with the given key in the Heap */
-  def -=(key: T) = delete(key)
-  def --(key: T) = delete(key)
+  def -=(key: T): Unit = delete(key)
   def delete(key: T) {
     try {
       val idx = key2idxMap(key)
