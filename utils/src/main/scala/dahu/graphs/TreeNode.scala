@@ -18,6 +18,16 @@ trait TreeNode[-N[_]] {
       case e if e eq TreeNode.break => false
     }
   }
+  def existsChild[K](n: N[K])(f: K => Boolean): Boolean = {
+    try {
+      foreachChild(n) { c =>
+        if(f(c)) throw TreeNode.break
+      }
+      false
+    } catch {
+      case e if e eq TreeNode.break => true
+    }
+  }
 
   def childrenFoldLeft[K, B](n: N[K])(orig: B)(f: (B, K) => B): B = {
     var acc = orig
@@ -38,6 +48,9 @@ object TreeNode {
     def foreachChild(f: K => Unit)(implicit TN: TreeNode[N]): Unit = TN.foreachChild(lhs)(f)
     def forallChildren(f: K => Boolean)(implicit TN: TreeNode[N]): Boolean =
       TN.forallChildren(lhs)(f)
+
+    def existsChild(f: K => Boolean)(implicit TN: TreeNode[N]): Boolean =
+      TN.existsChild(lhs)(f)
 
     def childrenFolLeft[B](b: B)(f: (B, K) => B)(implicit TN: TreeNode[N]): B =
       TN.childrenFoldLeft(lhs)(b)(f)
