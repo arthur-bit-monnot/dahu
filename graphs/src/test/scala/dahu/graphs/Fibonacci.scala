@@ -27,7 +27,7 @@ object Fibonacci extends App {
     }
   }
   val start = System.currentTimeMillis()
-  for(i <- 0 to 5000) {
+  for(i <- 0 to 500) {
     val tree = LazyTree.parse[Int, Comp](4, {
       case 0 => Num[Int](0)
       case 1 => Num[Int](1)
@@ -38,7 +38,7 @@ object Fibonacci extends App {
       case Sum(a, b) => a + b
     }
 
-    fibo.get(10000)
+    fibo.get(10)
   }
   val end = System.currentTimeMillis()
   println(end - start)
