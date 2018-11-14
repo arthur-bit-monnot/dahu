@@ -2,15 +2,21 @@ package dahu.planning.planner
 
 import cats.effect.IO
 import cats.implicits._
+import dahu.model.ir.ProductF
+import dahu.model.products.RecordType
+import dahu.model.types.Tag
 import dahu.planning.model.common.Predef
 import dahu.planning.model.core
 import dahu.planning.planner.encoding.{Encoder, Plan, Solution}
 import dahu.solvers.MetaSolver
 import dahu.solvers.problem.EncodedProblem
+import dahu.utils._
 import dahu.utils.debug.info
 import dahu.utils.errors.unexpected
 import dahu.z3.Z3PartialSolver
 
+import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.concurrent.duration.Deadline
 
 object Planner {
@@ -87,11 +93,94 @@ object Planner {
               sol.continuousConditions.sortedBy(_.itv.start).foreach(c => println(s"  $c"))
             }
             val plan = Plan(sol.operators, sol.effects)
+            extractStateTrajectory(plan)
             Some(plan)
           case x => unexpected(x.toString)
         }
       case None => None
     }
+  }
+
+  def extractStateTrajectory(p: Plan): Unit = {
+    val x = p.effects
+      .sortedBy(_.startChange)
+      .toSeq
+      .groupBy(_.fluent.template)
+      .mapValues(_.map(v => (v.startChange, v.value)))
+    val svs = p.effects.map(_.fluent).toSet
+
+    println(s"State variables: $svs")
+
+    val traj = stateOrientedView(x, Seq())(_._1, _._2)
+
+    traj.foreach(println)
+    val dstate = RecordType("dstate", "running" -> Tag.ofBoolean)
+
+    val states = traj.map(_._2).map(s => buildState(dstate)(s)(sv => sv.id.toString))
+    println(states.mkString(" \n"))
+    x.foreach(println)
+    sys.exit(1)
+  }
+
+  def buildState[SV, Val: ClassTag](dstate: RecordType)(s: Map[SV, Val])(
+      toField: SV => String): ProductF[Val] = {
+    assert(dstate.fields.size == s.size)
+    assert(s.keys.map(toField).forall(dstate.fieldPosition(_).nonEmpty))
+    val fields = s.toSeq
+      .map {
+        case (k, v) =>
+          val field = toField(k)
+          val fieldPos = dstate
+            .fieldPosition(field)
+            .getOrElse(unexpected(s"Field $field does not exists in $dstate"))
+          (fieldPos, v)
+      }
+      .sortBy(_._1)
+      .map(_._2)
+
+    ProductF[Val](fields, dstate)
+  }
+
+  type State[SV, V] = Map[SV, V]
+
+  @tailrec def stateOrientedView[SV, Tok, Val](timelines: Map[SV, Seq[Tok]],
+                                               prevStates: Seq[(Int, State[SV, Val])])(
+      time: Tok => Int,
+      value: Tok => Val): Seq[(Int, State[SV, Val])] = {
+
+    timelines.values.map(_.headOption.map(time(_)).getOrElse(Int.MaxValue)).max match {
+      case Int.MaxValue =>
+        prevStates
+      case t =>
+        val baseState: Map[SV, Val] = prevStates.lastOption.map(_._2).getOrElse(Map())
+        val updates = timelines.mapValues(_.headOption.filter(time(_) == t).map(value(_))).collect {
+          case (sv, Some(v)) => (sv, v)
+        }
+        val newState = baseState ++ updates
+        println(s"$t : $updates")
+
+        val traj = prevStates :+ ((t, newState))
+        val nextTimelines = timelines.mapValues(_.filter(time(_) != t))
+
+//        println(nextTimelines)
+//        sys.exit(2)
+        stateOrientedView(nextTimelines, traj)(time, value)
+    }
+
+//    val tls = mutable.Map(timelines.toSeq: _*)
+//
+//    for(t <- 0 until 13) {
+//      println(s"\n $t")
+//      val changed = tls.keys.filter(sv => tls(sv).headOption.exists(time(_) == t))
+//
+//      val s = changed.foldLeft(baseState)((s, sv) => s.updated(sv, value(tls(sv).head)))
+//
+//      println(s)
+//
+//      println(changed)
+//
+//    }
+
   }
 
 }

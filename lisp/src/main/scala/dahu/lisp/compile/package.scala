@@ -48,12 +48,12 @@ package object compile {
     def typeOf(i: I): Type = env.extractValue(i).typ
     def record(v: V): I = env.getId(v)
     def get(i: I): V = env.extractValue(i)
-    def extractTypedFieldsDefinitions(l: List[Any]): List[(TagAny, String)] = l match {
+    def extractTypedFieldsDefinitions(l: List[Any]): List[(String, TagAny)] = l match {
       case Nil => Nil
       case (fieldType: Sym) :: (fieldName: Sym) :: rest =>
         env.extractValue(fieldType) match {
           case CstF(t: TagAny, _) =>
-            (t, fieldName.name) :: extractTypedFieldsDefinitions(rest)
+            (fieldName.name, t) :: extractTypedFieldsDefinitions(rest)
           case x =>
             error(s"$fieldType does not resolve to a type but to: $x")
         }
@@ -66,7 +66,7 @@ package object compile {
       record(CstF(Value(v), Tag.ofString))
     }
 
-    def defineStruct(recordName: String, fields: (TagAny, String)*): (RecordType, I) = {
+    def defineStruct(recordName: String, fields: (String, TagAny)*): (RecordType, I) = {
       val r = RecordType(recordName, fields: _*)
       log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
       val tpeId = record(CstF(Value(r), Tag.ofType))
@@ -81,7 +81,7 @@ package object compile {
       val ctor = Constructor(r)
       val ctorId = record(CstF(Value(ctor), ctor.funType))
       env.setConstantValue(recordName, ctorId)
-      for(((fieldType, fieldName), i) <- fields.zipWithIndex) {
+      for(((fieldName, fieldType), i) <- fields.zipWithIndex) {
         val accessorName = s"$recordName.$fieldName"
         log.verbose(s"Recording getter $accessorName")
         val getter = new FieldAccessAny {
@@ -175,12 +175,12 @@ package object compile {
         }
       case Sym("define-continuous-state") :: rest =>
         val curState = env.getValue(Sym(CURRENT_CONTINUOUS_STATE))
-        val readContTpe = RecordType("read-cont", Tag.ofInt -> "state", Tag.ofString -> "field")
+        val readContTpe = RecordType("read-cont", "state" -> Tag.ofInt, "field" -> Tag.ofString)
         def readCont(name: String): Env.I = {
           record(ProductF(Vec(curState, cstString(name)), readContTpe))
         }
-        val fields = extractTypedFieldsDefinitions(rest) ++ List(Tag.ofDouble -> "dt")
-        for((tpe, name) <- fields) {
+        val fields = extractTypedFieldsDefinitions(rest) ++ List("dt" -> Tag.ofDouble)
+        for((name, tpe) <- fields) {
           require(tpe == Tag.ofDouble)
           env.setConstantValue(name, readCont(name))
         }
@@ -198,7 +198,7 @@ package object compile {
           record(ComputationF(getter, state))
         }
 
-        for((tpe, name) <- fields) {
+        for((name, tpe) <- fields) {
 //          require(tpe == Tag.ofDouble) //TODO: use types
           env.setConstantValue(name, readDisc(name))
         }

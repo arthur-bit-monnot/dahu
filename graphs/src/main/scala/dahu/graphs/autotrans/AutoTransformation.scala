@@ -17,6 +17,16 @@ trait Transformation[F[_]] {
   def transformation[I <: Int](retrieve: I => F[I], record: F[I] => I): F[I] => UOption[F[I]]
 }
 
+object Transformation {
+
+  def none[F[_]]: Transformation[F] = new Transformation[F] {
+    override def dependenceDepth: Int = -1
+
+    override def transformation[I <: Int](retrieve: I => F[I],
+                                          record: F[I] => I): F[I] => UOption[F[I]] = _ => UNone
+  }
+}
+
 class AutoTransformation[F[_]: SFunctor: TreeNode](trans: Transformation[F])(
     implicit ct: ClassTagK[F]
 ) {
@@ -30,6 +40,7 @@ class AutoTransformation[F[_]: SFunctor: TreeNode](trans: Transformation[F])(
   private val fromVals = debox.Map[F[I], I]()
 
   private def dependentsOn(i: I): Iterator[I] = {
+    // TODO: this is a major bottleneck
     fromKeys
       .iterator()
       .filter(_._2.existsChild(_ == i))
@@ -40,34 +51,35 @@ class AutoTransformation[F[_]: SFunctor: TreeNode](trans: Transformation[F])(
 
   private val queue = new BinaryHeap[Updated]()
   private def enqueue(i: I, distanceToUpdate: Int): Unit = {
+//    require(distanceToUpdate <= trans.dependenceDepth)
+    // TODO: we should only enqueue items that have a chance of being modified
     queue.push(Updated(i, distanceToUpdate), distanceToUpdate)
   }
   private def processQueue(): Unit = {
 
     while(!queue.isEmpty) {
-//      println(s"                 queue: ${queue.toList()}")
-      val (up @ Updated(i, dist), _) = queue.pop()
-//      println(up)
+      val (Updated(i, dist), _) = queue.pop()
       val fi = fromKeys(i)
       val res = transformation(fi)
       res match {
         case UNone if dist < trans.dependenceDepth =>
           dependentsOn(i)
             .foreach(j => enqueue(j, dist + 1))
-        case UNone      =>
+        case UNone =>
         case USome(fi2) =>
-//          println(s"$i: $fi -> $fi2")
           fromKeys.update(i, fi2)
-          dependentsOn(i)
-            .foreach(j => enqueue(j, 1))
-          enqueue(i, 0) // enqueue self
+          if(trans.dependenceDepth >= 1)
+            dependentsOn(i)
+              .foreach(j => enqueue(j, 1))
+
+          if(trans.dependenceDepth >= 0)
+            enqueue(i, 0) // enqueue self
       }
     }
 
-    for((i, fi) <- fromKeys.iterator()) {
-//      val ffi = fi.smap(extract)
-      assert(transformation(fi) == UNone, s"$i $fi ${fi.children.map(extract)}")
-    }
+//    for((i, fi) <- fromKeys.iterator()) {
+//      assert(transformation(fi) == UNone, s"$i $fi ${fi.children.map(extract)}")
+//    }
 
     assert(queue.isEmpty)
   }
@@ -100,4 +112,8 @@ class AutoTransformation[F[_]: SFunctor: TreeNode](trans: Transformation[F])(
   }
 
   def extract(i: I): F[I] = fromKeys(i)
+}
+
+object AutoTransformation {
+  type Aux[F[_], I0] = AutoTransformation[F] { type I = I0 }
 }

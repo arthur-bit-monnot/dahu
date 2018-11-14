@@ -20,9 +20,9 @@ case class RecordType(name: String, fields: Vec[Field]) extends ProductTagAny {
   override def toString: String = name
 }
 object RecordType {
-  def apply(name: String, _fields: (Type, String)*): RecordType = {
+  def apply(name: String, _fields: (String, Type)*): RecordType = {
     val fields = _fields.zipWithIndex.map {
-      case ((tpe, name), index) => Field(name, tpe, index)
+      case ((tpe, name), index) => Field(tpe, name, index)
     }.toVec
     RecordType(name, fields)
   }

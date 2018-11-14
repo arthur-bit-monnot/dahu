@@ -191,7 +191,7 @@ final case class ProductF[@sp(Int) F](members: Vec[F], typ: ProductTagAny) exten
       .mkString("(", ", ", ")")
 }
 object ProductF {
-  def apply[F: ClassTag](args: Seq[F], tpe: ProductTag[Any]): ProductF[F] =
+  def apply[F: ClassTag](args: Seq[F], tpe: ProductTagAny): ProductF[F] =
     new ProductF[F](Vec.fromSeq(args), tpe)
 }
 

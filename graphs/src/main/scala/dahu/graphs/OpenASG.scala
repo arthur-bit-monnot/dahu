@@ -30,6 +30,12 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
     getTreeRoot(k)
   }
 
+  def extensible(implicit sf: SFunctor[F],
+                 tn: TreeNode[F],
+                 fo: Functor[Opt],
+                 ct: ClassTagK[F]): ExtensibleASG[K, F, Opt, _, ID] =
+    new ExtensibleASG[K, F, Opt, IDTop, ID](getTreeRoot, internalCoalgebra)
+
   override def prepro[L](f: L => K): OpenASG[L, F, Opt, InternalID] =
     new OpenASG[L, F, Opt, InternalID] {
       override def getTreeRoot(k: L): Opt[InternalID] = self.getTreeRoot(f(k))
