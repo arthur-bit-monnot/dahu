@@ -153,7 +153,7 @@ object evaluation {
     def ev(i: I): CompiledFun = compileImpl(coalg, cstate)(e)(i)
 
     coalg(i) match {
-      case InputF(id, _) => ???
+      case InputF(id, _) => unexpected(s"Don't know what to do with input: $id")
       case CstF(v, _) =>
         v match {
           case ProductF(Vec(stateRelId: Int, field: String), tpe: RecordType)

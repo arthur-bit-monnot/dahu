@@ -422,6 +422,13 @@ object Pass {
           case _ => fi
         }
 
+      case fi @ ComputationF(_: sequence.Get[_], Vec(e, i), tpe) =>
+        (ctx.retrieve(e), ctx.retrieve(i)) match {
+          case (SequenceF(vec, _), CstF(idx: Int, Tag.ofInt)) =>
+            ctx.retrieve(vec(idx))
+          case _ => fi
+        }
+
       case fi @ ComputationF(_: sequence.First[_], Vec(seq), _) =>
         ctx.retrieve(seq) match {
           case SequenceF(members, _) =>

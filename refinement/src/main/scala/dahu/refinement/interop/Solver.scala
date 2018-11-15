@@ -1,4 +1,6 @@
 package dahu.refinement.interop
+import java.io.{BufferedWriter, File, FileWriter}
+
 import dahu.model.products.{Field, ProductTagAny}
 import dahu.refinement._
 import dahu.refinement.common.{Addr, Params, R, Values}
@@ -9,18 +11,32 @@ import dahu.utils.errors._
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
+import scala.io.Source
 
 object Printer {
   def fmt(d: Double): String = "%1.2f".format(d)
 }
 
 case class Params(
-    statesPerBand: Int = 30,
-    outerLoops: Int = 5,
-    innerLoops: Int = 20
+    statesPerBand: Int = 10,
+    outerLoops: Int = 10,
+    innerLoops: Int = 40
 )
 
 object MemTypes {
+
+  class Happening(val i: Int) extends AnyVal {
+    def previous: Happening = this - 1
+    def next: Happening = this + 1
+    def +(off: Int): Happening = new Happening(i + off)
+    def -(off: Int): Happening = new Happening(i - off)
+
+    def <(s: Happening): Boolean = i < s.i
+    def <=(s: Happening): Boolean = i <= s.i
+
+    def to(lastHappening: Happening): Iterable[Happening] =
+      (i to lastHappening.i).map(x => new Happening(x))
+  }
 
   class State(val i: Int) extends AnyVal {
     def previous: State = this - 1
@@ -50,8 +66,7 @@ import MemTypes._
 case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
 
   def firstState: State = new State(0)
-  def lastState: State = bands.last.firstState + bands.last.numStates
-  (firstState.i to lastState.i).map(i => new State(i))
+  def lastState: State = bands.last.lastState.next
 
   def allStates = firstState to lastState
 
@@ -61,6 +76,14 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
   val stateSize: Int = cstate.fields.size
   def addressOfState(s: State, fieldNum: Int = 0): Addr =
     firstStateAddress + (stateSize * s.i) + fieldNum
+  def stateOfHappening(h: Happening): State = {
+    val i = h.i
+    if(i > 0)
+      bands(i - 1).lastState.next
+    else
+      bands(i).firstState.previous
+
+  }
 
   def addressOfTime(s: State): Int = addressOfState(s, dtOffset)
 
@@ -68,20 +91,60 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
 
   def print(mem: RMemory): Unit = {
     for((b, i) <- bands.zipWithIndex) {
+      val h = new Happening(i)
+      println(s"--- HAPPENING ${i}\n${printState(stateOfHappening(h), mem)}")
       println(s" --- Band $i")
       for(s <- b.states) {
         println(printState(s, mem))
       }
+      if(i == bands.size - 1)
+        println(s"--- HAPPENING ${i + 1}\n${printState(stateOfHappening(h.next), mem)}")
 
     }
   }
+  def printCSV(mem: RMemory, filename: String): Unit = {
+    val file = new File(filename)
+    val bw = new BufferedWriter(new FileWriter(file))
+    def println(str: String): Unit = { bw.write(str); bw.newLine() }
+    println(csvHeader())
+    for((b, i) <- bands.zipWithIndex) {
+      val h = new Happening(i)
+      println(printStateCSV(s"h$i", stateOfHappening(h), mem))
+      for(s <- b.states) {
+        println(printStateCSV(s"b$i", s, mem))
+      }
+      if(i == bands.size - 1)
+        println(printStateCSV(s"h${i + 1}", stateOfHappening(h.next), mem))
 
-//  def printState(state: State, mem: RMemory): String = {
-//    s"${addressOfState(state)}: " +
-//      cstate.fields
-//        .map(f => s"  ${f.name}: ${Printer.fmt(mem.read(addressOfState(state, f.position)))} \t")
-//        .mkString("")
-//  }
+    }
+    bw.close()
+  }
+  private val csvSeparator = ",\t"
+
+  def csvHeader(withDeriv: Boolean = true): String = {
+    def fmt(f: Field): Seq[String] = Seq(f.name, f.name + "'")
+    val columns = "k" +: cstate.fields.toSeq
+      .flatMap(fmt)
+    columns.mkString(csvSeparator)
+  }
+
+  def printStateCSV(key: String, state: State, mem: RMemory, withDeriv: Boolean = true): String = {
+    val t = (firstState to state).map(_.dt(this, mem)).sum
+    def fmt(f: Field): Seq[String] = {
+      val base = s"${Printer.fmt(mem.read(addressOfState(state, f.position)))}"
+      val deriv = if(firstState < state) {
+        val d = (mem.read(addressOfState(state, f.position)) - mem.read(
+          addressOfState(state.previous, f.position))) /
+          mem.read(addressOfTime(state))
+        Printer.fmt(d)
+      } else ""
+      Seq(base, deriv)
+    }
+    val line = key +: Printer.fmt(t) +: cstate.fields.toSeq
+      .flatMap(fmt)
+    line.mkString(csvSeparator)
+  }
+
   def printState(state: State, mem: RMemory, withDeriv: Boolean = true): String = {
     def fmt(f: Field): String = {
       val base = s"\t${f.name}: ${Printer.fmt(mem.read(addressOfState(state, f.position)))}"
@@ -100,7 +163,11 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
 
 }
 
-case class BandMem(firstState: State, numStates: Int, cstate: ProductTagAny) {
+case class BandMem(previousHappening: Happening,
+                   firstState: State,
+                   numStates: Int,
+                   cstate: ProductTagAny) {
+  def nextHappening: Happening = previousHappening.next
   def lastState: State = firstState + (numStates - 1)
   def states = firstState to lastState
   def state(i: Int) = firstState + i
@@ -126,58 +193,104 @@ class Solver(pb: Problem, params: Params) {
       .foldLeft(List[BandMem]()) {
         case (l, band) =>
           val firstState = l.headOption
-            .map(m => m.lastState) // use last state from previous band
-            .getOrElse(new State(0))
-          BandMem(firstState, numStatesPerBand(band) + 1, pb.cstate) :: l
+            .map(m => m.lastState.next.next) // use last state from previous band
+            .getOrElse(new State(0).next)
+          BandMem(new Happening(band), firstState, numStatesPerBand(band), pb.cstate) :: l
       }
       .reverse
       .toIndexedSeq,
     pb.cstate
   )
-
-  def homogenizeInPlace(band: BandMem, ioMem: RWMemory, tighteningFactor: Double): Unit = {
+  def homogenizeInPlace(b: BandMem, ioMem: RWMemory): Unit =
+    homogenizeInPlace(b.previousHappening, b.nextHappening, ioMem)
+  def homogenizeInPlace(start: Happening, end: Happening, ioMem: RWMemory): Unit = {
     implicit val memoryLayout = memories
     implicit val memory: RMemory = ioMem.copy
 
-    val totalTime = (band.firstState.next to band.lastState).map(_.dt).sum
-    val numStates = band.numStates - 1
+    val states = (memoryLayout.stateOfHappening(start) to memoryLayout.stateOfHappening(end)).toSeq
+    val times = states.drop(1).foldLeft(Seq(0.0)) { case (l, s) => l :+ (l.last + s.dt) }
+    val numDts = states.size - 1
+    val totalTime = times.last
+    val dt = totalTime / numDts
+    val newTimes = states.toSeq.indices.map(_ * dt)
 
-    @tailrec def valueAt(field: Int, targetTime: Double, s: State, currentTime: Double): Double = {
-      assert(targetTime >= currentTime)
-      assert(s.next.dt > 0)
-      if(targetTime <= currentTime + s.next.dt) {
+    println("A")
+    for(i <- 1 until states.size - 1) {
+      val targetT = newTimes(i)
+      val before =
+        states.indices.dropRight(1).find(i => times(i) <= targetT && targetT <= times(i + 1)).get
+      assert(times(before) <= targetT && targetT <= times(before + 1))
+      val beforeValue = states(before).valueOfField(0)
+      val afterValue = states(before + 1).valueOfField(0)
+      val originalDelta = times(before + 1) - times(before)
+      val proportionBase = (targetT - times(before)) / originalDelta
+      val proportion =
+        if(proportionBase >= 0 && proportionBase <= 1)
+          proportionBase
+        else if(proportionBase < 0 && proportionBase > -1e-07)
+          0.0
+        else if(proportionBase > 1 && proportionBase < 1.0 + 1e-07)
+          1.0
+        else
+          ???
 
-        val proportion = (targetTime - currentTime) / s.next.dt
+      assert(proportion >= 0 && proportion <= 1)
+      val newValue = beforeValue + (afterValue - beforeValue) * proportion
 
-        assert(proportion >= 0 && proportion <= 1.0001)
-        val v1 = s.valueOfField(field)
-        val v2 = s.next.valueOfField(field)
-        val X = v1 + (v2 - v1) * proportion
-        assert(X >= 0)
-        X
-      } else {
-        valueAt(field, targetTime, s.next, currentTime + s.next.dt)
-      }
+      val addr0 = memoryLayout.addressOfState(states(i))
+      ioMem.write(addr0, newValue)
+    }
+    for(s <- states.tail) { // do not update DT of first happening
+      val addrDt = memoryLayout.addressOfTime(s)
+      ioMem.write(addrDt, dt)
     }
 
-    val dt = totalTime / numStates
-    for(i <- 1 until band.numStates) {
-      val t = dt * i
-      val s = band.state(i)
-      val addr0 = memories.addressOfState(s)
-      val value = valueAt(0, t, band.firstState, 0)
-      ioMem.write(addr0, value)
-      ioMem.write(addr0 + 1, dt * tighteningFactor)
-    }
   }
 
-  def build(): Seq[Tagged[RefExpr]] = {
+//  def homogenizeInPlace(band: BandMem, ioMem: RWMemory, tighteningFactor: Double): Unit = {
+//    implicit val memoryLayout = memories
+//    implicit val memory: RMemory = ioMem.copy
+//
+//    val states = band.firstState.previous to band.lastState.next
+//
+//    val totalTime = states.iterator.map(_.dt).sum
+//    val numStates = states.size - 1
+//
+//    @tailrec def valueAt(field: Int, targetTime: Double, s: State, currentTime: Double): Double = {
+//      assert(targetTime >= currentTime)
+//      assert(s.next.dt > 0)
+//      if(targetTime <= currentTime + s.next.dt) {
+//
+//        val proportion = (targetTime - currentTime) / s.next.dt
+//
+//        assert(proportion >= 0 && proportion <= 1.0001)
+//        val v1 = s.valueOfField(field)
+//        val v2 = s.next.valueOfField(field)
+//        val X = v1 + (v2 - v1) * proportion
+////        assert(X >= 0) // sanity check
+//        X
+//      } else {
+//        valueAt(field, targetTime, s.next, currentTime + s.next.dt)
+//      }
+//    }
+//
+//    val dt = totalTime / numStates
+//    var s = band.firstState
+//    var i = 1
+//    while(s <= band.lastState.next) {
+//      val t = dt * i
+//      val addr0 = memories.addressOfState(s)
+//      val value = valueAt(0, t, band.firstState.previous, 0)
+//      println(s"$addr0 $t $value $dt")
+//      ioMem.write(addr0, value)
+//      ioMem.write(addr0 + 1, dt * tighteningFactor)
+//      s = s.next
+//      i = i + 1
+//    }
+//    assert(s == band.lastState.next.next)
+//  }
 
-    def applicables[X](qualifier: Qualifier, xs: Iterable[X]) = qualifier match {
-      case Qualifier.Always  => xs
-      case Qualifier.AtStart => Seq(xs.head)
-      case Qualifier.AtEnd   => Seq(xs.last)
-    }
+  def build(): Seq[Tagged[RefExpr]] = {
 
     val exprs = ArrayBuffer[Tagged[RefExpr]]()
     def record(e: RefExpr, level: Int): Unit = {
@@ -205,47 +318,70 @@ class Solver(pb: Problem, params: Params) {
       override def numParams: B = 1
       override def eval(params: Values): R = {
         val dt = params(0)
-        math.sqrt((dt - 0.1) * 1000) * 0.01
-        (dt - 0.1) * 0.01
+        math.sqrt((dt - 0.01) * 1000) * 0.01
+        (dt - 0.1) * 0.1
       }
     }
 
     for(s <- memories.allStates) {
       record(strictlyPositive.bind(memories.addressOfTime(s)), level = 0)
-//      record(minimize.bind(memories.addressOfTime(s)), level = 1)
+      record(minimize.bind(memories.addressOfTime(s)), level = 1)
     }
 
     for(band <- bands) {
+      println(s"Band: $band")
 
       val bm = memories(band)
-      val bandStates = bm.firstState to bm.lastState
 
-      for(c <- pb.bands(band).constraints0) {
+      def applyOn(states: Iterable[State], c: Constraint): Unit = {
         val f = c.fun
+        states
+          .filter(
+            s =>
+              memories.firstState <= s + f.belowStateOffset &&
+                (s + f.aboveStateOffset) <= memories.lastState)
+          .foreach { s0 =>
+            val x = binds(s0, c)
 
-        println(f.read.toSeq)
-//        val isFirstDeriv = f.belowStateOffset == -1 && f.aboveStateOffset == 0
-        val filtered = bandStates
-        val states =
-          applicables(c.qual, filtered)
-            .filter(
-              s =>
-                memories.firstState <= s + f.belowStateOffset &&
-                  (s + f.aboveStateOffset) <= memories.lastState)
+            println(x.toSeq.toString() + "   " + f.read.toSeq)
 
-        states.foreach { s0 =>
-          val x = binds(s0, c)
-          record(f.bindArray(x), level = f.aboveStateOffset - f.belowStateOffset)
-        }
+            record(f.bindArray(x), level = f.aboveStateOffset - f.belowStateOffset)
+          }
+      }
 
+      println("start")
+      for(c <- pb.bands(band).constraintsStart) {
+        val s = memories.stateOfHappening(bm.previousHappening)
+        val as =
+          if(c.fun.belowStateOffset == -1 && c.fun.aboveStateOffset == 0)
+            s.next // speed constraint, involving the previous state..., apply on next
+          else
+            s
+        applyOn(as :: Nil, c)
+      }
+      println("middle")
+      for(c <- pb.bands(band).constraintsMiddle) {
+        applyOn(bm.states, c)
+      }
+      println("end")
+      for(c <- pb.bands(band).constraintsEnd) {
+        val s = memories.stateOfHappening(bm.nextHappening)
+        val as =
+          if(c.fun.belowStateOffset == 0 && c.fun.aboveStateOffset == 1)
+            s.previous // speed constraint, involving the next state..., apply on previous
+          else
+            s
+        applyOn(as :: Nil, c)
       }
 
     }
+//    sys.exit(20)
     exprs
   }
 
   def solve(): Unit = {
     val es = build()
+//    sys.exit(30)
 
     for(lvl <- 0 to 2) {
       val constraints = es.filter(_.level <= lvl).map(_.value)
@@ -256,7 +392,7 @@ class Solver(pb: Problem, params: Params) {
 //        println(s"\n\n\n -------------- LEVEL $lvl % $i-------------")
 //        println("  before homog")
 //        memories.print(mem)
-        memories.bands.foreach(b => homogenizeInPlace(b, mem, 1))
+        memories.bands.foreach(b => homogenizeInPlace(b, mem)) //TODO
 //        println("  after homog")
 //        memories.print(mem)
         ls.lmIteration(mem, params.innerLoops)
@@ -267,6 +403,10 @@ class Solver(pb: Problem, params: Params) {
       }
 
       println(s" -------------- LEVEL $lvl -------------")
+      memories.print(mem)
+      memories.bands.foreach(b => homogenizeInPlace(b, mem)) //TODO
+      memories.printCSV(mem, "/tmp/traj.csv")
+      memories.printCSV(mem, s"/tmp/traj-$lvl.csv")
       memories.print(mem)
 
     }

@@ -32,4 +32,5 @@ down_limit := 0;
 
 // goal
 [end] distance >= 30;
+[10] running == true;
 [end] running == false;

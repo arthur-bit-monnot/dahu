@@ -183,6 +183,7 @@ package object sequence {
     override def of(in1: Vec[A], in2: Int): A = in1(in2)
     override def name: String = "get"
   }
+  def Get[A: Tag]: Get[A] = new Get[A]()
 
   sealed trait Map[I, O] extends Fun2[I ->: O, Vec[I], Vec[O]]
   def Map[I: Tag, O: Tag]: Map[I, O] = new MapImpl[I, O]()

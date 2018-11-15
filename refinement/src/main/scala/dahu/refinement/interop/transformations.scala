@@ -77,20 +77,20 @@ object transformations {
     override def name: String = "err.<"
   }
 
-  val scalarize = new Transformation[ExprF, ExprF] {
-    override def transformation[I <: Int](retrieve: I => ExprF[I],
-                                          record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
-      case InputF(id, tpe: ProductTagAny) =>
-        val fields = tpe.fields.map {
-          case Field(name, tpe, pos) =>
-            val fieldId = TypedIdent(id.id.subIdent(name), tpe)
-            record(InputF(fieldId, tpe))
-        }
-        ProductF(fields, tpe)
-
-      case x => x
-    }
-  }
+//  val scalarize = new Transformation[ExprF, ExprF] {
+//    override def transformation[I <: Int](retrieve: I => ExprF[I],
+//                                          record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
+//      case InputF(id, tpe: ProductTagAny) =>
+//        val fields = tpe.fields.map {
+//          case Field(name, tpe, pos) =>
+//            val fieldId = TypedIdent(id.id.subIdent(name), tpe)
+//            record(InputF(fieldId, tpe))
+//        }
+//        ProductF(fields, tpe)
+//
+//      case x => x
+//    }
+//  }
 
   val asErrors = new Transformation[ExprF, ExprF] {
     override def transformation[I <: Int](retrieve: I => ExprF[I],
@@ -100,6 +100,8 @@ object transformations {
       case ComputationF(double.LT, args, _) =>
         ComputationF(ErrStrictlyBelow, args)
       case ComputationF(double.EQ, args, _) =>
+        ComputationF(ErrEqual, args)
+      case ComputationF(_: any.EQ, args, _) =>
         ComputationF(ErrEqual, args)
       case ComputationF(bool.Or, args, _) =>
         ComputationF(MinError, args)

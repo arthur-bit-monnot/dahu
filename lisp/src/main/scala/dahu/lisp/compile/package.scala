@@ -198,10 +198,29 @@ package object compile {
           record(ComputationF(getter, state))
         }
 
-        for((name, tpe) <- fields) {
+        for((name, _) <- fields) {
 //          require(tpe == Tag.ofDouble) //TODO: use types
           env.setConstantValue(name, readDisc(name))
         }
+        i
+
+      case Sym("define-events") :: rest =>
+        val CUR_EVENTS = "current-events"
+        assert(rest.forall(_.isInstanceOf[Sym]))
+        val ev = rest.map(_.asInstanceOf[Sym].name).map((_, Tag.ofBoolean))
+        val (r, i) = defineStruct("events", ev: _*)
+        val curEvs = TypedIdent(Ident(Scope.root, CUR_EVENTS), r)
+        val iCurEvs = record(InputF(curEvs))
+        env.setConstantValue(CUR_EVENTS, iCurEvs)
+        env.setConstantValue("NO_EVENTS", record(ProductF(ev.map(_ => FALSE), r)))
+        def readEvent(name: String): Env.I = {
+          val getter = r.getAccessorAny(name).get
+          record(ComputationF(getter, iCurEvs))
+        }
+        for((name, _) <- ev) {
+          env.setConstantValue(name, readEvent(name))
+        }
+
         i
 
       case Sym("defstruct") :: Sym(recordName) :: rest =>

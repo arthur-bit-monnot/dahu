@@ -119,6 +119,7 @@ object sources {
     rec("last", sequence.Last[Any])
     rec("map", sequence.Map[Any, Any])
     rec("seq.indices", sequence.Indices)
+    rec("seq.get", sequence.Get[Any])
     rec("forall-consecutive", sequence.AllConsecutive[Any])
     rec("map-consecutive2", sequence.MapConsecutive2[Any, Any])
     rec("map-consecutive3", sequence.MapConsecutive3[Any, Any])
