@@ -13,7 +13,7 @@ object Encoder {
 
   def encode(model: core.CoreModel, num: core.ActionTemplate => Int, exactDepth: Option[Int])(
       implicit predef: Predef,
-      cfg: PlannerConfig): EncodedProblem[Solution] = {
+      cfg: PlannerConfig): (EncodedProblem[Solution], ProblemContext) = {
     implicit val cnt: Counter = new Counter
 //    info("  Processing ANML model...")
     val ctx = ProblemContext.extract(model)
@@ -149,10 +149,11 @@ object Encoder {
     val conditions: Expr[Vec[CondTok]] = all[CondTok]
     val contConditions: Expr[Vec[ContCondTok]] = all[ContCondTok]
 
-    Struct.encode(flat,
-                  Product(encoding.SolutionF[Expr](actions, effects, conditions, contConditions))(
-                    SolutionF.tag))
-
+    val encoded = Struct.encode(
+      flat,
+      Product(encoding.SolutionF[Expr](actions, effects, conditions, contConditions))(
+        SolutionF.tag))
+    (encoded, ctx)
   }
 
 }

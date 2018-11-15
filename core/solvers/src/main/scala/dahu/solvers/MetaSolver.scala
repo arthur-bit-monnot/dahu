@@ -1,13 +1,15 @@
 package dahu.solvers
 
+import cats.Id
 import dahu.graphs.DAG
 import dahu.model.input.{Expr, Ident, Input, TypedIdent}
 import dahu.model.interpreter.{FEval, Interpreter, PEval}
 import dahu.graphs._
+import dahu.model.ir.{CstF, Total}
 import dahu.model.types._
 import dahu.solvers.problem.EncodedProblem
 import dahu.solvers.solution.Solution
-import dahu.utils.errors._
+import dahu.utils._
 
 import scala.concurrent.duration.Deadline
 
@@ -28,6 +30,19 @@ class MetaSolver(val e: EncodedProblem[Any],
       (t.min to t.max).toStream.map(i => t.toValue(i)) //TODO
     case _ => ???
   }
+
+  def nextSolutionTree(deadline: Option[Deadline] = None): Option[ASG[Expr[Any], Total, Id]] =
+    solver.nextSatisfyingAssignmentInternal(deadline) match {
+      case Some(assignment) =>
+        val sol = pb.partialBind(i => {
+
+          assignment(i).map(v => {
+            CstF(v, pb.internalCoalgebra(i).typ)
+          })
+        })
+        Some(sol)
+      case None => None
+    }
 
   def nextSolution(deadline: Option[Deadline] = None): Option[Solution] =
     solver.nextSatisfyingAssignmentInternal(deadline) match {

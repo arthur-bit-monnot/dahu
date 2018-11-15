@@ -4,7 +4,8 @@ import dahu.model.functions.{Fun2, FunN}
 import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
-import dahu.model.types.{Bool, BoxedInt, Tag, TagIsoInt}
+import dahu.model.products.RecordType
+import dahu.model.types.{Bool, BoxedInt, Tag, TagAny, TagIsoInt}
 import dahu.planning.model.common.operators.BinaryOperator
 import dahu.planning.model.common.{Cst => _, _}
 import dahu.planning.model.core._
@@ -24,9 +25,16 @@ case class ObjLit(value: Instance) extends Literal {
   override def toString: String = value.toString
 }
 
+case class StateTypes(
+    dstate: RecordType,
+    cstate: RecordType,
+    events: RecordType
+)
+
 case class ProblemContext(intTag: BoxedInt[Literal],
                           topTag: TagIsoInt[Literal],
-                          specializedTags: Type => TagIsoInt[Literal])(implicit _predef: Predef) {
+                          specializedTags: Type => TagIsoInt[Literal],
+                          stateTypes: StateTypes)(implicit _predef: Predef) {
 
   def predef: Predef = _predef
 
@@ -204,7 +212,29 @@ case class ProblemContext(intTag: BoxedInt[Literal],
 
 object ProblemContext {
   import Type._
+
+  def fluentTemplate2Field(f: FluentTemplate): (String, TagAny) = f match {
+    case FluentTemplate(id, typ, Seq(), _) =>
+      if(typ.isBoolean)
+        id.name -> Tag.ofBoolean
+      else if(typ == Reals)
+        id.name -> Tag.ofDouble
+      else if(typ == Integers)
+        id.name -> Tag.ofInt
+      else
+        ???
+  }
+
   def extract(m: Seq[InModuleBlock])(implicit predef: Predef): ProblemContext = {
+    val fluents = m.collect { case FunctionDeclaration(f: FluentTemplate) => f }
+    val continuousFields = fluents.filter(_.isContinuous).map(fluentTemplate2Field)
+    val cstate = RecordType("cstate", continuousFields: _*)
+    val discreteFields = fluents.filter(!_.isContinuous).map(fluentTemplate2Field)
+    val dstate = RecordType("dstate", discreteFields: _*)
+
+    val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
+    val types = StateTypes(dstate, cstate, events)
+
     val objectTypes = m.collect { case TypeDeclaration(t: ObjType) => t }
     val objectSubtypes = mutable.LinkedHashMap[ObjType, mutable.Set[ObjType]]()
     val instances = m
@@ -321,6 +351,7 @@ object ProblemContext {
 
     ProblemContext(intTag.asInstanceOf[BoxedInt[Literal]],
                    topTag.asInstanceOf[TagIsoInt[Literal]],
-                   specializedTag.asInstanceOf[Type => TagIsoInt[Literal]])
+                   specializedTag.asInstanceOf[Type => TagIsoInt[Literal]],
+                   types)
   }
 }

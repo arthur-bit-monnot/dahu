@@ -56,6 +56,8 @@ object FluentF {
       "args" -> Tag[Vec[Literal]]
     )
 
+  val Template = selfTag.getAccessor[FunctionTemplate]("template")
+
   def ofExpr(template: FunctionTemplate, args: Seq[Expr[Literal]]): Expr[Fluent] = {
     Product(FluentF[Expr](Cst(template), Sequence(Vec(args: _*))))
   }
@@ -285,7 +287,7 @@ object ContCondTokF {
 
     val e = operator match {
       case operators.Eq =>
-        Computation2(dahu.model.math.any.LEQ, lhs, value)
+        Computation2(dahu.model.math.any.EQ, lhs, value)
       case operators.LEQ =>
         Computation2(dahu.model.math.any.LEQ, lhs, value)
       case operators.GEQ =>

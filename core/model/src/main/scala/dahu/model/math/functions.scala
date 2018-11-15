@@ -157,10 +157,14 @@ package object sequence {
     override def name: String = "eq"
   }
 
-  trait Concat[A] extends Monoid[Vec[A]] {}
+  trait Concat[A] extends Monoid[Vec[A]] {
+    def listType: SequenceTagAny
+  }
   def Concat[A: Tag]: Concat[A] = new Concat[A] {
     private implicit def clazzTag: ClassTag[A] = Tag[A].clazz
-    override def tpe: Tag[Vec[A]] = SequenceTag[A]
+    override def tpe: SequenceTag[A] = SequenceTag[A]
+    override def outType: SequenceTag[A] = tpe
+    override def listType: SequenceTagAny = outType
     override def combine(lhs: Vec[A], rhs: Vec[A]): Vec[A] = lhs ++ rhs
     override val identity: Vec[A] = Vec.empty[A]
     override def name: String = "concat"

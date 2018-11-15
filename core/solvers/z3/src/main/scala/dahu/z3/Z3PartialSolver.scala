@@ -115,8 +115,8 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
             }
           case b: BoolExpr =>
             b.getBoolValue match {
-              case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(false))
-              case enumerations.Z3_lbool.Z3_L_TRUE  => Some(Value(true))
+              case enumerations.Z3_lbool.Z3_L_FALSE => Some(Value(Bool.False))
+              case enumerations.Z3_lbool.Z3_L_TRUE  => Some(Value(Bool.True))
               case enumerations.Z3_lbool.Z3_L_UNDEF => None
               case _                                => unexpected
             }

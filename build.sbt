@@ -185,7 +185,7 @@ lazy val z3 = project
 //
 lazy val planner = project
   .in(file("planning/planner"))
-  .dependsOn(anmlParser, solvers, z3, pddlProblems % "compile->test")
+  .dependsOn(anmlParser, solvers, z3, refinement, pddlProblems % "compile->test")
   .settings(commonSettings ++ utestSettings: _*)
   .settings(libraryDependencies ++= Seq(
     "org.typelevel" %% "cats-effect" % "1.0.0-RC",

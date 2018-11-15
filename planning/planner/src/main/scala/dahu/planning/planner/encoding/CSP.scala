@@ -175,7 +175,7 @@ abstract class CSP extends Struct {
         addConstraint(changeItv.end <= persistenceEnd)
         val token =
           EffTokF.ofExpr(changeItv.start,
-                         changeItv.end,
+                         changeItv.end + Cst[Int](1), //TODO: dirty hack
                          persistenceEnd,
                          encode(fluent),
                          ctx.encode(value),

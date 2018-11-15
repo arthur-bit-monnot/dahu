@@ -2,6 +2,7 @@ package dahu.planning.planner
 import dahu.model.functions.->:
 import dahu.model.input.Expr
 import dahu.model.types.{Bool, Tag}
+import dahu.planning.model.common.{FluentTemplate, FunctionTemplate}
 
 package object encoding {
 
@@ -24,6 +25,15 @@ package object encoding {
   type Operator = OperatorF[cats.Id]
 
   import dahu.model.input.dsl._
+
+  implicit class IntervalOps(val itv: Expr[Interval]) extends AnyVal {
+    def start: Expr[Int] = IntervalF.Start(itv)
+  }
+
+  implicit class FluentFOps(val fluent: Expr[Fluent]) extends AnyVal {
+    def template: Expr[FunctionTemplate] = FluentF.Template(fluent)
+  }
+
   implicit class OperatorOps(val op: Expr[Operator]) extends AnyVal {
     def start: Expr[Int] = OperatorF.Start(op)
     def name: Expr[String] = OperatorF.Name(op)

@@ -188,6 +188,13 @@ trait OpenASG[K, F[_], Opt[_], InternalID <: IDTop] extends ASG[K, F, Opt] { sel
         self.getTreeRoot(k).map(getInternal)
     }
 
+  def partialBind(bind: ID => Option[F[ID]]) =
+    new OpenASG[K, F, Opt, self.ID] {
+      override def getTreeRoot(k: K): Opt[self.ID] = self.getTreeRoot(k)
+      override def internalCoalgebra(i: self.ID): F[self.ID] =
+        bind(i).getOrElse(self.internalCoalgebra(i))
+    }
+
   def cataWithPreFill[V: ClassTag](f: F[V] => V, preFill: ID => Option[V])(
       implicit T: TreeNode[F],
       F: SFunctor[F]): LazyMap[K, V, Opt, ID] =

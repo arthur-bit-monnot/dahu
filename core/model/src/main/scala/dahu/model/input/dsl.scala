@@ -3,6 +3,7 @@ package dahu.model.input
 import dahu.core
 import dahu.core.algebra
 import dahu.core.algebra.{BoolLike, NumberLike, Orderable}
+import dahu.model.functions
 import dahu.model.functions._
 import dahu.model.math._
 import dahu.model.structs._
@@ -85,6 +86,9 @@ object dsl {
     def unboxed(implicit tag: TagIsoInt[A]): Expr[Int] =
       Computation(tag.unbox, lhs)
   }
+
+  def lift[A: Tag, B: Tag](f: A => B): Expr[A ->: B] =
+    Cst(functions.lift(f))
 
   implicit class SequenceOps[A](private val lhs: Expr[Vec[A]]) extends AnyVal {
     def fold(monoid: Monoid[A])(implicit tag: Tag[A]): Expr[A] =

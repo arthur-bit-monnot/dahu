@@ -55,8 +55,8 @@
   (list in-limits
         not-blown
         goal-reached
-   valid-init-dist
-   valid-init-speed
+        valid-init-dist
+        valid-init-speed
         still-when-not-running
         ))
 

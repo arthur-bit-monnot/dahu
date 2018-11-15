@@ -1,13 +1,27 @@
 package dahu.planning.planner
 
+import cats.Id
 import cats.effect.IO
 import cats.implicits._
-import dahu.model.ir.ProductF
+import dahu.graphs.ASG
+import dahu.model.input.{Cst, Expr}
+import dahu.model.ir._
+import dahu.model.problem.API
 import dahu.model.products.RecordType
-import dahu.model.types.Tag
-import dahu.planning.model.common.Predef
+import dahu.model.types.{Bool, Tag}
+import dahu.planning.model.common.{FunctionTemplate, Predef}
 import dahu.planning.model.core
-import dahu.planning.planner.encoding.{Encoder, Plan, Solution}
+import dahu.planning.planner.encoding.{
+  EffTok,
+  EffTokF,
+  Encoder,
+  IntLit,
+  ObjLit,
+  Plan,
+  ProblemContext,
+  Solution,
+  SolutionF
+}
 import dahu.solvers.MetaSolver
 import dahu.solvers.problem.EncodedProblem
 import dahu.utils._
@@ -59,15 +73,15 @@ object Planner {
     if(deadline.isOverdue())
       return None
 
-    val pb = Encoder.encode(model, num, exactDepth)
+    val (pb, ctx) = Encoder.encode(model, num, exactDepth)
 
     //        println(result)
-    val solution = Planner.solve(pb, deadline)
+    val solution = Planner.solve(pb, deadline, ctx)
     //        println(solution)
     solution
   }
 
-  def solve(pb: EncodedProblem[Solution], deadline: Deadline)(
+  def solve(pb: EncodedProblem[Solution], deadline: Deadline, ctx: ProblemContext)(
       implicit cfg: PlannerConfig): Option[Plan] = {
     if(deadline.isOverdue)
       return None
@@ -77,6 +91,21 @@ object Planner {
 
     if(cfg.noSolve)
       return None
+
+    solver.nextSolutionTree(Some(deadline)) match {
+      case Some(t) =>
+        val t2 = t.asInstanceOf[ASG[Expr[Any], ExprF, Id]]
+        val x = API
+          .expandLambdasThroughPartialEval(t2)
+          .transform(dahu.model.transformations
+            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
+          .transform(dahu.model.transformations
+            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
+        API.echo(x.rootedAt(pb.res))
+        extractStateTrajectory(pb.res, x, ctx)
+        sys.exit(1)
+      case None => None
+    }
 
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
@@ -99,6 +128,100 @@ object Planner {
         }
       case None => None
     }
+  }
+
+  def extractStateTrajectory(e: Expr[Solution],
+                             _tree: ASG[Expr[Any], ExprF, Id],
+                             ctx: ProblemContext): Unit = {
+
+    val tmp = _tree.fixID.extensible
+    val tree = tmp.fixID
+    type I = tree.ID
+
+    import dahu.model.input.dsl._
+    import dahu.planning.planner.encoding.DummyImplicits._
+    import dahu.planning.planner._
+    val effs = SolutionF.tag.getAccessor[Vec[EffTok]]("effects").apply(e)
+
+    val starts = effs.map0(e => e.persistenceInterval.start)
+    val fluents =
+      effs.map0(e => e.fluent.template)
+    val values = effs.map0(e => e.value)
+
+    def eval[A](i: I): Option[A] = tree.internalCoalgebra(i) match {
+      case CstF(v, _) => Some(v.asInstanceOf[A])
+      case _          => None
+    }
+
+    def evalsShallow[A](e: Expr[Vec[A]]): Option[List[I]] = {
+      tree.getExt(e) match {
+        case SequenceF(members, _) =>
+          Some(members.toList)
+        case _ => None
+
+      }
+    }
+
+    def evalsAll[A](e: Expr[Vec[A]]): Option[List[A]] = {
+      tree.getExt(e) match {
+        case SequenceF(members, _) =>
+          members
+            .map(i => eval[A](i))
+            .toList
+            .sequence
+      }
+    }
+    val changes = for {
+      times <- evalsAll(starts)
+      svs <- evalsAll(fluents)
+      valsNative <- evalsAll(values)
+      vals = valsNative
+        .map {
+          case IntLit(i) => Cst[Int](i)
+          case ObjLit(value) if value.typ.isBoolean =>
+            if(value.toString == "true") Cst[Bool](Bool.True)
+            else if(value.toString == "false") Cst[Bool](Bool.False)
+            else ???
+          case ObjLit(value) =>
+            ??? // TODO: valid but commented to catch earlier errors Cst[String](value.toString)
+        }
+        .map(cst => tree.getTreeRoot(cst))
+    } yield times.zip(vals).zip(svs)
+    println(changes)
+
+    val xx = changes match {
+      case Some(l) =>
+        l.groupBy(_._2)
+          .mapValues(_.map(_._1))
+          .mapValues(_.sortBy(_._1))
+      case None => unexpected("Cant not evaluated solution competely.")
+    }
+    println(xx)
+
+//    buildState(ctx.stateTypes.dstate)(xx)(_.id.name)
+    val traj = stateOrientedView(xx)(_._1, _._2)
+    val states = traj.map(_._2).map(s => buildState(ctx.stateTypes.dstate)(s)(sv => sv.id.toString))
+    println(traj)
+    println(states)
+//    API.echo(tree.rootedAt(starts))
+//    API.echo(tree.rootedAt(fluents))
+//    API.echo(tree.rootedAt(values))
+
+    sys.exit(10)
+
+//    tree.getExt(e) match {
+//      case ProductF(ms, tpe) =>
+//        val effList = ms(tpe.fieldPosition("effects").get)
+//        tree.internalCoalgebra(effList) match {
+//          case SequenceF(es, p) =>
+//            assert(p.memberTag == EffTokF.productTag)
+//        }
+//        println(tpe)
+//        println(ms.map(i => tree.internalCoalgebra(i)))
+//
+//        ???
+//      case x => unexpected(s"$x")
+//    }
   }
 
   def extractStateTrajectory(p: Plan): Unit = {
@@ -144,7 +267,7 @@ object Planner {
   type State[SV, V] = Map[SV, V]
 
   @tailrec def stateOrientedView[SV, Tok, Val](timelines: Map[SV, Seq[Tok]],
-                                               prevStates: Seq[(Int, State[SV, Val])])(
+                                               prevStates: Seq[(Int, State[SV, Val])] = Seq())(
       time: Tok => Int,
       value: Tok => Val): Seq[(Int, State[SV, Val])] = {
 

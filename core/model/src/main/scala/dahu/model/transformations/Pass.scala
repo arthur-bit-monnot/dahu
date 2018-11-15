@@ -118,10 +118,15 @@ object Pass {
         buff += ctx.record(CstF(acc, f.outType))
         ComputationF(f, Vec.unsafe(buff.toArray()), tpe)
 
+      case ITEF(cond, onTrue, onFalse, _) if cond == ctx.TRUE =>
+        ctx.retrieve(onTrue)
+      case ITEF(cond, onTrue, onFalse, _) if cond == ctx.FALSE =>
+        ctx.retrieve(onFalse)
       case x @ ITEF(cond, onTrue, onFalse, _) =>
-        if(cond == ctx.TRUE) ctx.retrieve(onTrue)
-        else if(cond == ctx.FALSE) ctx.retrieve(onFalse)
-        else x
+        val c = ctx.retrieve(cond)
+        if(c.typ != Tag.ofBoolean)
+          println(s"$c -- ${c.typ}")
+        x
 
       case x => x
     }
@@ -420,6 +425,21 @@ object Pass {
             val indices = vec.indices.map(i => ctx.record(CstF(Value(i), Tag.ofInt))).toVec
             SequenceF(indices, sequence.Indices.outType)
           case _ => fi
+        }
+
+      case fi @ ComputationF(op: sequence.Concat[_], ls, tpe) =>
+        val ols: Option[List[I]] = ls.toList
+          .map(ctx.retrieve)
+          .toList
+          .map {
+            case SequenceF(ms, _) => Some(ms.toList)
+            case _                => None
+          }
+          .sequence
+          .map(_.flatten)
+        ols match {
+          case Some(ls) => SequenceF(ls.toVec, op.listType: SequenceTagAny)
+          case None     => fi
         }
 
       case fi @ ComputationF(_: sequence.Get[_], Vec(e, i), tpe) =>
