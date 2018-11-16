@@ -17,6 +17,7 @@ case class SCondTokF[F[_]](fluent: F[Fluent], value: F[Literal])
 
 object SCondTokF {
   implicit val productTag: ProductTag[SCondTokF] = ProductTag.build(
+    "planning.static-cond-tok",
     "fluent" -> Tag[Fluent],
     "value" -> Tag[Literal]
   )
@@ -61,6 +62,7 @@ case class SEffTokF[F[_]](fluent: F[Fluent], value: F[Literal])
 
 object SEffTokF {
   implicit val productTag: ProductTag[SEffTokF] = ProductTag.build(
+    "planning.static-effect-tok",
     "fluent" -> Tag[Fluent],
     "value" -> Tag[Literal]
   )

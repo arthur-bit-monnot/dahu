@@ -42,79 +42,59 @@ package object compile {
   case object Quoted extends EvalMode
   case object PartialEvalMode extends EvalMode
 
-  implicit class EnvOps(val env: Env) extends AnyVal {
-    def typeOf(i: I): Type = env.extractValue(i).typ
-    def record(v: V): I = env.getId(v)
-    def get(i: I): V = env.extractValue(i)
-    def extractTypedFieldsDefinitions(l: List[Any]): List[(String, TagAny)] = l match {
-      case Nil => Nil
-      case (fieldType: Sym) :: (fieldName: Sym) :: rest =>
-        env.extractValue(fieldType) match {
-          case CstF(t: TagAny, _) =>
-            (fieldName.name, t) :: extractTypedFieldsDefinitions(rest)
-          case x =>
-            error(s"$fieldType does not resolve to a type but to: $x")
-        }
-      case _ => error(s"Expected a type and a field name but got: $l")
-    }
-    def input(id: TypedIdent): I = {
-      record(InputF(id))
-    }
-    def cstString(v: String): I = {
-      record(CstF(Value(v), Tag.ofString))
-    }
+  import Env.ops._
 
-    def defineStruct(recordName: String, fields: (String, TagAny)*): (RecordType, I) = {
-      val r = RecordType(recordName, fields: _*)
-      defineStruct(r)
+  val CUR_EVENTS = "current-events"
+  val DSTATE = "current-discrete-state"
+
+  def defineEvents[I <: IDTop](env: Env[I], r: ProductTagAny): I = {
+    require(r.name == "events")
+    val curEvs = TypedIdent(Ident(Scope.root, CUR_EVENTS), r)
+    val iCurEvs = env.record(InputF(curEvs))
+    env.setConstantValue(CUR_EVENTS, iCurEvs)
+    env.setConstantValue("NO_EVENTS", env.record(ProductF(r.fields.map(_ => env.FALSE), r)))
+    def readEvent(name: String): I = {
+      val getter = r.getAccessorAny(name).get
+      env.record(ComputationF(getter, iCurEvs))
     }
-
-    def defineStruct(r: RecordType): (RecordType, I) = {
-      val recordName = r.name
-      val fields = r.fields.map(f => f.name -> f.tag).toSeq
-      log.verbose(s"Recording variable '^$recordName' representing a record type '$recordName'")
-      val tpeId = record(CstF(Value(r), Tag.ofType))
-      env.setConstantValue(s"^$recordName", tpeId)
-
-      log.verbose(s"Recording variable '^${recordName}s' representing a record type '$recordName'")
-      val listR = SequenceTagImplAny(r)
-      val listTypeId = record(CstF(Value(listR), Tag.ofType))
-      env.setConstantValue(s"^${recordName}s", listTypeId)
-
-      log.verbose(s"Recording constructor '$recordName' for a record type")
-      val ctor = Constructor(r)
-      val ctorId = record(CstF(Value(ctor), ctor.funType))
-      env.setConstantValue(recordName, ctorId)
-      for(((fieldName, fieldType), i) <- fields.zipWithIndex) {
-        val accessorName = s"$recordName.$fieldName"
-        log.verbose(s"Recording getter $accessorName")
-        val getter = new FieldAccessAny {
-          override def arity: Option[Int] = Some(1)
-          override def prodTag: Type = r
-          override def fieldTag: Type = fieldType
-          override def fieldPosition: Int = i
-          override def name: String = accessorName
-          override def compute(args: Vec[Value]): Any = args match {
-            case Vec(ProductF(members, tpe)) if tpe == r =>
-              members(i)
-            case x => error(s"invalid argument to getter $accessorName: $x")
-          }
-          override def outType: Type = fieldType
-          override def funType: LambdaTagAny = LambdaTag.of(prodTag, fieldTag)
-        }
-        val getterId = record(CstF(Value(getter), getter.funType))
-        env.setConstantValue(accessorName, getterId)
-      }
-      (r, tpeId)
-    }
+    r.fields.map(_.name).foreach(name => env.setConstantValue(name, readEvent(name)))
+    env.defineStruct(r)
   }
 
-  def eval(e: SExpr, env: Env)(implicit mode: EvalMode): I = {
+  def defineDiscreteState[I <: IDTop](env: Env[I], r: ProductTagAny): I = {
+    val curState = TypedIdent(Ident(Scope.root, DSTATE), r)
+    val state = env.record(InputF(curState))
+    env.setConstantValue(DSTATE, state)
+    def readDisc(name: String): I = {
+      val getter = r.getAccessorAny(name).get
+      env.record(ComputationF(getter, state))
+    }
+    r.fields.map(_.name).foreach { name =>
+      env.setConstantValue(name, readDisc(name))
+    }
+    env.defineStruct(r)
+  }
+  def defineContinuousState[I <: IDTop](env: Env[I], r: ProductTagAny): I = {
+    require(r.fieldPosition("dt").nonEmpty, "Continuous state must have a 'dt' field")
+    val curState = env.getValue(Sym(CURRENT_CONTINUOUS_STATE))
+    val readContTpe = RecordType("read-cont", "state" -> Tag.ofInt, "field" -> Tag.ofString)
+    def readCont(name: String): I = {
+      env.record(ProductF(Vec(curState, env.cstString(name)), readContTpe))
+    }
+
+    for(Field(name, tpe, _) <- r.fields.toSeq) {
+      require(tpe == Tag.ofDouble)
+      env.setConstantValue(name, readCont(name))
+    }
+    env.defineStruct(r)
+  }
+
+  def eval[I <: IDTop](e: SExpr, env: Env[I])(implicit mode: EvalMode): I = {
     val TRUE = env.getId(dahu.model.math.bool.TrueF)
     val FALSE = env.getId(dahu.model.math.bool.FalseF)
     def typeOf(i: I): Type = env.typeOf(i)
-    def record(v: V): I = env.record(v)
-    def get(i: I): V = env.get(i)
+    def record(v: env.V): I = env.record(v)
+    def get(i: I): env.V = env.get(i)
 
     def cstString(v: String): I = {
       record(CstF(Value(v), Tag.ofString))
@@ -158,7 +138,7 @@ package object compile {
 //      case ATOM :: (_: List[_]) :: Nil => false
 //      case ATOM :: _ :: Nil            => true
       case LAMBDA :: (args: Seq[Sym]) :: exp :: Nil =>
-        def const(params: List[Sym], e: Env): I = params match {
+        def const(params: List[Sym], e: Env[I]): I = params match {
           case Nil => eval(exp, e)
           case head :: tail =>
             val p = LambdaParamF[I](Lambda.LambdaIdent(head.name), Tag.unsafe.ofAny)
@@ -190,54 +170,20 @@ package object compile {
 
         }
       case Sym("define-continuous-state") :: rest =>
-        val curState = env.getValue(Sym(CURRENT_CONTINUOUS_STATE))
-        val readContTpe = RecordType("read-cont", "state" -> Tag.ofInt, "field" -> Tag.ofString)
-        def readCont(name: String): Env.I = {
-          record(ProductF(Vec(curState, cstString(name)), readContTpe))
-        }
         val fields = env.extractTypedFieldsDefinitions(rest) ++ List("dt" -> Tag.ofDouble)
-        for((name, tpe) <- fields) {
-          require(tpe == Tag.ofDouble)
-          env.setConstantValue(name, readCont(name))
-        }
-        env.defineStruct("cstate", fields: _*)._2
+        val cstateTpe = RecordType("cstate", fields: _*)
+        defineContinuousState(env, cstateTpe)
 
       case Sym("define-discrete-state") :: rest =>
-        val DSTATE = "current-discrete-state"
         val fields = env.extractTypedFieldsDefinitions(rest)
-        val (r, i) = env.defineStruct("dstate", fields: _*)
-        val curState = TypedIdent(Ident(Scope.root, DSTATE), r)
-        val state = record(InputF(curState))
-        env.setConstantValue(DSTATE, state)
-        def readDisc(name: String): Env.I = {
-          val getter = r.getAccessorAny(name).get
-          record(ComputationF(getter, state))
-        }
-
-        for((name, _) <- fields) {
-//          require(tpe == Tag.ofDouble) //TODO: use types
-          env.setConstantValue(name, readDisc(name))
-        }
-        i
+        val dstateTpe = RecordType("dstate", fields: _*)
+        defineDiscreteState(env, dstateTpe)
 
       case Sym("define-events") :: rest =>
-        val CUR_EVENTS = "current-events"
         assert(rest.forall(_.isInstanceOf[Sym]))
-        val ev = rest.map(_.asInstanceOf[Sym].name).map((_, Tag.ofBoolean))
-        val (r, i) = env.defineStruct("events", ev: _*)
-        val curEvs = TypedIdent(Ident(Scope.root, CUR_EVENTS), r)
-        val iCurEvs = record(InputF(curEvs))
-        env.setConstantValue(CUR_EVENTS, iCurEvs)
-        env.setConstantValue("NO_EVENTS", record(ProductF(ev.map(_ => FALSE), r)))
-        def readEvent(name: String): Env.I = {
-          val getter = r.getAccessorAny(name).get
-          record(ComputationF(getter, iCurEvs))
-        }
-        for((name, _) <- ev) {
-          env.setConstantValue(name, readEvent(name))
-        }
-
-        i
+        val fields = rest.map(_.asInstanceOf[Sym].name).map((_, Tag.ofBoolean))
+        val eventsTpe = RecordType("dstate", fields: _*)
+        defineEvents(env, eventsTpe)
 
       case Sym("defstruct") :: Sym(recordName) :: rest =>
         val fields = env.extractTypedFieldsDefinitions(rest)
@@ -341,9 +287,9 @@ package object compile {
 
   type LispStr = String
 
-  def graphBuilder(env: RootEnv): ASG[SExpr, ExprF, Try] = {
-    new OpenASG[SExpr, ExprF, Try, Env.I] {
-      override def getTreeRoot(k: SExpr): Try[Env.I] = {
+  def graphBuilder[I <: IDTop](env: RootEnv[I]): ASG[SExpr, ExprF, Try] = {
+    new OpenASG[SExpr, ExprF, Try, I] {
+      override def getTreeRoot(k: SExpr): Try[I] = {
         Try(eval(k, env)(Quoted))
       }
       override def internalCoalgebra(i: I): ExprF[I] =
@@ -351,7 +297,7 @@ package object compile {
     }
   }
 
-  class Context(env: RootEnv, trans: Option[Transformation[ExprF, ExprF]] = None) {
+  class Context[I <: IDTop](env: RootEnv[I], trans: Option[Transformation[ExprF, ExprF]] = None) {
 
     val graph: ASG[SExpr, ExprF, Try] = graphBuilder(env)
     val transGraph = trans match {
@@ -372,18 +318,18 @@ package object compile {
 
   }
 
-  def evalToString(se: SExpr, ctx: Context): Try[String] = {
+  def evalToString[I <: IDTop](se: SExpr, ctx: Context[I]): Try[String] = {
     ctx.show(se)
   }
 
-  def parseEvalToString(str: String, ctx: Context): Try[String] = {
+  def parseEvalToString[I <: IDTop](str: String, ctx: Context[I]): Try[String] = {
     for {
       sexpr <- Try(parse(str))
       res <- evalToString(sexpr, ctx)
     } yield res
   }
 
-  def parseEval(str: String, ctx: Context): Try[Fix[ExprF]] = {
+  def parseEval[I <: IDTop](str: String, ctx: Context[I]): Try[Fix[ExprF]] = {
     for {
       sexpr <- Try(parse(str))
       res <- ctx.treeOf(sexpr)
@@ -395,7 +341,7 @@ package object compile {
     case e          => e.toString
   }
 
-  def evalMany(sourceCode: String)(implicit ctx: Context): Unit = {
+  def evalMany[I <: IDTop](sourceCode: String)(implicit ctx: Context[I]): Unit = {
     val ast = dahu.lisp.parser.parseMany(sourceCode) match {
       case Parsed.Success(sexprs, _) => sexprs
       case x =>
@@ -414,7 +360,7 @@ package object compile {
     }
   }
 
-  def evalFile(filename: String)(implicit ctx: Context): Unit = {
+  def evalFile[I <: IDTop](filename: String)(implicit ctx: Context[I]): Unit = {
     println(s"Parsing $filename")
     val sourceCode = Source.fromFile(new File(filename)).getLines().fold("")((a, b) => a + "\n" + b)
     evalMany(sourceCode)

@@ -19,6 +19,7 @@ case class OperatorF[F[_]](name: F[String],
 }
 object OperatorF {
   implicit val tag: ProductTag[OperatorF] = ProductTag.build[OperatorF](
+    "operator",
     "name" -> Tag[String],
     "args" -> null, //Tag[Vec[Literal]],
     "start" -> Tag[Int],
@@ -51,10 +52,10 @@ case class SolutionF[F[_]](
 
 object SolutionF {
   implicit val tag: ProductTag[SolutionF] = ProductTag.build[SolutionF](
+    "planning.solution",
     "operators" -> Tag[Vec[Operator]],
     "effects" -> Tag[Vec[EffTok]],
-    "conditions" -> Tag[Vec[CondTok]]
-  )
+    "conditions" -> Tag[Vec[CondTok]])
 }
 
 case class Plan(operators: Vec[Operator], effects: Vec[EffTok]) {

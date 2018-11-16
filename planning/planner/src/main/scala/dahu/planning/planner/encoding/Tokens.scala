@@ -28,10 +28,8 @@ import dahu.planning.planner.encoding.DummyImplicits._
 case class IntervalF[F[_]](start: F[Int], end: F[Int])
 
 object IntervalF {
-  implicit val productTagInstance: ProductTag[IntervalF] = ProductTag.build[IntervalF](
-    "start" -> Tag.ofInt,
-    "end" -> Tag.ofInt
-  )
+  implicit val productTagInstance: ProductTag[IntervalF] =
+    ProductTag.build[IntervalF]("planning.interval", "start" -> Tag.ofInt, "end" -> Tag.ofInt)
   implicit val tagInstance: Tag[Interval] = productTagInstance
 
   def ofExpr(start: Expr[Int], end: Expr[Int]): Expr[Interval] =
@@ -51,10 +49,9 @@ case class FluentF[F[_]](template: F[FunctionTemplate], args: F[Vec[Literal]])
 
 object FluentF {
   implicit val selfTag =
-    ProductTag.build[FluentF](
-      "template" -> Tag.default[FunctionTemplate],
-      "args" -> Tag[Vec[Literal]]
-    )
+    ProductTag.build[FluentF]("planning.fluent",
+                              "template" -> Tag.default[FunctionTemplate],
+                              "args" -> Tag[Vec[Literal]])
 
   val Template = selfTag.getAccessor[FunctionTemplate]("template")
 
@@ -74,6 +71,7 @@ case class CondTokF[F[_]](
 
 object CondTokF {
   implicit val productTag: ProductTag[CondTokF] = ProductTag.build[CondTokF](
+    "planning.cond-tok",
     "itv" -> Tag[Interval],
     "fluent" -> Tag[Fluent],
     "predicate" -> Tag[Literal ->: Bool],
@@ -134,6 +132,7 @@ case class EffTokF[F[_]](startChange: F[Int],
 
 object EffTokF {
   implicit val productTag: ProductTag[EffTokF] = ProductTag.build[EffTokF](
+    "planning.eff-tok",
     "start-change" -> Tag.ofInt,
     "persistence" -> Tag[Interval],
     "fluent" -> Tag[Fluent],
@@ -257,6 +256,7 @@ case class ContCondTokF[F[_]](
 object ContCondTokF {
   implicit val fluentTemplateTag = Tag.default[FluentTemplate]
   implicit val productTag: ProductTag[ContCondTokF] = ProductTag.build[ContCondTokF](
+    "cont-cond-tok",
     "itv" -> Tag[Interval],
     "predicate" -> Tag[Bool],
   )
@@ -278,7 +278,8 @@ object ContCondTokF {
     require(fluent.params.isEmpty)
 
     case class ReadContF[F[_]](state: F[Int], field: F[String])
-    implicit val tag = ProductTag.build[ReadContF]("state" -> Tag.ofInt, "field" -> Tag.ofString)
+    implicit val tag =
+      ProductTag.build[ReadContF]("read-cont", "state" -> Tag.ofInt, "field" -> Tag.ofString)
     val s = Cst(0, Tag.ofInt)
     val field = Cst(fluent.id.name, Tag.ofString)
     val p = ReadContF[Expr](s, field)

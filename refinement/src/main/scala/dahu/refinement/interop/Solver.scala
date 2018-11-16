@@ -18,7 +18,7 @@ object Printer {
 }
 
 case class Params(
-    statesPerBand: Int = 10,
+    statesPerBand: Int = 150,
     outerLoops: Int = 10,
     innerLoops: Int = 40
 )
@@ -325,7 +325,7 @@ class Solver(pb: Problem, params: Params) {
 
     for(s <- memories.allStates) {
       record(strictlyPositive.bind(memories.addressOfTime(s)), level = 0)
-      record(minimize.bind(memories.addressOfTime(s)), level = 1)
+      record(minimize.bind(memories.addressOfTime(s)), level = 3)
     }
 
     for(band <- bands) {
@@ -383,7 +383,7 @@ class Solver(pb: Problem, params: Params) {
     val es = build()
 //    sys.exit(30)
 
-    for(lvl <- 0 to 2) {
+    for(lvl <- 0 to 3) {
       val constraints = es.filter(_.level <= lvl).map(_.value)
 
       val ls = new LeastSquares(constraints)

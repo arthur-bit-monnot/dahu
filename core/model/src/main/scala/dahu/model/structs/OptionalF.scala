@@ -14,6 +14,7 @@ object OptionalF {
   type Optional[T] = OptionalF[Id, T]
 
   implicit def tagOf[T: Tag]: ProductTag[OptionalF[?[_], T]] = new ProductTag[OptionalF[?[_], T]] {
+    override def name: String = "optional"
     override val fields: Vec[Field] = Vec(
       Field("value", Tag[T], 0),
       Field("presence", Tag.ofBoolean, 1)
@@ -30,6 +31,7 @@ object OptionalF {
   }
   def tagOfAny(tag: TagAny): ProductTagAny =
     new ProductTag[OptionalF[?[_], Any]] {
+      override def name: String = "optional"
       override val fields: Vec[Field] = Vec(
         Field("value", tag, 0),
         Field("presence", Tag.ofBoolean, 1)

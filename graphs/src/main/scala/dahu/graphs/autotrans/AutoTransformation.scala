@@ -116,4 +116,7 @@ class AutoTransformation[F[_]: SFunctor: TreeNode](trans: Transformation[F])(
 
 object AutoTransformation {
   type Aux[F[_], I0] = AutoTransformation[F] { type I = I0 }
+
+  def empty[F[_]: SFunctor: TreeNode: ClassTagK, I0 <: Int]() = //: Aux[F, I0] =
+    new AutoTransformation[F](Transformation.none[F]).asInstanceOf[Aux[F, I0]]
 }

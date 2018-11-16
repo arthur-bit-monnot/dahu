@@ -30,13 +30,13 @@ object RecordType {
 
 import Tag.unsafe.ofAny
 
-case class Constructor(tpe: RecordType) extends FunAny {
+case class Constructor(tpe: ProductTagAny) extends FunAny {
   override def arity: Option[Int] = None
   override def compute(args: Vec[Value]): ProductF[Value] = {
     ProductF[Value](args, tpe)
   }
   override def name: String = tpe.name + "."
-  override def outType: RecordType = tpe
+  override def outType: ProductTagAny = tpe
 
   override def funType: LambdaTagAny =
     LambdaTag.of(SequenceTag[Any], tpe)

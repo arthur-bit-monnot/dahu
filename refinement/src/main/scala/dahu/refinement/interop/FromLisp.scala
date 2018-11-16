@@ -32,7 +32,7 @@ import scala.util.{Failure, Success, Try}
 object FromLisp extends App {
 
   val env = sources.default()
-  implicit val ctx = new Context(env, None)
+  implicit val ctx = new Context[Env.DefaultID](env, None)
 
 //  evalFile("refinement/domains/prelude.clj")
 

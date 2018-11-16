@@ -2,8 +2,8 @@
 // ---- Domain -----
 
 // constant part of the discrete state
-constant float up_limit;
-constant float down_limit;
+fluent float up_limit;
+fluent float down_limit;
 
 // variable part of the discrete state
 fluent boolean running;
@@ -21,11 +21,12 @@ action run() {
 // ---- Problem -----
 
 // constants
-up_limit := 10;
-down_limit := 0;
+
 
 // initial state
 [start] {
+  up_limit := 10;
+  down_limit := 0;
   running := false;
   distance := 0;
 };

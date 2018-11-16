@@ -7,7 +7,7 @@ import dahu.graphs.transformations._
 import dahu.utils.{BiMap, ClassTag, SFunctor, SubSubInt}
 
 /** Abstract Syntax Graph */
-trait ASG[K, F[_], Opt[_]] {
+trait ASG[K, F[_], Opt[_]] { self =>
   type ID <: IDTop
 
   sealed trait Marker
@@ -17,10 +17,18 @@ trait ASG[K, F[_], Opt[_]] {
 
   def rootedAt(root: K): RootedASG[K, F, Opt] = RootedASG(root, this)
 
+  def internalView: ASG[ID, F, Id] = {
+    val op = self.castIDTo[ID]
+    new OpenASG[ID, F, Id, ID] {
+      override def getTreeRoot(k: ID): cats.Id[ID] = k
+      override def internalCoalgebra(i: ID): F[ID] = op.internalCoalgebra(i)
+    }
+  }
+
   def fixID: OpenASG[K, F, Opt, SubSubInt[IDTop, Marker]]
 
   def castIDTo[NewInternalID <: IDTop]: OpenASG[K, F, Opt, NewInternalID] =
-    this.asInstanceOf[OpenASG[K, F, Opt, NewInternalID]]
+    this.fixID.asInstanceOf[OpenASG[K, F, Opt, NewInternalID]]
 
   def transform[I <: IDTop, G[_]](fGen: Transformation[F, G])(
       implicit TN: TreeNode[F],

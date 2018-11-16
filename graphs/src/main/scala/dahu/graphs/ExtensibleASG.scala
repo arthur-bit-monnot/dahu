@@ -45,4 +45,6 @@ final class ExtensibleASG[K,
       coalg(j).smap(j2 => record(j2, coalg))
     )
   }
+
+  def internalData = x
 }

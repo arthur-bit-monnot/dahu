@@ -227,7 +227,11 @@ object ProblemContext {
 
   def extract(m: Seq[InModuleBlock])(implicit predef: Predef): ProblemContext = {
     val fluents = m.collect { case FunctionDeclaration(f: FluentTemplate) => f }
-    val continuousFields = fluents.filter(_.isContinuous).map(fluentTemplate2Field)
+    val continuousFields =
+      fluents
+        .filter(_.isContinuous)
+        .map(fluentTemplate2Field) :+ ("dt" -> Tag.ofDouble)
+
     val cstate = RecordType("cstate", continuousFields: _*)
     val discreteFields = fluents.filter(!_.isContinuous).map(fluentTemplate2Field)
     val dstate = RecordType("dstate", discreteFields: _*)

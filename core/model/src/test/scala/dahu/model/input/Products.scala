@@ -25,10 +25,8 @@ object Products extends TestSuite {
           this(arr(0).asInstanceOf[F[Int]], arr(1).asInstanceOf[F[Int]])
       }
       object Interval {
-        implicit val tag: ProductTag[Interval] = ProductTag.build[Interval](
-          "start" -> Tag.ofInt,
-          "end" -> Tag.ofInt
-        )
+        implicit val tag: ProductTag[Interval] =
+          ProductTag.build[Interval]("interval", "start" -> Tag.ofInt, "end" -> Tag.ofInt)
 
         val Start = tag.getAccessor[Int]("start")
         val End = tag.getAccessor[Int]("end")

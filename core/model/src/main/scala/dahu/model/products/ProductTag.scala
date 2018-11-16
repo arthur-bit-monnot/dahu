@@ -7,6 +7,7 @@ import dahu.model.types.{LambdaTag, LambdaTagAny, Tag, TagAny, Value}
 import dahu.utils.{ClassTag, Vec}
 
 trait ProductTagAny extends TagAny { self =>
+  def name: String
   def fields: Vec[Field]
   def getField(i: Int, product: Any): Any
   def fromValues(fields: Vec[Any]): Any
@@ -76,12 +77,13 @@ trait ProductTag[P[_[_]]] extends Tag[P[cats.Id]] with ProductTagAny {
 }
 
 object ProductTag {
-  def build[P[_[_]]](_fields: (String, TagAny)*)(
+  def build[P[_[_]]](_name: String, _fields: (String, TagAny)*)(
       implicit ct: ClassTag[P[Id]],
       gcid: GenConstructor[P, cats.Id],
       gcexpr: GenConstructor[P, Expr],
       tt: scala.reflect.runtime.universe.WeakTypeTag[P[cats.Id]]
   ): ProductTag[P] = new ProductTag[P] {
+    override def name: String = _name
     override val fields: Vec[Field] = Vec.fromSeq(_fields.zipWithIndex.map {
       case ((name, tag), index) => Field(name, tag, index)
     })
@@ -90,5 +92,6 @@ object ProductTag {
     override def fromValues(fields: Vec[Any]): P[cats.Id] = gcid.construct(fields.toSeq)
     override def getFields(prod: P[Expr]): Vec[Expr[Any]] = Vec.fromSeq(gcexpr.deconstruct(prod))
     override def getFieldsIdentity(prod: P[cats.Id]): Vec[Any] = Vec.fromSeq(gcid.deconstruct(prod))
+    override def toString: String = name
   }
 }

@@ -1,7 +1,9 @@
 package dahu.refinement.interop
 
+import dahu.graphs.IDTop
+import dahu.graphs.autotrans.AutoTransformation
 import dahu.lisp.compile._
-import dahu.lisp.compile.Env.V
+import dahu.lisp.compile.Env.DefaultID
 import dahu.model.functions.FunAny
 import dahu.model.input.{Ident, Scope, TypedIdent}
 import dahu.model.ir._
@@ -68,11 +70,19 @@ object sources {
     (defvar ^points path)
   """
 
-  def default(): RootEnv = {
-    implicit val anyTag: Tag[Any] = Tag.unsafe.ofAny
-    val e = new RootEnv()
+  import dahu.model.types._
+  import dahu.model.math._
 
-    def recVal(name: String, value: V): Unit = {
+  import Env.ops._
+
+  def default(): RootEnv[DefaultID] =
+    default[DefaultID](AutoTransformation.empty[ExprF, DefaultID]())
+
+  def default[I <: IDTop](base: AutoTransformation.Aux[ExprF, I]): RootEnv[I] = {
+    implicit val anyTag: Tag[Any] = Tag.unsafe.ofAny
+    val e = new RootEnv(base)
+
+    def recVal(name: String, value: e.V): Unit = {
       val i = e.getId(value)
       e.setConstantValue(name, i)
     }
@@ -143,6 +153,9 @@ object sources {
     recType("^real", Tag.ofDouble)
     recType("^bool", Tag.ofBoolean)
     recType("^string", Tag.ofString)
+
+    e.parseMany(prelude)
+
     e
   }
 

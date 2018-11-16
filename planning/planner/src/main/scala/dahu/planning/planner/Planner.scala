@@ -8,7 +8,8 @@ import dahu.model.input.{Cst, Expr}
 import dahu.model.ir._
 import dahu.model.problem.API
 import dahu.model.products.RecordType
-import dahu.model.types.{Bool, Tag}
+import dahu.model.types.{Bool, SequenceTag, Tag, TagAny}
+import dahu.planning.model.common.Type.{Integers, Reals}
 import dahu.planning.model.common.{FunctionTemplate, Predef}
 import dahu.planning.model.core
 import dahu.planning.planner.encoding.{
@@ -22,6 +23,7 @@ import dahu.planning.planner.encoding.{
   Solution,
   SolutionF
 }
+import dahu.refinement.interop.{ContinuousProblem, Params, Solver}
 import dahu.solvers.MetaSolver
 import dahu.solvers.problem.EncodedProblem
 import dahu.utils._
@@ -32,6 +34,7 @@ import dahu.z3.Z3PartialSolver
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.duration.Deadline
+import scala.util.{Failure, Success}
 
 object Planner {
 
@@ -137,6 +140,25 @@ object Planner {
     val tmp = _tree.fixID.extensible
     val tree = tmp.fixID
     type I = tree.ID
+    import dahu.lisp.compile.Env.ops._
+    val x = //dahu.lisp.compile.Env.default(tree.internalData)
+      dahu.refinement.interop.sources.default(tree.internalData)
+    x.setConstantValue("solution", tree.getTreeRoot(e))
+    x.defineStruct(SolutionF.tag)
+
+    val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
+
+    dahu.lisp.compile.defineContinuousState(x, ctx.stateTypes.cstate)
+    dahu.lisp.compile.defineDiscreteState(x, ctx.stateTypes.dstate)
+    dahu.lisp.compile.defineEvents(x, events)
+
+    val Y = x.parse("solution").get
+
+    x.parseFile("domains/car/car.dom.clj") match {
+      case Success(value)     =>
+      case Failure(exception) => throw exception
+    }
+    println(tree.build(Y))
 
     import dahu.model.input.dsl._
     import dahu.planning.planner.encoding.DummyImplicits._
@@ -171,18 +193,27 @@ object Planner {
             .sequence
       }
     }
+    def asSequence(members: Seq[I], tag: TagAny): I = {
+      tree.record(SequenceF(members, SequenceTag.of(tag)))
+    }
+
     val changes = for {
       times <- evalsAll(starts)
       svs <- evalsAll(fluents)
       valsNative <- evalsAll(values)
       vals = valsNative
+        .zip(svs.map(_.typ))
         .map {
-          case IntLit(i) => Cst[Int](i)
-          case ObjLit(value) if value.typ.isBoolean =>
+          case (IntLit(i), Reals) =>
+            Cst[Double](i.toDouble)
+          case (IntLit(i), Integers) =>
+            Cst[Int](i)
+          case (ObjLit(value), tpe) if tpe.isBoolean =>
+            assert(value.typ.isBoolean)
             if(value.toString == "true") Cst[Bool](Bool.True)
             else if(value.toString == "false") Cst[Bool](Bool.False)
             else ???
-          case ObjLit(value) =>
+          case (ObjLit(value), _) =>
             ??? // TODO: valid but commented to catch earlier errors Cst[String](value.toString)
         }
         .map(cst => tree.getTreeRoot(cst))
@@ -201,8 +232,79 @@ object Planner {
 //    buildState(ctx.stateTypes.dstate)(xx)(_.id.name)
     val traj = stateOrientedView(xx)(_._1, _._2)
     val states = traj.map(_._2).map(s => buildState(ctx.stateTypes.dstate)(s)(sv => sv.id.toString))
+
     println(traj)
     println(states)
+
+    val happenings = for {
+      startEvents <- x.parse("(events true false)")
+      endEvents <- x.parse("(events false true)")
+      noEvents <- x.parse("(events false false)")
+      centerHappenings = (1 until states.size).map(_ => noEvents)
+    } yield asSequence(startEvents +: centerHappenings :+ endEvents, events)
+
+    val stateTraj = asSequence(states.map(tree.record(_)), ctx.stateTypes.dstate)
+    val eventTraj = asSequence(
+      (0 to states.size).map(_ => x.parse("NO_EVENTS").get),
+      events
+    )
+    val DTRAJ = "discrete-state-trajectory"
+    val HAPPS = "happenings"
+
+    x.setConstantValue(DTRAJ, stateTraj)
+    x.setConstantValue(HAPPS, happenings.get)
+
+    println(tree.build(stateTraj))
+    println(tree.build(eventTraj))
+
+    val process = """
+(defstruct band
+  ^events start-events
+  ^dstate dstate
+  ^events end-events
+  )
+
+
+(define bands (map (fn [i] (band
+              (seq.get happenings i)
+              (seq.get discrete-state-trajectory i)
+              (seq.get happenings (i+ i 1i))))
+     (seq.indices discrete-state-trajectory)))
+
+(define cfun
+  (meta.as-lambda current-events
+                  (meta.as-lambda current-discrete-state constraints))
+  )
+
+(define band-constraints
+  (map
+   (fn [b] (list
+            (cfun (band.start-events b) (band.dstate b))
+            (cfun NO_EVENTS (band.dstate b))
+            (cfun (band.end-events b) (band.dstate b))
+            ))
+   bands))
+    """
+
+    val simplified = tree.internalView
+
+    val problem = new ContinuousProblem[I](simplified, ctx.stateTypes.cstate)
+
+    val res = for {
+      _ <- x.parseMany(process)
+      bandConstraints <- x.parse("band-constraints")
+      pb <- problem.createProblem(stateTraj, bandConstraints)
+    } yield {
+      println(tree.build(bandConstraints))
+      val solver = new Solver(pb, Params())
+      solver.solve()
+    }
+
+    res match {
+      case Success(value) =>
+      case Failure(e)     => throw e
+    }
+
 //    API.echo(tree.rootedAt(starts))
 //    API.echo(tree.rootedAt(fluents))
 //    API.echo(tree.rootedAt(values))
@@ -271,8 +373,8 @@ object Planner {
       time: Tok => Int,
       value: Tok => Val): Seq[(Int, State[SV, Val])] = {
 
-    timelines.values.map(_.headOption.map(time(_)).getOrElse(Int.MaxValue)).max match {
-      case Int.MaxValue =>
+    timelines.values.map(_.headOption.map(time(_)).getOrElse(Int.MinValue)).max match {
+      case Int.MinValue =>
         prevStates
       case t =>
         val baseState: Map[SV, Val] = prevStates.lastOption.map(_._2).getOrElse(Map())
