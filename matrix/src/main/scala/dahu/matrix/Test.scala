@@ -63,7 +63,8 @@ class Matrix(private val M: Dcs) { lhs =>
     val res = Dcs_cholsol.cs_cholsol(1, M, x)
 //    val res = Dcs_qrsol.cs_qrsol(0, M, x)
 //    val res = Dcs_lusol.cs_lusol(0, M, x, 0.0)
-    assert(res)
+    if(!res)
+      throw new Exception("CholSol failed")
     x
   }
 

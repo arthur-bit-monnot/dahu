@@ -29,15 +29,26 @@ final class MemImpl(baseSize: Int = 0) extends RWMemory {
   private val mem = debox.Buffer.fill[R](baseSize)(0.1)
   def size: Int = mem.length
 
+  check()
+
+  def check(): Unit =
+    for(i <- 0 until size)
+      assert(!mem(i).isNaN)
+
 //  private val mem: Values = new Array[R](size)
   private val map = debox.Map[TypedIdent, Addr]()
 
-  override def write(addr: Addr, value: R): Unit = mem(addr) = value
+  override def write(addr: Addr, value: R): Unit = {
+    assert(!value.isNaN)
+    mem(addr) = value
+  }
   override def read(addr: Addr): R = mem(addr)
   override def copy = {
     val newMem = new MemImpl(baseSize = size)
     val vals = dump
     newMem.load(vals)
+    check()
+    newMem.check()
     newMem
   }
   override def dump: Values = mem.toArray()
@@ -48,9 +59,11 @@ final class MemImpl(baseSize: Int = 0) extends RWMemory {
           mem.insert(i, values(i))
         else
           mem(i) = values(i))
+    check()
   }
   override def add(values: Array[R]): Unit = {
     values.indices.foreach(i => mem(i) += values(i))
+    check()
   }
   override def print(): Unit =
     map

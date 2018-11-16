@@ -31,3 +31,18 @@ trait Fun {
   }
 
 }
+
+class MinimizationFun(target: R, constantError: R) extends Fun {
+  override def numParams: Int = 1
+  override def eval(params: Values): R = {
+    val v = params(0)
+    val r = math.abs(v - target) * constantError
+    r
+//    constantError
+  }
+
+  override def writeGradient(values: Values, output: Array[R]): Unit = {
+    output(0) = 1.0 / 20
+  }
+
+}

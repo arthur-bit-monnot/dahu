@@ -90,9 +90,14 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
     mem.add(update)
   }
 
-  class LMIterator(val tau: Double, val goodUpdate: Double, val errorLimit: Double, mem: RWMemory) {
+  class LMIterator(val tau: Double,
+                   val goodUpdate: Double,
+                   val errorLimit: Double,
+                   mem: RWMemory,
+                   verbose: Boolean = false) {
+    def println(str: String): Unit = if(verbose) scala.Predef.println(str)
 
-    def this(mem: RWMemory) = this(tau = 0.00001, goodUpdate = 0.5, errorLimit = 1e-4, mem)
+    def this(mem: RWMemory) = this(tau = 0.00001, goodUpdate = 0.5, errorLimit = 1e-7, mem)
 
     var lambda: Double = -1
     var lastGood = mem.dump
@@ -102,6 +107,8 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
     var ni = 2
 
     var numIters = 0
+
+    def shouldContinue: Boolean = lastChi < 0 || lastChi > errorLimit
 
     def next(): Unit = {
       numIters += 1
@@ -133,8 +140,9 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
       def finite(d: Double): Boolean = {
         !d.isNaN && !d.isInfinity
       }
+      val safeUpdate = update.map(v => if(v.isNaN) 0.0 else v)
 
-      mem.add(update)
+      mem.add(safeUpdate)
       val newResiduals = evalResiduals(mem).toArray
       val newChi = newResiduals.map(x => x * x).sum
       val improvement = lastChi - newChi
@@ -156,13 +164,18 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
     }
 
   }
+
+  def lmIterator(mem: RWMemory): LMIterator =
+    new LMIterator(mem)
+
   def lmIteration(mem: RWMemory, numIters: Int): Unit = {
 
     val it = new LMIterator(mem)
 
-    for(i <- 0 until numIters)
-      if(it.lastChi < 0 || it.lastChi > it.errorLimit)
+    for(i <- 0 until numIters) {
+      if(it.shouldContinue)
         it.next()
+    }
 
   }
 }
