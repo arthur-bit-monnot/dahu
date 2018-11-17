@@ -6,6 +6,8 @@ trait RefExpr {
   def params: Params
   def eval(mem: RMemory): R
   def gradient(mem: RMemory): Values
+
+  def scale(v: R): RefExpr
 }
 
 final class ExprImpl(fun: Fun, val params: Array[Addr]) extends RefExpr {
@@ -35,4 +37,5 @@ final class ExprImpl(fun: Fun, val params: Array[Addr]) extends RefExpr {
     loadValues(mem, values)
     fun.gradientAt(values)
   }
+  override def scale(v: R) = new ExprImpl(fun.scale(v), params)
 }

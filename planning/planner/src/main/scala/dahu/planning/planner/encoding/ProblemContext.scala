@@ -79,7 +79,8 @@ case class ProblemContext(intTag: BoxedInt[Literal],
       case term: common.Term => encode(term)
       case Op2(op, left, right) =>
         applyOperator(op, encode(left), encode(right))
-      case _ => ???
+      case Op1(operators.Minus, x) => -encode(x)
+      case _                       => ???
     }
   def encodeAsInt(e: common.Expr)(implicit resolver: VariableResolver): Tentative[Int] = {
     assert(e.typ.isSubtypeOf(Type.Integers))

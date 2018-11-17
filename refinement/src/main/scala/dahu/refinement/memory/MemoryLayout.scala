@@ -16,6 +16,7 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
   def lastState: State = bands.last.lastState.next
 
   def allStates = firstState to lastState
+  def happenings = (0 to bands.size).map(new Happening(_))
 
   private val dtOffset = cstate.fieldPosition("dt").getOrElse(unexpected("cstate has no dt field"))
 

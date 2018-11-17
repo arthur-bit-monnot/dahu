@@ -27,8 +27,17 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
       var x = 0
       while(x < e.params.length) {
         val j = e.params(x)
-        val dfij = gradj(x)
-        jac(i, j) = dfij
+//        if(j == 6) {
+//          println("COnstraint on 6")
+//          println("params: " + e.params.toSeq)
+//          println("params: " + e.params.map(memory.read(_)).toSeq)
+//          println("Value: " + e.eval(memory))
+//          println("Gradient: " + gradj(x))
+//        }
+        if(!memory.isReadOnly(j)) {
+          val dfij = gradj(x)
+          jac(i, j) = dfij
+        }
         x += 1
       }
       for(p <- e.params) {}

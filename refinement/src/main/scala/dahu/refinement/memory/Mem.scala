@@ -27,7 +27,9 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
 
     implicit val memory: RMemory = ioMem.copy
 
-    val states = (memoryLayout.stateOfHappening(start) to memoryLayout.stateOfHappening(end)).toSeq
+    val states = (memoryLayout.stateOfHappening(start).next to memoryLayout
+      .stateOfHappening(end)
+      .previous).toSeq
     val times = states.drop(1).foldLeft(Seq(0.0)) { case (l, s) => l :+ (l.last + s.dt) }
     val numDts = states.size - 1
     val totalTime = times.last
@@ -91,15 +93,25 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
 
   private def grownLayout(targetDt: Double): MemoryLayout = {
 
+    val statesForBand: Int => Int = i => {
+      val band = layout.bands(i)
+      val dt = averageDt(band)
+      val factor = dt / targetDt
+      val numStates: Int = ((band.numStates + 1) * factor).floor.toInt
+      numStates
+    }
+    grownLayout(statesForBand)
+  }
+
+  private def grownLayout(statesForBand: Int => Int): MemoryLayout = {
+
     val cstate = memoryLayout.cstate
 
     MemoryLayout(
-      memoryLayout.bands.zipWithIndex
+      memoryLayout.bands.indices
         .foldLeft(List[BandMem]()) {
-          case (l, (band, i)) =>
-            val dt = averageDt(band)
-            val factor = dt / targetDt
-            val numStates: Int = ((band.numStates + 1) * factor).floor.toInt
+          case (l, i) =>
+            val numStates: Int = statesForBand(i)
             val firstState = l.headOption
               .map(m => m.lastState.next.next) // use last state from previous band
               .getOrElse(new State(0).next)
@@ -109,12 +121,25 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
         .toIndexedSeq,
       cstate
     )
-
   }
 
-  def double(targetDt: Double): Mem = {
+  def extendToMaxDiff(v: Double): Mem = {
+    val newSize: Int => Int = i => {
+      val band = layout.bands(i)
+      val diffs = for(i <- 0 until layout.stateSize) yield {
+        val v1 = band.firstState.previous.valueOfField(i)(memoryLayout, memoryRW)
+        val v2 = band.lastState.next.valueOfField(i)(memoryLayout, memoryRW)
+        v2 - v1
+      }
+      (diffs.max / v).toInt + 1
+    }
+
+    doubleIgnoreTime(newSize)
+  }
+
+  def doubleTimeBased(statesForBand: Int => Int): Mem = {
     implicit val memory: RMemory = ioMem
-    val newLayout = grownLayout(targetDt)
+    val newLayout = grownLayout(statesForBand)
     val res = Mem.makeFromLayout(newLayout)
     val targetMem: WMemory = res.memoryRW
 
@@ -130,7 +155,6 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
       val oldTimes = oldStates.drop(1).foldLeft(Seq(0.0)) { case (l, s) => l :+ (l.last + s.dt) }
       val numOldDts = oldStates.size - 1
       val totalTime = oldTimes.last
-      val oldDt = totalTime / numOldDts
       val newDt = totalTime / (newStates.size - 1)
       val newTimes = newStates.toSeq.indices.map(_ * newDt)
 
@@ -169,12 +193,64 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
     }
     res
   }
+
+  def doubleIgnoreTime(statesForBand: Int => Int): Mem = {
+    implicit val memory: RMemory = ioMem
+    val newLayout = grownLayout(statesForBand)
+    val res = Mem.makeFromLayout(newLayout)
+    val targetMem: WMemory = res.memoryRW
+
+    for(h <- layout.happenings) {
+      val os = memoryLayout.stateOfHappening(h)
+      val ns = newLayout.stateOfHappening(h)
+      val value = os.valueOfField(0)
+      targetMem.write(newLayout.addressOfState(ns, 0), value)
+    }
+
+    for(i <- layout.bands.indices) {
+      val oldBand = layout.bands(i)
+      val newBand = newLayout.bands(i)
+      val start = oldBand.previousHappening
+      val end = oldBand.nextHappening
+      val sStart = memoryLayout.stateOfHappening(start)
+      val sEnd = memoryLayout.stateOfHappening(end)
+      val newStates =
+        (newLayout.stateOfHappening(start) to newLayout.stateOfHappening(end)).toSeq
+
+//      val oldTimes = oldStates.drop(1).foldLeft(Seq(0.0)) { case (l, s) => l :+ (l.last + s.dt) }
+//      val numOldDts = oldStates.size - 1
+      val startValue = sStart.valueOfField(0)
+      val totalchange = sEnd.valueOfField(0) - startValue
+      val dv = totalchange / (newStates.size - 1)
+      val newValues = newStates.toSeq.indices.map(_ * dv + startValue)
+
+      for(i <- 1 until newStates.size - 1) {
+
+        val v = newValues(i)
+
+        val addr0 = newLayout.addressOfState(newStates(i))
+        targetMem.write(addr0, v)
+      }
+//      for(s <- newStates.tail) { // do not update DT of first happening
+//        val addrDt = newLayout.addressOfTime(s)
+//        targetMem.write(addrDt, newDt)
+//      }
+    }
+    res
+  }
 }
 
 object Mem {
 
   def makeFromLayout(layout: MemoryLayout): Mem = {
     val m = new MemImpl(baseSize = layout.lastAddress + 1)
+    val statesWithReadOnlyTime =
+      layout.bands.flatMap { bm =>
+        Seq(bm.firstState.previous, bm.firstState)
+      } :+ layout.bands.last.lastState.next
+
+    statesWithReadOnlyTime.foreach(s => m.setReadOnly(layout.addressOfTime(s)))
+
     new Mem(m, layout)
   }
 

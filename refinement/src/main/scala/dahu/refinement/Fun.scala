@@ -2,7 +2,12 @@ package dahu.refinement
 
 import common._
 
-trait Fun {
+trait Fun { self =>
+
+  def scale(v: R): Fun = new Fun {
+    override def numParams: Addr = self.numParams
+    override def eval(params: Values): R = self.eval(params) * v
+  }
 
   def numParams: Int
 

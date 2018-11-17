@@ -19,8 +19,8 @@ object Printer {
 }
 
 case class Params(
-    statesPerBand: Int = 0,
-    innerLoops: Int = 100,
+    statesPerBand: Int = 1,
+    innerLoops: Int = 500,
     targetDt: Double = 0.1,
     maxLevels: Int = 2
 )
@@ -63,12 +63,20 @@ final class Solver(pb: Problem, params: Params) {
     pb.cstate
   )
 
-  def build(layout: MemoryLayout): Seq[Tagged[RefExpr]] =
-    bands.flatMap(i => build(layout, i, params.targetDt))
+  def build(layout: MemoryLayout, currentLevel: Int): Seq[Tagged[RefExpr]] =
+    bands.flatMap(i => build(layout, i, params.targetDt, currentLevel))
 
-  def build(layout: MemoryLayout, bandId: Int, targetDt: Double): Seq[Tagged[RefExpr]] = {
+  def build(layout: MemoryLayout,
+            bandId: Int,
+            targetDt: Double,
+            currentLvl: Int): Seq[Tagged[RefExpr]] = {
     val exprs = ArrayBuffer[Tagged[RefExpr]]()
-    def record(e: RefExpr, level: Int, mode: Option[Mode]): Unit = {
+    def record(_e: RefExpr, level: Int, mode: Option[Mode], scale: Double): Unit = {
+      val e =
+        if(scale == 1)
+          _e
+        else
+          _e.scale(scale)
       if(e.params.length == 0) {
         // constant
         assert(e.eval(new MemImpl()) == 0.0, "Constant constraint that is non-zero")
@@ -90,17 +98,17 @@ final class Solver(pb: Problem, params: Params) {
       }
     }
 
-    val minimizeStrong = new MinimizationFun(0.1, 0.001)
-    val minimizeLow = new MinimizationFun(0.1, 0.0001)
+//    val minimizeStrong = new MinimizationFun(0.10, 0.001)
+//    val minimizeLow = new MinimizationFun(0.1, 0.0001)
 
-//    val minimizeStrong = new Fun {
-//      override def numParams: B = 1
-//      override def eval(params: Values): R = {
-//        val dt = params(0)
-//        math.sqrt(math.abs(dt - targetDt) / 10)
-//        (dt - (targetDt)) * 0.01
-//      }
-//    }
+    val minimizeStrong = new Fun {
+      override def numParams: B = 1
+      override def eval(params: Values): R = {
+        val dt = params(0)
+        math.sqrt(math.abs(dt - targetDt) / 10)
+        (dt - (targetDt)) * 0.1
+      }
+    }
 //    val minimizeLow = new Fun {
 //      override def numParams: B = 1
 //      override def eval(params: Values): R = {
@@ -112,9 +120,10 @@ final class Solver(pb: Problem, params: Params) {
     val allStates = bm.firstState.previous to bm.lastState.next
 
     for(s <- allStates) {
-      record(strictlyPositive.bind(layout.addressOfTime(s)), level = 0, None)
-      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, Some(Optim))
-      record(minimizeLow.bind(layout.addressOfTime(s)), level = 1, Some(FinalSat))
+      record(strictlyPositive.bind(layout.addressOfTime(s)), level = 0, None, 1)
+      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, None, 1)
+//      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, Some(Optim))
+//      record(minimizeLow.bind(layout.addressOfTime(s)), level = 1, Some(FinalSat))
     }
 
     def applyOn(states: Iterable[State], c: Constraint): Unit = {
@@ -127,9 +136,19 @@ final class Solver(pb: Problem, params: Params) {
         .foreach { s0 =>
           val x = binds(s0, c)
 
-//            println(x.toSeq.toString() + "   " + f.read.toSeq)
+//
 
-          record(f.bindArray(x), level = f.aboveStateOffset - f.belowStateOffset, None)
+          if(x.contains(6) && currentLvl == 2) {
+            println("6 : " + x.toSeq.toString() + "   " + f.read.toSeq)
+          }
+//          if(x.contains(8)) {
+//            println("8 : " + x.toSeq.toString() + "   " + f.read.toSeq)
+//          }
+
+          val lvl = f.aboveStateOffset - f.belowStateOffset
+          val scale = math.pow(10, currentLvl - lvl)
+
+          record(f.bindArray(x), level = lvl, None, scale)
         }
     }
 
@@ -169,14 +188,18 @@ final class Solver(pb: Problem, params: Params) {
   def next(l: SolverLevel, mem: Mem): Option[(SolverLevel, Mem)] = l match {
     case SolverLevel(n, InitSat) =>
       Some((SolverLevel(n, Optim), mem))
+
+      if(n == 1) {
+        mem.print()
+        val scaled = mem.extendToMaxDiff(0.1)
+        scaled.print()
+        Some((SolverLevel(n + 1, InitSat), scaled))
+      } else if(n >= params.maxLevels)
+        None
+      else
+        Some((SolverLevel(n + 1, InitSat), mem))
     case SolverLevel(n, Optim) =>
       return Some((SolverLevel(n, FinalSat), mem))
-      val dt = params.targetDt * 10
-      if(mem.layout.bands.exists(mem.averageDt(_) > dt)) {
-        Some((SolverLevel(n, Optim), mem.double(dt)))
-      } else {
-        Some((SolverLevel(n, FinalSat), mem))
-      }
 
     case SolverLevel(n, FinalSat) if n >= params.maxLevels => None
     case SolverLevel(n, FinalSat) =>
@@ -189,7 +212,7 @@ final class Solver(pb: Problem, params: Params) {
         c =>
           c.level <= n && c.mode.forall(_ == mode)
     }
-    val es = build(mem.layout)
+    val es = build(mem.layout, l.maxInvolvedStates)
     val constraints = es
       .filter(levelFilter)
       .map(_.value)

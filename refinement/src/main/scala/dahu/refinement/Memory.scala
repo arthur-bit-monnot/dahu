@@ -7,6 +7,7 @@ import scala.util.Random
 
 trait Memory {
   def size: Int
+  def isReadOnly(addr: Addr): Boolean
 }
 
 trait RMemory extends Memory {
@@ -21,12 +22,14 @@ trait WMemory extends Memory {
   def write(addr: Addr, value: R): Unit
   def load(values: Array[R]): Unit
   def add(values: Array[R]): Unit
+  def setReadOnly(addr: Addr): Unit
 }
 trait RWMemory extends RMemory with WMemory
 
 final class MemImpl(baseSize: Int = 0) extends RWMemory {
 
   private val mem = debox.Buffer.fill[R](baseSize)(0.1)
+  private val readOnly = debox.Buffer.fill[Boolean](baseSize)(false)
   def size: Int = mem.length
 
   check()
@@ -40,6 +43,7 @@ final class MemImpl(baseSize: Int = 0) extends RWMemory {
 
   override def write(addr: Addr, value: R): Unit = {
     assert(!value.isNaN)
+    assert(!isReadOnly(addr))
     mem(addr) = value
   }
   override def read(addr: Addr): R = mem(addr)
@@ -62,7 +66,11 @@ final class MemImpl(baseSize: Int = 0) extends RWMemory {
     check()
   }
   override def add(values: Array[R]): Unit = {
-    values.indices.foreach(i => mem(i) += values(i))
+    values.indices.foreach(i => {
+      if(isReadOnly(i))
+        assert(values(i) == 0)
+      mem(i) += values(i)
+    })
     check()
   }
   override def print(): Unit =
@@ -83,4 +91,6 @@ final class MemImpl(baseSize: Int = 0) extends RWMemory {
     }
     map(name)
   }
+  override def setReadOnly(addr: Addr): Unit = readOnly(addr) = true
+  override def isReadOnly(addr: Addr): Boolean = readOnly(addr)
 }
