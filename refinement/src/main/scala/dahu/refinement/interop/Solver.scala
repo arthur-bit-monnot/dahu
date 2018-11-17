@@ -20,7 +20,7 @@ object Printer {
 
 case class Params(
     statesPerBand: Int = 1,
-    innerLoops: Int = 500,
+    innerLoops: Int = 50,
     targetDt: Double = 0.1,
     maxLevels: Int = 2
 )
@@ -191,7 +191,7 @@ final class Solver(pb: Problem, params: Params) {
 
       if(n == 1) {
         mem.print()
-        val scaled = mem.extendToMaxDiff(0.1)
+        val scaled = mem.extendToMaxDiff(0.5)
         scaled.print()
         Some((SolverLevel(n + 1, InitSat), scaled))
       } else if(n >= params.maxLevels)

@@ -33,5 +33,5 @@ action run() {
 
 // goal
 [end] distance >= 30;
-[10] running == true;
+//[10] running == true;
 [end] running == false;

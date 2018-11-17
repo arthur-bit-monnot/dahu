@@ -1,6 +1,6 @@
 package dahu.planning.planner.encoding
 
-import dahu.model.functions.{Fun2, FunN}
+import dahu.model.functions.{Fun1, Fun2, FunN}
 import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
 import dahu.model.math.{bool, int}
@@ -21,14 +21,16 @@ sealed trait Literal {
 case class IntLit(value: Int) extends Literal {
   override def toString: String = value.toString
 }
+case class DoubleLit(value: Double) extends Literal {
+  override def toString: String = value.toString
+}
 case class ObjLit(value: Instance) extends Literal {
   override def toString: String = value.toString
 }
 
 case class StateTypes(
     dstate: RecordType,
-    cstate: RecordType,
-    events: RecordType
+    cstate: RecordType
 )
 
 case class ProblemContext(intTag: BoxedInt[Literal],
@@ -56,6 +58,16 @@ case class ProblemContext(intTag: BoxedInt[Literal],
   private val booleanTag = specializedTags(predef.Boolean)
   private val TRUE = Cst(ObjLit(predef.True): Literal)(booleanTag)
   private val FALSE = Cst(ObjLit(predef.False): Literal)(booleanTag)
+
+  def doubleUnbox(e: Tentative[Literal]): Tentative[Double] = ToDouble(e)
+  private object ToDouble extends Fun1[Literal, Double]()(DummyImplicits.literalTag, Tag.ofDouble) {
+    def name: String = "double"
+    override def of(in: Literal): Double = in match {
+      case IntLit(v)     => v.toDouble
+      case DoubleLit(v)  => v
+      case x @ ObjLit(_) => unexpected(s"Cannot extract object $x to double")
+    }
+  }
 
   def boolUnbox(i: Tentative[Literal]): Tentative[Bool] = i match {
     case ITE(x, TRUE, FALSE) => x
@@ -238,7 +250,7 @@ object ProblemContext {
     val dstate = RecordType("dstate", discreteFields: _*)
 
     val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
-    val types = StateTypes(dstate, cstate, events)
+    val types = StateTypes(dstate, cstate)
 
     val objectTypes = m.collect { case TypeDeclaration(t: ObjType) => t }
     val objectSubtypes = mutable.LinkedHashMap[ObjType, mutable.Set[ObjType]]()

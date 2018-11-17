@@ -165,12 +165,15 @@ class ContinuousProblem[X](_asg: ASG[X, ExprF, Id], cstate: ProductTagAny) {
       val compiler = new Compiler[I](headTails.internalCoalgebra, cstate)
       val bands: Seq[Band] = for(i <- ds.indices) yield {
         println(" ---- BAND ---- " + i)
-//      println(unnest3(c0s(i)))
 
         def asConstraints(i: I): Seq[Constraint] = {
           headTails.internalCoalgebra(i) match {
             case SequenceF(members, _) =>
-              members.map(compiler.compileQualified).toSeq
+              for(c <- members.toSeq) yield {
+                println(unnest3(c))
+                compiler.compileQualified(c)
+              }
+
             case _ => unexpected
           }
         }

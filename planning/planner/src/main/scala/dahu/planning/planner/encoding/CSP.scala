@@ -208,7 +208,11 @@ abstract class CSP extends Struct {
         require(f.params.isEmpty)
         val interval = encode(itv)
         val token =
-          ContCondTokF.ofExpr(interval.start, interval.end, f.template, operators.Eq, ctx.encode(v))
+          ContCondTokF.ofExpr(interval.start,
+                              interval.end,
+                              f.template,
+                              operators.Eq,
+                              ctx.encode(v))(ctx)
         addConstraint(interval.start <= interval.end)
         addExport(token)
 
@@ -217,7 +221,7 @@ abstract class CSP extends Struct {
         require(f.params.isEmpty)
         val interval = encode(itv)
         val token =
-          ContCondTokF.ofExpr(interval.start, interval.end, f.template, op, ctx.encode(v))
+          ContCondTokF.ofExpr(interval.start, interval.end, f.template, op, ctx.encode(v))(ctx)
         addConstraint(interval.start <= interval.end)
         addExport(token)
 

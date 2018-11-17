@@ -8,6 +8,7 @@ import dahu.model.math.{any, bool}
 import dahu.model.products._
 import dahu.model.types.Tag.Type
 import dahu.model.types.{Bool, Tag}
+import dahu.planning.model.common.Type.{Integers, Reals}
 import dahu.planning.model.common.{operators, FluentTemplate, FunctionTemplate}
 import dahu.utils._
 import dahu.utils.errors._
@@ -107,10 +108,8 @@ object CondTokF {
       case operators.Eq =>
         x =>
           x ==== value
-      case operators.LEQ =>
-        x =>
-          Computation2(dahu.model.math.any.LEQ, x, value)
-      case op => unsupported(s"Operator $op is not supported yet")
+      case operators.LEQ => ??? // TODO: need to specialize on fluent type
+      case op            => unsupported(s"Operator $op is not supported yet")
     }
 
     val lbd = Lambda[Literal, Bool](f)
@@ -273,7 +272,7 @@ object ContCondTokF {
              fluent: FluentTemplate,
              operator: operators.BinaryOperator,
              value: Expr[Literal],
-  ): Expr[ContCondTokF[Id]] = {
+  )(implicit ctx: ProblemContext): Expr[ContCondTokF[Id]] = {
     require(fluent.isContinuous)
     require(fluent.params.isEmpty)
 
@@ -286,13 +285,19 @@ object ContCondTokF {
 
     val lhs = Product(p)
 
+    val vUnbox = fluent.typ match {
+      case x if x.isBoolean => ctx.boolUnbox(value)
+      case Reals            => ctx.doubleUnbox(value)
+      case Integers         => ctx.intUnbox(value)
+    }
+
     val e = operator match {
       case operators.Eq =>
-        Computation2(dahu.model.math.any.EQ, lhs, value)
+        Computation2(dahu.model.math.any.EQ, lhs, vUnbox)
       case operators.LEQ =>
-        Computation2(dahu.model.math.any.LEQ, lhs, value)
+        Computation2(dahu.model.math.any.LEQ, lhs, vUnbox)
       case operators.GEQ =>
-        Computation2(dahu.model.math.any.LEQ, value, lhs)
+        Computation2(dahu.model.math.any.LEQ, vUnbox, lhs)
 
       case op => unsupported(s"Operator $op is not supported yet")
     }

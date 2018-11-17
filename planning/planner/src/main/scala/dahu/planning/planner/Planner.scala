@@ -6,6 +6,7 @@ import cats.implicits._
 import dahu.graphs.ASG
 import dahu.model.input.{Cst, Expr}
 import dahu.model.ir._
+import dahu.model.math.bool
 import dahu.model.problem.API
 import dahu.model.products.RecordType
 import dahu.model.types.{Bool, SequenceTag, Tag, TagAny}
@@ -147,19 +148,10 @@ object Planner {
     x.setConstantValue("solution", tree.getTreeRoot(solution))
     x.defineStruct(SolutionF.tag)
 
-    val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
-
     dahu.lisp.compile.defineContinuousState(x, ctx.stateTypes.cstate)
     dahu.lisp.compile.defineDiscreteState(x, ctx.stateTypes.dstate)
-    dahu.lisp.compile.defineEvents(x, events)
 
     val Y = x.parse("solution").get
-
-    x.parseFile("domains/car/car.dom.clj") match {
-      case Success(value)     =>
-      case Failure(exception) => throw exception
-    }
-    println(tree.build(Y))
 
     import dahu.model.input.dsl._
     import dahu.planning.planner.encoding.DummyImplicits._
@@ -237,38 +229,93 @@ object Planner {
 //    buildState(ctx.stateTypes.dstate)(xx)(_.id.name)
     val traj = stateOrientedView(xx)(_._1, _._2)
     val states = traj.map(_._2).map(s => buildState(ctx.stateTypes.dstate)(s)(sv => sv.id.toString))
-
+    val istates = states.map(tree.record)
+    val timedStates = traj.map(_._1).zip(istates)
     println(traj)
     println(states)
-    val eventStarts = tree.getTreeRoot(solution.continuousConditions.map0(e => e.interval.start))
-    val pred = tree.getTreeRoot(solution.continuousConditions.map0(e => e.predicate))
-//    val b = a
 
-    val last = pred
-    println(tree.build(last))
-
-    sys.exit(69)
-
-    val happenings = for {
-      startEvents <- x.parse("(events true false)")
-      endEvents <- x.parse("(events false true)")
-      noEvents <- x.parse("(events false false)")
-      centerHappenings = (1 until states.size).map(_ => noEvents)
-    } yield asSequence(startEvents +: centerHappenings :+ endEvents, events)
-
-    val stateTraj = asSequence(states.map(tree.record(_)), ctx.stateTypes.dstate)
-    val eventTraj = asSequence(
-      (0 to states.size).map(_ => x.parse("NO_EVENTS").get),
-      events
-    )
     val DTRAJ = "discrete-state-trajectory"
     val HAPPS = "happenings"
 
-    x.setConstantValue(DTRAJ, stateTraj)
-    x.setConstantValue(HAPPS, happenings.get)
+    val eventsProcessing = for {
+      eventStarts <- evalsAll[Int](solution.continuousConditions.map0(e => e.interval.start))
+      pred <- evalsShallow(solution.continuousConditions.map0(e => e.predicate))
+      events = eventStarts.zip(pred).sortBy(_._1)
+    } yield {
+      val eventFields = events.toSeq.indices.map(i => s"_e${i}_" -> Tag.ofBoolean)
+      val eventsTpe = RecordType("events", eventFields: _*)
+      dahu.lisp.compile.defineEvents(x, eventsTpe)
+      val emptyEvents = x.parse("NO_EVENTS").get
+      val groupdedEvents =
+        eventStarts.zipWithIndex.groupBy(_._1).mapValues(_.map(_._2).toSet)
 
-    println(tree.build(stateTraj))
-    println(tree.build(eventTraj))
+      println(eventStarts)
+      println(pred)
+      val evs = groupdedEvents
+        .mapValues(s => {
+          val fields = eventsTpe.fields.map { f =>
+            if(s.contains(f.position))
+              tree.getTreeRoot(Cst(Bool.True))
+            else
+              tree.getTreeRoot(Cst(Bool.False))
+          }
+          tree.record(ProductF(fields, eventsTpe))
+        })
+        .toList
+        .sortBy(_._1)
+
+      val happeningTimes = (evs.map(_._1) ++ timedStates.map(_._1 - 1)).distinct.sorted
+      println(happeningTimes)
+      def stateOf(happeningTime: Int) = {
+        timedStates.indices
+          .find(i => timedStates(i)._1 > happeningTime)
+          .map(i => timedStates(i)._2)
+          .getOrElse(dahu.utils.errors.unexpected(s"No state for happening time $happeningTime"))
+      }
+      def eventsOf(happeningTime: Int) = {
+        evs
+          .find(e => e._1 == happeningTime)
+          .map(_._2)
+          .getOrElse(emptyEvents)
+      }
+
+      val statesTrajList = happeningTimes.dropRight(1).map(stateOf)
+      val happeningList = happeningTimes.map(eventsOf)
+
+      val stateTraj = asSequence(statesTrajList, ctx.stateTypes.dstate)
+      val happenings = asSequence(happeningList, eventsTpe)
+
+      def constraintOf(ev: Int): I = {
+        x.parse(s"_e${ev}_")
+          .map(isE => {
+            val notE = tree.record(ComputationF(bool.Not, isE))
+            val implies = tree.record(ComputationF(bool.Or, notE, pred(ev)))
+            implies
+          })
+          .getOrElse(unexpected)
+      }
+      val dynConstraints = asSequence(pred.indices.map(constraintOf), Tag.ofBoolean)
+      x.setConstantValue("dyn-constraints", dynConstraints)
+      x.setConstantValue(HAPPS, happenings)
+      x.setConstantValue(DTRAJ, stateTraj)
+    }
+
+    assert(eventsProcessing.nonEmpty)
+
+    x.parseFile("domains/car/car.dom.clj") match {
+      case Success(value)     =>
+      case Failure(exception) => throw exception
+    }
+//    println(tree.build(Y))
+//
+//    val stateTraj = asSequence(states.map(tree.record(_)), ctx.stateTypes.dstate)
+//
+//
+//
+//
+//
+//    println(tree.build(stateTraj))
+//    println(tree.build(eventTraj))
 
     val process = """
 (defstruct band
@@ -276,6 +323,8 @@ object Planner {
   ^dstate dstate
   ^events end-events
   )
+
+(define all-constraints (seq.concat constraints dyn-constraints))
 
 
 (define bands (map (fn [i] (band
@@ -286,7 +335,7 @@ object Planner {
 
 (define cfun
   (meta.as-lambda current-events
-                  (meta.as-lambda current-discrete-state constraints))
+                  (meta.as-lambda current-discrete-state all-constraints))
   )
 
 (define band-constraints
@@ -298,7 +347,7 @@ object Planner {
             ))
    bands))
     """
-    sys.exit(45)
+
     val simplified = tree.internalView
 
     val problem = new ContinuousProblem[I](simplified, ctx.stateTypes.cstate)
@@ -306,8 +355,10 @@ object Planner {
     val res = for {
       _ <- x.parseMany(process)
       bandConstraints <- x.parse("band-constraints")
+      stateTraj <- x.parse(DTRAJ)
       pb <- problem.createProblem(stateTraj, bandConstraints)
     } yield {
+
       println(tree.build(bandConstraints))
       val solver = new Solver(pb, Params())
       solver.solve()

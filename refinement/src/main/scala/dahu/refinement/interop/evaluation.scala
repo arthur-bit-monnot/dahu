@@ -167,7 +167,7 @@ object evaluation {
           case _ => new Constant(v)
         }
 
-      case ProductF(Vec(sId, fieldName), tpe: RecordType) =>
+      case ProductF(Vec(sId, fieldName), tpe: ProductTagAny) =>
         val stateRelId = coalg(sId) match {
           case CstF(x: Int, Tag.ofInt) => x
           case a =>
@@ -195,7 +195,11 @@ object evaluation {
       case ApplyF(lbd, param, _)       => ???
       case LambdaF(parap, tree, id, _) => ???
       case LambdaParamF(id, _)         => ???
-      case ProductF(ms, tpe)           => ???
+      case x @ ProductF(ms, tpe) =>
+        println(x)
+        println(ms)
+        println(tpe)
+        ???
     }
 
   }

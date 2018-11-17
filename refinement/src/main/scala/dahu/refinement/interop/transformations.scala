@@ -97,6 +97,8 @@ object transformations {
                                           record: ExprF[I] => I): ExprF[I] => ExprF[I] = {
       case ComputationF(double.LEQ, args, _) =>
         ComputationF(ErrBelow, args)
+      case ComputationF(any.LEQ, args, _) =>
+        ComputationF(ErrBelow, args)
       case ComputationF(double.LT, args, _) =>
         ComputationF(ErrStrictlyBelow, args)
       case ComputationF(double.EQ, args, _) =>
