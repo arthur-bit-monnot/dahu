@@ -50,6 +50,7 @@ object Pass {
     case fr: Reversible[_, _] if fr.name == "unbox" => true
     case _                                          => false
   }
+  import dahu.model.problem.syntax._
 
   final val extractTypes: Pass[Total] = new Pass[Total]("extract-types") {
     def optim[I <: Int, F[X] >: Total[X] <: ExprF[X]](
@@ -177,6 +178,8 @@ object Pass {
                 ComputationF(int.EQ, Vec(ix, iy), int.EQ.outType)
               case (Tag.ofDouble, Tag.ofDouble) =>
                 ComputationF(double.EQ, x, y)
+              case (Tag.ofBoolean, Tag.ofBoolean) =>
+                Or(ctx.record(And(x, y)), ctx.record(And(ctx.record(Not(x)), ctx.record(Not(y)))))
               case _ =>
 //                  dahu.utils.debug.warning(s"Universal equality not specialized: $fx == $fy")
                 orig

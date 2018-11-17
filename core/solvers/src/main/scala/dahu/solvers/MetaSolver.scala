@@ -2,13 +2,15 @@ package dahu.solvers
 
 import cats.Id
 import dahu.graphs.DAG
-import dahu.model.input.{Expr, Ident, Input, TypedIdent}
+import dahu.model.input._
 import dahu.model.interpreter.{FEval, Interpreter, PEval}
 import dahu.graphs._
+import dahu.model.compiler.Algebras
 import dahu.model.ir.{CstF, Total}
+import dahu.model.math.bool
 import dahu.model.types._
 import dahu.solvers.problem.EncodedProblem
-import dahu.solvers.solution.Solution
+import dahu.solvers.solution.{Sol, Solution, SolverResult, TimeoutOrUnsat}
 import dahu.utils._
 
 import scala.concurrent.duration.Deadline
@@ -31,32 +33,43 @@ class MetaSolver(val e: EncodedProblem[Any],
     case _ => ???
   }
 
-  def nextSolutionTree(deadline: Option[Deadline] = None): Option[ASG[Expr[Any], Total, Id]] =
-    solver.nextSatisfyingAssignmentInternal(deadline) match {
+  def solutionTrees(clause: Option[Expr[Bool]] = None,
+                    deadline: Option[Deadline] = None): SolverResult =
+    solver.nextSatisfyingAssignmentInternal(clause, deadline) match {
       case Some(assignment) =>
         val sol = pb.partialBind(i => {
-
           assignment(i).map(v => {
             CstF(v, pb.internalCoalgebra(i).typ)
           })
         })
-        Some(sol)
-      case None => None
+
+        val nextSolution: () => SolverResult = () => {
+          import dahu.model.input.dsl._
+          val evaluation = sol.cata(Interpreter.evalAlgebra)
+          println(e.decisionVariables)
+          val disjuncts = for((p, v) <- e.decisionVariables) yield {
+
+            val currentValue = evaluation.get(v) match {
+              case FEval(x) => Cst(x, v.typ)
+              case _        => dahu.utils.errors.unexpected(s"Decision variable not bound: $v")
+            }
+            val disjunct = p ==> !(v ==== currentValue)
+//            println(s"$p $v")
+//            println(evaluation.get(p))
+//            println(evaluation.get(v))
+//            println(disjunct)
+            disjunct
+          }
+          val clause = bool.Or(disjuncts: _*)
+          solutionTrees(Some(clause), deadline)
+        }
+        Sol(sol, nextSolution)
+      case None => TimeoutOrUnsat
     }
 
   def nextSolution(deadline: Option[Deadline] = None): Option[Solution] =
-    solver.nextSatisfyingAssignmentInternal(deadline) match {
+    solver.nextSatisfyingAssignmentInternal(None, deadline) match {
       case Some(assignment) =>
-//        for(i <- pb.internalBottomUpTopologicalOrder(toKey(e.sat))) {
-//          println(
-//            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb
-//              .internalCoalgebra(i))
-//        }
-//        for(i <- pb.internalBottomUpTopologicalOrder(toKey(e.res))) {
-//          println(
-//            "XX: " + i + s" (${solver.internalRepresentation(i)}) : " + assignment(i) + " ---- " + pb
-//              .internalCoalgebra(i))
-//        }
         def ass(id: pb.ID): Option[PEval[Any]] = assignment(id) match {
           case Some(v) => Some(FEval(v))
           case None    => None

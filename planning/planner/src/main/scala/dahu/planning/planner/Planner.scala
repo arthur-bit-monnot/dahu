@@ -5,6 +5,7 @@ import cats.effect.IO
 import cats.implicits._
 import dahu.graphs.ASG
 import dahu.model.input.{Cst, Expr}
+import dahu.model.interpreter.{FEval, Interpreter}
 import dahu.model.ir._
 import dahu.model.math.bool
 import dahu.model.problem.API
@@ -28,6 +29,7 @@ import dahu.planning.planner.encoding.{
 import dahu.refinement.interop.{ContinuousProblem, Params, Solver}
 import dahu.solvers.MetaSolver
 import dahu.solvers.problem.EncodedProblem
+import dahu.solvers.solution.{Sol, SolverResult, TimeoutOrUnsat}
 import dahu.utils._
 import dahu.utils.debug.info
 import dahu.utils.errors.unexpected
@@ -97,20 +99,37 @@ object Planner {
     if(cfg.noSolve)
       return None
 
-    solver.nextSolutionTree(Some(deadline)) match {
-      case Some(t) =>
-        val t2 = t.asInstanceOf[ASG[Expr[Any], ExprF, Id]]
-        val x = API
-          .expandLambdasThroughPartialEval(t2)
-          .transform(dahu.model.transformations
-            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
-          .transform(dahu.model.transformations
-            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
-        API.echo(x.rootedAt(pb.res))
-        extractStateTrajectory(pb.res, x, ctx)
-        sys.exit(1)
-      case None => None
+    @tailrec def processSolutions(next: () => SolverResult): Unit = {
+      next() match {
+        case TimeoutOrUnsat =>
+          println("UNSAT")
+        case sol @ Sol(t, succ) => {
+          println("NEW SOLUTION")
+          sol.eval(pb.res) match {
+            case FEval(v) => v.operators.foreach(println)
+          }
+//          API.echo(t.rootedAt(pb.res))
+          processSolutions(succ)
+        }
+      }
     }
+
+    processSolutions(() => solver.solutionTrees(clause = None, deadline = Some(deadline)))
+
+//    solver.nextSolutionTree(Some(deadline)) match {
+//      case Some(t) =>
+//        val t2 = t.asInstanceOf[ASG[Expr[Any], ExprF, Id]]
+//        val x = API
+//          .expandLambdasThroughPartialEval(t2)
+//          .transform(dahu.model.transformations
+//            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
+//          .transform(dahu.model.transformations
+//            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
+//        API.echo(x.rootedAt(pb.res))
+//        extractStateTrajectory(pb.res, x, ctx)
+//        sys.exit(1)
+//      case None => None
+//    }
 
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>

@@ -39,14 +39,6 @@ class TreeBuilder[X, F[_], G: ClassTag, Opt[_], I <: IDTop](t: OpenASG[X, F, Opt
       val a = stack.pop()
       val fa = t.internalCoalgebra(a)
       if(T.children(fa).forall(memo.contains)) {
-
-//        println(fa)
-//        val fb = F.smap(fa)(t.internalCoalgebra)
-//        println(fb)
-//        println()
-//        if(fa.toString.startsWith("add(4")) {
-//          println("BREAK")
-//        }
         val g = f(F.smap(fa)(memo))
         memo += ((a, g))
       } else {
@@ -69,7 +61,21 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
 
   private val treeBuilder = new TreeBuilder(ast.tree, Compiler.partialAlgebra(ctx))
 
-  def addClause(e: Any): Unit = ???
+  private val compiled = compileToBool(ast.root)
+
+  private val solver = ctx.mkSolver()
+  addClause(ast.root)
+
+  private def compileToBool(x: X): Try[BoolExpr] = Try {
+    treeBuilder.build(x) match {
+      case x: BoolExpr => x
+      case x           => unexpected(s"Was expecting a boolean expression but got: $x")
+    }
+  }
+
+  def addClause(e: X): Unit = {
+    solver.add(compileToBool(e).get)
+  }
 
   // Total
   private def asExpr(id: X): Option[com.microsoft.z3.Expr] = {
@@ -126,21 +132,11 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
     }
   }
 
-  private val compiled = Try(treeBuilder.build(ast.root))
-  private val satProblem = compiled match {
-    case Success(x: BoolExpr) => x
-    case Failure(NonFatal(e)) => unexpected("Failure while parsing Z3. Cause: ", e)
-    case x                    => unexpected(s"Was expecting a boolean expression but got: $x")
-  }
-
   def valueOf(expr: Expr, model: Model): Value = {
     model.eval(expr, false) match {
       case x: IntNum => Value(x.getInt)
     }
   }
-
-  private val solver = ctx.mkSolver()
-  solver.add(satProblem)
 
   // add the constraints corresponding to the domain of variables
   // for a variable X in scope S, the domain essentially encode:
@@ -165,16 +161,21 @@ class Z3PartialSolver[X, AstID <: IDTop](ast: LazyTree[X, Total, cats.Id, AstID]
 
   private var model: Model = null
 
-  override def nextSatisfyingAssignment(deadline: Option[Deadline]): Option[X => Option[Value]] = {
-    nextSatisfyingAssignmentInternal(deadline) match {
+  override def nextSatisfyingAssignment(clauses: Option[X],
+                                        deadline: Option[Deadline]): Option[X => Option[Value]] = {
+    nextSatisfyingAssignmentInternal(clauses, deadline) match {
       case Some(f) => Some((x: X) => f(ast.tree.getTreeRoot(x)))
       case None    => None
     }
   }
 
   def nextSatisfyingAssignmentInternal(
+      clauses: Option[X],
       deadline: Option[Deadline]): Option[AstID => Option[Value]] = {
-    assert(model == null, "Z3 only support extraction of a single solution")
+
+    clauses.foreach { x =>
+      addClause(x)
+    }
 
     deadline match {
       case Some(dl) if dl.isOverdue => return None // deadline passed, do not attempt to solve

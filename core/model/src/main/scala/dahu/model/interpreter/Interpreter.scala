@@ -33,9 +33,9 @@ object Interpreter {
         .smap {
           case Vec(c, t, f) =>
             c match {
-              case true  => t
-              case false => f
-              case _     => unexpected
+              case true | 1  => t
+              case false | 0 => f
+              case _         => unexpected
             }
           case _ => unexpected
         }

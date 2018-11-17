@@ -23,6 +23,8 @@ abstract class CSP extends Struct {
   val subs: Buff[CSP] = Buff()
   val exports: Buff[CExpr[Any]] = Buff()
 
+  val decisionVariables: Buff[CExpr[Any]] = Buff()
+
   val ctx: ProblemContext
   def scope: Scope
   def temporalOrigin: Expr[Int]
@@ -34,8 +36,8 @@ abstract class CSP extends Struct {
   }
   final var numConditions: Int = 0
 
-  val insertionLevel: Expr[Int] = newInput[Int]("ins-lvl", Tag[Int])
-  val decisionLevel: Expr[Int] = newInput[Int]("dec-lvl", Tag[Int])
+  val insertionLevel: Expr[Int] = newInput[Int]("ins-lvl", Tag[Int], isDecision = false)
+  val decisionLevel: Expr[Int] = newInput[Int]("dec-lvl", Tag[Int], isDecision = false)
   addConstraint(insertionLevel >= 0)
   addConstraint(decisionLevel > insertionLevel)
 
@@ -52,10 +54,15 @@ abstract class CSP extends Struct {
   final def addConstraint(c: Expr[Bool]): Unit = {
     constraints += CExpr(c, scope)
   }
-  final def newInput[T](id: Any, typTag: Tag[T]): Expr[T] = Input[T](id, scope)(typTag)
-  final def newInputSubjectTo[T](id: Any, typTag: Tag[T])(
+  final def newInput[T](id: Any, typTag: Tag[T], isDecision: Boolean): Expr[T] = {
+    val v = Input[T](id, scope)(typTag)
+    if(isDecision)
+      decisionVariables += CExpr(v, scope)
+    v
+  }
+  final def newInputSubjectTo[T](id: Any, typTag: Tag[T], isDecision: Boolean)(
       constraint: Expr[T] => Expr[Bool]): Expr[T] = {
-    val in = newInput(id, typTag)
+    val in = newInput(id, typTag, isDecision)
     addConstraint(constraint(in))
     in
   }
@@ -74,7 +81,7 @@ abstract class CSP extends Struct {
   }
 
   final def addSub(name: String): CSP = {
-    val subPresent = newInput[Bool](scope.subId(name + "??"), Tag.ofBoolean)
+    val subPresent = newInput[Bool](scope.subId(name + "??"), Tag.ofBoolean, isDecision = true)
     val subScope = scope.subScope(name, subPresent)
     val subCSP = new SubCSP(this, subScope)
     subs += subCSP
@@ -91,7 +98,8 @@ abstract class CSP extends Struct {
   // ------------------ extension methods for planner -----------------------
 
   def addAnonymousTimepoint(): Expr[Int] = {
-    newInputSubjectTo[Int](LocalIdent.anonymous(), Tag.ofInt)(tp => temporalOrigin <= tp) // note: an anonymous time point might stretch beyond the temporal horizon
+    newInputSubjectTo[Int](LocalIdent.anonymous(), Tag.ofInt, isDecision = false)(tp =>
+      temporalOrigin <= tp) // note: an anonymous time point might stretch beyond the temporal horizon
   }
 
   case class Wrapper(lv: LocalVar) {
@@ -107,7 +115,7 @@ abstract class CSP extends Struct {
         else if(lv == ctx.predef.End)
           temporalHorizon
         else {
-          newInputSubjectTo[Int](Wrapper(lv), Tag.ofInt)(tp =>
+          newInputSubjectTo[Int](Wrapper(lv), Tag.ofInt, isDecision = false)(tp =>
             temporalOrigin <= tp && tp <= temporalHorizon)
         }
       val res = ctx.intBox(ctx.intTag, e)
@@ -115,12 +123,12 @@ abstract class CSP extends Struct {
       res
     case lv @ LocalVar(_, tpe) if tpe.isSubtypeOf(Type.Integers) =>
       assert(tpe == Type.Integers)
-      val res = newInput[Literal](lv, ctx.intTag)
+      val res = newInput[Literal](lv, ctx.intTag, isDecision = true)
       recordVar(lv, res)
       res
     case lv @ LocalVar(_, tpe) =>
       assert(!tpe.isSubtypeOf(Type.Reals))
-      val res = newInput[Literal](lv, ctx.specializedTags(tpe))
+      val res = newInput[Literal](lv, ctx.specializedTags(tpe), isDecision = true)
       recordVar(lv, res)
       res
   }
@@ -156,7 +164,7 @@ abstract class CSP extends Struct {
       case cst: common.Constant =>
         // create a new variable with the type of the constant expression
         val tpe = ctx.specializedTags(cst.typ)
-        val v: Expr[Literal] = newInput(cst, tpe)
+        val v: Expr[Literal] = newInput(cst, tpe, isDecision = false)
         // assert that this variable is equal to the evaluation of the constant expression
         addConstraint(SCondTokF.ofExpr(encodeAsFluent(cst), v))
         // return the bound variable
@@ -188,7 +196,7 @@ abstract class CSP extends Struct {
       case core.TimedBooleanAssertion(itv, f, op, v) if !f.template.isContinuous =>
         val interval = encode(itv)
         val conditionDecisionLvl = decisionLevel + Cst(numConditions)
-        val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt)
+        val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt, isDecision = true)
         numConditions += 1
         val token =
           CondTokF.ofExpr(interval.start,
@@ -228,7 +236,7 @@ abstract class CSP extends Struct {
       case core.TimedTransitionAssertion(ClosedInterval(s, e), f, v1, v2) =>
         val start = encodeAsInt(s)
         val conditionDecisionLvl = decisionLevel + Cst(numConditions)
-        val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt)
+        val supporter = newInput[Int]("sup-of-cond-" + numConditions, Tag.ofInt, isDecision = true)
         numConditions += 1
         require(!f.template.isContinuous)
         val cond =
@@ -280,7 +288,7 @@ abstract class CSP extends Struct {
         case core.LocalVarDeclaration(v) =>
           sub.addVar(v)
         case core.ArgDeclaration(a) =>
-          val in = sub.newInput(a, ctx.specializedTags(a.typ))
+          val in = sub.newInput(a, ctx.specializedTags(a.typ), isDecision = true)
           sub.recordVar(a, in)
         case _ =>
       }
@@ -332,7 +340,7 @@ final class RootCSP(val ctx: ProblemContext) extends CSP {
   override def parent: Option[CSP] = None
 
   override val temporalOrigin: Expr[Int] = Cst(0)
-  override val temporalHorizon: Expr[Int] = newInput("__END__", Tag[Int])
+  override val temporalHorizon: Expr[Int] = newInput("__END__", Tag[Int], isDecision = false)
   addConstraint(temporalOrigin <= temporalHorizon)
 
   private var globalCounter = 0

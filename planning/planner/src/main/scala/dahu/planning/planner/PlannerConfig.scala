@@ -30,8 +30,8 @@ case class PlannerConfig(
     maxDepth: Int = 200,
     @HelpMessage(
       "Print the detailed result of planning, exposing some internal variables of the system.")
-    printDetailed: Boolean = false,
-    symBreak: SymBreakLevel = SymBreakLevel.PlanSpaceUnconstrained,
+    printDetailed: Boolean = true,
+    symBreak: SymBreakLevel = SymBreakLevel.PlanSpace,
     @HelpMessage(
       "If true, the planner will consider that there is no solution below its current depth. " +
         "This is intended to be used with incremental deepening.")

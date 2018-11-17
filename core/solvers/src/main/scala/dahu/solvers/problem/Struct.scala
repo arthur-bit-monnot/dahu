@@ -20,6 +20,7 @@ trait Struct {
   def constraints: Seq[CExpr[Bool]]
   def subs: Seq[Struct]
   def exports: Seq[CExpr[Any]]
+  def decisionVariables: Seq[CExpr[Any]]
 
   override def toString: String = {
     val sb = new StringBuilder()
@@ -63,6 +64,7 @@ trait Struct {
       for(v <- s.vars) in.vars += v
       for(c <- s.constraints) in.constraints += c
       for(e <- s.exports) in.exports += e
+      for(v <- s.decisionVariables) in.decisionVariables += v
     }
     val s = new Structure(scope)
     mergeVarsAndConstraints(this, s)
@@ -76,7 +78,8 @@ trait Struct {
 
 case class EncodedProblem[+Res](asg: ASG[Expr[Any], Total, cats.Id],
                                 sat: Expr[Bool],
-                                res: Expr[Res])
+                                res: Expr[Res],
+                                decisionVariables: Seq[(Expr[Bool], Expr[Any])])
 
 object Struct {
 
@@ -86,6 +89,7 @@ object Struct {
       case CExpr(c, scope) => scope.present ==> c
     }
     val pb: Expr[Bool] = bool.And(constraints: _*)
+    val decisions = flat.decisionVariables.map(c => (c.ctx.present, c.e))
     val dynAsg = API.parse(pb).fixID
 
     val exported = flat.exports.map {
@@ -95,7 +99,7 @@ object Struct {
     val noLambdas = API.expandLambdas(staticAsg).fixID
     val optTree = API.optimize(noLambdas)
 
-    EncodedProblem(optTree.tree, pb, result)
+    EncodedProblem(optTree.tree, pb, result, decisions)
   }
 
   def process(flat: Struct) = {
@@ -146,18 +150,20 @@ final class Structure(val scope: Scope) extends Struct {
   val constraints: Buff[CExpr[Bool]] = Buff()
   val subs: Buff[Struct] = Buff()
   val exports: Buff[CExpr[Any]] = Buff()
+  val decisionVariables: Buff[CExpr[Any]] = Buff()
 
   def seal(): Struct = { isSealed = true; this }
 
-  def addVar[T: Tag](name: String): Expr[T] = {
+  def addVar[T: Tag](name: String, isDecision: Boolean): Expr[T] = {
     assert(!isSealed) // todo: check existence
     val v = Input[T](name, scope)
-    vars += v
-    v
+    addVar(v, isDecision)
   }
-  def addVar[T](v: Expr[T]): Expr[T] = {
+  def addVar[T](v: Expr[T], isDecision: Boolean): Expr[T] = {
     assert(!isSealed)
     vars += v
+    if(isDecision)
+      decisionVariables += CExpr(v, scope)
     v
   }
   def addConstraint(c: Expr[Bool]): CExpr[Bool] = {
@@ -169,7 +175,7 @@ final class Structure(val scope: Scope) extends Struct {
 
   def addSub(name: String): Structure = {
     assert(!isSealed)
-    val subPrez = addVar[Bool](s"$name?")
+    val subPrez = addVar[Bool](s"$name?", isDecision = true)
     val subContext = scope.subScope(name, subPrez)
     val s = new Structure(subContext)
     subs += s

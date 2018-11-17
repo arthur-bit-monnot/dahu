@@ -30,6 +30,8 @@ object Or {
 }
 object And {
   implicit def intOrder[I <: Int]: Order[I] = Order[Int].asInstanceOf[Order[I]]
+  def apply[A <: Int](a: A, b: A): ComputationF[A] =
+    ComputationF(bool.And, Vec(a, b), Tag.ofBoolean)
   def apply[A <: Int](cs: Iterable[A]): ComputationF[A] =
     ComputationF(bool.And, Vec.fromIterable(cs).sorted, Tag.ofBoolean)
   def unapplySeq[A](c: ComputationF[A]): Option[Seq[A]] = c match {

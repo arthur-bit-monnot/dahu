@@ -10,8 +10,10 @@ abstract class PartialSolver[X, AstID] {
 
   type K <: X
 
-  def nextSatisfyingAssignment(deadlineMs: Option[Deadline]): Option[X => Option[Value]]
-  def nextSatisfyingAssignmentInternal(deadlineMs: Option[Deadline]): Option[AstID => Option[Value]]
+  def nextSatisfyingAssignment(clauses: Option[X],
+                               deadlineMs: Option[Deadline]): Option[X => Option[Value]]
+  def nextSatisfyingAssignmentInternal(clauses: Option[X],
+                                       deadlineMs: Option[Deadline]): Option[AstID => Option[Value]]
 
 }
 
