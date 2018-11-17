@@ -53,12 +53,23 @@ package object encoding {
     def supportingAction: Expr[Int] = CondTokF.SupportingAction(c)
 
   }
+
+  implicit class ContCondTokOps(val c: Expr[ContCondTok]) extends AnyVal {
+    def interval: Expr[Interval] = ContCondTokF.Itv(c)
+    def predicate: Expr[Bool] = ContCondTokF.Predicate(c)
+
+  }
+
   implicit class EffTokOps(val c: Expr[EffTok]) extends AnyVal {
     def fluent: Expr[Fluent] = EffTokF.Fluent(c)
     def value: Expr[Literal] = EffTokF.Value(c)
     def persistenceInterval: Expr[Interval] = EffTokF.Persistence(c)
     def insLvl: Expr[Int] = EffTokF.InsLvl(c)
     def container: Expr[Int] = EffTokF.Container(c)
+  }
+
+  implicit class SolutionOps(val c: Expr[Solution]) extends AnyVal {
+    def continuousConditions = SolutionF.ContConds(c)
   }
 
 }

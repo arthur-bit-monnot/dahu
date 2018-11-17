@@ -55,7 +55,12 @@ object SolutionF {
     "planning.solution",
     "operators" -> Tag[Vec[Operator]],
     "effects" -> Tag[Vec[EffTok]],
-    "conditions" -> Tag[Vec[CondTok]])
+    "conditions" -> Tag[Vec[CondTok]],
+    "continuous-conditions" -> Tag[Vec[ContCondTok]]
+  )
+
+  val ContConds = tag.getAccessor[Vec[ContCondTok]]("continuous-conditions")
+
 }
 
 case class Plan(operators: Vec[Operator], effects: Vec[EffTok]) {

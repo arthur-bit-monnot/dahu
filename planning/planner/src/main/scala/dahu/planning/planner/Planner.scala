@@ -10,13 +10,14 @@ import dahu.model.problem.API
 import dahu.model.products.RecordType
 import dahu.model.types.{Bool, SequenceTag, Tag, TagAny}
 import dahu.planning.model.common.Type.{Integers, Reals}
-import dahu.planning.model.common.{FunctionTemplate, Predef}
+import dahu.planning.model.common.{FunctionTemplate, Predef, Type}
 import dahu.planning.model.core
 import dahu.planning.planner.encoding.{
   EffTok,
   EffTokF,
   Encoder,
   IntLit,
+  Literal,
   ObjLit,
   Plan,
   ProblemContext,
@@ -133,7 +134,7 @@ object Planner {
     }
   }
 
-  def extractStateTrajectory(e: Expr[Solution],
+  def extractStateTrajectory(solution: Expr[Solution],
                              _tree: ASG[Expr[Any], ExprF, Id],
                              ctx: ProblemContext): Unit = {
 
@@ -143,7 +144,7 @@ object Planner {
     import dahu.lisp.compile.Env.ops._
     val x = //dahu.lisp.compile.Env.default(tree.internalData)
       dahu.refinement.interop.sources.default(tree.internalData)
-    x.setConstantValue("solution", tree.getTreeRoot(e))
+    x.setConstantValue("solution", tree.getTreeRoot(solution))
     x.defineStruct(SolutionF.tag)
 
     val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
@@ -163,7 +164,7 @@ object Planner {
     import dahu.model.input.dsl._
     import dahu.planning.planner.encoding.DummyImplicits._
     import dahu.planning.planner._
-    val effs = SolutionF.tag.getAccessor[Vec[EffTok]]("effects").apply(e)
+    val effs = SolutionF.tag.getAccessor[Vec[EffTok]]("effects").apply(solution)
 
     val starts = effs.map0(e => e.persistenceInterval.start)
     val fluents =
@@ -197,26 +198,30 @@ object Planner {
       tree.record(SequenceF(members, SequenceTag.of(tag)))
     }
 
+    def literal2cst(lit: Literal, tpe: Type): I = {
+      val cst = (lit, tpe) match {
+        case (IntLit(i), Reals) =>
+          Cst[Double](i.toDouble)
+        case (IntLit(i), Integers) =>
+          Cst[Int](i)
+        case (ObjLit(value), _) if tpe.isBoolean =>
+          assert(value.typ.isBoolean)
+          if(value.toString == "true") Cst[Bool](Bool.True)
+          else if(value.toString == "false") Cst[Bool](Bool.False)
+          else ???
+        case (ObjLit(value), _) =>
+          ??? // TODO: valid but commented to catch earlier errors Cst[String](value.toString)
+      }
+      tree.getTreeRoot(cst)
+    }
+
     val changes = for {
       times <- evalsAll(starts)
       svs <- evalsAll(fluents)
       valsNative <- evalsAll(values)
       vals = valsNative
         .zip(svs.map(_.typ))
-        .map {
-          case (IntLit(i), Reals) =>
-            Cst[Double](i.toDouble)
-          case (IntLit(i), Integers) =>
-            Cst[Int](i)
-          case (ObjLit(value), tpe) if tpe.isBoolean =>
-            assert(value.typ.isBoolean)
-            if(value.toString == "true") Cst[Bool](Bool.True)
-            else if(value.toString == "false") Cst[Bool](Bool.False)
-            else ???
-          case (ObjLit(value), _) =>
-            ??? // TODO: valid but commented to catch earlier errors Cst[String](value.toString)
-        }
-        .map(cst => tree.getTreeRoot(cst))
+        .map((literal2cst _).tupled)
     } yield times.zip(vals).zip(svs)
     println(changes)
 
@@ -235,6 +240,14 @@ object Planner {
 
     println(traj)
     println(states)
+    val eventStarts = tree.getTreeRoot(solution.continuousConditions.map0(e => e.interval.start))
+    val pred = tree.getTreeRoot(solution.continuousConditions.map0(e => e.predicate))
+//    val b = a
+
+    val last = pred
+    println(tree.build(last))
+
+    sys.exit(69)
 
     val happenings = for {
       startEvents <- x.parse("(events true false)")
@@ -285,7 +298,7 @@ object Planner {
             ))
    bands))
     """
-
+    sys.exit(45)
     val simplified = tree.internalView
 
     val problem = new ContinuousProblem[I](simplified, ctx.stateTypes.cstate)
