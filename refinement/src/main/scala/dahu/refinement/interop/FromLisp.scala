@@ -2,7 +2,6 @@ package dahu.refinement.interop
 
 import cats._
 import cats.implicits._
-import com.vividsolutions.jts.geom.Geometry
 import dahu.graphs.{ASG, IDTop, OpenASG}
 import dahu.graphs.transformations.Transformation
 import dahu.lisp.compile.Env._

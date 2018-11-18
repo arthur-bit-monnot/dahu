@@ -4,15 +4,15 @@ import mill.define.Task
 import mill.scalalib._
 
 trait Module extends SbtModule {
-  def scalaVersion = "2.12.6"
+  def scalaVersion = "2.12.7"
   
  def compileIvyDeps = Agg(
    ivy"org.spire-math::kind-projector:0.9.6",
-   ivy"io.tryp:::splain:0.3.1"
+   //ivy"io.tryp:::splain:0.3.1"
  )
  def scalacPluginIvyDeps = Agg(
    ivy"org.spire-math::kind-projector:0.9.6",
-   ivy"io.tryp:::splain:0.3.1"
+//   ivy"io.tryp:::splain:0.3.1"
  )
 
  def scalacOptions = Seq(
@@ -100,7 +100,7 @@ object planning extends EmptyModule {
     def ivyDeps = Agg(spire, shapeless)
   }
   object planner extends Module {
-    def moduleDeps = Seq(planning.model, core.solvers, core.solvers.z3)
+    def moduleDeps = Seq(planning.model, core.solvers, core.solvers.z3, refinement)
     def ivyDeps = Agg(catsEffect, caseApp)
   }
   object anml extends EmptyModule {
@@ -155,4 +155,15 @@ object graphs extends ModuleTests {
 object benchmarks extends ModuleTests {
   override def moduleDeps = Seq(core.solvers.z3, planning.pddl.planner, planning.pddl.problems, planning.anml.planner)
   override def ivyDeps = Agg(caseApp)
+}
+
+object matrix extends Module
+
+object lisp extends Module {
+  override def moduleDeps = Seq(core.model)
+  override def ivyDeps = Agg(fastparse)
+}
+
+object refinement extends Module {
+  override def moduleDeps = Seq(lisp, matrix, core.model)
 }

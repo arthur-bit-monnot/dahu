@@ -38,7 +38,6 @@ import dahu.utils.errors.unexpected
 import dahu.z3.Z3PartialSolver
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.concurrent.duration.Deadline
 import scala.util.{Failure, Success, Try}
 
@@ -205,21 +204,6 @@ object Planner {
     if(cfg.noSolve)
       return None
 
-//    solver.nextSolutionTree(Some(deadline)) match {
-//      case Some(t) =>
-//        val t2 = t.asInstanceOf[ASG[Expr[Any], ExprF, Id]]
-//        val x = API
-//          .expandLambdasThroughPartialEval(t2)
-//          .transform(dahu.model.transformations
-//            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
-//          .transform(dahu.model.transformations
-//            .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
-//        API.echo(x.rootedAt(pb.res))
-//        extractStateTrajectory(pb.res, x, ctx)
-//        sys.exit(1)
-//      case None => None
-//    }
-
     solver.nextSolution(Some(deadline)) match {
       case Some(ass) =>
         ass.eval(pb.res) match {
@@ -235,7 +219,6 @@ object Planner {
               sol.continuousConditions.sortedBy(_.itv.start).foreach(c => println(s"  $c"))
             }
             val plan = Plan(sol.operators, sol.effects)
-            extractStateTrajectory(plan)
             Some(plan)
           case x => unexpected(x.toString)
         }
@@ -270,7 +253,7 @@ object Planner {
     val starts = effs.map0(e => e.persistenceInterval.start)
     val fluents =
       effs.map0(e => e.fluent.template)
-    val values = effs.map0(e => e.value)
+    val values = effs.map0[Literal](e => EffTokF.Value(e))
 
     def eval[A](i: I): Option[A] = tree.internalCoalgebra(i) match {
       case CstF(v, _) => Some(v.asInstanceOf[A])
@@ -319,10 +302,10 @@ object Planner {
     val changes = for {
       times <- evalsAll(starts)
       svs <- evalsAll(fluents)
-      valsNative <- evalsAll(values)
+      valsNative: List[Literal] <- evalsAll[Literal](values)
       vals = valsNative
         .zip(svs.map(_.typ))
-        .map((literal2cst _).tupled)
+        .map(x => literal2cst(x._1, x._2))
     } yield times.zip(vals).zip(svs)
     println(changes)
 
