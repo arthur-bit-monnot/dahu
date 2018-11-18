@@ -1,5 +1,7 @@
 package dahu.planning.planner
 
+import java.io.File
+
 import cats.Id
 import cats.effect.IO
 import cats.implicits._
@@ -26,10 +28,10 @@ import dahu.planning.planner.encoding.{
   Solution,
   SolutionF
 }
-import dahu.refinement.interop.{ContinuousProblem, Params, Solver}
+import dahu.refinement.interop.{ContinuousProblem, Params, Problem, Solver}
 import dahu.solvers.MetaSolver
 import dahu.solvers.problem.EncodedProblem
-import dahu.solvers.solution.{Sol, SolverResult, TimeoutOrUnsat}
+import dahu.solvers.solution._
 import dahu.utils._
 import dahu.utils.debug.info
 import dahu.utils.errors.unexpected
@@ -38,7 +40,7 @@ import dahu.z3.Z3PartialSolver
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.duration.Deadline
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object Planner {
 
@@ -71,6 +73,38 @@ object Planner {
     task.unsafeRunTimed(deadline.timeLeft).flatten
   }
 
+  def solveIncrementalContinuous(model: core.CoreModel, continuousDomain: File, deadline: Deadline)(
+      implicit cfg: PlannerConfig,
+      predef: Predef): Option[Plan] = {
+    val q = new java.util.concurrent.ConcurrentLinkedQueue[Integer]()
+    for(i <- cfg.minDepth to cfg.maxDepth)
+      q.add(i)
+
+    val task: IO[Option[Plan]] = IO {
+      while(deadline.hasTimeLeft) {
+        val step: Integer = q.poll()
+        if(step == null)
+          return None
+
+        info(s"Depth: $step")
+        val exactDepth = if(cfg.useExactDepth) Some(step.toInt) else None
+        solveContinuousWithGivenActionNumbers(model,
+                                              continuousDomain,
+                                              _ => step,
+                                              exactDepth,
+                                              deadline) match {
+          case Some(sol) =>
+            info(s"  Solution found at depth $step")
+            return Some(sol)
+          case None =>
+            info(s"  No solution at depth $step")
+        }
+      }
+      None
+    }
+    task.unsafeRunTimed(deadline.timeLeft).flatten
+  }
+
   def solveWithGivenActionNumbers(
       model: core.CoreModel,
       num: core.ActionTemplate => Int,
@@ -88,6 +122,74 @@ object Planner {
     solution
   }
 
+  def solveContinuousWithGivenActionNumbers(
+      model: core.CoreModel,
+      continuousDomain: File,
+      num: core.ActionTemplate => Int,
+      exactDepth: Option[Int],
+      deadline: Deadline)(implicit predef: Predef, cfg: PlannerConfig): Option[Plan] = {
+
+    if(deadline.isOverdue())
+      return None
+
+    val (pb, ctx) = Encoder.encode(model, num, exactDepth)
+
+    //        println(result)
+    val solution = Planner.solveContinuous(pb, continuousDomain, deadline, ctx)
+    //        println(solution)
+    solution
+  }
+
+  def solveContinuous(discreteProblem: EncodedProblem[Solution],
+                      continuousDomain: File,
+                      deadline: Deadline,
+                      ctx: ProblemContext)(implicit cfg: PlannerConfig): Option[Plan] = {
+
+    @tailrec def processSolutions(next: () => SolverResult): Option[Plan] = {
+      next() match {
+        case Timeout =>
+          println("TIMEOUT")
+          None
+        case Unsat =>
+          println("UNSAT")
+          None
+        case sol @ Sol(t, succ) => {
+          println("NEW DISCRETE SOLUTION")
+          val plan = sol.eval(discreteProblem.res) match {
+            case FEval(v) => Plan(v.operators, v.effects)
+          }
+          println(plan.formatOperators)
+
+          val t2 = t.asInstanceOf[ASG[Expr[Any], ExprF, Id]]
+          val x = API
+            .expandLambdasThroughPartialEval(t2)
+            .transform(dahu.model.transformations
+              .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
+            .transform(dahu.model.transformations
+              .makeOptimizer(dahu.model.transformations.Pass.allStaticPasses))
+          API.echo(x.rootedAt(discreteProblem.res))
+          val contPB = extractStateTrajectory(discreteProblem.res, continuousDomain, x, ctx)
+
+//          println(contPB)
+          val solver = new Solver(contPB.get, Params())
+          solver.solve()
+          sys.exit(2)
+
+//          API.echo(t.rootedAt(pb.res))
+          processSolutions(succ)
+        }
+      }
+    }
+
+    info("  Encoding...")
+    val solver = MetaSolver.of(discreteProblem, backend)
+
+    if(cfg.noSolve)
+      return None
+
+    processSolutions(() => solver.solutionTrees(clause = None, deadline = Some(deadline)))
+  }
+
   def solve(pb: EncodedProblem[Solution], deadline: Deadline, ctx: ProblemContext)(
       implicit cfg: PlannerConfig): Option[Plan] = {
     if(deadline.isOverdue)
@@ -98,23 +200,6 @@ object Planner {
 
     if(cfg.noSolve)
       return None
-
-    @tailrec def processSolutions(next: () => SolverResult): Unit = {
-      next() match {
-        case TimeoutOrUnsat =>
-          println("UNSAT")
-        case sol @ Sol(t, succ) => {
-          println("NEW SOLUTION")
-          sol.eval(pb.res) match {
-            case FEval(v) => v.operators.foreach(println)
-          }
-//          API.echo(t.rootedAt(pb.res))
-          processSolutions(succ)
-        }
-      }
-    }
-
-    processSolutions(() => solver.solutionTrees(clause = None, deadline = Some(deadline)))
 
 //    solver.nextSolutionTree(Some(deadline)) match {
 //      case Some(t) =>
@@ -155,8 +240,9 @@ object Planner {
   }
 
   def extractStateTrajectory(solution: Expr[Solution],
+                             continuousDomain: File,
                              _tree: ASG[Expr[Any], ExprF, Id],
-                             ctx: ProblemContext): Unit = {
+                             ctx: ProblemContext): Try[Problem] = {
 
     val tmp = _tree.fixID.extensible
     val tree = tmp.fixID
@@ -321,20 +407,10 @@ object Planner {
 
     assert(eventsProcessing.nonEmpty)
 
-    x.parseFile("domains/car/car.dom.clj") match {
+    x.parseFile(continuousDomain.getAbsolutePath) match {
       case Success(value)     =>
       case Failure(exception) => throw exception
     }
-//    println(tree.build(Y))
-//
-//    val stateTraj = asSequence(states.map(tree.record(_)), ctx.stateTypes.dstate)
-//
-//
-//
-//
-//
-//    println(tree.build(stateTraj))
-//    println(tree.build(eventTraj))
 
     val process = """
 (defstruct band
@@ -371,42 +447,12 @@ object Planner {
 
     val problem = new ContinuousProblem[I](simplified, ctx.stateTypes.cstate)
 
-    val res = for {
+    for {
       _ <- x.parseMany(process)
       bandConstraints <- x.parse("band-constraints")
       stateTraj <- x.parse(DTRAJ)
       pb <- problem.createProblem(stateTraj, bandConstraints)
-    } yield {
-
-      println(tree.build(bandConstraints))
-      val solver = new Solver(pb, Params())
-      solver.solve()
-    }
-
-    res match {
-      case Success(value) =>
-      case Failure(e)     => throw e
-    }
-
-//    API.echo(tree.rootedAt(starts))
-//    API.echo(tree.rootedAt(fluents))
-//    API.echo(tree.rootedAt(values))
-
-    sys.exit(10)
-
-//    tree.getExt(e) match {
-//      case ProductF(ms, tpe) =>
-//        val effList = ms(tpe.fieldPosition("effects").get)
-//        tree.internalCoalgebra(effList) match {
-//          case SequenceF(es, p) =>
-//            assert(p.memberTag == EffTokF.productTag)
-//        }
-//        println(tpe)
-//        println(ms.map(i => tree.internalCoalgebra(i)))
-//
-//        ???
-//      case x => unexpected(s"$x")
-//    }
+    } yield pb
   }
 
   def extractStateTrajectory(p: Plan): Unit = {

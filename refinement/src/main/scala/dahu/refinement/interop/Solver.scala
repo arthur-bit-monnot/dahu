@@ -7,7 +7,7 @@ import dahu.refinement.common.{Addr, Params, R, Values}
 import dahu.refinement.interop.Mode.{FinalSat, InitSat, Optim}
 import dahu.refinement.memory._
 import dahu.refinement.interop.evaluation.Read
-import dahu.refinement.la.LeastSquares
+import dahu.refinement.la.{LeastSquares, SolverStats}
 import dahu.utils.errors._
 
 import scala.annotation.tailrec
@@ -15,14 +15,21 @@ import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
 
 object Printer {
-  def fmt(d: Double): String = "%1.2f".format(d)
+  def fmtFloat(d: Double): String = "%1.2f".format(d)
+  def fmt(d: Double): String = "%1.2e".format(d)
 }
 
 case class Params(
-    statesPerBand: Int = 1,
-    innerLoops: Int = 50,
+    statesPerBand: Int = 2,
+    innerLoops: Int = 30,
     targetDt: Double = 0.1,
-    maxLevels: Int = 2
+    dtErrorRatio: Double = 1.5,
+    maxLevels: Int = 2,
+    maxScalings: Int = 40,
+    maxStatePerBand: Int = 500,
+    maxHomogenization: Int = 8,
+    targetInitError: Double = 1e-2,
+    targetFinalError: Double = 1e-3
 )
 
 sealed trait Mode
@@ -34,12 +41,16 @@ object Mode {
 
 case class SolverLevel(
     maxInvolvedStates: Int,
-    mode: Mode
+    mode: Mode,
+    scalingLeft: Int,
+    homogenizationLeft: Int
 )
 
 case class Tagged[X](value: X, level: Int, mode: Option[Mode])
 
 final class Solver(pb: Problem, params: Params) {
+
+  implicit private def implicitParams: Params = params
 
   type OfBand[X] = Seq[X]
   type B = Int
@@ -94,7 +105,14 @@ final class Solver(pb: Problem, params: Params) {
       override def numParams: B = 1
       override def eval(params: Values): R = {
         val dt = params(0)
-        math.min(dt - targetDt, 0.0)
+        math.min(dt - targetDt, 0.0) * 10000
+      }
+    }
+    val dtBelowMax = new Fun {
+      override def numParams: B = 1
+      override def eval(params: Values): R = {
+        val dt = params(0)
+        math.min(targetDt * implicitParams.dtErrorRatio - dt, 0.0) * 100
       }
     }
 
@@ -105,23 +123,16 @@ final class Solver(pb: Problem, params: Params) {
       override def numParams: B = 1
       override def eval(params: Values): R = {
         val dt = params(0)
-        math.sqrt(math.abs(dt - targetDt) / 10)
-        (dt - (targetDt)) * 0.1
+        (dt - targetDt) * 0.1
       }
     }
-//    val minimizeLow = new Fun {
-//      override def numParams: B = 1
-//      override def eval(params: Values): R = {
-//        val dt = params(0)
-//        (dt - (targetDt)) * 0.0001
-//      }
-//    }
     val bm = layout(bandId)
     val allStates = bm.firstState.previous to bm.lastState.next
 
     for(s <- allStates) {
       record(strictlyPositive.bind(layout.addressOfTime(s)), level = 0, None, 1)
-      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, None, 1)
+      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 0, Some(InitSat), 1)
+      record(dtBelowMax.bind(layout.addressOfTime(s)), level = 0, Some(FinalSat), 1)
 //      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, Some(Optim))
 //      record(minimizeLow.bind(layout.addressOfTime(s)), level = 1, Some(FinalSat))
     }
@@ -135,15 +146,6 @@ final class Solver(pb: Problem, params: Params) {
               (s + f.aboveStateOffset) <= layout.lastState)
         .foreach { s0 =>
           val x = binds(s0, c)
-
-//
-
-          if(x.contains(6) && currentLvl == 2) {
-            println("6 : " + x.toSeq.toString() + "   " + f.read.toSeq)
-          }
-//          if(x.contains(8)) {
-//            println("8 : " + x.toSeq.toString() + "   " + f.read.toSeq)
-//          }
 
           val lvl = f.aboveStateOffset - f.belowStateOffset
           val scale = math.pow(10, currentLvl - lvl)
@@ -185,30 +187,77 @@ final class Solver(pb: Problem, params: Params) {
     mem
   }
 
-  def next(l: SolverLevel, mem: Mem): Option[(SolverLevel, Mem)] = l match {
-    case SolverLevel(n, InitSat) =>
-      Some((SolverLevel(n, Optim), mem))
+  def next(l: SolverLevel, mem: Mem, stats: SolverStats): Option[(SolverLevel, Mem)] = {
+    val target = params.targetDt * params.dtErrorRatio * 0.9
+    def makeFinal(lvl: Int) = SolverLevel(lvl, FinalSat, 0, params.maxHomogenization)
+    def makeInit(lvl: Int) = SolverLevel(lvl, InitSat, params.maxScalings, params.maxHomogenization)
+    def shouldScale: Boolean =
+      l.scalingLeft > 0 && mem
+        .grownLayout(target)
+        .nonEmpty
 
-      if(n == 1) {
-        mem.print()
-        val scaled = mem.extendToMaxDiff(0.5)
-        scaled.print()
-        Some((SolverLevel(n + 1, InitSat), scaled))
-      } else if(n >= params.maxLevels)
+    l match {
+      case SolverLevel(n, FinalSat, 0, 0) if stats.maxResidual > params.targetFinalError =>
+        println("Failed")
         None
-      else
-        Some((SolverLevel(n + 1, InitSat), mem))
-    case SolverLevel(n, Optim) =>
-      return Some((SolverLevel(n, FinalSat), mem))
+      case SolverLevel(n, FinalSat, _, _) if stats.maxResidual <= params.targetFinalError =>
+        println("shortcut")
+        if(n == params.maxLevels)
+          None
+        else
+          Some((makeInit(n + 1), mem))
+      case SolverLevel(n, FinalSat, 0, 0) if n == params.maxLevels =>
+        println("DONE")
+        None
+      case SolverLevel(n, FinalSat, 0, 0) =>
+        assert(n < params.maxLevels)
+        mem.homogenize()
+        Some((makeInit(n + 1), mem))
 
-    case SolverLevel(n, FinalSat) if n >= params.maxLevels => None
-    case SolverLevel(n, FinalSat) =>
-      Some((SolverLevel(n + 1, InitSat), mem))
+      case SolverLevel(n, FinalSat, 0, h) =>
+        mem.homogenize()
+        Some((SolverLevel(n, FinalSat, 0, h - 1), mem))
+
+      case SolverLevel(n, InitSat, 0, 0) =>
+        mem.homogenize()
+        Some((makeFinal(n), mem))
+
+      case SolverLevel(n, InitSat, _, _)
+          if stats.maxResidual < params.targetInitError && !shouldScale => // go to next level directly
+        println("Shortcut")
+        mem.homogenize()
+        Some((makeFinal(n), mem))
+
+      case SolverLevel(n, InitSat, 0, homogenizationLeft) =>
+        mem.homogenize()
+        Some((SolverLevel(n, InitSat, 0, homogenizationLeft - 1), mem))
+
+      case SolverLevel(n, InitSat, scalingLeft, homogenizationLeft) if shouldScale =>
+        assert(scalingLeft > 0)
+        mem
+          .grownLayout(target) match {
+          case Some(newLayout) =>
+            val mem2 = mem.doubleTimeBased(newLayout)
+            Some((SolverLevel(n, InitSat, scalingLeft - 1, homogenizationLeft), mem2))
+          case None => unexpected
+        }
+
+      case SolverLevel(n, InitSat, scalingLeft, homogenizationLeft) =>
+        assert(!shouldScale)
+        if(homogenizationLeft > 0) {
+          mem.homogenize()
+          Some((SolverLevel(n, InitSat, scalingLeft, homogenizationLeft - 1), mem))
+        } else {
+          Some((makeFinal(n), mem))
+        }
+    }
   }
 
-  def solve(mem: Mem, l: SolverLevel, maxIters: Int): Either[String, Mem] = {
+  def solve(mem: Mem, l: SolverLevel, maxIters: Int): (Either[String, Mem], SolverStats) = {
+    print(s"lvl: $l -- #states: ${mem.layout.allStates.size}... ")
+
     val levelFilter: Tagged[RefExpr] => Boolean = l match {
-      case SolverLevel(n, mode) =>
+      case SolverLevel(n, mode, _, _) =>
         c =>
           c.level <= n && c.mode.forall(_ == mode)
     }
@@ -223,87 +272,45 @@ final class Solver(pb: Problem, params: Params) {
 
     for(i <- 0 until maxIters) {
       if(lm.shouldContinue) {
-        mem.homogenize()
+//        mem.homogenize()
         lm.next()
       }
     }
-    println("Error: " + lm.lastChi)
-    Right(mem)
+    val stats = lm.stats
+    println("Max residual: " + Printer.fmt(stats.maxResidual))
+    (Right(mem), lm.stats)
   }
 
   def solve(mem: Mem): Either[String, Mem] = {
-    val initialLevel = SolverLevel(0, InitSat)
+    val initialLevel = SolverLevel(0, InitSat, params.maxScalings, params.maxHomogenization)
 
     var currentLevel = Option(initialLevel)
     var currentMem = mem
 
     while(true) {
-      println(currentLevel)
-
       currentLevel match {
         case Some(x) =>
           val res = solve(currentMem, x, params.innerLoops)
           res match {
-            case Right(newMem) =>
+            case (Right(newMem), stats) =>
               currentMem = newMem
-            case Left(err) =>
+              next(x, currentMem, stats) match {
+                case Some((l, m)) =>
+                  currentLevel = Some(l)
+                  currentMem = m
+                case None =>
+                  currentLevel = None
+              }
+
+            case (Left(err), _) =>
               return Left(err)
           }
-          currentMem.print()
-          next(x, currentMem) match {
-            case Some((l, m)) =>
-              currentLevel = Some(l)
-              currentMem = m
-            case None =>
-              currentLevel = None
-          }
         case None =>
-          currentMem.print()
           currentMem.printCSV("/tmp/traj.csv")
           return Right(currentMem)
       }
 
     }
-    ???
+    unexpected
   }
-
-//  def solve(mem: Mem): Unit = {
-//    val es = build(mem.layout)
-//
-//    for(lvl <- 0 to params.maxLevels) {
-//      val constraints = es.filter(_.level <= lvl).map(_.value)
-//
-//      val ls = new LeastSquares(constraints)
-//
-//      val lm = ls.lmIterator(mem.memoryRW)
-//
-//      for(i <- 0 until params.innerLoops) {
-////        println(s"\n\n\n -------------- LEVEL $lvl % $i-------------")
-////        println("  before homog")
-////        memories.print(mem)
-//        if(lm.shouldContinue) {
-//          mem.homogenize()
-//          lm.next()
-//        }
-////        memories.bands.foreach(b => homogenizeInPlace(b, mem)) //TODO
-////        println("  after homog")
-////        memories.print(mem)
-////        ls.lmIteration(mem.memoryRW, 1)
-//
-////        println("  after optim")
-////        memories.print(mem)
-//
-//      }
-//
-//      println(s" -------------- LEVEL $lvl -------------")
-//      mem.print()
-//      mem.homogenize()
-//      mem.printCSV("/tmp/traj.csv")
-//      mem.print()
-//
-//    }
-//
-////    memories.print(mem)
-//
-//  }
 }

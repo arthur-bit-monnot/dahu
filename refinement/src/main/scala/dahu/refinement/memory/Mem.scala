@@ -4,7 +4,7 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 import dahu.model.products.{Field, ProductTagAny}
 import dahu.refinement._
-import dahu.refinement.interop.Printer
+import dahu.refinement.interop.{Params, Printer}
 import dahu.utils.errors._
 
 class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
@@ -91,23 +91,34 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
     totalTime / numDts
   }
 
-  private def grownLayout(targetDt: Double): MemoryLayout = {
-
+  def grownLayout(targetDt: Double)(implicit params: Params): Option[MemoryLayout] = {
     val statesForBand: Int => Int = i => {
       val band = layout.bands(i)
       val dt = averageDt(band)
       val factor = dt / targetDt
       val numStates: Int = ((band.numStates + 1) * factor).floor.toInt
-      numStates
+      math.min(
+        math.max(numStates, params.statesPerBand),
+        params.maxStatePerBand
+      )
+
     }
     grownLayout(statesForBand)
   }
 
-  private def grownLayout(statesForBand: Int => Int): MemoryLayout = {
+  /** Builds a new memory layout in whihc the number of states for band(i) is computed with statesForBand(i)
+    *
+    * Returns None if the layout is identical to the current one.
+    * */
+  def grownLayout(statesForBand: Int => Int): Option[MemoryLayout] = {
 
     val cstate = memoryLayout.cstate
 
-    MemoryLayout(
+    if(memoryLayout.bands.indices.forall(i => memoryLayout(i).numStates == statesForBand(i))) {
+      return None
+    }
+
+    val newLayout = MemoryLayout(
       memoryLayout.bands.indices
         .foldLeft(List[BandMem]()) {
           case (l, i) =>
@@ -121,9 +132,10 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
         .toIndexedSeq,
       cstate
     )
+    Some(newLayout)
   }
 
-  def extendToMaxDiff(v: Double): Mem = {
+  def extendToMaxDiff(v: Double): Option[Mem] = {
     val newSize: Int => Int = i => {
       val band = layout.bands(i)
       val diffs = for(i <- 0 until layout.stateSize) yield {
@@ -134,12 +146,11 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
       (diffs.max / v).toInt + 1
     }
 
-    doubleIgnoreTime(newSize)
+    grownLayout(newSize).map(doubleIgnoreTime)
   }
 
-  def doubleTimeBased(statesForBand: Int => Int): Mem = {
+  def doubleTimeBased(newLayout: MemoryLayout): Mem = {
     implicit val memory: RMemory = ioMem
-    val newLayout = grownLayout(statesForBand)
     val res = Mem.makeFromLayout(newLayout)
     val targetMem: WMemory = res.memoryRW
 
@@ -188,15 +199,15 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
       }
       for(s <- newStates.tail) { // do not update DT of first happening
         val addrDt = newLayout.addressOfTime(s)
-        targetMem.write(addrDt, newDt)
+        if(!targetMem.isReadOnly(addrDt))
+          targetMem.write(addrDt, newDt) //TODO: we ignore some DTs
       }
     }
     res
   }
 
-  def doubleIgnoreTime(statesForBand: Int => Int): Mem = {
+  def doubleIgnoreTime(newLayout: MemoryLayout): Mem = {
     implicit val memory: RMemory = ioMem
-    val newLayout = grownLayout(statesForBand)
     val res = Mem.makeFromLayout(newLayout)
     val targetMem: WMemory = res.memoryRW
 

@@ -12,7 +12,8 @@ trait Solution {
 }
 
 sealed trait SolverResult
-case object TimeoutOrUnsat extends SolverResult
+case object Timeout extends SolverResult
+case object Unsat extends SolverResult
 case class Sol(res: ASG[Expr[Any], Total, Id], next: () => SolverResult)
     extends SolverResult
     with Solution {

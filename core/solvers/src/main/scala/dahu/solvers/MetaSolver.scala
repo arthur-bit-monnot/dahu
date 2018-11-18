@@ -10,7 +10,7 @@ import dahu.model.ir.{CstF, Total}
 import dahu.model.math.bool
 import dahu.model.types._
 import dahu.solvers.problem.EncodedProblem
-import dahu.solvers.solution.{Sol, Solution, SolverResult, TimeoutOrUnsat}
+import dahu.solvers.solution._
 import dahu.utils._
 
 import scala.concurrent.duration.Deadline
@@ -64,7 +64,11 @@ class MetaSolver(val e: EncodedProblem[Any],
           solutionTrees(Some(clause), deadline)
         }
         Sol(sol, nextSolution)
-      case None => TimeoutOrUnsat
+      case None =>
+        deadline match {
+          case Some(d) if d.isOverdue() => Timeout
+          case _                        => Unsat
+        }
     }
 
   def nextSolution(deadline: Option[Deadline] = None): Option[Solution] =

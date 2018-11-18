@@ -26,6 +26,14 @@ object config {
       }
     override def description: String = "duration"
   }
+
+  implicit val fileParser: ArgParser[File] = new ArgParser[File] {
+    override def apply(current: Option[File],
+                       value: String): scala.Either[caseapp.core.Error, File] =
+      Right(new File(value))
+
+    override def description: String = "duration"
+  }
 }
 
 @AppName("lcp-anml")
@@ -33,6 +41,7 @@ object config {
 case class AnmlPlannerOptions(
     warmup: FiniteDuration = 0.seconds,
     timeout: FiniteDuration = 1800.seconds,
+    cont: Option[File] = None,
     @Recurse
     plannerOptions: PlannerConfig
 )
@@ -104,7 +113,15 @@ object Main extends CaseApp[AnmlPlannerOptions] {
     info("Parsing...")
     parse(problemFile) match {
       case ParseSuccess(model) =>
-        Planner.solveIncremental(model, deadline)
+        cfg.cont match {
+          case Some(continuousDomain) =>
+            info("Continuous Planning")
+            Planner.solveIncrementalContinuous(model, continuousDomain, deadline)
+          case None =>
+            info("Discrete Planning")
+            Planner.solveIncremental(model, deadline)
+        }
+
       case fail: ParseFailure =>
         println("Parsing failed:")
         println(fail.format)

@@ -112,12 +112,15 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
     var lastGood = mem.dump
 
     // sum of residuals
-    var lastChi = -1.0
+    private var lastChi = -1.0
+    private var maxResidual = -1.0
     var ni = 2
 
     var numIters = 0
 
     def shouldContinue: Boolean = lastChi < 0 || lastChi > errorLimit
+
+    def stats: SolverStats = SolverStats(maxResidual, numIters)
 
     def next(): Unit = {
       numIters += 1
@@ -125,7 +128,8 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
       val residuals = evalResiduals(mem).toArray
       println("Residuals: " + residuals.mkString(" "))
       lastGood = mem.dump
-      lastChi = residuals.map(x => x * x).sum
+      lastChi = residuals.iterator.map(x => x * x).sum
+      maxResidual = residuals.iterator.map(math.abs).max
       val J = jacobian(mem)
 
       if(lambda < 0) {
@@ -156,19 +160,19 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
       val newChi = newResiduals.map(x => x * x).sum
       val improvement = lastChi - newChi
 
-      println(s"Update: ${update.mkString("\t")}")
-      println(s"New residuals: ${newResiduals.mkString("\t")}")
+//      println(s"Update: ${update.mkString("\t")}")
+//      println(s"New residuals: ${newResiduals.mkString("\t")}")
 
       if(finite(improvement) && improvement > 0) {
         lambda *= goodUpdate
         ni = 2
         lastGood = mem.dump
-        println(s"Improvement: $lastChi -->  $newChi       -- lambda: $lambda")
+//        println(s"Improvement: $lastChi -->  $newChi       -- lambda: $lambda")
       } else {
         lambda *= ni
         ni *= 2
         mem.load(lastGood)
-        println(s"Deterioration: $newChi -- $lambda")
+//        println(s"Deterioration: $newChi -- $lambda")
       }
     }
 
@@ -177,7 +181,7 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
   def lmIterator(mem: RWMemory): LMIterator =
     new LMIterator(mem)
 
-  def lmIteration(mem: RWMemory, numIters: Int): Unit = {
+  def lmIteration(mem: RWMemory, numIters: Int): SolverStats = {
 
     val it = new LMIterator(mem)
 
@@ -186,8 +190,11 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
         it.next()
     }
 
+    it.stats
   }
 }
+
+case class SolverStats(maxResidual: Double, iterations: Int)
 
 object Test extends App {
 

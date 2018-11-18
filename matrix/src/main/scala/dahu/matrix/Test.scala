@@ -13,8 +13,8 @@ class MatrixFactory {
 
   def update(i: Int, j: Int, value: Double): Unit = {
 
-    require(!entries.contains(merge(i, j)), s"duplicate entry: ($i, $j)")
-    entries.update(merge(i, j), null)
+//    require(!entries.contains(merge(i, j)), s"duplicate entry: ($i, $j)")
+//    entries.update(merge(i, j), null)
     Dcs_entry.cs_entry(M, i, j, value)
   }
 
