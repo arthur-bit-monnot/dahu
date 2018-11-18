@@ -172,11 +172,15 @@ object Planner {
 
 //          println(contPB)
           val solver = new Solver(contPB.get, Params())
-          solver.solve()
-          sys.exit(2)
+          solver.solve() match {
+            case Right(mem) =>
+              info(s"Continuous plan found!")
+              Some(plan.copy(continuousEvol = Some(mem)))
+            case Left(msg) =>
+              info(s"No continuous plan found: $msg")
+              processSolutions(succ)
+          }
 
-//          API.echo(t.rootedAt(pb.res))
-          processSolutions(succ)
         }
       }
     }

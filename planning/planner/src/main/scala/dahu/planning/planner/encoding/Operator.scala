@@ -2,6 +2,7 @@ package dahu.planning.planner.encoding
 
 import dahu.model.products.{FieldAccess, ProductTag}
 import dahu.model.types._
+import dahu.refinement.memory.Mem
 import dahu.utils.Vec
 import spire.implicits._
 
@@ -63,7 +64,9 @@ object SolutionF {
 
 }
 
-case class Plan(operators: Vec[Operator], effects: Vec[EffTok]) {
+case class Plan(operators: Vec[Operator],
+                effects: Vec[EffTok],
+                continuousEvol: Option[Mem] = None) {
   def formatOperators: String = {
     operators.sortedBy(_.start).map(_.toString).toSeq.mkString("\n")
   }

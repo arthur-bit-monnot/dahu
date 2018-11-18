@@ -39,12 +39,15 @@ object Mode {
   case object FinalSat extends Mode
 }
 
-case class SolverLevel(
+sealed trait SolverLevel
+case class Searching(
     maxInvolvedStates: Int,
     mode: Mode,
     scalingLeft: Int,
     homogenizationLeft: Int
-)
+) extends SolverLevel
+case object Succeeded extends SolverLevel
+case object Failed extends SolverLevel
 
 case class Tagged[X](value: X, level: Int, mode: Option[Mode])
 
@@ -181,83 +184,79 @@ final class Solver(pb: Problem, params: Params) {
     exprs
   }
 
-  def solve(): Mem = {
+  def solve(): Either[String, Mem] = {
     val mem = Mem.makeFromLayout(layout)
     solve(mem)
-    mem
   }
 
-  def next(l: SolverLevel, mem: Mem, stats: SolverStats): Option[(SolverLevel, Mem)] = {
+  def next(l: Searching, mem: Mem, stats: SolverStats): (SolverLevel, Mem) = {
     val target = params.targetDt * params.dtErrorRatio * 0.9
-    def makeFinal(lvl: Int) = SolverLevel(lvl, FinalSat, 0, params.maxHomogenization)
-    def makeInit(lvl: Int) = SolverLevel(lvl, InitSat, params.maxScalings, params.maxHomogenization)
+    def makeFinal(lvl: Int) = Searching(lvl, FinalSat, 0, params.maxHomogenization)
+    def makeInit(lvl: Int) = Searching(lvl, InitSat, params.maxScalings, params.maxHomogenization)
     def shouldScale: Boolean =
       l.scalingLeft > 0 && mem
         .grownLayout(target)
         .nonEmpty
 
     l match {
-      case SolverLevel(n, FinalSat, 0, 0) if stats.maxResidual > params.targetFinalError =>
+      case Searching(n, FinalSat, 0, 0) if stats.maxResidual > params.targetFinalError =>
         println("Failed")
-        None
-      case SolverLevel(n, FinalSat, _, _) if stats.maxResidual <= params.targetFinalError =>
+        (Failed, mem)
+      case Searching(n, FinalSat, _, _) if stats.maxResidual <= params.targetFinalError =>
         println("shortcut")
         if(n == params.maxLevels)
-          None
+          (Succeeded, mem)
         else
-          Some((makeInit(n + 1), mem))
-      case SolverLevel(n, FinalSat, 0, 0) if n == params.maxLevels =>
-        println("DONE")
-        None
-      case SolverLevel(n, FinalSat, 0, 0) =>
+          (makeInit(n + 1), mem)
+      case Searching(n, FinalSat, 0, 0) =>
         assert(n < params.maxLevels)
         mem.homogenize()
-        Some((makeInit(n + 1), mem))
+        (makeInit(n + 1), mem)
 
-      case SolverLevel(n, FinalSat, 0, h) =>
+      case Searching(n, FinalSat, 0, h) =>
         mem.homogenize()
-        Some((SolverLevel(n, FinalSat, 0, h - 1), mem))
+        (Searching(n, FinalSat, 0, h - 1), mem)
 
-      case SolverLevel(n, InitSat, 0, 0) =>
+      case Searching(n, InitSat, 0, 0) =>
         mem.homogenize()
-        Some((makeFinal(n), mem))
+        (makeFinal(n), mem)
 
-      case SolverLevel(n, InitSat, _, _)
+      case Searching(n, InitSat, _, _)
           if stats.maxResidual < params.targetInitError && !shouldScale => // go to next level directly
         println("Shortcut")
         mem.homogenize()
-        Some((makeFinal(n), mem))
+        (makeFinal(n), mem)
 
-      case SolverLevel(n, InitSat, 0, homogenizationLeft) =>
+      case Searching(n, InitSat, 0, homogenizationLeft) =>
         mem.homogenize()
-        Some((SolverLevel(n, InitSat, 0, homogenizationLeft - 1), mem))
+        (Searching(n, InitSat, 0, homogenizationLeft - 1), mem)
 
-      case SolverLevel(n, InitSat, scalingLeft, homogenizationLeft) if shouldScale =>
+      case Searching(n, InitSat, scalingLeft, homogenizationLeft) if shouldScale =>
         assert(scalingLeft > 0)
         mem
           .grownLayout(target) match {
           case Some(newLayout) =>
             val mem2 = mem.doubleTimeBased(newLayout)
-            Some((SolverLevel(n, InitSat, scalingLeft - 1, homogenizationLeft), mem2))
+            (Searching(n, InitSat, scalingLeft - 1, homogenizationLeft), mem2)
           case None => unexpected
         }
 
-      case SolverLevel(n, InitSat, scalingLeft, homogenizationLeft) =>
+      case Searching(n, InitSat, scalingLeft, homogenizationLeft) =>
         assert(!shouldScale)
         if(homogenizationLeft > 0) {
           mem.homogenize()
-          Some((SolverLevel(n, InitSat, scalingLeft, homogenizationLeft - 1), mem))
+          (Searching(n, InitSat, scalingLeft, homogenizationLeft - 1), mem)
         } else {
-          Some((makeFinal(n), mem))
+          (makeFinal(n), mem)
         }
     }
   }
 
-  def solve(mem: Mem, l: SolverLevel, maxIters: Int): (Either[String, Mem], SolverStats) = {
+  def solve(mem: Mem, l: Searching, maxIters: Int): (Mem, SolverStats) = {
     print(s"lvl: $l -- #states: ${mem.layout.allStates.size}... ")
 
     val levelFilter: Tagged[RefExpr] => Boolean = l match {
-      case SolverLevel(n, mode, _, _) =>
+      case Searching(n, mode, _, _) =>
         c =>
           c.level <= n && c.mode.forall(_ == mode)
     }
@@ -270,7 +269,7 @@ final class Solver(pb: Problem, params: Params) {
 
     val lm = ls.lmIterator(mem.memoryRW)
 
-    for(i <- 0 until maxIters) {
+    for(_ <- 0 until maxIters) {
       if(lm.shouldContinue) {
 //        mem.homogenize()
         lm.next()
@@ -278,36 +277,34 @@ final class Solver(pb: Problem, params: Params) {
     }
     val stats = lm.stats
     println("Max residual: " + Printer.fmt(stats.maxResidual))
-    (Right(mem), lm.stats)
+    (mem, lm.stats)
   }
 
   def solve(mem: Mem): Either[String, Mem] = {
-    val initialLevel = SolverLevel(0, InitSat, params.maxScalings, params.maxHomogenization)
 
-    var currentLevel = Option(initialLevel)
+    var currentLevel: SolverLevel =
+      Searching(0, InitSat, params.maxScalings, params.maxHomogenization)
     var currentMem = mem
+    val history = ArrayBuffer[(SolverLevel, SolverStats)]()
 
     while(true) {
       currentLevel match {
-        case Some(x) =>
+        case x: Searching =>
           val res = solve(currentMem, x, params.innerLoops)
           res match {
-            case (Right(newMem), stats) =>
+            case (newMem, stats) =>
               currentMem = newMem
               next(x, currentMem, stats) match {
-                case Some((l, m)) =>
-                  currentLevel = Some(l)
+                case (l, m) =>
+                  currentLevel = l
                   currentMem = m
-                case None =>
-                  currentLevel = None
               }
-
-            case (Left(err), _) =>
-              return Left(err)
           }
-        case None =>
+        case Succeeded =>
           currentMem.printCSV("/tmp/traj.csv")
           return Right(currentMem)
+        case Failed =>
+          return Left("Failure")
       }
 
     }

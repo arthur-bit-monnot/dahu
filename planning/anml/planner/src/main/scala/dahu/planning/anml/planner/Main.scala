@@ -42,6 +42,7 @@ case class AnmlPlannerOptions(
     warmup: FiniteDuration = 0.seconds,
     timeout: FiniteDuration = 1800.seconds,
     cont: Option[File] = None,
+    repeat: Int = 1,
     @Recurse
     plannerOptions: PlannerConfig
 )
@@ -61,40 +62,42 @@ object Main extends CaseApp[AnmlPlannerOptions] {
       case _       => error("More than one problem file provided.")
     }
 
-    implicit val cfgImpl = cfg
-    dahu.utils.debug.LOG_LEVEL = 3
-
-    if(cfg.warmup.toSeconds > 0) {
-      info("Warming up...")
-      dahu.utils.debug.LOG_LEVEL = 0
-
-      solveTask(problemFile, Deadline.now + cfg.warmup)
-        .map(res => Success(res))
-        .unsafeRunTimed(cfg.warmup)
-
+    (0 until cfg.repeat).foreach { _ =>
+      implicit val cfgImpl = cfg
       dahu.utils.debug.LOG_LEVEL = 3
-    }
 
-    val startTime = System.currentTimeMillis()
+      if(cfg.warmup.toSeconds > 0) {
+        info("Warming up...")
+        dahu.utils.debug.LOG_LEVEL = 0
 
-    solveTask(problemFile, Deadline.now + cfg.timeout)
-      .unsafeRunTimed(cfg.timeout) match {
-      case Some(Some(result)) =>
-        val runtime = System.currentTimeMillis() - startTime
-        out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
-        out(
-          result.operators
-            .sortedBy(_.start)
-            .map {
-              case dahu.planning.planner.encoding
-                    .OperatorF(name, args, start, end, _, _, _, _, _) =>
-                s"[$start, $end] $name(${args.mkString(", ")})"
-            }
-            .mkString("\n"))
-      case None =>
-        out("Time out")
-      case Some(None) =>
-        out("Max depth or time reached")
+        solveTask(problemFile, Deadline.now + cfg.warmup)
+          .map(res => Success(res))
+          .unsafeRunTimed(cfg.warmup)
+
+        dahu.utils.debug.LOG_LEVEL = 3
+      }
+
+      val startTime = System.currentTimeMillis()
+
+      solveTask(problemFile, Deadline.now + cfg.timeout)
+        .unsafeRunTimed(cfg.timeout) match {
+        case Some(Some(result)) =>
+          val runtime = System.currentTimeMillis() - startTime
+          out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
+          out(
+            result.operators
+              .sortedBy(_.start)
+              .map {
+                case dahu.planning.planner.encoding
+                      .OperatorF(name, args, start, end, _, _, _, _, _) =>
+                  s"[$start, $end] $name(${args.mkString(", ")})"
+              }
+              .mkString("\n"))
+        case None =>
+          out("Time out")
+        case Some(None) =>
+          out("Max depth or time reached")
+      }
     }
     sys.exit(0)
   }
