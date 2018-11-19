@@ -13,7 +13,7 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
   def memoryView: RMemory = ioMem
   def memoryRW: RWMemory = ioMem
 
-  def print(): Unit = layout.print(ioMem)
+  def print(short: Boolean = true): Unit = layout.print(ioMem, short)
   def printCSV(filename: String): Unit = layout.printCSV(ioMem, filename)
 
   def homogenize(): Unit = {

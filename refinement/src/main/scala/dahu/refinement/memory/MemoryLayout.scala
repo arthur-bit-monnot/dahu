@@ -39,13 +39,16 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
 
   def apply(b: Int) = bands(b)
 
-  def print(mem: RMemory): Unit = {
+  def print(mem: RMemory, short: Boolean = true): Unit = {
     for((b, i) <- bands.zipWithIndex) {
       val h = new Happening(i)
       println(s"${printState(stateOfHappening(h), mem)}  ---   HAPPENING $i")
-      for(s <- b.states) {
-        println(printState(s, mem))
-      }
+      val step =
+        if(!short) 1
+        else b.numStates / 5 + 1
+      for(i <- 0 until b.numStates by step)
+        println(printState(b.state(i), mem))
+
       if(i == bands.size - 1)
         println(s"${printState(stateOfHappening(h.next), mem)}  ---   HAPPENING ${i + 1}")
 

@@ -356,7 +356,11 @@ object Planner {
         .toList
         .sortBy(_._1)
 
-      val happeningTimes = (evs.map(_._1) ++ timedStates.map(_._1 - 1)).distinct.sorted
+      val lastHappeningTime = math.max(evs.map(_._1).max, timedStates.map(_._1).max)
+      //TODO: make sure there is an happening time after the last states max ev times, timedstates times)
+
+      val happeningTimes =
+        (evs.map(_._1) ++ timedStates.map(_._1 - 1) :+ lastHappeningTime).distinct.sorted
       println(happeningTimes)
       def stateOf(happeningTime: Int) = {
         timedStates.indices
@@ -442,30 +446,10 @@ object Planner {
     } yield pb
   }
 
-  def extractStateTrajectory(p: Plan): Unit = {
-    val x = p.effects
-      .sortedBy(_.startChange)
-      .toSeq
-      .groupBy(_.fluent.template)
-      .mapValues(_.map(v => (v.startChange, v.value)))
-    val svs = p.effects.map(_.fluent).toSet
-
-    println(s"State variables: $svs")
-
-    val traj = stateOrientedView(x, Seq())(_._1, _._2)
-
-    traj.foreach(println)
-    val dstate = RecordType("dstate", "running" -> Tag.ofBoolean)
-
-    val states = traj.map(_._2).map(s => buildState(dstate)(s)(sv => sv.id.toString))
-    println(states.mkString(" \n"))
-    x.foreach(println)
-    sys.exit(1)
-  }
-
   def buildState[SV, Val: ClassTag](dstate: RecordType)(s: Map[SV, Val])(
       toField: SV => String): ProductF[Val] = {
-    assert(dstate.fields.size == s.size)
+    assert(dstate.fields.size == s.size, s"dstates with fields:\n ${dstate.fields
+      .mkString("\n")}\n can not be filled with values: \n${s.mkString("\n")}")
     assert(s.keys.map(toField).forall(dstate.fieldPosition(_).nonEmpty))
     val fields = s.toSeq
       .map {

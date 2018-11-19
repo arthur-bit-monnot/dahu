@@ -93,6 +93,7 @@ object Main extends CaseApp[AnmlPlannerOptions] {
                   s"[$start, $end] $name(${args.mkString(", ")})"
               }
               .mkString("\n"))
+          result.continuousEvol.foreach(_.print())
         case None =>
           out("Time out")
         case Some(None) =>
