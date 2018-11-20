@@ -334,34 +334,43 @@ object Planner {
       pred <- evalsShallow(solution.continuousConditions.map0(e => e.predicate))
       events = eventStarts.zip(pred).sortBy(_._1)
     } yield {
-      val eventFields = events.toSeq.indices.map(i => s"_e${i}_" -> Tag.ofBoolean)
+      val eventFields =
+        events.indices.map(i => s"_e${i}_" -> Tag.ofBoolean) ++
+          Seq("INIT" -> Tag.ofBoolean, "END" -> Tag.ofBoolean)
       val eventsTpe = RecordType("events", eventFields: _*)
       dahu.lisp.compile.defineEvents(x, eventsTpe)
       val emptyEvents = x.parse("NO_EVENTS").get
+
+      val lastHappeningTime = math.max(eventStarts.max, timedStates.map(_._1).max)
       val groupdedEvents =
-        eventStarts.zipWithIndex.groupBy(_._1).mapValues(_.map(_._2).toSet)
+        eventStarts.zipWithIndex.groupBy(_._1).mapValues(_.map(_._2).toSet) ++ Map(
+          lastHappeningTime -> Set[Int]())
 
       println(eventStarts)
       println(pred)
       val evs = groupdedEvents
-        .mapValues(s => {
-          val fields = eventsTpe.fields.map { f =>
-            if(s.contains(f.position))
-              tree.getTreeRoot(Cst(Bool.True))
-            else
-              tree.getTreeRoot(Cst(Bool.False))
+        .map {
+          case (t, s) => {
+            val fields = eventsTpe.fields.map { f =>
+              if(f.name == "INIT" && t == 0)
+                tree.getTreeRoot(Cst(Bool.True))
+              else if(f.name == "END" && t == lastHappeningTime)
+                tree.getTreeRoot(Cst(Bool.True))
+              else if(s.contains(f.position))
+                tree.getTreeRoot(Cst(Bool.True))
+              else
+                tree.getTreeRoot(Cst(Bool.False))
+            }
+            (t, tree.record(ProductF(fields, eventsTpe)))
           }
-          tree.record(ProductF(fields, eventsTpe))
-        })
+        }
         .toList
         .sortBy(_._1)
 
-      val lastHappeningTime = math.max(evs.map(_._1).max, timedStates.map(_._1).max)
       //TODO: make sure there is an happening time after the last states max ev times, timedstates times)
 
       val happeningTimes =
         (evs.map(_._1) ++ timedStates.map(_._1 - 1) :+ lastHappeningTime).distinct.sorted
-      println(happeningTimes)
       def stateOf(happeningTime: Int) = {
         timedStates.indices
           .find(i => timedStates(i)._1 > happeningTime)
