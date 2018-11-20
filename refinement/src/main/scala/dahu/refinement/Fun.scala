@@ -11,8 +11,9 @@ trait Fun { self =>
 
   def numParams: Int
 
-  def bind(addresses: Addr*): RefExpr = bindArray(addresses.toArray)
-  def bindArray(params: Array[Addr]): RefExpr = new ExprImpl(this, params)
+  def bindSimple(addresses: Addr*): RefExpr = bindArray(addresses.toArray, gradientFactors = null)
+  def bindArray(params: Array[Addr], gradientFactors: Array[R]): RefExpr =
+    new ExprImpl(this, params, gradientFactors)
   def eval(params: Values): R
 
   def writeGradient(values: Values, output: Array[R]): Unit = {
@@ -27,6 +28,7 @@ trait Fun { self =>
       values(i) -= epsilon
       i += 1
     }
+//    println(s"$center -> ${output.mkString(" ")}")
   }
 
   def gradientAt(x: Values): Array[R] = {

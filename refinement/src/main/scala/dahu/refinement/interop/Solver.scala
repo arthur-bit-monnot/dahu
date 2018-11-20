@@ -98,11 +98,22 @@ final class Solver(pb: Problem, params: Params) {
         exprs += Tagged(e, level, mode)
       }
     }
-    def binds(s: State, c: Constraint): Array[Addr] = {
-      c.fun.read.map {
-        case Read(relState, offset) =>
+    def binds(s: State, c: Constraint): (Array[Addr], Array[Double]) = {
+      val addr = c.fun.read.map {
+        case Read(relState, offset) => {
           layout.addressOfState(s + relState, offset)
+        }
       }
+      val gradientFactors = c.fun.read.map {
+        case Read(relState, offset) => {
+          // gradient fact by rel state:
+          // 0 => 0
+          // 1 => 1.1
+          // -1 => 0.9
+          1.0 + 0.1 * relState
+        }
+      }
+      (addr, gradientFactors)
     }
     val strictlyPositive = new Fun {
       override def numParams: B = 1
@@ -133,9 +144,9 @@ final class Solver(pb: Problem, params: Params) {
     val allStates = bm.firstState.previous to bm.lastState.next
 
     for(s <- allStates) {
-      record(strictlyPositive.bind(layout.addressOfTime(s)), level = 0, None, 1)
-      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 0, Some(InitSat), 1)
-      record(dtBelowMax.bind(layout.addressOfTime(s)), level = 0, Some(FinalSat), 1)
+      record(strictlyPositive.bindSimple(layout.addressOfTime(s)), level = 0, None, 1)
+//      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 0, Some(InitSat), 1)
+//      record(dtBelowMax.bind(layout.addressOfTime(s)), level = 0, Some(FinalSat), 1)
 //      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, Some(Optim))
 //      record(minimizeLow.bind(layout.addressOfTime(s)), level = 1, Some(FinalSat))
     }
@@ -148,12 +159,12 @@ final class Solver(pb: Problem, params: Params) {
             layout.firstState <= s + f.belowStateOffset &&
               (s + f.aboveStateOffset) <= layout.lastState)
         .foreach { s0 =>
-          val x = binds(s0, c)
+          val (addr, factors) = binds(s0, c)
 
           val lvl = f.aboveStateOffset - f.belowStateOffset
           val scale = math.pow(10, currentLvl - lvl)
 
-          record(f.bindArray(x), level = lvl, None, scale)
+          record(f.bindArray(addr, factors), level = lvl, None, scale)
         }
     }
 
