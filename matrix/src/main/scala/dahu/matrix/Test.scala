@@ -5,8 +5,8 @@ import edu.emory.mathcs.csparsej.tdouble._
 
 import scala.collection.mutable
 
-class MatrixFactory {
-  private val M: Dcs = Dcs_util.cs_spalloc(0, 0, 1, true, true)
+class MatrixFactory(m: Int, n: Int) {
+  private val M: Dcs = Dcs_util.cs_spalloc(m, n, 1, true, true)
   private val entries = new mutable.LongMap[Null]()
 
   private def merge(i: Int, j: Int): Long = i.toLong + (j.toLong << 32)
@@ -119,44 +119,16 @@ class Matrix(private val M: Dcs) { lhs =>
 
 object Matrix {
   def fromArray(arr: Array[Double]): Matrix = {
-    val fac = new MatrixFactory
+    val fac = new MatrixFactory(arr.length, 0)
     arr.indices.foreach(i => fac(i, 0) = arr(i))
     fac.build
   }
 
   def diagonal(side: Int, value: Double): Matrix = {
-    val fac = new MatrixFactory
+    val fac = new MatrixFactory(side, side)
     for(i <- 0 until side)
       fac(i, i) = value
     fac.build
   }
 
-}
-
-object Test extends App {
-
-  val T: Dcs = Dcs_util.cs_spalloc(0, 0, 1, true, true)
-
-  val fac = new MatrixFactory
-  fac(1, 1) = 20
-  fac(1, 2) = 10
-
-  val m = fac.build
-  m.print()
-  println(m.norm1)
-
-  m.T.print()
-
-  (m * m.T).print()
-
-//
-//  Dcs_entry.cs_entry(T, 1, 1, 5)
-//  Dcs_entry.cs_entry(T, 2, 2, 10)
-//  Dcs_entry.cs_entry(T, 1, 1, 10)
-//  val U = Dcs_compress.cs_compress(T)
-//
-//  Dcs_print.cs_print(T, true)
-//  println("compress: " + Dcs_util.CS_CSC(T))
-//  Dcs_print.cs_print(U, true)
-//  println("compress: " + Dcs_util.CS_CSC(U))
 }

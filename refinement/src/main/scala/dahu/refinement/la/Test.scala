@@ -19,7 +19,7 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
   }
 
   def jacobian(memory: RMemory): Matrix = {
-    val jac = new MatrixFactory
+    val jac = new MatrixFactory(activeResiduals(memory).size, 0)
 //    println("\nGradients")
     for((e, i) <- activeResiduals(memory).zipWithIndex) {
       val gradj = e.gradient(memory)
