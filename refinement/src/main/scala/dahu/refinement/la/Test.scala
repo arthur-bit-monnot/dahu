@@ -160,19 +160,21 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
       val newChi = newResiduals.map(x => x * x).sum
       val improvement = lastChi - newChi
 
-//      println(s"Update: ${update.mkString("\t")}")
-//      println(s"New residuals: ${newResiduals.mkString("\t")}")
+      println(s"Update: ${update.mkString("\t")}")
+      println(s"New residuals: ${newResiduals.mkString("\t")}")
 
       if(finite(improvement) && improvement > 0) {
         lambda *= goodUpdate
         ni = 2
         lastGood = mem.dump
-//        println(s"Improvement: $lastChi -->  $newChi       -- lambda: $lambda")
+        Stats.numSuccess += 1
+        println(s"Improvement: $lastChi -->  $newChi       -- lambda: $lambda")
       } else {
         lambda *= ni
         ni *= 2
         mem.load(lastGood)
-//        println(s"Deterioration: $newChi -- $lambda")
+        Stats.numFailed += 1
+        println(s"Deterioration: $lastChi -> $newChi       -- lambda:  $lambda")
       }
     }
 
@@ -194,115 +196,9 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
   }
 }
 
-case class SolverStats(maxResidual: Double, iterations: Int)
-
-object Test extends App {
-
-  val mem: RWMemory = new MemImpl()
-  val x1: Addr = 0
-  val x2: Addr = 1
-  val y1: Addr = 2
-  val y2: Addr = 3
-
-  mem.write(x1, 0)
-  mem.write(x2, 10)
-  mem.write(y1, 0)
-  mem.write(y2, -5)
-
-  val dist: Fun = new Fun {
-    override def numParams: Addr = 2
-    override def eval(params: Values): R = params(1) - params(0) + 1
-  }
-  val at1: Fun = new Fun {
-    override def numParams: Addr = 1
-    override def eval(params: Values): R = if(params(0) < 1) 0 else params(0) - 1
-  }
-  def at(x: Addr, y: Addr, d: Int): RefExpr = {
-    val f = new Fun {
-      override def numParams: Addr = 2
-      override def eval(params: Values): R = {
-        val x = params(0)
-        val y = params(1)
-        math.sqrt(x * x + y * y) - d
-      }
-    }
-    f.bind(x, y)
-  }
-  val distX1X2 = dist.bind(x1, x2)
-  val distY1Y2 = dist.bind(y1, y2)
-  val distX1Y2 = dist.bind(x1, y2)
-  val distY1X2 = dist.bind(y1, x2)
-
-  println(distX1X2.eval(mem))
-  println(distX1X2.gradient(mem).toSeq)
-
-  val ls = new LeastSquares(
-    Seq(
-      at(x1, y1, 100),
-      at(x2, y2, 10),
-//      distX1X2,
-//      distY1Y2,
-      at1.bind(x1),
-      at1.bind(x2),
-//      at1.bind(y1),
-////      at1.bind(y2),
-//      //    distX1Y2,
-////    distY1X2
-    ))
-  println(ls.evalResiduals(mem))
-
-  //
-
-  val zeroMem = new MemImpl()
-
-  ls.lmIteration(zeroMem, 10)
-
-  zeroMem.print()
-
-//  for(i <- 0 until 10) {
-//    println(s"\n\n ----- Iter $i ------_n")
-//    ls.gaussNewtonIteration(zeroMem)
-//    zeroMem.print()
-//    println(ls.evalResiduals(zeroMem))
-//  }
-
-//  val J = ls.jacobian(zeroMem)
-//  val x = ls.evalResiduals(zeroMem).toArray
-////  val x = Array[Double](2, 3)
-//
-//  println("\n Residuals at 0")
-//  println(x.toSeq)
-//
-//  println("\nJacobian")
-//  J.print()
-//
-////  (J * 2).print()
-////  J.print()
-//  val X = Matrix.fromArray(x)
-////  val JX = (J * X)
-////  JX.print()
-////  println(JX.toVector.toSeq)
-//
-////  J.transpose.print()
-////  X.print()
-//  val lhs = J.T * J
-//  val rhs = J.T * X * (-1)
-//
-//  println("\n J.T * J")
-//  lhs.print()
-//
-//  println("\n - J.T * r")
-//  rhs.print()
-//
-//  val sol = lhs.solve(rhs.toVector)
-//  println("\nSol: "); Matrix.fromArray(sol).print()
-//  mem.load(sol)
-//  println("\nRes: "); Matrix.fromArray(ls.evalResiduals(mem).toArray).print()
-//
-//  println((J.T * J * sol).toSeq)
-//
-////  println(
-////    lhs.solve(rhs.toVector).toSeq
-////  )
-
+object Stats {
+  var numFailed = 0
+  var numSuccess = 0
 }
+
+case class SolverStats(maxResidual: Double, iterations: Int)

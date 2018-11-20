@@ -7,7 +7,7 @@ import dahu.refinement.common.{Addr, Params, R, Values}
 import dahu.refinement.interop.Mode.{FinalSat, InitSat, Optim}
 import dahu.refinement.memory._
 import dahu.refinement.interop.evaluation.Read
-import dahu.refinement.la.{LeastSquares, SolverStats}
+import dahu.refinement.la.{LeastSquares, SolverStats, Stats}
 import dahu.utils.errors._
 
 import scala.annotation.tailrec
@@ -23,11 +23,11 @@ case class Params(
     statesPerBand: Int = 2,
     innerLoops: Int = 30,
     targetDt: Double = 0.1,
-    dtErrorRatio: Double = 1.5,
+    dtErrorRatio: Double = 1.1,
     maxLevels: Int = 2,
-    maxScalings: Int = 40,
-    maxStatePerBand: Int = 500,
-    maxHomogenization: Int = 8,
+    maxScalings: Int = 10,
+    maxStatePerBand: Int = 200,
+    maxHomogenization: Int = 10,
     targetInitError: Double = 1e-2,
     targetFinalError: Double = 1e-3
 )
@@ -119,7 +119,8 @@ final class Solver(pb: Problem, params: Params) {
       override def numParams: B = 1
       override def eval(params: Values): R = {
         val dt = params(0)
-        math.min(dt - targetDt, 0.0) * 10000
+        (dt - targetDt) * 0.1
+//        math.min(dt - targetDt, 0.0) * 10000
       }
     }
     val dtBelowMax = new Fun {
@@ -137,7 +138,7 @@ final class Solver(pb: Problem, params: Params) {
       override def numParams: B = 1
       override def eval(params: Values): R = {
         val dt = params(0)
-        (dt - targetDt) * 0.1
+        (dt - targetDt) * 0.0001
       }
     }
     val bm = layout(bandId)
@@ -212,6 +213,8 @@ final class Solver(pb: Problem, params: Params) {
     l match {
       case Searching(n, FinalSat, 0, 0) if stats.maxResidual > params.targetFinalError =>
         println("Failed")
+        mem.printCSV("/tmp/traj.csv")
+        println(s"succ: ${Stats.numSuccess} -- failed: ${Stats.numFailed}")
         (Failed, mem)
       case Searching(n, FinalSat, _, _) if stats.maxResidual <= params.targetFinalError =>
         println("shortcut")
@@ -288,6 +291,7 @@ final class Solver(pb: Problem, params: Params) {
     }
     val stats = lm.stats
     println("Max residual: " + Printer.fmt(stats.maxResidual))
+    mem.print()
     (mem, lm.stats)
   }
 
