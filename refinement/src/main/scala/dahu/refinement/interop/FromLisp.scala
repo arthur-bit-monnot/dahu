@@ -55,7 +55,7 @@ object FromLisp extends App {
   val _asg = _withParser //.transform(transformations.asErrors)
   val asg = _asg.fixID
 
-  val x = new MemImpl()
+  val x: MemImpl = ??? // new MemImpl()
   x.print()
 
   val simplified = OpenASG.ana(asg.internalCoalgebra)

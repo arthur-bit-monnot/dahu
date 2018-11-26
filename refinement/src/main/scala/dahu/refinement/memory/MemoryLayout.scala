@@ -22,6 +22,7 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
 
   val firstStateAddress = 0
   val stateSize: Int = cstate.fields.size
+  val nonDtFields = 0 until stateSize - 1
   def addressOfState(s: State, fieldNum: Int = 0): Addr =
     firstStateAddress + (stateSize * s.i) + fieldNum
   def stateOfHappening(h: Happening): State = {
@@ -45,7 +46,7 @@ case class MemoryLayout(bands: IndexedSeq[BandMem], cstate: ProductTagAny) {
       println(s"${printState(stateOfHappening(h), mem)}  ---   HAPPENING $i")
       val step =
         if(!short) 1
-        else b.numStates / 5 + 1
+        else b.numStates / 10 + 1
       for(i <- 0 until b.numStates by step)
         println(printState(b.state(i), mem))
 

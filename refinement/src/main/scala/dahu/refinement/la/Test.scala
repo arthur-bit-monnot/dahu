@@ -34,10 +34,9 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
 //          println("Value: " + e.eval(memory))
 //          println("Gradient: " + gradj(x))
 //        }
-        if(!memory.isReadOnly(j)) {
-          val dfij = gradj(x)
-          jac(i, j) = dfij
-        }
+        val dfij = gradj(x)
+        jac(i, j) = dfij
+
         x += 1
       }
       for(p <- e.params) {}
@@ -46,7 +45,7 @@ class LeastSquares(allResiduals: Seq[RefExpr]) {
   }
 
   def solveLinear: RWMemory = {
-    val zeroMem = new MemImpl()
+    val zeroMem = new MemImpl(norm = _ => NoNormalize)
     val J = jacobian(zeroMem)
 
     // residuals at 0

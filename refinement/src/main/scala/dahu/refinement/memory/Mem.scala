@@ -27,9 +27,8 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
 
     implicit val memory: RMemory = ioMem.copy
 
-    val states = (memoryLayout.stateOfHappening(start).next to memoryLayout
-      .stateOfHappening(end)
-      .previous).toSeq
+    val states = (memoryLayout.stateOfHappening(start) to memoryLayout
+      .stateOfHappening(end)).toSeq
     val times = states.drop(1).foldLeft(Seq(0.0)) { case (l, s) => l :+ (l.last + s.dt) }
     val numDts = states.size - 1
     val totalTime = times.last
@@ -100,7 +99,14 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
       val band = layout.bands(i)
       val dt = averageDt(band)
       val factor = dt / targetDt
-      val numStates: Int = ((band.numStates + 1) * factor).floor.toInt
+      val numStatesDesired: Int = ((band.numStates) * factor).floor.toInt
+      val numStates =
+        if(numStatesDesired < band.numStates) {
+          (band.numStates / 1.5).floor.toInt + 1
+        } else {
+          math.min(numStatesDesired, band.numStates * 2)
+        }
+
       math.min(
         math.max(numStates, params.statesPerBand),
         params.maxStatePerBand
@@ -170,7 +176,7 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
       val oldTimes = oldStates.drop(1).foldLeft(Seq(0.0)) { case (l, s) => l :+ (l.last + s.dt) }
       val numOldDts = oldStates.size - 1
       val totalTime = oldTimes.last
-      val newDt = totalTime / (newStates.size - 1)
+      val newDt = totalTime / newStates.size
       val newTimes = newStates.indices.map(_ * newDt)
 
       for(i <- 1 until newStates.size - 1) {
@@ -204,12 +210,26 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
           targetMem.write(addr0, newValue)
         }
       }
-      for(s <- newStates.tail) { // do not update DT of first happening
+      for(h <- Seq(newBand.previousHappening, newBand.nextHappening)) {
+        val fromState = layout.stateOfHappening(h)
+        val toState = newLayout.stateOfHappening(h)
+        for(field <- newLayout.nonDtFields) {
+          val old = fromState.valueOfField(field)
+          val writeAddr = newLayout.addressOfState(toState, field)
+          targetMem.write(writeAddr, old)
+        }
+      }
+      for(s <- newStates) { // do not update DT of first happening
         val addrDt = newLayout.addressOfTime(s)
-        if(!targetMem.isReadOnly(addrDt))
-          targetMem.write(addrDt, newDt) //TODO: we ignore some DTs
+        targetMem.write(addrDt, newDt) //TODO: we ignore some DTs
       }
     }
+//
+//    println("  BEFORE  ")
+//    this.print(false)
+//    println("  AFTER  ")
+//    res.print(false)
+
     res
   }
 
@@ -262,13 +282,19 @@ class Mem(ioMem: RWMemory, val layout: MemoryLayout) {
 object Mem {
 
   def makeFromLayout(layout: MemoryLayout): Mem = {
-    val m = new MemImpl(baseSize = layout.lastAddress + 1)
-    val statesWithReadOnlyTime =
-      layout.bands.flatMap { bm =>
-        Seq(bm.firstState.previous, bm.firstState)
-      } :+ layout.bands.last.lastState.next
+    val norm = (addr: Addr) =>
+      if(addr % layout.stateSize == layout.stateSize - 1)
+        StrictlyPositive // this is a dt, make sure it is alway positive
+      else
+      NoNormalize
 
-    statesWithReadOnlyTime.foreach(s => m.setReadOnly(layout.addressOfTime(s)))
+    val m = new MemImpl(baseSize = layout.lastAddress + 1, norm)
+//    val statesWithReadOnlyTime =
+//      layout.bands.flatMap { bm =>
+//        Seq(bm.firstState.previous, bm.firstState)
+//      } :+ layout.bands.last.lastState.next
+//
+//    statesWithReadOnlyTime.foreach(s => m.setReadOnly(layout.addressOfTime(s)))
 
     new Mem(m, layout)
   }

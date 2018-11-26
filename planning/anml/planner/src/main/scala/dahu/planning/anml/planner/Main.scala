@@ -1,6 +1,6 @@
 package dahu.planning.anml.planner
 
-import java.io.File
+import java.io.{File, FileWriter}
 
 import cats.implicits._
 import caseapp._
@@ -56,51 +56,66 @@ object Main extends CaseApp[AnmlPlannerOptions] {
   }
 
   def run(cfg: AnmlPlannerOptions, arg: RemainingArgs): Unit = {
-    val problemFile: File = arg.remaining match {
-      case Seq(pb) => new File(pb)
-      case Seq()   => error("No problem file was provided.")
-      case _       => error("More than one problem file provided.")
-    }
+    for(i <- 1 to 20) {
+      val tag = if(i < 10) "0" + i else i.toString
+      val problemFile: File = arg.remaining match {
+        case Seq(pb) => new File(s"/home/arthur/domains/descent/descent.p${tag}.pb.anml")
+        case Seq()   => error("No problem file was provided.")
+        case _       => error("More than one problem file provided.")
+      }
 
-    (0 until cfg.repeat).foreach { _ =>
-      implicit val cfgImpl = cfg
-      dahu.utils.debug.LOG_LEVEL = 3
-
-      if(cfg.warmup.toSeconds > 0) {
-        info("Warming up...")
-        dahu.utils.debug.LOG_LEVEL = 0
-
-        solveTask(problemFile, Deadline.now + cfg.warmup)
-          .map(res => Success(res))
-          .unsafeRunTimed(cfg.warmup)
-
+      (0 until cfg.repeat).foreach { _ =>
+        implicit val cfgImpl = cfg
         dahu.utils.debug.LOG_LEVEL = 3
-      }
 
-      val startTime = System.currentTimeMillis()
+        if(cfg.warmup.toSeconds > 0) {
+          info("Warming up...")
+          dahu.utils.debug.LOG_LEVEL = 0
 
-      solveTask(problemFile, Deadline.now + cfg.timeout)
-        .unsafeRunTimed(cfg.timeout) match {
-        case Some(Some(result)) =>
-          val runtime = System.currentTimeMillis() - startTime
-          out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
-          out(
-            result.operators
-              .sortedBy(_.start)
-              .map {
-                case dahu.planning.planner.encoding
-                      .OperatorF(name, args, start, end, _, _, _, _, _) =>
-                  s"[$start, $end] $name(${args.mkString(", ")})"
-              }
-              .mkString("\n"))
-          result.continuousEvol.foreach(_.print())
-        case None =>
-          out("Time out")
-        case Some(None) =>
-          out("Max depth or time reached")
+          solveTask(problemFile, Deadline.now + cfg.warmup)
+            .map(res => Success(res))
+            .unsafeRunTimed(cfg.warmup)
+
+          dahu.utils.debug.LOG_LEVEL = 3
+        }
+
+        val startTime = System.currentTimeMillis()
+
+        solveTask(problemFile, Deadline.now + cfg.timeout)
+          .unsafeRunTimed(cfg.timeout) match {
+          case Some(Some(result)) =>
+            val runtime = System.currentTimeMillis() - startTime
+            val fw = new FileWriter("/tmp/runtimes", true)
+            val timeFmt = s"${runtime / 1000}.${(runtime % 1000) / 10}\n"
+            try {
+              fw.write(timeFmt)
+            } finally fw.close()
+            out(s"== Solution (in ${runtime / 1000}.${(runtime % 1000) / 10}s) ==")
+            out(
+              result.operators
+                .sortedBy(_.start)
+                .map {
+                  case dahu.planning.planner.encoding
+                        .OperatorF(name, args, start, end, _, _, _, _, _) =>
+                    s"[$start, $end] $name(${args.mkString(", ")})"
+                }
+                .mkString("\n"))
+            result.continuousEvol.foreach(_.print())
+          case None =>
+            val fw = new FileWriter("/tmp/runtimes", true)
+            try {
+              fw.write("--\n")
+            } finally fw.close()
+            out("Time out")
+          case Some(None) =>
+            val fw = new FileWriter("/tmp/runtimes", true)
+            try {
+              fw.write("--\n")
+            } finally fw.close()
+            out("Max depth or time reached")
+        }
       }
     }
-    sys.exit(0)
   }
 
   def solveTask(problemFile: File, deadline: Deadline)(

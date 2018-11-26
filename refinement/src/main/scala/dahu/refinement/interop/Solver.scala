@@ -25,8 +25,8 @@ case class Params(
     targetDt: Double = 0.1,
     dtErrorRatio: Double = 1.1,
     maxLevels: Int = 2,
-    maxScalings: Int = 10,
-    maxStatePerBand: Int = 200,
+    maxScalings: Int = 15,
+    maxStatePerBand: Int = 500,
     maxHomogenization: Int = 10,
     targetInitError: Double = 1e-2,
     targetFinalError: Double = 1e-3
@@ -41,7 +41,7 @@ object Mode {
 
 sealed trait SolverLevel
 case class Searching(
-    maxInvolvedStates: Int,
+    level: Int,
     mode: Mode,
     scalingLeft: Int,
     homogenizationLeft: Int
@@ -49,7 +49,7 @@ case class Searching(
 case object Succeeded extends SolverLevel
 case object Failed extends SolverLevel
 
-case class Tagged[X](value: X, level: Int, mode: Option[Mode])
+case class Tagged[X](value: X, level: Int, mode: Option[Searching => Boolean])
 
 final class Solver(pb: Problem, params: Params) {
 
@@ -85,18 +85,18 @@ final class Solver(pb: Problem, params: Params) {
             targetDt: Double,
             currentLvl: Int): Seq[Tagged[RefExpr]] = {
     val exprs = ArrayBuffer[Tagged[RefExpr]]()
-    def record(_e: RefExpr, level: Int, mode: Option[Mode], scale: Double): Unit = {
+    def record(_e: RefExpr, level: Int, mode: Option[Searching => Boolean], scale: Double): Unit = {
       val e =
         if(scale == 1)
           _e
         else
           _e.scale(scale)
-      if(e.params.length == 0) {
-        // constant
-        assert(e.eval(new MemImpl()) == 0.0, "Constant constraint that is non-zero")
-      } else {
-        exprs += Tagged(e, level, mode)
-      }
+//      if(e.params.length == 0) {
+//        // constant
+//        assert(e.eval(new MemImpl()) == 0.0, "Constant constraint that is non-zero")
+//      } else {
+      exprs += Tagged(e, level, mode)
+//      }
     }
     def binds(s: State, c: Constraint): (Array[Addr], Array[Double]) = {
       val addr = c.fun.read.map {
@@ -110,7 +110,7 @@ final class Solver(pb: Problem, params: Params) {
           // 0 => 0
           // 1 => 1.1
           // -1 => 0.9
-          1.0 + 0.1 * relState
+          1.0 //- 0.1 * relState
         }
       }
       (addr, gradientFactors)
@@ -119,8 +119,29 @@ final class Solver(pb: Problem, params: Params) {
       override def numParams: B = 1
       override def eval(params: Values): R = {
         val dt = params(0)
-        (dt - targetDt) * 0.1
+        (dt - targetDt) * 1
 //        math.min(dt - targetDt, 0.0) * 10000
+      }
+    }
+    val conservater = new Fun {
+      override def numParams: B = 2
+      override def eval(params: Values): R = {
+        params(1) - params(0)
+      }
+    }
+
+    def conservation(s: State, field: Int): Option[RefExpr] = {
+      if(s <= layout.firstState)
+        None
+      else if(layout.lastState <= s)
+        None
+      else {
+        val params = Array(
+          layout.addressOfState(s.previous, field),
+          layout.addressOfState(s, field),
+        )
+        val gradFactors = Array(0.0, 1.0)
+        Some(conservater.bindArray(params, gradFactors))
       }
     }
     val dtBelowMax = new Fun {
@@ -145,7 +166,23 @@ final class Solver(pb: Problem, params: Params) {
     val allStates = bm.firstState.previous to bm.lastState.next
 
     for(s <- allStates) {
-      record(strictlyPositive.bindSimple(layout.addressOfTime(s)), level = 0, None, 1)
+      for(field <- layout.nonDtFields)
+        conservation(s, field).foreach(
+          e => {
+            record(e, level = 0, Some(l => l.level == 0 && l.mode == InitSat), 1)
+//          record(e, level = 0, Some(l => true), 1)
+
+          }
+        )
+
+      record(strictlyPositive.bindSimple(layout.addressOfTime(s)),
+             level = 0,
+             Some(_.mode == InitSat),
+             0.1)
+      record(strictlyPositive.bindSimple(layout.addressOfTime(s)),
+             level = 0,
+             Some(_.mode == FinalSat),
+             0.001)
 //      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 0, Some(InitSat), 1)
 //      record(dtBelowMax.bind(layout.addressOfTime(s)), level = 0, Some(FinalSat), 1)
 //      record(minimizeStrong.bind(layout.addressOfTime(s)), level = 1, Some(Optim))
@@ -189,6 +226,8 @@ final class Solver(pb: Problem, params: Params) {
       val as =
         if(c.fun.belowStateOffset == 0 && c.fun.aboveStateOffset == 1)
           s.previous // speed constraint, involving the next state..., apply on previous
+        else if(c.fun.belowStateOffset == 0 && c.fun.aboveStateOffset == 0)
+          s.previous
         else
           s
       applyOn(as :: Nil, c)
@@ -202,7 +241,7 @@ final class Solver(pb: Problem, params: Params) {
   }
 
   def next(l: Searching, mem: Mem, stats: SolverStats): (SolverLevel, Mem) = {
-    val target = params.targetDt * params.dtErrorRatio * 0.9
+    val target = params.targetDt * 0.9 //* params.dtErrorRatio * 0.9
     def makeFinal(lvl: Int) = Searching(lvl, FinalSat, 0, params.maxHomogenization)
     def makeInit(lvl: Int) = Searching(lvl, InitSat, params.maxScalings, params.maxHomogenization)
     def shouldScale: Boolean =
@@ -233,17 +272,20 @@ final class Solver(pb: Problem, params: Params) {
 
       case Searching(n, InitSat, 0, 0) =>
         mem.homogenize()
+        mem.printCSV("/tmp/traj-init.csv")
         (makeFinal(n), mem)
 
       case Searching(n, InitSat, _, _)
           if stats.maxResidual < params.targetInitError && !shouldScale => // go to next level directly
         println("Shortcut")
+        mem.printCSV("/tmp/traj-init.csv")
+
         mem.homogenize()
         (makeFinal(n), mem)
 
-      case Searching(n, InitSat, 0, homogenizationLeft) =>
+      case Searching(n, InitSat, s, homogenizationLeft) if homogenizationLeft > 0 =>
         mem.homogenize()
-        (Searching(n, InitSat, 0, homogenizationLeft - 1), mem)
+        (Searching(n, InitSat, s, homogenizationLeft - 1), mem)
 
       case Searching(n, InitSat, scalingLeft, homogenizationLeft) if shouldScale =>
         assert(scalingLeft > 0)
@@ -251,7 +293,7 @@ final class Solver(pb: Problem, params: Params) {
           .grownLayout(target) match {
           case Some(newLayout) =>
             val mem2 = mem.doubleTimeBased(newLayout)
-            (Searching(n, InitSat, scalingLeft - 1, homogenizationLeft), mem2)
+            (Searching(n, InitSat, scalingLeft - 1, params.maxHomogenization), mem2)
           case None => unexpected
         }
 
@@ -261,6 +303,7 @@ final class Solver(pb: Problem, params: Params) {
           mem.homogenize()
           (Searching(n, InitSat, scalingLeft, homogenizationLeft - 1), mem)
         } else {
+          mem.printCSV("/tmp/traj-init.csv")
           (makeFinal(n), mem)
         }
     }
@@ -272,9 +315,9 @@ final class Solver(pb: Problem, params: Params) {
     val levelFilter: Tagged[RefExpr] => Boolean = l match {
       case Searching(n, mode, _, _) =>
         c =>
-          c.level <= n && c.mode.forall(_ == mode)
+          c.level <= n && c.mode.forall(f => f(l))
     }
-    val es = build(mem.layout, l.maxInvolvedStates)
+    val es = build(mem.layout, l.level)
     val constraints = es
       .filter(levelFilter)
       .map(_.value)
