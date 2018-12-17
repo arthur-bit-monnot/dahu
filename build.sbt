@@ -245,6 +245,15 @@ lazy val lisp = project
       "com.vividsolutions" % "jts" % "1.13"
     ))
 
+lazy val hydra = project
+  .in(file("hydra"))
+  .dependsOn(anmlPlanner)
+  .settings(commonSettings ++ utestSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "fastparse" % "1.0.0"
+    ))
+
 
 
 //

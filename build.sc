@@ -164,6 +164,12 @@ object lisp extends Module {
   override def ivyDeps = Agg(fastparse)
 }
 
+object hydra extends Module {
+  override def moduleDeps = Seq(planning.anml.planner)
+  override def ivyDeps = Agg(caseApp)
+  override def mainClass = Some("hydra.Main")
+}
+
 object refinement extends Module {
   override def moduleDeps = Seq(lisp, matrix, core.model)
 }
