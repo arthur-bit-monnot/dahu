@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if [ ! -f out/mill-bin ]; then
+  echo "Downloading mill build tool"  
+  mkdir -p out
+  (echo "#!/usr/bin/env sh" && curl -L https://github.com/lihaoyi/mill/releases/download/0.3.5/0.3.5) > out/mill-bin && chmod +x out/mill-bin
+fi
+
+./out/mill-bin $@
