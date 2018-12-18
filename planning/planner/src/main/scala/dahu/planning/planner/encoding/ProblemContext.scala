@@ -1,5 +1,7 @@
 package dahu.planning.planner.encoding
 
+import cats._
+import cats.implicits._
 import dahu.model.functions.{Fun1, Fun2, FunN}
 import dahu.model.input.{Expr => Tentative, _}
 import dahu.model.input.dsl._
@@ -36,7 +38,7 @@ case class StateTypes(
 case class ProblemContext(intTag: BoxedInt[Literal],
                           topTag: TagIsoInt[Literal],
                           specializedTags: Type => TagIsoInt[Literal],
-                          stateTypes: StateTypes)(implicit _predef: Predef) {
+                          stateTypes: Either[String, StateTypes])(implicit _predef: Predef) {
 
   def predef: Predef = _predef
 
@@ -226,31 +228,36 @@ case class ProblemContext(intTag: BoxedInt[Literal],
 object ProblemContext {
   import Type._
 
-  def fluentTemplate2Field(f: FluentTemplate): (String, TagAny) = f match {
+  def fluentTemplate2Field(f: FluentTemplate): Either[String, (String, TagAny)] = f match {
     case FluentTemplate(id, typ, Seq(), _) =>
       if(typ.isBoolean)
-        id.name -> Tag.ofBoolean
+        Right(id.name -> Tag.ofBoolean)
       else if(typ == Reals)
-        id.name -> Tag.ofDouble
+        Right(id.name -> Tag.ofDouble)
       else if(typ == Integers)
-        id.name -> Tag.ofInt
+        Right(id.name -> Tag.ofInt)
       else
-        ???
+        Left(s"Unmapped type for $f")
+    case _ => Left(s"Fluent with parameters are not supported yet: $f")
   }
 
   def extract(m: Seq[InModuleBlock])(implicit predef: Predef): ProblemContext = {
-    val fluents = m.collect { case FunctionDeclaration(f: FluentTemplate) => f }
-    val continuousFields =
-      fluents
+    val fluents = m.collect { case FunctionDeclaration(f: FluentTemplate) => f }.toList
+
+    val types = for {
+      continuousFields <- (fluents
         .filter(_.isContinuous)
-        .map(fluentTemplate2Field) :+ ("dt" -> Tag.ofDouble)
-
-    val cstate = RecordType("cstate", continuousFields: _*)
-    val discreteFields = fluents.filter(!_.isContinuous).map(fluentTemplate2Field)
-    val dstate = RecordType("dstate", discreteFields: _*)
-
-    val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
-    val types = StateTypes(dstate, cstate)
+        .map(fluentTemplate2Field) :+ Right("dt" -> Tag.ofDouble)).sequence
+      discreteFields <- fluents
+        .filter(!_.isContinuous)
+        .map(fluentTemplate2Field)
+        .sequence
+    } yield {
+      val cstate = RecordType("cstate", continuousFields: _*)
+      val dstate = RecordType("dstate", discreteFields: _*)
+      val events = RecordType("events", "starting" -> Tag.ofBoolean, "ending" -> Tag.ofBoolean)
+      StateTypes(dstate, cstate)
+    }
 
     val objectTypes = m.collect { case TypeDeclaration(t: ObjType) => t }
     val objectSubtypes = mutable.LinkedHashMap[ObjType, mutable.Set[ObjType]]()

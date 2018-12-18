@@ -231,6 +231,12 @@ object Planner {
                              _tree: ASG[Expr[Any], ExprF, Id],
                              ctx: ProblemContext): Try[Problem] = {
 
+    val (dstate, cstate) = ctx.stateTypes match {
+      case Right(x) => (x.dstate, x.cstate)
+      case Left(err) =>
+        dahu.utils.errors.unexpected(s"Discrete or continuous state was built because: $err")
+    }
+
     val tmp = _tree.fixID.extensible
     val tree = tmp.fixID
     type I = tree.ID
@@ -240,8 +246,8 @@ object Planner {
     x.setConstantValue("solution", tree.getTreeRoot(solution))
     x.defineStruct(SolutionF.tag)
 
-    dahu.lisp.compile.defineContinuousState(x, ctx.stateTypes.cstate)
-    dahu.lisp.compile.defineDiscreteState(x, ctx.stateTypes.dstate)
+    dahu.lisp.compile.defineContinuousState(x, cstate)
+    dahu.lisp.compile.defineDiscreteState(x, dstate)
 
     val Y = x.parse("solution").get
 
@@ -320,7 +326,7 @@ object Planner {
 
 //    buildState(ctx.stateTypes.dstate)(xx)(_.id.name)
     val traj = stateOrientedView(xx)(_._1, _._2)
-    val states = traj.map(_._2).map(s => buildState(ctx.stateTypes.dstate)(s)(sv => sv.id.toString))
+    val states = traj.map(_._2).map(s => buildState(dstate)(s)(sv => sv.id.toString))
     val istates = states.map(tree.record)
     val timedStates = traj.map(_._1).zip(istates)
     println(traj)
@@ -387,7 +393,7 @@ object Planner {
       val statesTrajList = happeningTimes.dropRight(1).map(stateOf)
       val happeningList = happeningTimes.map(eventsOf)
 
-      val stateTraj = asSequence(statesTrajList, ctx.stateTypes.dstate)
+      val stateTraj = asSequence(statesTrajList, dstate)
       val happenings = asSequence(happeningList, eventsTpe)
 
       def constraintOf(ev: Int): I = {
@@ -445,7 +451,7 @@ object Planner {
 
     val simplified = tree.internalView
 
-    val problem = new ContinuousProblem[I](simplified, ctx.stateTypes.cstate)
+    val problem = new ContinuousProblem[I](simplified, cstate)
 
     for {
       _ <- x.parseMany(process)
